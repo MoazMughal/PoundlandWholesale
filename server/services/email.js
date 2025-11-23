@@ -18,28 +18,34 @@ const createTransporter = () => {
     pass: process.env.EMAIL_PASS ? '***configured***' : 'NOT SET'
   });
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail', // Use Gmail service for better compatibility
+  const transporter = nodemailer.createTransporter({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // Use STARTTLS
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
     },
     tls: {
-      rejectUnauthorized: false
+      rejectUnauthorized: false,
+      ciphers: 'SSLv3'
     },
-    // Increased timeouts for production
-    connectionTimeout: 60000, // 60 seconds
-    greetingTimeout: 30000,   // 30 seconds
-    socketTimeout: 60000,     // 60 seconds
-    // Production settings optimized for reliability
-    pool: false, // Disable pooling to avoid connection issues
+    // Aggressive timeouts for production
+    connectionTimeout: 120000, // 2 minutes
+    greetingTimeout: 60000,    // 1 minute
+    socketTimeout: 120000,     // 2 minutes
+    // Disable pooling completely
+    pool: false,
     maxConnections: 1,
     maxMessages: 1,
-    // Additional settings for better reliability
+    // Force TLS
     requireTLS: true,
-    // Debug only in development
-    debug: process.env.NODE_ENV === 'development',
-    logger: process.env.NODE_ENV === 'development'
+    // Disable debug in production
+    debug: false,
+    logger: false,
+    // Additional Gmail-specific settings
+    ignoreTLS: false,
+    secure: false
   });
   
   return transporter;
@@ -76,13 +82,15 @@ export const sendEmailOTP = async (email, otp, userName = 'User') => {
       return { success: false, message: 'Email service not configured' };
     }
 
-    // Test connection first
-    try {
-      await transporter.verify();
-      console.log('✅ Email connection verified');
-    } catch (verifyError) {
-      console.error('❌ Email connection verification failed:', verifyError.message);
-      return { success: false, message: `Email connection failed: ${verifyError.message}` };
+    // Skip verification in production to avoid timeout
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        await transporter.verify();
+        console.log('✅ Email connection verified');
+      } catch (verifyError) {
+        console.error('❌ Email connection verification failed:', verifyError.message);
+        return { success: false, message: `Email connection failed: ${verifyError.message}` };
+      }
     }
 
     const mailOptions = {

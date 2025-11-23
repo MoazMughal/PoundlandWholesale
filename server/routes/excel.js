@@ -39,9 +39,6 @@ function extractProductName(row, allKeys, index) {
     const value = row[key];
     if (value && value.toString().trim() && !isImageUrl(value)) {
       productName = value.toString().trim();
-      if (index < 3) {
-        console.log(`  ✓ Found product name in column "${key}": ${productName.substring(0, 60)}...`);
-      }
       return productName;
     }
   }
@@ -61,9 +58,6 @@ function extractProductName(row, allKeys, index) {
     
     if (value && value.toString().trim() && !isImageUrl(value) && value.toString().length > 10) {
       productName = value.toString().trim();
-      if (index < 3) {
-        console.log(`  ✓ Found product name in column "${key}": ${productName.substring(0, 60)}...`);
-      }
       return productName;
     }
   }
@@ -130,7 +124,7 @@ async function fetchAmazonImage(asin) {
           return imageUrl;
         }
       } catch (err) {
-        console.log(`Failed to fetch from ${domain}:`, err.message);
+
         continue;
       }
     }
@@ -210,7 +204,6 @@ router.get('/products', async (req, res) => {
       
       // If no image URL provided but ASIN exists, fetch from Amazon
       if (!finalImageUrl && asin) {
-        console.log(`Fetching image for ASIN: ${asin}`);
         finalImageUrl = await fetchAmazonImage(asin);
       }
       
@@ -298,12 +291,7 @@ router.get('/products-by-category', async (req, res) => {
       const worksheet = workbook.Sheets['Amazon10'];
       const data = xlsx.utils.sheet_to_json(worksheet);
       
-      console.log(`\n=== Amazon10 Sheet ===`);
-      console.log(`Total rows: ${data.length}`);
-      if (data.length > 0) {
-        console.log('Column names:', Object.keys(data[0]));
-        console.log('First row sample:', data[0]);
-      }
+
       
       const products = await Promise.all(data.map(async (row, index) => {
         // Get all possible column values
@@ -353,20 +341,13 @@ router.get('/products-by-category', async (req, res) => {
         }
         
         if (!finalImageUrl && asin) {
-          console.log(`Fetching image for ASIN: ${asin}`);
           finalImageUrl = await fetchAmazonImage(asin);
         }
         if (!finalImageUrl) {
           finalImageUrl = 'https://via.placeholder.com/400x400?text=No+Image';
         }
         
-        if (index < 3) {
-          console.log(`Product ${index + 1}:`, {
-            name: productName,
-            price: basePrice,
-            image: finalImageUrl.substring(0, 50) + '...'
-          });
-        }
+
         
         return {
           id: `amazon10-${index + 1}`,
@@ -390,7 +371,7 @@ router.get('/products-by-category', async (req, res) => {
       }));
       
       result.bestSelling = products;
-      console.log(`Processed ${products.length} Best Selling products from Amazon10`);
+
     }
     
     // Process first sheet for Fast Selling products
@@ -399,11 +380,7 @@ router.get('/products-by-category', async (req, res) => {
       const worksheet = workbook.Sheets[firstSheetName];
       const data = xlsx.utils.sheet_to_json(worksheet);
       
-      console.log(`\n=== ${firstSheetName} Sheet (Fast Selling) ===`);
-      console.log(`Total rows: ${data.length}`);
-      if (data.length > 0) {
-        console.log('Column names:', Object.keys(data[0]));
-      }
+
       
       const products = await Promise.all(data.map(async (row, index) => {
         const allKeys = Object.keys(row);
@@ -479,7 +456,7 @@ router.get('/products-by-category', async (req, res) => {
       }));
       
       result.fastSelling = products;
-      console.log(`Processed ${products.length} Fast Selling products from ${firstSheetName}`);
+
     }
     
     res.json({

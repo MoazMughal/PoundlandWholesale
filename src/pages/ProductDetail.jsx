@@ -1029,8 +1029,7 @@ const ProductDetail = () => {
                   <div className="mb-2">
                     <h3 className="fw-bold mb-2" style={{fontSize: '0.85rem'}}>Supplier Information</h3>
                     
-                    {/* Debug info */}
-                    {console.log('Supplier section render:', { isAdmin, sellerInfo: !!sellerInfo, productSeller: product.seller, isBuyerLoggedIn })}
+
                     
                     {/* Show seller info for admin */}
                     {isAdmin && sellerInfo ? (

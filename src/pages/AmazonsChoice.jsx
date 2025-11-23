@@ -95,14 +95,9 @@ const AmazonsChoice = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true)
-        console.log('🔍 Starting to fetch products...')
-        console.log('🌐 API Base URL:', getApiUrl(''))
-        console.log('🔧 Environment:', import.meta.env.MODE)
         
         // Fetch categorized products from Excel
-        console.log('📊 Fetching Excel products from:', getApiUrl('excel/products-by-category'))
         const excelResponse = await fetch(getApiUrl('excel/products-by-category'))
-        console.log('📊 Excel response status:', excelResponse.status)
         
         if (excelResponse.ok) {
           const excelData = await excelResponse.json()
@@ -153,9 +148,7 @@ const AmazonsChoice = () => {
         }
         
         // Also fetch regular products from database
-        console.log('🗄️ Fetching database products from:', getApiUrl('products/public?isAmazonsChoice=true&limit=1000'))
         const response = await fetch(getApiUrl('products/public?isAmazonsChoice=true&limit=1000'))
-        console.log('🗄️ Database response status:', response.status)
         
         if (response.ok) {
           const data = await response.json()
@@ -221,14 +214,10 @@ const AmazonsChoice = () => {
           }
           
           setProducts(interleavedProducts)
-        } else {
-          console.error('Failed to fetch products')
         }
       } catch (error) {
-        console.error('❌ Error fetching products:', error)
-        console.error('❌ Error details:', error.message)
+        // Silent error handling in production
       } finally {
-        console.log('✅ Finished fetching products. Total products:', products.length)
         setLoading(false)
       }
     }
@@ -247,10 +236,6 @@ const AmazonsChoice = () => {
 
   // Filter and sort products
   useEffect(() => {
-    console.log('=== FILTER EFFECT RUNNING ===')
-    console.log('Selected Category:', selectedCategory)
-    console.log('Active Tab:', activeTab)
-    console.log('Total products available:', products.length)
     
     // Determine which products to filter based on active tab
     let sourceProducts = products.slice()
@@ -273,12 +258,6 @@ const AmazonsChoice = () => {
         }
         return matches
       })
-      console.log(`Category filter: ${beforeFilter} -> ${filtered.length} products (category: ${selectedCategory})`)
-      
-      // Log first 5 products to verify
-      console.log('First 5 filtered products:', filtered.slice(0, 5).map(p => ({ name: p.name, category: p.category })))
-    } else {
-      console.log('No category filter applied (showing all)')
     }
 
     // Search filter
@@ -286,7 +265,6 @@ const AmazonsChoice = () => {
       filtered = filtered.filter(p => 
         p.name.toLowerCase().includes(searchQuery.toLowerCase())
       )
-      console.log(`Search filter applied: ${filtered.length} products match "${searchQuery}"`)
     }
 
     // Price filter
@@ -296,14 +274,12 @@ const AmazonsChoice = () => {
         const price = parseFloat(p.price.replace(/[£$₨]/g, ''))
         return max ? (price >= min && price <= max) : price >= min
       })
-      console.log(`Price filter applied: ${filtered.length} products`)
     }
 
     // Rating filter
     if (ratingFilter !== 'all') {
       const minRating = parseFloat(ratingFilter)
       filtered = filtered.filter(p => p.rating >= minRating)
-      console.log(`Rating filter applied: ${filtered.length} products`)
     }
 
     // Sort
@@ -323,9 +299,6 @@ const AmazonsChoice = () => {
       default:
         break
     }
-
-    console.log('Final filtered products count:', filtered.length)
-    console.log('=== FILTER EFFECT COMPLETE ===\n')
     
     // Update the appropriate filtered state based on active tab
     if (activeTab === 'fast') {
@@ -403,24 +376,7 @@ const AmazonsChoice = () => {
     return stars
   }
 
-  const handleProductClick = (product) => {
-    // Pass all product data in URL parameters so it displays correctly
-    const params = new URLSearchParams({
-      name: product.name,
-      img: product.image,
-      price: product.price.replace(/[£$₨]/g, ''),
-      rating: product.rating || 4.5,
-      reviews: product.reviews || 0,
-      category: product.category || 'General',
-      brand: product.brand || '',
-      discount: product.discount || 0
-    })
-    const url = `/product/${product.id}?${params.toString()}`
-    console.log('Opening product URL:', url); // Debug log
-    
-    // Navigate in same tab for better compatibility
-    navigate(url)
-  }
+
 
   const handleContactNow = (e, product) => {
     e.stopPropagation()
@@ -832,6 +788,8 @@ const AmazonsChoice = () => {
                   brand: product.brand || '',
                   discount: product.discount || 0
                 }).toString()}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="product-card"
                 style={{cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block'}}
               >
