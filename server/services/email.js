@@ -13,10 +13,9 @@ const createTransporter = () => {
 
   console.log('✅ Email configuration found - attempting to create transporter');
   console.log('📧 Email Config:', {
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT || 587,
-    secure: process.env.EMAIL_SECURE === 'true',
-    user: process.env.EMAIL_USER
+    service: 'gmail',
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS ? '***configured***' : 'NOT SET'
   });
 
   const transporter = nodemailer.createTransport({

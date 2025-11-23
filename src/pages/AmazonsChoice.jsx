@@ -417,7 +417,9 @@ const AmazonsChoice = () => {
     })
     const url = `/product/${product.id}?${params.toString()}`
     console.log('Opening product URL:', url); // Debug log
-    window.open(url, '_blank')
+    
+    // Navigate in same tab for better compatibility
+    navigate(url)
   }
 
   const handleContactNow = (e, product) => {
@@ -818,11 +820,20 @@ const AmazonsChoice = () => {
         }}>
           {currentProducts.length > 0 ? (
             currentProducts.map((product, index) => (
-              <div 
+              <Link 
                 key={product.id} 
+                to={`/product/${product.id}?${new URLSearchParams({
+                  name: product.name,
+                  img: product.image,
+                  price: product.price.replace(/[£$₨]/g, ''),
+                  rating: product.rating || 4.5,
+                  reviews: product.reviews || 0,
+                  category: product.category || 'General',
+                  brand: product.brand || '',
+                  discount: product.discount || 0
+                }).toString()}`}
                 className="product-card"
-                onClick={() => handleProductClick(product)}
-                style={{cursor: 'pointer'}}
+                style={{cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block'}}
               >
                 <div className="product-badge" style={{
                   position: 'absolute', 
@@ -938,7 +949,7 @@ const AmazonsChoice = () => {
                     )}
                   </div>
                 </div>
-              </div>
+              </Link>
             ))
           ) : (
             <div className="no-results" style={{gridColumn: '1 / -1', textAlign: 'center', padding: '40px 20px', color: '#6b7280'}}>
