@@ -30,6 +30,7 @@ const AmazonsChoice = () => {
   const [currentStatusIndex, setCurrentStatusIndex] = useState({})
   const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('jazzcash')
   const [paymentDetails, setPaymentDetails] = useState({
@@ -77,6 +78,16 @@ const AmazonsChoice = () => {
   useEffect(() => {
     const token = localStorage.getItem('buyerToken')
     setIsBuyerLoggedIn(!!token)
+  }, [])
+
+  // Handle window resize for responsive grid
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
   // Fetch products from API
@@ -405,6 +416,7 @@ const AmazonsChoice = () => {
       discount: product.discount || 0
     })
     const url = `/product/${product.id}?${params.toString()}`
+    console.log('Opening product URL:', url); // Debug log
     window.open(url, '_blank')
   }
 
@@ -796,7 +808,14 @@ const AmazonsChoice = () => {
         </div>
 
         {/* Products Grid */}
-        <div id="products-grid" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px'}}>
+        <div id="products-grid" style={{
+          display: 'grid', 
+          gridTemplateColumns: windowWidth < 576 ? 'repeat(2, 1fr)' : 
+                              windowWidth < 768 ? 'repeat(3, 1fr)' : 
+                              windowWidth < 992 ? 'repeat(4, 1fr)' : 
+                              'repeat(auto-fill, minmax(200px, 1fr))', 
+          gap: windowWidth < 576 ? '8px' : '16px'
+        }}>
           {currentProducts.length > 0 ? (
             currentProducts.map((product, index) => (
               <div 

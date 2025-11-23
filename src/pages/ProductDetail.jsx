@@ -634,8 +634,24 @@ const ProductDetail = () => {
   console.log('Rendering product details')
   return (
     <div className="product-detail-page">
-      {/* Currency Selector - Fixed Position */}
-      <div style={{
+      {/* Currency Selector - Mobile Responsive */}
+      <div className="d-block d-lg-none mb-3">
+        <div className="container">
+          <select 
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            className="form-select form-select-sm"
+            style={{border: '1px solid #ddd', fontSize: '0.85rem', fontWeight: '600'}}
+          >
+            <option value="GBP">GBP (£)</option>
+            <option value="USD">USD ($)</option>
+            <option value="PKR">PKR (₨)</option>
+          </select>
+        </div>
+      </div>
+      
+      {/* Currency Selector - Desktop Fixed Position */}
+      <div className="d-none d-lg-block" style={{
         position: 'fixed',
         top: '80px',
         right: '20px',
@@ -668,13 +684,13 @@ const ProductDetail = () => {
         </nav>
       </div>
 
-      {/* Product Detail Section - Amazon 3-Column Style */}
+      {/* Product Detail Section - Responsive Layout */}
       <section className="product-detail-section py-3" style={{background: '#ffffff'}}>
-        <div className="container-fluid" style={{maxWidth: '1600px', padding: '0 20px'}}>
+        <div className="container-fluid" style={{maxWidth: '1600px', padding: '0 15px'}}>
           <div className="row g-3">
             
             {/* LEFT COLUMN - Product Images Only */}
-            <div className="col-lg-4">
+            <div className="col-12 col-lg-4 order-1 order-lg-1">
               <div className="sticky-top" style={{top: '100px', zIndex: 10}}>
                 {/* Main Image */}
                 <div className="position-relative mb-2" style={{background: '#fff', border: '1px solid #ddd', borderRadius: '6px', padding: '15px'}}>
@@ -682,7 +698,7 @@ const ProductDetail = () => {
                     src={product.images && product.images[selectedImage] ? product.images[selectedImage] : product.image} 
                     alt={product.name} 
                     className="img-fluid"
-                    style={{width: '100%', height: '320px', objectFit: 'contain'}}
+                    style={{width: '100%', height: window.innerWidth < 768 ? '250px' : '320px', objectFit: 'contain'}}
                   />
                   <div className="position-absolute top-0 start-0 m-2">
                     <span className="badge bg-danger px-2 py-1" style={{fontSize: '0.65rem'}}>
@@ -737,7 +753,7 @@ const ProductDetail = () => {
             </div>
             
             {/* MIDDLE COLUMN - Title, Reviews, Price, Variations, About */}
-            <div className="col-lg-5">
+            <div className="col-12 col-lg-5 order-3 order-lg-2">
               <div className="product-middle-info">
                 
                 {/* Product Title */}
@@ -952,9 +968,11 @@ const ProductDetail = () => {
             </div>
 
             {/* RIGHT COLUMN - Buy Box, Supplier Details */}
-            <div className="col-lg-3">
-              <div className="sticky-top" style={{top: '100px', zIndex: 10}}>
+            <div className="col-12 col-lg-3 order-2 order-lg-3">
+              <div className="d-none d-lg-block sticky-top" style={{top: '100px', zIndex: 10}}>
                 <div className="border rounded p-3" style={{background: '#f7f7f7'}}>
+                  
+                  {/* Desktop Buy Box Content */}
                   
                   {/* Price in Buy Box */}
                   <div className="mb-2">
@@ -1139,6 +1157,34 @@ const ProductDetail = () => {
                   </div>
 
                 </div>
+              </div>
+              
+              {/* Mobile Buy Box - Fixed Bottom */}
+              <div className="d-block d-lg-none">
+                <div className="fixed-bottom bg-white border-top p-3 shadow-lg">
+                  <div className="container">
+                    <div className="row align-items-center">
+                      <div className="col-6">
+                        <div className="fw-bold text-danger" style={{fontSize: '1.1rem'}}>
+                          {convertPrice(product.price)}
+                        </div>
+                        <small className="text-muted">ex. VAT</small>
+                      </div>
+                      <div className="col-6">
+                        <div className="d-grid gap-1">
+                          <button className="btn btn-warning btn-sm">
+                            <i className="fas fa-shopping-cart me-1"></i>Add to Basket
+                          </button>
+                          <button className="btn btn-danger btn-sm">
+                            <i className="fas fa-bolt me-1"></i>Buy Now
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* Add padding to prevent content being hidden behind fixed bottom */}
+                <div style={{height: '120px'}}></div>
               </div>
             </div>
 
