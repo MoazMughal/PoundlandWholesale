@@ -27,6 +27,8 @@ dist-ssr
 .env
 .env.local
 .env.production
+server/.env
+**/.env
 
 # Excel files (if not needed in production)
 # *.xlsx - COMMENTED OUT - We need these files in production!

@@ -227,16 +227,35 @@ const ProductDetail = () => {
       
       console.log('No URL params, trying database...')
       
+      // Check network connectivity first
+      if (!navigator.onLine) {
+        console.error('No internet connection');
+        setLoading(false);
+        return;
+      }
+      
       // Try to fetch from database API
       try {
         console.log('Fetching product with ID:', id);
         console.log('API URL:', apiConfig.getApiUrl('products/public?limit=5000'));
-        const response = await fetch(apiConfig.getApiUrl('products/public?limit=5000'))
+        const response = await fetch(apiConfig.getApiUrl('products/public?limit=5000'), {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
         console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
         if (response.ok) {
           const data = await response.json()
-          console.log('Total products fetched:', data.products.length);
+          console.log('Total products fetched:', data.products ? data.products.length : 0);
           console.log('Looking for product ID:', id);
+          
+          if (!data.products || !Array.isArray(data.products)) {
+            console.error('Invalid API response format:', data);
+            throw new Error('Invalid API response format');
+          }
+          
           const foundProduct = data.products.find(p => p._id === id)
           console.log('Found product:', foundProduct ? 'YES' : 'NO');
           
@@ -363,13 +382,24 @@ const ProductDetail = () => {
         }
       } catch (error) {
         console.error('Error fetching product:', error)
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          apiUrl: apiConfig.getApiUrl('products/public?limit=5000')
+        })
       }
       
       // If still not found, try fetching specific product by ID
       if (!product) {
         try {
           console.log('Product not found in list, trying direct fetch...');
-          const response = await fetch(apiConfig.getApiUrl(`products/public/${id}`))
+          const response = await fetch(apiConfig.getApiUrl(`products/public/${id}`), {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          })
+          console.log('Direct fetch response status:', response.status);
           if (response.ok) {
             const foundProduct = await response.json()
             console.log('Direct fetch result:', foundProduct);
