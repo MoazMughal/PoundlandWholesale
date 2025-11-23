@@ -106,7 +106,7 @@ const BuyerRegister = () => {
                         <h5 className="alert-heading mb-1">🎉 Welcome to Amazon Choice!</h5>
                         <p className="mb-1">Your buyer account has been created successfully!</p>
                         <small className="text-muted">
-                          Check your email for your $747 welcome bonus package. Redirecting to login...
+                          You can now access wholesale products and connect with verified suppliers. Redirecting to login...
                         </small>
                       </div>
                     </div>

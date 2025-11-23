@@ -53,6 +53,13 @@ const SellerAddProduct = lazy(() => import('./pages/seller/AddProduct'))
 const SellerAddProducts = lazy(() => import('./pages/seller/AddProducts'))
 const SellerEditProfile = lazy(() => import('./pages/seller/EditProfile'))
 
+// Legal Pages
+const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'))
+const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy'))
+const AboutUs = lazy(() => import('./pages/legal/AboutUs'))
+const HelpCenter = lazy(() => import('./pages/legal/HelpCenter'))
+const FAQ = lazy(() => import('./pages/legal/FAQ'))
+
 // Loading component
 const PageLoader = () => (
   <div style={{
@@ -145,6 +152,13 @@ function App() {
           <Route path="/admin/buyers" element={<ProtectedRoute><AdminBuyers /></ProtectedRoute>} />
           <Route path="/admin/excel-import" element={<ProtectedRoute><ExcelImport /></ProtectedRoute>} />
           <Route path="/admin/uae-excel-import" element={<ProtectedRoute><UaeExcelImport /></ProtectedRoute>} />
+          
+          {/* Legal Pages */}
+          <Route path="/terms-of-service" element={<TermsOfService />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/about-us" element={<AboutUs />} />
+          <Route path="/help-center" element={<HelpCenter />} />
+          <Route path="/faq" element={<FAQ />} />
         </Routes>
         </Suspense>
         <Footer />

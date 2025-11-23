@@ -41,11 +41,11 @@ const Footer = () => {
           <div className="col-lg-3 col-md-6 mb-4">
             <h5>Important Links</h5>
             <ul>
-              <li><a href="#">Terms of Service</a></li>
-              <li><a href="#">Privacy Policy</a></li>
-              <li><a href="#">About Us</a></li>
-              <li><a href="#">Help Center</a></li>
-              <li><a href="#">FAQs</a></li>
+              <li><Link to="/terms-of-service">Terms of Service</Link></li>
+              <li><Link to="/privacy-policy">Privacy Policy</Link></li>
+              <li><Link to="/about-us">About Us</Link></li>
+              <li><Link to="/help-center">Help Center</Link></li>
+              <li><Link to="/faq">FAQs</Link></li>
             </ul>
           </div>
           
