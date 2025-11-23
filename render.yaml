@@ -13,9 +13,9 @@ services:
       - key: PORT
         value: 5000
       - key: MONGODB_URI
-        sync: false
+        value: mongodb+srv://Admin:iW0UgtS1d5Fnf1gt@cluster0.v6qyt5k.mongodb.net/amazon-gymkhana?retryWrites=true&w=majority
       - key: JWT_SECRET
-        sync: false
+        value: my_secret_key_12345
       - key: EMAIL_HOST
         value: smtp.gmail.com
       - key: EMAIL_PORT

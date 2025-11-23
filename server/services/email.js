@@ -30,12 +30,16 @@ const createTransporter = () => {
     tls: {
       rejectUnauthorized: false // Allow self-signed certificates
     },
-    connectionTimeout: 15000, // 15 seconds
-    greetingTimeout: 15000,
-    socketTimeout: 15000,
+    connectionTimeout: 30000, // 30 seconds for production
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
     // Add debug for troubleshooting
     debug: process.env.NODE_ENV === 'development',
-    logger: process.env.NODE_ENV === 'development'
+    logger: process.env.NODE_ENV === 'development',
+    // Additional production settings
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 10
   });
   
   return transporter;
