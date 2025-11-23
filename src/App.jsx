@@ -3,6 +3,7 @@ import { useEffect, lazy, Suspense } from 'react'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import WhatsAppFloat from './components/WhatsAppFloat'
+import ScrollToTopOnRouteChange from './components/ScrollToTopOnRouteChange'
 
 import ProtectedRoute from './components/ProtectedRoute'
 import { CurrencyProvider } from './context/CurrencyContext'
@@ -101,6 +102,7 @@ function App() {
         <AdminProvider>
         <Router>
         <div className="App">
+          <ScrollToTopOnRouteChange />
           <Navbar />
           <Suspense fallback={<PageLoader />}>
           <Routes>

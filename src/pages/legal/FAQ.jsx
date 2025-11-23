@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import ScrollToTop from '../../components/ScrollToTop'
 
 const FAQ = () => {
   const [activeAccordion, setActiveAccordion] = useState(null)
@@ -161,6 +162,7 @@ const FAQ = () => {
           </div>
         </div>
       </div>
+      <ScrollToTop />
     </div>
   )
 }

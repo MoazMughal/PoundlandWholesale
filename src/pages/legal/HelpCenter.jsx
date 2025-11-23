@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import ScrollToTop from '../../components/ScrollToTop'
 
 const HelpCenter = () => {
   const [activeCategory, setActiveCategory] = useState('getting-started')
@@ -180,6 +181,7 @@ const HelpCenter = () => {
       <div className="text-center mt-5">
         <Link to="/" className="btn btn-primary">Back to Home</Link>
       </div>
+      <ScrollToTop />
     </div>
   )
 }

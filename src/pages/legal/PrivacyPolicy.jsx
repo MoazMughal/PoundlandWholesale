@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import ScrollToTop from '../../components/ScrollToTop'
 
 const PrivacyPolicy = () => {
   return (
@@ -100,6 +101,7 @@ const PrivacyPolicy = () => {
           </div>
         </div>
       </div>
+      <ScrollToTop />
     </div>
   )
 }

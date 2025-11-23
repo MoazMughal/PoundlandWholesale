@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import ScrollToTop from '../../components/ScrollToTop'
 
 const TermsOfService = () => {
   return (
@@ -86,6 +87,7 @@ const TermsOfService = () => {
           </div>
         </div>
       </div>
+      <ScrollToTop />
     </div>
   )
 }
