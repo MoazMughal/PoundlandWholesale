@@ -226,6 +226,12 @@ const ProductDetail = () => {
       }
       
       console.log('No URL params, trying database...')
+      console.log('Environment check:', {
+        isDev: import.meta.env.DEV,
+        isProd: import.meta.env.PROD,
+        mode: import.meta.env.MODE,
+        apiUrl: apiConfig.API_BASE_URL
+      });
       
       // Check network connectivity first
       if (!navigator.onLine) {
@@ -245,7 +251,8 @@ const ProductDetail = () => {
           },
         })
         console.log('Response status:', response.status);
-        console.log('Response headers:', response.headers);
+        console.log('Response ok:', response.ok);
+        console.log('Response type:', response.type);
         if (response.ok) {
           const data = await response.json()
           console.log('Total products fetched:', data.products ? data.products.length : 0);
@@ -595,8 +602,31 @@ const ProductDetail = () => {
     console.log('Showing product not found')
     return (
       <div className="container mt-5">
-        <div className="alert alert-warning">Product not found</div>
-        <Link to="/amazons-choice" className="btn btn-primary">Back to Products</Link>
+        <div className="alert alert-warning">
+          <h4>Product not found</h4>
+          <p>The product you're looking for could not be loaded. This might be due to:</p>
+          <ul>
+            <li>Network connectivity issues</li>
+            <li>The product may have been removed</li>
+            <li>Server temporarily unavailable</li>
+          </ul>
+          <div className="mt-3">
+            <Link to="/amazons-choice" className="btn btn-primary me-2">Browse Products</Link>
+            <button onClick={() => window.location.reload()} className="btn btn-outline-secondary">
+              Try Again
+            </button>
+          </div>
+        </div>
+        
+        {/* Debug info in development */}
+        {import.meta.env.DEV && (
+          <div className="alert alert-info mt-3">
+            <h5>Debug Info (Development Only)</h5>
+            <p><strong>Product ID:</strong> {id}</p>
+            <p><strong>API URL:</strong> {apiConfig.API_BASE_URL}</p>
+            <p><strong>Environment:</strong> {import.meta.env.MODE}</p>
+          </div>
+        )}
       </div>
     )
   }
