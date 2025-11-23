@@ -18,7 +18,7 @@ const createTransporter = () => {
     pass: process.env.EMAIL_PASS ? '***configured***' : 'NOT SET'
   });
 
-  const transporter = nodemailer.createTransporter({
+  const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
     secure: false, // Use STARTTLS

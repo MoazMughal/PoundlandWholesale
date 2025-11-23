@@ -776,23 +776,71 @@ const AmazonsChoice = () => {
         }}>
           {currentProducts.length > 0 ? (
             currentProducts.map((product, index) => (
-              <Link 
+              <div 
                 key={product.id} 
-                to={`/product/${product.id}?${new URLSearchParams({
-                  name: product.name,
-                  img: product.image,
-                  price: product.price.replace(/[£$₨]/g, ''),
-                  rating: product.rating || 4.5,
-                  reviews: product.reviews || 0,
-                  category: product.category || 'General',
-                  brand: product.brand || '',
-                  discount: product.discount || 0
-                }).toString()}`}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="product-card"
+                style={{position: 'relative'}}
+                onClick={(e) => {
+                  const params = new URLSearchParams({
+                    name: product.name,
+                    img: product.image,
+                    price: product.price.replace(/[£$₨]/g, ''),
+                    rating: product.rating || 4.5,
+                    reviews: product.reviews || 0,
+                    category: product.category || 'General',
+                    brand: product.brand || '',
+                    discount: product.discount || 0
+                  });
+                  const url = `/product/${product.id}?${params.toString()}`;
+                  
+                  // Check if Ctrl/Cmd key is pressed for new tab
+                  if (e.ctrlKey || e.metaKey) {
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                  } else {
+                    // Try to open in new tab, fallback to same tab if it fails
+                    try {
+                      const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+                      if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+                        // Popup blocked or failed, navigate in same tab
+                        navigate(url);
+                      }
+                    } catch (error) {
+                      // Fallback to same tab navigation
+                      navigate(url);
+                    }
+                  }
+                }}
+                onContextMenu={(e) => {
+                  // Allow right-click context menu for "Open in new tab"
+                  e.stopPropagation();
+                }}
+                title="Click to open product details. Ctrl+Click or Right-click → 'Open in new tab' for new tab."
                 style={{cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block'}}
               >
+                {/* Hidden link for right-click context menu */}
+                <Link 
+                  to={`/product/${product.id}?${new URLSearchParams({
+                    name: product.name,
+                    img: product.image,
+                    price: product.price.replace(/[£$₨]/g, ''),
+                    rating: product.rating || 4.5,
+                    reviews: product.reviews || 0,
+                    category: product.category || 'General',
+                    brand: product.brand || '',
+                    discount: product.discount || 0
+                  }).toString()}`}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: -1,
+                    opacity: 0
+                  }}
+                  aria-hidden="true"
+                />
+                
                 <div className="product-badge" style={{
                   position: 'absolute', 
                   left: '8px', 
@@ -907,7 +955,7 @@ const AmazonsChoice = () => {
                     )}
                   </div>
                 </div>
-              </Link>
+              </div>
             ))
           ) : (
             <div className="no-results" style={{gridColumn: '1 / -1', textAlign: 'center', padding: '40px 20px', color: '#6b7280'}}>
