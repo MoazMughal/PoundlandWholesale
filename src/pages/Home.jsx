@@ -383,36 +383,42 @@ const Home = () => {
                 </div>
               </section>
               
-              <div className="search-bar" style={{margin: '30px 0'}}>
-                <div className="input-group search-input-group" style={{
-                  maxWidth: '600px',
-                  margin: '0 auto',
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                  borderRadius: '50px',
-                  overflow: 'hidden'
-                }}>
+              <div className="search-bar" style={{margin: '30px 0', textAlign: 'center'}}>
+                <div className="container">
+                  <div className="input-group search-input-group" style={{
+                    maxWidth: '600px',
+                    margin: '0 auto',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+                    borderRadius: '50px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    justifyContent: 'center'
+                  }}>
                   <input 
                     type="text" 
                     className="form-control form-control-lg search-input" 
                     placeholder="Search by Product, Supplier, or Category"
                     style={{
                       border: 'none',
-                      padding: '20px 30px',
-                      fontSize: '1.1rem',
-                      background: 'white'
+                      padding: window.innerWidth < 768 ? '15px 20px' : '20px 30px',
+                      fontSize: window.innerWidth < 768 ? '1rem' : '1.1rem',
+                      background: 'white',
+                      flex: 1
                     }}
                   />
                   <button className="btn search-btn" type="button" style={{
                     background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                     border: 'none',
-                    padding: '0 40px',
+                    padding: window.innerWidth < 768 ? '0 25px' : '0 40px',
                     color: 'white',
                     fontWeight: '600',
-                    fontSize: '1.1rem',
-                    transition: 'all 0.3s ease'
+                    fontSize: window.innerWidth < 768 ? '1rem' : '1.1rem',
+                    transition: 'all 0.3s ease',
+                    minWidth: '60px'
                   }}>
                     <i className="fas fa-search"></i>
                   </button>
+                  </div>
                 </div>
               </div>
               

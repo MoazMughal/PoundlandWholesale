@@ -20,26 +20,27 @@ const createTransporter = () => {
   });
 
   const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT) || 587,
-    secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for other ports
+    service: 'gmail', // Use Gmail service for better compatibility
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
     },
     tls: {
-      rejectUnauthorized: false // Allow self-signed certificates
+      rejectUnauthorized: false
     },
-    connectionTimeout: 30000, // 30 seconds for production
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
-    // Add debug for troubleshooting
+    // Increased timeouts for production
+    connectionTimeout: 60000, // 60 seconds
+    greetingTimeout: 30000,   // 30 seconds
+    socketTimeout: 60000,     // 60 seconds
+    // Production settings optimized for reliability
+    pool: false, // Disable pooling to avoid connection issues
+    maxConnections: 1,
+    maxMessages: 1,
+    // Additional settings for better reliability
+    requireTLS: true,
+    // Debug only in development
     debug: process.env.NODE_ENV === 'development',
-    logger: process.env.NODE_ENV === 'development',
-    // Additional production settings
-    pool: true,
-    maxConnections: 5,
-    maxMessages: 10
+    logger: process.env.NODE_ENV === 'development'
   });
   
   return transporter;

@@ -131,6 +131,27 @@
     overflow: hidden !important;
   }
   
+  /* Search bar mobile */
+  .search-bar {
+    margin: 20px 0 !important;
+    padding: 0 10px;
+  }
+  
+  .search-input-group {
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+  
+  .search-input {
+    padding: 12px 15px !important;
+    font-size: 0.9rem !important;
+  }
+  
+  .search-btn {
+    padding: 0 20px !important;
+    font-size: 0.9rem !important;
+  }
+  
   /* Currency selector mobile */
   .form-select-sm {
     font-size: 0.8rem !important;
