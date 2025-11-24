@@ -90,72 +90,43 @@ const AmazonsChoice = () => {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Fetch products from API
+  // Fetch products from API - Database products (Amazon's Choice)
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setLoading(true)
         
-        // Fetch categorized products from Excel
-        const excelResponse = await fetch(getApiUrl('excel/products-by-category'))
-        
-        if (excelResponse.ok) {
-          const excelData = await excelResponse.json()
-          
-          // Transform Fast Selling products
-          const transformedFastSelling = excelData.fastSelling.map(p => ({
-            id: p.id,
-            name: p.name,
-            description: p.description || '',
-            price: `£${p.price}`,
-            originalPrice: p.originalPrice ? `£${p.originalPrice}` : null,
-            discount: p.discount || 0,
-            category: p.category,
-            brand: p.brand || '',
-            image: p.image,
-            images: p.images || [],
-            rating: p.rating || 4.0,
-            reviews: p.reviews || 0,
-            stock: p.stock || 0,
-            monthlyOrders: Math.floor(Math.random() * 500) + 100,
-            statuses: ['Fast Selling', 'Amazon\'s Choice', `${Math.floor(Math.random() * 1000) + 100} in basket`],
-            isFastSelling: true
-          }))
-          
-          // Transform Best Selling products
-          const transformedBestSelling = excelData.bestSelling.map(p => ({
-            id: p.id,
-            name: p.name,
-            description: p.description || '',
-            price: `£${p.price}`,
-            originalPrice: p.originalPrice ? `£${p.originalPrice}` : null,
-            discount: p.discount || 0,
-            category: p.category,
-            brand: p.brand || '',
-            image: p.image,
-            images: p.images || [],
-            rating: p.rating || 4.0,
-            reviews: p.reviews || 0,
-            stock: p.stock || 0,
-            monthlyOrders: Math.floor(Math.random() * 800) + 200,
-            statuses: ['Best Seller', 'Amazon\'s Choice', `${Math.floor(Math.random() * 1500) + 200} in basket`],
-            isBestSeller: true
-          }))
-          
-          setFastSellingProducts(transformedFastSelling)
-          setBestSellingProducts(transformedBestSelling)
-          setProducts([...transformedFastSelling, ...transformedBestSelling])
-        }
-        
-        // Also fetch regular products from database
+        // Fetch Amazon's Choice products from database (NOT Excel)
         const response = await fetch(getApiUrl('products/public?isAmazonsChoice=true&limit=1000'))
         
         if (response.ok) {
           const data = await response.json()
+          
           // Transform API data to match expected format
           let transformedProducts = data.products.map(p => {
             // Get the first image and convert path to actual imported URL
             const imageUrl = p.images && p.images.length > 0 ? getImageUrl(p.images[0]) : ''
+            
+            // Calculate profit for specific product types
+            const productName = p.name.toLowerCase()
+            let monthlyProfit = p.monthlyProfit || null
+            let yearlyProfit = p.yearlyProfit || null
+            
+            // Add profit calculations for nose rings, bulbs, fuses, and lampshades
+            if (!monthlyProfit && (
+              productName.includes('nose ring') || 
+              productName.includes('bulb') || 
+              productName.includes('fuse') || 
+              productName.includes('lampshade')
+            )) {
+              // Calculate profit based on price (assuming high markup)
+              const price = parseFloat(p.price) || 0
+              if (price > 0) {
+                // Estimate monthly profit: price * 1200 orders * 0.4 margin
+                monthlyProfit = Math.round(price * 1200 * 0.4)
+                yearlyProfit = monthlyProfit * 12
+              }
+            }
             
             return {
               id: p._id,
@@ -173,16 +144,16 @@ const AmazonsChoice = () => {
               reviews: p.reviews || 0,
               stock: p.stock || 0,
               monthlyOrders: Math.floor(Math.random() * 500) + 100,
-              monthlyProfit: p.monthlyProfit || null,
-              yearlyProfit: p.yearlyProfit || null,
+              monthlyProfit: monthlyProfit,
+              yearlyProfit: yearlyProfit,
               statuses: ['Amazon\'s Choice', 'Selling Fast', `${Math.floor(Math.random() * 1000) + 100} in basket`],
               isAmazonsChoice: p.isAmazonsChoice,
-              isBestSeller: p.isBestSeller
+              isBestSeller: p.isBestSeller,
+              isFastSelling: false
             }
           })
           
           // Distribute products evenly by category for better variety
-          // Group products by category
           const productsByCategory = {};
           transformedProducts.forEach(p => {
             if (!productsByCategory[p.category]) {
@@ -213,10 +184,20 @@ const AmazonsChoice = () => {
             });
           }
           
+          // Set all products to the main products array
           setProducts(interleavedProducts)
+          
+          // Separate into Fast Selling and Best Selling for tabs
+          const fastSelling = interleavedProducts.filter(p => p.isFastSelling)
+          const bestSelling = interleavedProducts.filter(p => p.isBestSeller)
+          
+          setFastSellingProducts(fastSelling)
+          setBestSellingProducts(bestSelling)
+        } else {
+          console.error('❌ Database API error:', response.status, response.statusText)
         }
       } catch (error) {
-        // Silent error handling in production
+        console.error('❌ Error fetching products:', error)
       } finally {
         setLoading(false)
       }
@@ -252,11 +233,7 @@ const AmazonsChoice = () => {
     if (selectedCategory && selectedCategory !== 'all') {
       const beforeFilter = filtered.length
       filtered = filtered.filter(p => {
-        const matches = p.category === selectedCategory
-        if (!matches && (p.name.includes('Nose Ring') || p.name.includes('Bulb'))) {
-          console.log(`Product "${p.name}" (category: ${p.category}) does NOT match selected category: ${selectedCategory}`)
-        }
-        return matches
+        return p.category === selectedCategory
       })
     }
 

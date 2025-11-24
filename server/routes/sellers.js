@@ -176,8 +176,6 @@ router.get('/', authenticateAdmin, async (req, res) => {
       .skip((page - 1) * limit);
 
     const count = await Seller.countDocuments(query);
-    
-    console.log(`Found ${sellers.length} sellers for status: ${status}`); // Debug log
 
     res.json({
       sellers,

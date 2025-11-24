@@ -237,7 +237,7 @@ const Home = () => {
       discount: 0
     })
     const url = `/product/${product.id}?${params.toString()}`
-    window.open(url, '_blank')
+    navigate(url)
   }
 
   return (
@@ -477,72 +477,75 @@ const Home = () => {
           <div className="row g-4 stats-bar mb-5">
             <div className="col-12 col-md-4">
               <div className="stat-card" style={{
-                background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
+                background: 'white',
                 borderRadius: '20px',
                 padding: '40px 30px',
                 textAlign: 'center',
-                boxShadow: '0 10px 40px rgba(59, 130, 246, 0.3)',
+                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
                 transition: 'all 0.3s ease',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                border: '2px solid #e5e7eb'
               }} onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-10px)'
-                e.currentTarget.style.boxShadow = '0 20px 50px rgba(59, 130, 246, 0.4)'
+                e.currentTarget.style.boxShadow = '0 20px 50px rgba(0, 0, 0, 0.15)'
               }} onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = '0 10px 40px rgba(59, 130, 246, 0.3)'
+                e.currentTarget.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.1)'
               }}>
-                <div className="stat-heading" style={{color: 'rgba(255,255,255,0.9)', fontSize: '1rem', marginBottom: '15px', fontWeight: '600'}}>Average Markup</div>
-                <div className="stat-value" style={{color: 'white', fontSize: '3rem', fontWeight: '800', marginBottom: '10px'}}>170.00%</div>
-                <div className="stat-sub" style={{color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem'}}>of wholesale prices</div>
+                <div className="stat-heading" style={{color: '#6b7280', fontSize: '1rem', marginBottom: '15px', fontWeight: '600'}}>Average Markup</div>
+                <div className="stat-value" style={{color: '#1f2937', fontSize: '3rem', fontWeight: '800', marginBottom: '10px'}}>170.00%</div>
+                <div className="stat-sub" style={{color: '#9ca3af', fontSize: '0.9rem', fontWeight: '500'}}>of wholesale prices</div>
               </div>
             </div>
             <div className="col-12 col-md-4">
               <div className="stat-card" style={{
-                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                background: 'white',
                 borderRadius: '20px',
                 padding: '40px 30px',
                 textAlign: 'center',
-                boxShadow: '0 10px 40px rgba(245, 158, 11, 0.3)',
+                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
                 transition: 'all 0.3s ease',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                border: '2px solid #e5e7eb'
               }} onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-10px)'
-                e.currentTarget.style.boxShadow = '0 20px 50px rgba(245, 158, 11, 0.4)'
+                e.currentTarget.style.boxShadow = '0 20px 50px rgba(0, 0, 0, 0.15)'
               }} onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = '0 10px 40px rgba(245, 158, 11, 0.3)'
+                e.currentTarget.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.1)'
               }}>
-                <div className="stat-heading" style={{color: 'rgba(255,255,255,0.9)', fontSize: '1rem', marginBottom: '15px', fontWeight: '600'}}>Active Deals</div>
-                <div className="active-deals-number" style={{color: '#ff0000 !important', fontSize: '3rem', fontWeight: '800', marginBottom: '10px', fontFamily: 'Poppins, sans-serif'}}>21,674+</div>
-                <div className="stat-sub" style={{color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem'}}>as of today</div>
+                <div className="stat-heading" style={{color: '#6b7280', fontSize: '1rem', marginBottom: '15px', fontWeight: '600'}}>Active Deals</div>
+                <div className="active-deals-number" style={{color: '#ff0000', fontSize: '3rem', fontWeight: '800', marginBottom: '10px', fontFamily: 'Poppins, sans-serif'}}>21,674+</div>
+                <div className="stat-sub" style={{color: '#9ca3af', fontSize: '0.9rem', fontWeight: '500'}}>as of today</div>
               </div>
             </div>
             <div className="col-12 col-md-4">
               <div className="stat-card" style={{
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                background: 'white',
                 borderRadius: '20px',
                 padding: '40px 30px',
                 textAlign: 'center',
-                boxShadow: '0 10px 40px rgba(16, 185, 129, 0.3)',
+                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
                 transition: 'all 0.3s ease',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                border: '2px solid #e5e7eb'
               }} onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-10px)'
-                e.currentTarget.style.boxShadow = '0 20px 50px rgba(16, 185, 129, 0.4)'
+                e.currentTarget.style.boxShadow = '0 20px 50px rgba(0, 0, 0, 0.15)'
               }} onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = '0 10px 40px rgba(16, 185, 129, 0.3)'
+                e.currentTarget.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.1)'
               }}>
-                <div className="stat-heading" style={{color: 'rgba(255,255,255,0.9)', fontSize: '1rem', marginBottom: '15px', fontWeight: '600'}}>New Suppliers</div>
-                <div className="stat-value" style={{color: 'white', fontSize: '3rem', fontWeight: '800', marginBottom: '10px'}}>321</div>
-                <div className="stat-sub" style={{color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem'}}>in the past 7 days</div>
+                <div className="stat-heading" style={{color: '#6b7280', fontSize: '1rem', marginBottom: '15px', fontWeight: '600'}}>New Suppliers</div>
+                <div className="stat-value" style={{color: '#1f2937', fontSize: '3rem', fontWeight: '800', marginBottom: '10px'}}>321</div>
+                <div className="stat-sub" style={{color: '#9ca3af', fontSize: '0.9rem', fontWeight: '500'}}>in the past 7 days</div>
               </div>
             </div>
           </div>
 
           <div className="section-header text-center mb-5">
-            <h2 className="section-title modern-title">Amazon's Choice Products</h2>
-            <p className="section-subtitle">Handpicked bestsellers with proven sales performance</p>
+            <h2 className="section-title modern-title" style={{color: '#1f2937'}}>Amazon's Choice Products</h2>
+            <p className="section-subtitle" style={{color: '#6b7280'}}>Handpicked bestsellers with proven sales performance</p>
           </div>
           <div className="featured-scroller-container amazon-choice-products">
             <div className="featured-scroller">

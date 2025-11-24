@@ -212,8 +212,7 @@ const ExcelImport = () => {
           <p style={{fontSize: '0.8rem', color: '#6b7280', margin: 0}}>Manage products from Excel file</p>
         </div>
         <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-          <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
-            <span style={{fontSize: '0.75rem', color: '#666'}}>💱</span>
+          <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
             <select 
               value={currency} 
               onChange={(e) => setCurrency(e.target.value)}

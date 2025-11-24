@@ -32,13 +32,15 @@ const CurrencySelector = ({ position = 'fixed', style = {} }) => {
           fontSize: '0.85rem',
           fontWeight: '600',
           cursor: 'pointer',
-          outline: 'none'
+          outline: 'none',
+          paddingRight: '30px',
+          minWidth: '110px'
         }}
       >
-        <option value="PKR">PKR (Rs)</option>
-        <option value="USD">USD ($)</option>
-        <option value="GBP">GBP (£)</option>
-        <option value="AED">AED (د.إ)</option>
+        <option value="PKR">Rs (PKR)</option>
+        <option value="USD">$ (USD)</option>
+        <option value="GBP">£ (GBP)</option>
+        <option value="AED">د.إ (AED)</option>
       </select>
     </div>
   );

@@ -56,7 +56,7 @@ const AdminLogin = () => {
                   <div className="mb-3">
                     <i className="fas fa-user-shield fa-3x text-warning"></i>
                   </div>
-                  <h2 className="fw-bold text-dark mb-2">Admin Portal</h2>
+                  <h2 className="fw-bold mb-2" style={{color: '#1f2937'}}>Admin Portal</h2>
                   <p className="text-muted">Secure administrative access</p>
                 </div>
 

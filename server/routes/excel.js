@@ -275,9 +275,29 @@ router.get('/info', async (req, res) => {
   }
 });
 
-// Get products by category (Best Selling or Fast Selling)
+// Cache for products to avoid repeated Excel reads
+let productsCache = null;
+let cacheTimestamp = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Clear cache endpoint (for debugging)
+router.get('/clear-cache', (req, res) => {
+  productsCache = null;
+  cacheTimestamp = null;
+  res.json({ success: true, message: 'Cache cleared' });
+});
+
+// Get products by category (Best Selling or Fast Selling) - OPTIMIZED
 router.get('/products-by-category', async (req, res) => {
   try {
+    // Check cache first (skip cache if ?nocache=true)
+    const now = Date.now();
+    const skipCache = req.query.nocache === 'true';
+    
+    if (!skipCache && productsCache && cacheTimestamp && (now - cacheTimestamp) < CACHE_DURATION) {
+      return res.json(productsCache);
+    }
+
     const excelPath = path.join(__dirname, '../../Products.xlsx');
     const workbook = xlsx.readFile(excelPath);
     
@@ -291,19 +311,12 @@ router.get('/products-by-category', async (req, res) => {
       const worksheet = workbook.Sheets['Amazon10'];
       const data = xlsx.utils.sheet_to_json(worksheet);
       
-
-      
-      const products = await Promise.all(data.map(async (row, index) => {
-        // Get all possible column values
+      // Process synchronously without image fetching for speed
+      const products = data.map((row, index) => {
         const allKeys = Object.keys(row);
-        
-        // ASIN - try all variations
         const asin = row.ASIN || row.asin || row['Product ASIN'] || row['ASIN Code'] || '';
-        
-        // Product Name - use helper function to extract properly
         const productName = extractProductName(row, allKeys, index);
         
-        // Price - try all variations
         let basePrice = 0;
         const priceKeys = allKeys.filter(key => 
           key.toLowerCase().includes('price') && 
@@ -324,7 +337,7 @@ router.get('/products-by-category', async (req, res) => {
         const rating = parseFloat(row.Rating || row.rating || row['Product Rating'] || row['Star Rating'] || (Math.random() * 1.5 + 3.5).toFixed(1));
         const reviews = parseInt(row.Reviews || row.reviews || row['Review Count'] || row['Number of Reviews'] || Math.floor(Math.random() * 4950 + 50));
         
-        // Image URL - try ALL possible column names
+        // Image URL - NO ASYNC FETCHING, use what's in Excel or construct URL
         let finalImageUrl = '';
         const imageKeys = allKeys.filter(key => 
           key.toLowerCase().includes('image') || 
@@ -340,14 +353,13 @@ router.get('/products-by-category', async (req, res) => {
           }
         }
         
+        // If no image but has ASIN, construct Amazon image URL (no fetching)
         if (!finalImageUrl && asin) {
-          finalImageUrl = await fetchAmazonImage(asin);
+          finalImageUrl = `https://m.media-amazon.com/images/I/${asin}._AC_SL1500_.jpg`;
         }
         if (!finalImageUrl) {
-          finalImageUrl = 'https://via.placeholder.com/400x400?text=No+Image';
+          finalImageUrl = 'https://via.placeholder.com/400x400?text=Product';
         }
-        
-
         
         return {
           id: `amazon10-${index + 1}`,
@@ -365,13 +377,11 @@ router.get('/products-by-category', async (req, res) => {
           images: [finalImageUrl],
           discount: discount,
           isBestSeller: true,
-          sheet: 'Amazon10',
-          rawData: row // Keep raw data for debugging
+          sheet: 'Amazon10'
         };
-      }));
+      });
       
       result.bestSelling = products;
-
     }
     
     // Process first sheet for Fast Selling products
@@ -380,17 +390,11 @@ router.get('/products-by-category', async (req, res) => {
       const worksheet = workbook.Sheets[firstSheetName];
       const data = xlsx.utils.sheet_to_json(worksheet);
       
-
-      
-      const products = await Promise.all(data.map(async (row, index) => {
+      const products = data.map((row, index) => {
         const allKeys = Object.keys(row);
-        
         const asin = row.ASIN || row.asin || row['Product ASIN'] || row['ASIN Code'] || '';
-        
-        // Product Name - use helper function to extract properly
         const productName = extractProductName(row, allKeys, index);
         
-        // Price
         let basePrice = 0;
         const priceKeys = allKeys.filter(key => 
           key.toLowerCase().includes('price') && 
@@ -411,7 +415,7 @@ router.get('/products-by-category', async (req, res) => {
         const rating = parseFloat(row.Rating || row.rating || row['Product Rating'] || row['Star Rating'] || (Math.random() * 1.5 + 3.5).toFixed(1));
         const reviews = parseInt(row.Reviews || row.reviews || row['Review Count'] || row['Number of Reviews'] || Math.floor(Math.random() * 4950 + 50));
         
-        // Image URL
+        // Image URL - NO ASYNC FETCHING
         let finalImageUrl = '';
         const imageKeys = allKeys.filter(key => 
           key.toLowerCase().includes('image') || 
@@ -428,10 +432,10 @@ router.get('/products-by-category', async (req, res) => {
         }
         
         if (!finalImageUrl && asin) {
-          finalImageUrl = await fetchAmazonImage(asin);
+          finalImageUrl = `https://m.media-amazon.com/images/I/${asin}._AC_SL1500_.jpg`;
         }
         if (!finalImageUrl) {
-          finalImageUrl = 'https://via.placeholder.com/400x400?text=No+Image';
+          finalImageUrl = 'https://via.placeholder.com/400x400?text=Product';
         }
         
         return {
@@ -450,22 +454,26 @@ router.get('/products-by-category', async (req, res) => {
           images: [finalImageUrl],
           discount: discount,
           isFastSelling: true,
-          sheet: firstSheetName,
-          rawData: row
+          sheet: firstSheetName
         };
-      }));
+      });
       
       result.fastSelling = products;
-
     }
     
-    res.json({
+    const response = {
       success: true,
       fastSelling: result.fastSelling,
       bestSelling: result.bestSelling,
       totalFastSelling: result.fastSelling.length,
       totalBestSelling: result.bestSelling.length
-    });
+    };
+
+    // Cache the result
+    productsCache = response;
+    cacheTimestamp = now;
+    
+    res.json(response);
     
   } catch (error) {
     console.error('Error reading Excel file:', error);

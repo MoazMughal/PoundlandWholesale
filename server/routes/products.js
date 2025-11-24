@@ -24,6 +24,14 @@ router.get('/public', async (req, res) => {
 
     const query = { status: 'active' }; // Only show active products to public
     
+    // Exclude seller copies - only show original admin products
+    // This prevents duplicates when sellers list admin products
+    query.$or = [
+      { isAdminProduct: true }, // Show admin products
+      { originalAdminProductId: { $exists: false } }, // Show products without originalAdminProductId
+      { originalAdminProductId: null } // Show products with null originalAdminProductId
+    ];
+    
     // If source=excel is specified, filter for Excel products (not Amazon's Choice)
     if (source === 'excel') {
       query.isAdminProduct = true; // Excel products are marked as admin products
@@ -130,10 +138,20 @@ router.get('/', authenticateAdmin, async (req, res) => {
       category, 
       status,
       sortBy = 'createdAt',
-      order = 'desc'
+      order = 'desc',
+      excludeSellerCopies = 'false' // New parameter to exclude seller copies
     } = req.query;
 
     const query = {};
+    
+    // Optionally exclude seller copies (products with originalAdminProductId)
+    if (excludeSellerCopies === 'true') {
+      query.$or = [
+        { isAdminProduct: true },
+        { originalAdminProductId: { $exists: false } },
+        { originalAdminProductId: null }
+      ];
+    }
     
     if (search) {
       query.$text = { $search: search };

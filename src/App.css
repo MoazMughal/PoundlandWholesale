@@ -144,7 +144,7 @@ h1, h2, h3, h4, h5, h6 {
   font-family: 'Poppins', sans-serif;
   font-size: 2.5rem;
   font-weight: 700;
-  color: var(--gray-800);
+  color: #1f2937 !important;
   margin-bottom: 1rem;
   position: relative;
 }
@@ -1576,6 +1576,22 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Mobile Text Visibility Fix - Ensure white text is always visible */
+.stat-heading,
+.stat-value,
+.stat-sub,
+.step-card h4,
+.step-card p,
+.wholesale-title,
+.wholesale-subtitle {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Ensure gradient backgrounds are dark enough for white text */
+.stat-card[style*="linear-gradient"] {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.05)) !important;
+}
+
 /* Small Mobile Phones */
 @media (max-width: 576px) {
   .container {
@@ -1590,11 +1606,13 @@ h1, h2, h3, h4, h5, h6 {
   .hero-title {
     font-size: 1.6rem;
     line-height: 1.3;
+    text-shadow: 0 3px 6px rgba(0, 0, 0, 0.5) !important;
   }
   
   .hero-subtitle {
     font-size: 0.9rem;
     min-height: 120px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4) !important;
   }
   
   .background-grid {
@@ -1642,6 +1660,26 @@ h1, h2, h3, h4, h5, h6 {
   
   .featured-item {
     width: 140px;
+  }
+  
+  /* Stat cards remain readable on mobile */
+  .stat-card {
+    background: white !important;
+  }
+  
+  .stat-heading {
+    color: #6b7280 !important;
+    font-weight: 700 !important;
+  }
+  
+  .stat-value {
+    color: #1f2937 !important;
+    font-weight: 900 !important;
+  }
+  
+  .stat-sub {
+    color: #9ca3af !important;
+    font-weight: 600 !important;
   }
   
   .featured-item-small {
@@ -2517,4 +2555,475 @@ h1, h2, h3, h4, h5, h6 {
 .product-description ul li:hover {
   transform: translateX(5px);
   color: var(--bs-primary);
+}
+
+
+/* ===== MOBILE RESPONSIVENESS ENHANCEMENTS ===== */
+
+/* Ensure all white text on gradient backgrounds is visible on mobile */
+@media (max-width: 768px) {
+  /* All white text on gradients gets text shadow for visibility */
+  [style*="color: white"],
+  [style*="color:white"],
+  [style*="color: #fff"],
+  [style*="color:#fff"],
+  [style*="color: rgba(255,255,255"],
+  [style*="color:rgba(255,255,255"] {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+  }
+  
+  /* Stat cards on mobile */
+  .stat-card {
+    background: white !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  /* Product cards - better spacing on mobile */
+  .product-card {
+    margin-bottom: 15px;
+  }
+  
+  .product-card .card-title {
+    font-size: 0.9rem;
+    line-height: 1.3;
+  }
+  
+  .product-card .card-text {
+    font-size: 0.75rem;
+  }
+  
+  /* Buttons - better touch targets */
+  .btn {
+    min-height: 44px;
+    padding: 10px 15px;
+  }
+  
+  /* Forms - better touch targets */
+  .form-control,
+  .form-select {
+    min-height: 44px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Tables - horizontal scroll */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Ensure gradient backgrounds are dark enough */
+  [style*="linear-gradient"][style*="color: white"],
+  [style*="linear-gradient"][style*="color:white"] {
+    background-image: linear-gradient(135deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.1)) !important;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 576px) {
+  /* Stat cards on small mobile */
+  .stat-card {
+    background: white !important;
+  }
+  
+  .stat-heading {
+    color: #6b7280 !important;
+    font-weight: 700 !important;
+  }
+  
+  .stat-value {
+    color: #1f2937 !important;
+    font-weight: 900 !important;
+  }
+  
+  .stat-sub {
+    color: #9ca3af !important;
+  }
+  
+  /* Better spacing */
+  .section-padding {
+    padding: 25px 0;
+  }
+  
+  /* Product grid - 2 columns on small mobile */
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+}
+
+
+/* ===== COMPACT HEADER & FOOTER OPTIMIZATION ===== */
+
+/* Navbar Optimization - More Compact */
+.navbar {
+  padding: 0.5rem 0 !important;
+  min-height: 60px !important;
+}
+
+.navbar-brand {
+  font-size: 1.3rem !important;
+  padding: 0.3rem 0 !important;
+}
+
+.navbar-nav .nav-link {
+  font-size: 0.85rem !important;
+  padding: 0.4rem 0.7rem !important;
+}
+
+.navbar-nav .dropdown-menu {
+  font-size: 0.85rem !important;
+}
+
+/* Footer Optimization - More Compact */
+.footer {
+  padding: 30px 0 15px !important;
+  font-size: 0.85rem !important;
+}
+
+.footer h5 {
+  font-size: 1rem !important;
+  margin-bottom: 12px !important;
+  font-weight: 600 !important;
+}
+
+.footer ul {
+  padding-left: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.footer ul li {
+  font-size: 0.8rem !important;
+  line-height: 1.8 !important;
+  margin-bottom: 4px !important;
+}
+
+.footer .social-icons a {
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 0.9rem !important;
+  margin-right: 8px !important;
+}
+
+.footer .copyright {
+  padding: 10px 0 !important;
+  margin-top: 10px !important;
+  font-size: 0.75rem !important;
+}
+
+/* Main Content Area - More Space */
+.App {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main, .main-content {
+  flex: 1;
+  padding: 20px 0;
+  min-height: calc(100vh - 200px); /* Adjust based on header + footer height */
+}
+
+/* Container Spacing */
+.container {
+  padding-top: 15px;
+  padding-bottom: 15px;
+}
+
+/* Section Padding Optimization */
+.section-padding {
+  padding: 40px 0 !important;
+}
+
+/* Page Headers - More Compact */
+.page-header {
+  padding: 15px 0 !important;
+  margin-bottom: 20px !important;
+}
+
+.page-header h1, .page-header h2 {
+  font-size: 1.8rem !important;
+  margin-bottom: 8px !important;
+}
+
+/* Product Cards - Optimized Spacing */
+.product-card {
+  margin-bottom: 15px !important;
+}
+
+/* Tables - Compact */
+table th, table td {
+  padding: 8px 10px !important;
+  font-size: 0.85rem !important;
+}
+
+/* Forms - Compact */
+.form-label {
+  font-size: 0.85rem !important;
+  margin-bottom: 4px !important;
+}
+
+.form-control, .form-select {
+  font-size: 0.85rem !important;
+  padding: 8px 12px !important;
+}
+
+/* Buttons - Compact */
+.btn {
+  font-size: 0.85rem !important;
+  padding: 8px 16px !important;
+}
+
+.btn-sm {
+  font-size: 0.75rem !important;
+  padding: 6px 12px !important;
+}
+
+.btn-lg {
+  font-size: 1rem !important;
+  padding: 12px 24px !important;
+}
+
+/* Cards - Optimized */
+.card {
+  margin-bottom: 15px !important;
+}
+
+.card-header {
+  padding: 10px 15px !important;
+  font-size: 0.9rem !important;
+}
+
+.card-body {
+  padding: 15px !important;
+}
+
+/* Alerts - Compact */
+.alert {
+  padding: 10px 15px !important;
+  font-size: 0.85rem !important;
+  margin-bottom: 15px !important;
+}
+
+/* Modals - Optimized */
+.modal-header {
+  padding: 12px 20px !important;
+}
+
+.modal-body {
+  padding: 15px 20px !important;
+  font-size: 0.85rem !important;
+}
+
+.modal-footer {
+  padding: 10px 20px !important;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0.4rem 0 !important;
+  }
+  
+  .navbar-brand {
+    font-size: 1.1rem !important;
+  }
+  
+  .footer {
+    padding: 20px 0 10px !important;
+  }
+  
+  .footer h5 {
+    font-size: 0.9rem !important;
+    margin-bottom: 8px !important;
+  }
+  
+  .footer ul li {
+    font-size: 0.75rem !important;
+  }
+  
+  .section-padding {
+    padding: 25px 0 !important;
+  }
+  
+  main, .main-content {
+    padding: 15px 0;
+  }
+}
+
+@media (max-width: 576px) {
+  .navbar {
+    padding: 0.3rem 0 !important;
+  }
+  
+  .footer {
+    padding: 15px 0 8px !important;
+  }
+  
+  .section-padding {
+    padding: 20px 0 !important;
+  }
+}
+
+
+/* ===== TEXT CONTRAST FIX FOR GRADIENT BACKGROUNDS ===== */
+
+/* Stats cards with white background - dark text */
+.stat-card {
+  background: white !important;
+  border: 2px solid #e5e7eb !important;
+}
+
+.stat-card .stat-heading {
+  color: #6b7280 !important;
+  font-weight: 600 !important;
+  text-shadow: none !important;
+}
+
+.stat-card .stat-value {
+  color: #1f2937 !important;
+  font-weight: 800 !important;
+  text-shadow: none !important;
+}
+
+.stat-card .stat-sub {
+  color: #9ca3af !important;
+  font-weight: 500 !important;
+  text-shadow: none !important;
+}
+
+.stat-card .active-deals-number {
+  color: #ff0000 !important;
+  font-weight: 800 !important;
+  text-shadow: none !important;
+}
+
+/* Stats bar on Amazon's Choice page */
+[style*="linear-gradient"][style*="ff9900"] .stat-heading,
+[style*="linear-gradient"][style*="ff9900"] .stat-value,
+[style*="linear-gradient"][style*="ff9900"] .stat-sub {
+  color: white !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+  font-weight: 700 !important;
+}
+
+/* Any text on gradient backgrounds */
+[style*="linear-gradient"] {
+  color: white;
+}
+
+[style*="linear-gradient"] h1,
+[style*="linear-gradient"] h2,
+[style*="linear-gradient"] h3,
+[style*="linear-gradient"] h4,
+[style*="linear-gradient"] h5,
+[style*="linear-gradient"] h6 {
+  color: white !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Ensure dark text on white/light backgrounds */
+[style*="background: white"],
+[style*="background: #fff"],
+[style*="background: #ffffff"],
+[style*="background-color: white"],
+[style*="background-color: #fff"],
+[style*="background-color: #ffffff"],
+.bg-white,
+.bg-light {
+  color: #333 !important;
+}
+
+[style*="background: white"] h1,
+[style*="background: white"] h2,
+[style*="background: white"] h3,
+[style*="background: white"] h4,
+[style*="background: white"] h5,
+[style*="background: white"] h6,
+.bg-white h1,
+.bg-white h2,
+.bg-white h3,
+.bg-white h4,
+.bg-white h5,
+.bg-white h6 {
+  color: #1f2937 !important;
+}
+
+/* Product cards on white background */
+.product-card {
+  color: #333 !important;
+}
+
+.product-card .card-title,
+.product-card h5 {
+  color: #1f2937 !important;
+}
+
+.product-card .card-text,
+.product-card p {
+  color: #6b7280 !important;
+}
+
+/* Tables on white background */
+table {
+  color: #333 !important;
+}
+
+table th {
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+}
+
+table td {
+  color: #4b5563 !important;
+}
+
+/* Forms on white background */
+.form-label {
+  color: #374151 !important;
+}
+
+.form-control,
+.form-select {
+  color: #1f2937 !important;
+}
+
+/* Ensure proper contrast on mobile */
+@media (max-width: 768px) {
+  .stat-card .stat-heading,
+  .stat-card .stat-value,
+  .stat-card .stat-sub {
+    text-shadow: 0 3px 6px rgba(0, 0, 0, 0.5) !important;
+    font-weight: 800 !important;
+  }
+}
+
+
+/* ===== FORCE BLACK TEXT FOR HEADINGS ===== */
+
+/* Amazon's Choice Products heading */
+.section-header .modern-title,
+.section-header .section-title {
+  color: #1f2937 !important;
+}
+
+.section-header .section-subtitle {
+  color: #6b7280 !important;
+}
+
+/* Admin Portal heading */
+.admin-login h2,
+.admin-portal h2 {
+  color: #1f2937 !important;
+}
+
+/* Ensure all page titles are dark */
+h1, h2, h3, h4, h5, h6 {
+  color: #1f2937;
+}
+
+/* Override any gradient text */
+h1:not([style*="background"]),
+h2:not([style*="background"]),
+h3:not([style*="background"]) {
+  color: #1f2937 !important;
 }

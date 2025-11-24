@@ -398,8 +398,8 @@ const AdminDashboard = () => {
       <header className="dashboard-header compact">
         <h1>🏪 Admin Dashboard</h1>
         <div className="header-actions" style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-          <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginRight: '10px'}}>
-            <span style={{fontSize: '0.85rem', color: '#666'}}>💱 Currency:</span>
+          <div style={{display: 'flex', alignItems: 'center', gap: '10px', marginRight: '10px'}}>
+            <span style={{fontSize: '0.85rem', color: '#666', marginRight: '6px', fontWeight: '600'}}>Currency:</span>
             <select 
               value={currency} 
               onChange={(e) => setCurrency(e.target.value)}

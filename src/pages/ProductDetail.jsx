@@ -35,9 +35,9 @@ const ProductDetail = () => {
   }
 
   const currencyRates = {
-    GBP: 1,
-    USD: 1.27,
-    PKR: 350
+    PKR: 1,      // Base currency
+    GBP: 0.0028, // 1 PKR = 0.0028 GBP
+    USD: 0.0036  // 1 PKR = 0.0036 USD
   }
 
   const currencySymbols = {
@@ -47,8 +47,15 @@ const ProductDetail = () => {
   }
 
   const convertPrice = (priceStr) => {
+    // Extract the price number and detect original currency
     const price = parseFloat(priceStr.replace(/[£$₨]/g, ''))
-    const converted = price * currencyRates[currency]
+    
+    // Detect if price is in PKR (has ₨ symbol or is a plain number from database)
+    const isPKR = priceStr.includes('₨') || !priceStr.includes('£') && !priceStr.includes('$')
+    
+    // Convert from PKR to target currency
+    const converted = isPKR ? price * currencyRates[currency] : price * currencyRates[currency]
+    
     return `${currencySymbols[currency]}${converted.toFixed(2)}`
   }
 
@@ -103,7 +110,81 @@ const ProductDetail = () => {
       console.log('fetchProduct called')
       setLoading(true)
       
-      // First, try to get from URL parameters (for backward compatibility)
+      // Try to fetch from database first using the product ID
+      try {
+        const response = await fetch(apiConfig.getApiUrl(`products/public/${id}`))
+        if (response.ok) {
+          const dbProduct = await response.json()
+          console.log('Product fetched from database:', dbProduct)
+          
+          // Use database product data
+          const productData = {
+            id: dbProduct._id,
+            name: dbProduct.name,
+            price: `₨${dbProduct.price}`, // Store as PKR
+            rrp: dbProduct.originalPrice ? `₨${dbProduct.originalPrice}` : `₨${(dbProduct.price * 1.5).toFixed(2)}`,
+            rating: dbProduct.rating || 4.5,
+            reviews: dbProduct.reviews || 100,
+            image: dbProduct.images && dbProduct.images.length > 0 ? getImageUrl(dbProduct.images[0]) : '',
+            images: dbProduct.images ? dbProduct.images.map(img => getImageUrl(img)) : [],
+            category: dbProduct.category || 'General',
+            brand: dbProduct.brand || '',
+            markup: dbProduct.discount ? `${dbProduct.discount}%` : '250%',
+            showEvaluation: dbProduct.name.toLowerCase().includes('nose ring') ||
+                           dbProduct.name.toLowerCase().includes('bulb') ||
+                           dbProduct.name.toLowerCase().includes('fuse') ||
+                           dbProduct.name.toLowerCase().includes('lampshade'),
+            description: dbProduct.description || `High-quality ${dbProduct.name} available at wholesale prices.`,
+            features: [
+              'Amazon\'s Choice Product',
+              'Fast Shipping Available',
+              'Quality Guaranteed',
+              'Verified Supplier',
+              'Bulk Orders Welcome'
+            ],
+            dealInfo: {
+              location: 'Pakistan',
+              flag: '🇵🇰',
+              minOrder: '100 Unit',
+              condition: 'New'
+            },
+            specifications: {
+              'Material': 'Premium Quality',
+              'Condition': 'New',
+              'Origin': 'Pakistan'
+            },
+            platforms: [
+              { name: 'RRP', price: '£420.99', grossProfit: '£328.39', markup: '354.63%' },
+              { name: 'Amazon', price: '£419.00', grossProfit: '£326.40', markup: '352.48%' },
+              { name: 'eBay', price: '£199.00', grossProfit: '£106.40', markup: '114.90%' }
+            ],
+            testimonials: [
+              {
+                name: 'Ahmed K.',
+                location: 'Karachi, Pakistan',
+                rating: 5,
+                comment: 'Excellent quality product! Received exactly as described. Great for reselling on Amazon.',
+                date: '2 weeks ago'
+              },
+              {
+                name: 'Sarah M.',
+                location: 'London, UK',
+                rating: 5,
+                comment: 'Fast shipping and good profit margins. Will order again!',
+                date: '1 month ago'
+              }
+            ]
+          }
+          
+          setProduct(productData)
+          setLoading(false)
+          return
+        }
+      } catch (error) {
+        console.log('Failed to fetch from database, falling back to URL params:', error)
+      }
+      
+      // Fallback: try to get from URL parameters (for backward compatibility)
       const nameParam = searchParams.get('name')
       const imgParam = searchParams.get('img')
       const priceParam = searchParams.get('price')
@@ -635,13 +716,21 @@ const ProductDetail = () => {
   return (
     <div className="product-detail-page">
       {/* Currency Selector - Mobile Responsive */}
-      <div className="d-block d-lg-none mb-3">
+      <div className="d-block d-lg-none" style={{ marginBottom: '12px' }}>
         <div className="container">
           <select 
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
             className="form-select form-select-sm"
-            style={{border: '1px solid #ddd', fontSize: '0.85rem', fontWeight: '600'}}
+            style={{
+              border: '1px solid #ddd',
+              fontSize: '0.85rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              outline: 'none',
+              paddingRight: '30px',
+              minWidth: '110px'
+            }}
           >
             <option value="GBP">GBP (£)</option>
             <option value="USD">USD ($)</option>
@@ -665,7 +754,15 @@ const ProductDetail = () => {
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
           className="form-select form-select-sm"
-          style={{border: '1px solid #ddd', fontSize: '0.85rem', fontWeight: '600'}}
+          style={{
+            border: '1px solid #ddd',
+            fontSize: '0.85rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            outline: 'none',
+            paddingRight: '30px',
+            minWidth: '110px'
+          }}
         >
           <option value="GBP">GBP (£)</option>
           <option value="USD">USD ($)</option>

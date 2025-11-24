@@ -15,16 +15,16 @@ const AlternatingProfit = ({ monthlyProfit, yearlyProfit }) => {
   const yearlyPKR = Math.round(yearlyProfit * 350)
 
   return (
-    <div className="profit-display" style={{marginTop: '6px', padding: '6px', background: '#f8f9fa', borderLeft: '3px solid #28a745', borderRadius: '6px', fontSize: '.8rem'}}>
-      <div className="profit-row" style={{display: 'flex', justifyContent: 'space-between'}}>
-        <span className="profit-label">Monthly Profit:</span>
-        <span className="profit-value blink" style={{fontWeight: '700', color: '#28a745'}}>
+    <div className="profit-display" style={{marginTop: '4px', padding: '4px 6px', background: '#f8f9fa', borderLeft: '2px solid #28a745', borderRadius: '4px', fontSize: '0.65rem'}}>
+      <div className="profit-row" style={{display: 'flex', justifyContent: 'space-between', marginBottom: '2px'}}>
+        <span className="profit-label" style={{fontSize: '0.65rem'}}>Monthly Profit:</span>
+        <span className="profit-value blink" style={{fontWeight: '700', color: '#28a745', fontSize: '0.65rem'}}>
           {showPKR ? `₨${monthlyPKR.toLocaleString()}` : `£${monthlyProfit}`}
         </span>
       </div>
       <div className="profit-row" style={{display: 'flex', justifyContent: 'space-between'}}>
-        <span className="profit-label">Yearly Profit:</span>
-        <span className="profit-value" style={{fontWeight: '700', color: '#28a745'}}>
+        <span className="profit-label" style={{fontSize: '0.65rem'}}>Yearly Profit:</span>
+        <span className="profit-value" style={{fontWeight: '700', color: '#28a745', fontSize: '0.65rem'}}>
           {showPKR ? `₨${yearlyPKR.toLocaleString()}` : `£${yearlyProfit.toLocaleString()}`}
         </span>
       </div>
