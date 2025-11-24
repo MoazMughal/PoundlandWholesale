@@ -28,8 +28,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['bootstrap'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom']
         },
         // Optimize chunk file names
         chunkFileNames: 'assets/js/[name]-[hash].js',
