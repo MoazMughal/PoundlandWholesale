@@ -22,22 +22,31 @@ export default defineConfig({
     minify: 'esbuild', // Use esbuild (faster and built-in)
     // Remove console.logs in production
     esbuild: {
-      drop: ['console', 'debugger']
+      drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : []
     },
     // Code splitting for better caching
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom']
-        }
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['bootstrap'],
+        },
+        // Optimize chunk file names
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
       }
     },
     // Chunk size warnings
     chunkSizeWarningLimit: 1000,
-    // Disable source maps in production
+    // Disable source maps in production for smaller bundle
     sourcemap: false,
     // CSS code splitting
-    cssCodeSplit: true
+    cssCodeSplit: true,
+    // Target modern browsers for smaller bundle
+    target: 'es2015',
+    // Optimize CSS
+    cssMinify: true
   },
   // Optimize dependencies
   optimizeDeps: {

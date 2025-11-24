@@ -134,6 +134,17 @@ const AdminLogin = () => {
                   </button>
                 </form>
 
+                {/* Back to Auth Page Button */}
+                <div className="mt-3">
+                  <Link 
+                    to="/auth"
+                    className="btn btn-outline-primary w-100 py-2 fw-semibold rounded-3"
+                  >
+                    <i className="fas fa-arrow-left me-2"></i>
+                    Back to Auth Page
+                  </Link>
+                </div>
+
                 {/* Security Notice */}
                 <div className="mt-4 p-3 bg-light rounded-3">
                   <div className="d-flex align-items-center">

@@ -1472,8 +1472,6 @@ const ProductDetail = () => {
                   <Link 
                     key={relatedProduct.id}
                     to={`/product/${relatedProduct.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="related-card"
                     style={{background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', transition: 'all 0.3s ease', cursor: 'pointer', textDecoration: 'none', color: 'inherit'}}
                   >
@@ -1507,8 +1505,6 @@ const ProductDetail = () => {
                 <div key={deal.id} className="col-lg-2 col-md-3 col-sm-4 col-6">
                   <Link 
                     to={`/product/${deal.id}?name=${encodeURIComponent(deal.name)}&img=${encodeURIComponent(deal.image)}&price=${parseFloat(deal.price.replace(/[£$₨]/g, ''))}&rating=${deal.rating}&reviews=${deal.reviews || 100}&category=${encodeURIComponent(deal.category || 'General')}&brand=${encodeURIComponent(deal.brand || '')}&discount=${deal.markup || '250%'}`}
-                    target="_blank" 
-                    rel="noopener noreferrer" 
                     className="card border-0 shadow-sm h-100 text-decoration-none" 
                     style={{transition: 'all 0.3s ease'}}
                   >
@@ -1548,8 +1544,6 @@ const ProductDetail = () => {
                 <div key={popular.id} className="col-lg-2 col-md-3 col-sm-4 col-6">
                   <Link 
                     to={`/product/${popular.id}?name=${encodeURIComponent(popular.name)}&img=${encodeURIComponent(popular.image)}&price=${parseFloat(popular.price.replace(/[£$₨]/g, ''))}&rating=${popular.rating}&reviews=${popular.reviews || 100}&category=${encodeURIComponent(popular.category || 'General')}&brand=${encodeURIComponent(popular.brand || '')}&discount=${popular.markup || '250%'}`}
-                    target="_blank" 
-                    rel="noopener noreferrer" 
                     className="card border-0 shadow-sm h-100 text-decoration-none" 
                     style={{transition: 'all 0.3s ease'}}
                   >

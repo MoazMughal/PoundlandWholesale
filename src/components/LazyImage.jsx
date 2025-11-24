@@ -1,49 +1,54 @@
-import { useState, useEffect, useRef, memo } from 'react';
+import { useState, useRef, useEffect } from 'react'
 
-const LazyImage = ({ src, alt, className, style, onClick }) => {
-  const [imageSrc, setImageSrc] = useState(null);
-  const [imageRef, setImageRef] = useState();
-  const imgRef = useRef();
+const LazyImage = ({ src, alt, className, style, placeholder = 'https://via.placeholder.com/300x200?text=Loading...' }) => {
+  const [imageSrc, setImageSrc] = useState(placeholder)
+  const [imageRef, setImageRef] = useState()
+  const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
-    let observer;
+    let observer
     
-    if (imgRef.current && imageSrc !== src) {
+    if (imageRef && imageSrc === placeholder) {
       observer = new IntersectionObserver(
         entries => {
           entries.forEach(entry => {
             if (entry.isIntersecting) {
-              setImageSrc(src);
-              observer.unobserve(imgRef.current);
+              setImageSrc(src)
+              observer.unobserve(imageRef)
             }
-          });
+          })
         },
-        {
-          rootMargin: '50px' // Start loading 50px before image is visible
-        }
-      );
-      
-      observer.observe(imgRef.current);
+        { threshold: 0.1 }
+      )
+      observer.observe(imageRef)
     }
     
     return () => {
-      if (observer && observer.unobserve && imgRef.current) {
-        observer.unobserve(imgRef.current);
+      if (observer && observer.unobserve) {
+        observer.unobserve(imageRef)
       }
-    };
-  }, [src, imageSrc]);
+    }
+  }, [imageRef, imageSrc, placeholder, src])
+
+  const handleLoad = () => {
+    setIsLoaded(true)
+  }
 
   return (
     <img
-      ref={imgRef}
-      src={imageSrc || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"%3E%3Crect fill="%23f0f0f0" width="400" height="300"/%3E%3C/svg%3E'}
+      ref={setImageRef}
+      src={imageSrc}
       alt={alt}
       className={className}
-      style={style}
-      onClick={onClick}
+      style={{
+        ...style,
+        transition: 'opacity 0.3s ease',
+        opacity: isLoaded ? 1 : 0.7
+      }}
+      onLoad={handleLoad}
       loading="lazy"
     />
-  );
-};
+  )
+}
 
-export default memo(LazyImage);
+export default LazyImage

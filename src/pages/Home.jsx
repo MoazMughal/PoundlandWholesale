@@ -383,16 +383,13 @@ const Home = () => {
                 </div>
               </section>
               
-              <div className="search-bar" style={{margin: '30px 0', textAlign: 'center'}}>
-                <div className="container">
-                  <div className="input-group search-input-group" style={{
-                    maxWidth: '600px',
-                    margin: '0 auto',
+              <div style={{margin: '30px auto', textAlign: 'center', width: '100%', display: 'flex', justifyContent: 'center'}}>
+                <div style={{width: '100%', maxWidth: '600px', padding: '0 15px'}}>
+                  <div className="input-group" style={{
                     boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
                     borderRadius: '50px',
                     overflow: 'hidden',
-                    display: 'flex',
-                    justifyContent: 'center'
+                    display: 'flex'
                   }}>
                   <input 
                     type="text" 
@@ -679,8 +676,6 @@ const Home = () => {
                   <a
                     key={index}
                     href={`/product/${product.id}?name=${encodeURIComponent(product.name)}&img=${encodeURIComponent(product.image)}&price=${parseFloat(product.price.replace(/[£$₨]/g, ''))}&rating=${product.rating || 4.5}&reviews=${product.reviews || 100}&category=${encodeURIComponent(product.category || 'General')}&brand=&discount=${product.markup}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="wholesale-item"
                     style={{textDecoration: 'none', color: 'inherit', cursor: 'pointer', transition: 'all 0.3s ease'}}
                     onMouseEnter={(e) => {
