@@ -23,6 +23,18 @@ export const AdminProvider = ({ children }) => {
         return
       }
       
+      // Check for logout flag (set when user logs out)
+      const logoutFlag = sessionStorage.getItem('admin_logged_out')
+      if (logoutFlag) {
+        // User has logged out, clear everything
+        localStorage.removeItem('adminToken')
+        localStorage.removeItem('adminData')
+        setAdmin(null)
+        setIsLoggedIn(false)
+        setLoading(false)
+        return
+      }
+      
       const token = localStorage.getItem('adminToken')
       const adminData = localStorage.getItem('adminData')
       
@@ -77,6 +89,8 @@ export const AdminProvider = ({ children }) => {
     setIsLoggedIn(true)
     localStorage.setItem('adminToken', token)
     localStorage.setItem('adminData', JSON.stringify(adminData))
+    // Clear logout flag on successful login
+    sessionStorage.removeItem('admin_logged_out')
   }
 
   const logout = () => {
@@ -84,6 +98,8 @@ export const AdminProvider = ({ children }) => {
     setIsLoggedIn(false)
     localStorage.removeItem('adminToken')
     localStorage.removeItem('adminData')
+    // Set logout flag to prevent back button access
+    sessionStorage.setItem('admin_logged_out', 'true')
     // Force page reload to clear all state and redirect to admin login
     window.location.href = '/admin/login'
   }

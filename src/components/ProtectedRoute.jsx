@@ -3,6 +3,9 @@ import { useAdmin } from '../context/AdminContext';
 
 const ProtectedRoute = ({ children }) => {
   const { isLoggedIn, loading } = useAdmin();
+  
+  // Always check localStorage directly for most up-to-date auth state
+  const adminToken = localStorage.getItem('adminToken');
   const sellerToken = localStorage.getItem('sellerToken');
   const buyerToken = localStorage.getItem('buyerToken');
   
@@ -26,7 +29,7 @@ const ProtectedRoute = ({ children }) => {
   }
   
   // If trying to access admin routes but logged in as seller/buyer, clear their tokens
-  if (!isLoggedIn && (sellerToken || buyerToken)) {
+  if (!adminToken && (sellerToken || buyerToken)) {
     localStorage.removeItem('sellerToken');
     localStorage.removeItem('sellerData');
     localStorage.removeItem('buyerToken');
@@ -34,7 +37,8 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/admin/login" replace />;
   }
   
-  if (!isLoggedIn) {
+  // Check both context and localStorage for authentication
+  if (!isLoggedIn || !adminToken) {
     return <Navigate to="/admin/login" replace />;
   }
 

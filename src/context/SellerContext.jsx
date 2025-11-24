@@ -23,6 +23,18 @@ export const SellerProvider = ({ children }) => {
         return
       }
       
+      // Check for logout flag (set when user logs out)
+      const logoutFlag = sessionStorage.getItem('seller_logged_out')
+      if (logoutFlag) {
+        // User has logged out, clear everything
+        localStorage.removeItem('sellerToken')
+        localStorage.removeItem('sellerData')
+        setSeller(null)
+        setIsLoggedIn(false)
+        setLoading(false)
+        return
+      }
+      
       const token = localStorage.getItem('sellerToken')
       const sellerData = localStorage.getItem('sellerData')
       
@@ -77,6 +89,8 @@ export const SellerProvider = ({ children }) => {
     setIsLoggedIn(true)
     localStorage.setItem('sellerToken', token)
     localStorage.setItem('sellerData', JSON.stringify(sellerData))
+    // Clear logout flag on successful login
+    sessionStorage.removeItem('seller_logged_out')
   }
 
   const logout = () => {
@@ -84,6 +98,8 @@ export const SellerProvider = ({ children }) => {
     setIsLoggedIn(false)
     localStorage.removeItem('sellerToken')
     localStorage.removeItem('sellerData')
+    // Set logout flag to prevent back button access
+    sessionStorage.setItem('seller_logged_out', 'true')
     // Force page reload to clear all state and redirect to supplier login
     window.location.href = '/login/supplier'
   }
