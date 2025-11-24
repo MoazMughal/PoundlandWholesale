@@ -10,7 +10,6 @@ import dashboardRoutes from './routes/dashboard.js';
 import excelRoutes from './routes/excel.js';
 import buyerRoutes from './routes/buyer.js';
 import easypaisaRoutes from './routes/easypaisa.js';
-import testEmailRoutes from './test-email-endpoint.js';
 
 dotenv.config();
 
@@ -54,7 +53,6 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/excel', excelRoutes);
 app.use('/api/buyer', buyerRoutes);
 app.use('/api/easypaisa', easypaisaRoutes);
-app.use('/api/test', testEmailRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
