@@ -85,14 +85,27 @@ const buyerSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Seller'
     },
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Product'
+    },
     status: {
       type: String,
-      enum: ['pending', 'completed', 'failed'],
+      enum: ['pending', 'approved', 'rejected', 'completed', 'failed'],
       default: 'pending'
     },
+    paymentReceipt: {
+      type: String // Base64 encoded image or URL
+    },
+    adminNotes: String,
     paymentDate: {
       type: Date,
       default: Date.now
+    },
+    approvedAt: Date,
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin'
     },
     description: String
   }],

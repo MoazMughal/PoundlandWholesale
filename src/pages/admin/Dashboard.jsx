@@ -1208,6 +1208,9 @@ const AdminDashboard = () => {
         <button onClick={() => navigate('/admin/seller-verifications')} className="tool-btn info">
           🆔 Seller Verifications ({stats?.verifications?.pending || 0} pending)
         </button>
+        <button onClick={() => navigate('/admin/pending-payments')} className="tool-btn warning">
+          💳 Pending Payments ({stats?.pendingPayments || 0})
+        </button>
         <button onClick={bulkDeleteProducts} className="tool-btn danger">
           🗑️ Delete All
         </button>

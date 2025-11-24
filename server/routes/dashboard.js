@@ -40,6 +40,20 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       Buyer.countDocuments({ status: 'suspended' })
     ]);
 
+    // Count pending payments
+    const buyersWithPendingPayments = await Buyer.find({
+      'paymentHistory.status': 'pending'
+    });
+    
+    let pendingPaymentsCount = 0;
+    buyersWithPendingPayments.forEach(buyer => {
+      buyer.paymentHistory.forEach(payment => {
+        if (payment.status === 'pending') {
+          pendingPaymentsCount++;
+        }
+      });
+    });
+
     res.json({
       products: {
         total: totalProducts,
@@ -62,7 +76,8 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
         active: activeBuyers,
         inactive: inactiveBuyers,
         suspended: suspendedBuyers
-      }
+      },
+      pendingPayments: pendingPaymentsCount
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

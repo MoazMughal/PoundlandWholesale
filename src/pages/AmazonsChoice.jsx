@@ -28,6 +28,7 @@ const AmazonsChoice = () => {
   const [ratingFilter, setRatingFilter] = useState('all')
   const [showFilters, setShowFilters] = useState(false)
   const [currentStatusIndex, setCurrentStatusIndex] = useState({})
+  const [showYearlyProfit, setShowYearlyProfit] = useState(false)
   const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
@@ -112,14 +113,15 @@ const AmazonsChoice = () => {
             let monthlyProfit = p.monthlyProfit || null
             let yearlyProfit = p.yearlyProfit || null
             
-            // Add profit calculations for nose rings, bulbs, fuses, and lampshades
+            // Calculate profit only for specific products: bulbs, fuses, jewelry, lampshades
             if (!monthlyProfit && (
               productName.includes('nose ring') || 
               productName.includes('bulb') || 
               productName.includes('fuse') || 
-              productName.includes('lampshade')
+              productName.includes('lampshade') ||
+              productName.includes('jewelry') ||
+              productName.includes('jewellery')
             )) {
-              // Calculate profit based on price (assuming high markup)
               const price = parseFloat(p.price) || 0
               if (price > 0) {
                 // Estimate monthly profit: price * 1200 orders * 0.4 margin
@@ -146,7 +148,13 @@ const AmazonsChoice = () => {
               monthlyOrders: Math.floor(Math.random() * 500) + 100,
               monthlyProfit: monthlyProfit,
               yearlyProfit: yearlyProfit,
-              statuses: ['Amazon\'s Choice', 'Selling Fast', `${Math.floor(Math.random() * 1000) + 100} in basket`],
+              statuses: [
+                'Amazon\'s Choice', 
+                'Selling Fast', 
+                'Trending Now',
+                'Best Seller',
+                `${Math.floor(Math.random() * 1000) + 100} in basket`
+              ],
               isAmazonsChoice: p.isAmazonsChoice,
               isBestSeller: p.isBestSeller,
               isFastSelling: false
@@ -297,21 +305,39 @@ const AmazonsChoice = () => {
     }
   }, [searchParams, selectedCategory])
 
-  // Rotate status indicators
+  // Initialize random starting index for each product
+  useEffect(() => {
+    const initialIndex = {}
+    currentProducts.forEach((product, idx) => {
+      initialIndex[idx] = Math.floor(Math.random() * (product.statuses?.length || 1))
+    })
+    setCurrentStatusIndex(initialIndex)
+  }, [currentProducts.length])
+
+  // Rotate status indicators every 1 second - each product independently (faster rotation)
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentStatusIndex(prev => {
         const newIndex = {}
         currentProducts.forEach((product, idx) => {
-          const currentIdx = prev[idx] || 0
+          const currentIdx = prev[idx] !== undefined ? prev[idx] : Math.floor(Math.random() * (product.statuses?.length || 1))
           newIndex[idx] = (currentIdx + 1) % (product.statuses?.length || 1)
         })
         return newIndex
       })
-    }, 2000)
+    }, 1000)
     
     return () => clearInterval(interval)
   }, [currentProducts])
+
+  // Rotate profit display between monthly and yearly every 1 second (faster)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setShowYearlyProfit(prev => !prev)
+    }, 1000)
+    
+    return () => clearInterval(interval)
+  }, [])
 
   const handleCategoryClick = (category) => {
     setSelectedCategory(category)
@@ -748,8 +774,11 @@ const AmazonsChoice = () => {
           gridTemplateColumns: windowWidth < 576 ? 'repeat(2, 1fr)' : 
                               windowWidth < 768 ? 'repeat(3, 1fr)' : 
                               windowWidth < 992 ? 'repeat(4, 1fr)' : 
-                              'repeat(auto-fill, minmax(200px, 1fr))', 
-          gap: windowWidth < 576 ? '8px' : '16px'
+                              windowWidth < 1400 ? 'repeat(5, 1fr)' :
+                              'repeat(6, 1fr)', 
+          gap: windowWidth < 576 ? '8px' : '12px',
+          maxWidth: '1600px',
+          margin: '0 auto'
         }}>
           {currentProducts.length > 0 ? (
             currentProducts.map((product, index) => (
@@ -772,114 +801,132 @@ const AmazonsChoice = () => {
                 }}
                 style={{cursor: 'pointer'}}
               >
-                <div className="product-badge" style={{
-                  position: 'absolute', 
-                  left: '8px', 
-                  top: '8px', 
-                  background: product.isBestSeller ? '#f59e0b' : product.isFastSelling ? '#10b981' : 'var(--bs-primary)', 
-                  color: '#fff', 
-                  fontWeight: '700', 
-                  fontSize: '10px', 
-                  padding: '4px 6px', 
-                  borderRadius: '6px'
-                }}>
-                  {product.isBestSeller ? '🏆 Best Seller' : product.isFastSelling ? '🔥 Fast Selling' : 'Amazon\'s Choice'}
-                </div>
-                
-                <div className="product-image-container" style={{position: 'relative', height: '140px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                <div className="product-image-container" style={{position: 'relative', height: '200px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff'}}>
+                  {/* Rotating Status Badge on Image - Top Right Corner */}
+                  {product.statuses && product.statuses.length > 0 && (
+                    <div style={{position: 'absolute', top: '6px', right: '6px', zIndex: 10}}>
+                      {product.statuses.map((status, statusIdx) => {
+                        const isActive = (currentStatusIndex[index] || 0) === statusIdx;
+                        let bgColor = '#667eea';
+                        let textColor = 'white';
+                        
+                        if (status.includes("Best Seller")) {
+                          bgColor = '#ffd700';
+                          textColor = '#333';
+                        } else if (status.includes("Selling Fast")) {
+                          bgColor = '#ff6b6b';
+                          textColor = 'white';
+                        } else if (status.includes("Amazon's Choice")) {
+                          bgColor = '#667eea';
+                          textColor = 'white';
+                        } else if (status.includes("Trending")) {
+                          bgColor = '#9c27b0';
+                          textColor = 'white';
+                        } else if (status.includes("in basket")) {
+                          bgColor = '#4ecdc4';
+                          textColor = 'white';
+                        }
+                        
+                        return (
+                          <span 
+                            key={statusIdx}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              fontWeight: '700',
+                              fontSize: '0.7rem',
+                              display: isActive ? 'inline-block' : 'none',
+                              whiteSpace: 'nowrap',
+                              boxShadow: '0 3px 10px rgba(0,0,0,0.3)',
+                              lineHeight: '1.2',
+                              backgroundColor: bgColor,
+                              color: textColor,
+                              transition: 'all 0.3s ease'
+                            }}
+                          >
+                            {status}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  {/* Rotating Profit Badge on Image - Bottom Left Corner */}
+                  {product.monthlyProfit && product.yearlyProfit && (
+                    <div style={{position: 'absolute', bottom: '6px', left: '6px', zIndex: 3}}>
+                      <div style={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        padding: '5px 10px',
+                        borderRadius: '5px',
+                        boxShadow: '0 3px 8px rgba(0,0,0,0.25)',
+                        transition: 'all 0.3s ease'
+                      }}>
+                        <div style={{fontSize: '0.7rem', fontWeight: '700', color: '#fff', lineHeight: '1.2'}}>
+                          {showYearlyProfit ? (
+                            <>� {formatPrice(product.yearlyProfit)}/yr</>
+                          ) : (
+                            <>💰 {formatPrice(product.monthlyProfit)}/mo</>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <img 
                     src={product.image}
                     alt={product.name} 
                     className="product-image" 
-                    style={{width: '100%', height: '100%', objectFit: 'contain', padding: '10px'}} 
+                    style={{maxWidth: '95%', maxHeight: '95%', width: 'auto', height: 'auto', objectFit: 'contain', padding: '8px'}} 
                   />
                 </div>
                 
-                <div className="product-info" style={{padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px'}}>
-                  <h5 className="product-title" style={{fontSize: '13px', fontWeight: '700', margin: 0, lineHeight: '1.3', height: '34px', overflow: 'hidden'}}>{product.name}</h5>
+                <div className="product-info" style={{padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                  <h5 className="product-title" style={{fontSize: '11px', fontWeight: '700', margin: 0, lineHeight: '1.3', height: '30px', overflow: 'hidden'}}>{product.name}</h5>
                   
                   <div className="rating-container" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <div className="rating-stars" style={{color: '#f6b042', fontSize: '10px'}}>
+                    <div className="rating-stars" style={{color: '#f6b042', fontSize: '9px'}}>
                       {renderStars(product.rating)}
-                      <span className="rating-count" style={{fontWeight: '700', color: '#374151', marginLeft: '4px', fontSize: '11px'}}>({product.reviews})</span>
+                      <span className="rating-count" style={{fontWeight: '700', color: '#374151', marginLeft: '3px', fontSize: '9px'}}>({product.reviews})</span>
                     </div>
                   </div>
                   
-                  <div className="price" style={{fontWeight: '800', fontSize: '14px', color: '#0b3b2e'}}>{formatPrice(product.price)}</div>
-                  <div className="markup-info" style={{color: '#6b7280', fontSize: '10px'}}>Monthly Orders: {product.monthlyOrders}</div>
+                  <div className="price" style={{fontWeight: '800', fontSize: '13px', color: '#0b3b2e'}}>{formatPrice(product.price)}</div>
                   
-                  {shouldShowProfit(product) && product.monthlyProfit && product.yearlyProfit && (
-                    <AlternatingProfit 
-                      monthlyProfit={product.monthlyProfit} 
-                      yearlyProfit={product.yearlyProfit} 
-                    />
-                  )}
-                  
-                  {product.statuses && (
-                    <div className="product-status" style={{display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px', height: '20px', overflow: 'hidden', position: 'relative'}}>
-                      {product.statuses.map((status, statusIdx) => (
-                        <span 
-                          key={statusIdx}
-                          className={`status-indicator ${
-                            status.includes("Best Seller") ? "status-best-seller" :
-                            status.includes("Selling Fast") ? "status-selling-fast" :
-                            status.includes("Amazon's Choice") ? "status-amazon-choice" :
-                            status.includes("Trending") ? "status-trending" :
-                            status.includes("in basket") ? "status-basket" : "status-best-seller"
-                          } ${(currentStatusIndex[index] || 0) === statusIdx ? 'active' : ''}`}
-                          style={{
-                            padding: '3px 6px',
-                            borderRadius: '4px',
-                            fontWeight: '600',
-                            fontSize: '0.65rem',
-                            display: 'inline-block',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            opacity: (currentStatusIndex[index] || 0) === statusIdx ? 1 : 0,
-                            transition: 'opacity 0.5s ease'
-                          }}
-                        >
-                          {status}
-                        </span>
-                      ))}
+                  {/* Total Deal Price Calculation */}
+                  <div style={{background: '#f0fdf4', padding: '4px 6px', borderRadius: '3px', border: '1px solid #86efac'}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <span style={{fontSize: '8px', color: '#166534', fontWeight: '600'}}>💰 Deal Value</span>
+                      <span style={{fontSize: '11px', fontWeight: '800', color: '#15803d'}}>
+                        {formatPrice((parseFloat(product.price.replace(/[£$₨]/g, '')) * product.monthlyOrders * 2).toFixed(2))}
+                      </span>
                     </div>
-                  )}
+                  </div>
                   
-                  <div style={{display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px'}}>
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px'}}>
                     <a 
                       href={`https://www.amazon.com/s?k=${encodeURIComponent(product.name)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="verify-amazon-btn"
                       onClick={(e) => e.stopPropagation()}
-                      style={{background: '#232f3e', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', textDecoration: 'none'}}
+                      style={{background: '#232f3e', color: 'white', border: 'none', padding: '4px 6px', borderRadius: '3px', fontSize: '8.5px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', width: '100%', textDecoration: 'none'}}
                     >
                       <i className="fab fa-amazon"></i> Verify on Amazon
                     </a>
-                    {isBuyerLoggedIn ? (
+                    {isBuyerLoggedIn && (
                       <button
                         onClick={(e) => handleContactNow(e, product)}
-                        style={{background: '#10b981', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', cursor: 'pointer'}}
+                        style={{background: '#10b981', color: 'white', border: 'none', padding: '4px 6px', borderRadius: '3px', fontSize: '8.5px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', width: '100%', cursor: 'pointer'}}
                       >
                         <i className="fas fa-phone"></i> Contact Now
                       </button>
-                    ) : !isSellerLoggedIn && (
-                      <Link 
-                        to="/register/supplier"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{background: 'var(--bs-primary)', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', textDecoration: 'none'}}
-                      >
-                        <i className="fas fa-lock"></i> Join Now
-                      </Link>
                     )}
                     
                     {/* Seller List Button */}
                     {isSellerLoggedIn && (
                       <button
                         onClick={(e) => handleListProduct(e, product)}
-                        style={{background: '#f59e0b', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', cursor: 'pointer', marginTop: '4px'}}
+                        style={{background: '#f59e0b', color: 'white', border: 'none', padding: '4px 6px', borderRadius: '3px', fontSize: '8.5px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', width: '100%', cursor: 'pointer'}}
                       >
                         <i className="fas fa-plus"></i> List Product (₨500)
                       </button>
@@ -1074,3 +1121,4 @@ const AmazonsChoice = () => {
 }
 
 export default AmazonsChoice
+

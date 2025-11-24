@@ -1772,6 +1772,7 @@ const ProductDetail = () => {
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         supplierId={supplierId}
+        productId={product?.id}
         onSuccess={handlePaymentSuccess}
       />
     </div>

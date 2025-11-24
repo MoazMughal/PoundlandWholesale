@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useEffect, lazy, Suspense } from 'react'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
+import CompactHeader from './components/CompactHeader'
+import CompactFooter from './components/CompactFooter'
 import WhatsAppFloat from './components/WhatsAppFloat'
 import ScrollToTopOnRouteChange from './components/ScrollToTopOnRouteChange'
 
@@ -45,6 +47,7 @@ const AdminSellerVerifications = lazy(() => import('./pages/admin/SellerVerifica
 const ExcelImport = lazy(() => import('./pages/admin/ExcelImport'))
 const UaeExcelImport = lazy(() => import('./pages/admin/UaeExcelImport'))
 const AdminBuyers = lazy(() => import('./pages/admin/Buyers'))
+const AdminPendingPayments = lazy(() => import('./pages/admin/PendingPayments'))
 const BuyerDashboard = lazy(() => import('./pages/buyer/Dashboard'))
 const SellerDashboard = lazy(() => import('./pages/seller/Dashboard'))
 const ClearStorage = lazy(() => import('./pages/ClearStorage'))
@@ -103,16 +106,13 @@ function App() {
         <Router>
         <div className="App">
           <ScrollToTopOnRouteChange />
-          <Navbar />
+          <CompactHeader />
           <Suspense fallback={<PageLoader />}>
           <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<AmazonsChoice />} />
           <Route path="/clear-storage" element={<ClearStorage />} />
-          <Route path="/amazons-choice" element={<AmazonsChoice />} />
-          <Route path="/best-sellers" element={<BestSellers />} />
+          <Route path="/about-us" element={<Home />} />
           <Route path="/categories" element={<Categories />} />
-          <Route path="/latest-deals" element={<LatestDeals />} />
-          <Route path="/contact" element={<Contact />} />
           {/* Legacy routes - redirect to new auth system */}
           <Route path="/login" element={<AuthLanding />} />
           <Route path="/register" element={<AuthLanding />} />
@@ -152,18 +152,18 @@ function App() {
           <Route path="/admin/seller-products" element={<ProtectedRoute><AdminSellerProducts /></ProtectedRoute>} />
           <Route path="/admin/seller-verifications" element={<ProtectedRoute><AdminSellerVerifications /></ProtectedRoute>} />
           <Route path="/admin/buyers" element={<ProtectedRoute><AdminBuyers /></ProtectedRoute>} />
+          <Route path="/admin/pending-payments" element={<ProtectedRoute><AdminPendingPayments /></ProtectedRoute>} />
           <Route path="/admin/excel-import" element={<ProtectedRoute><ExcelImport /></ProtectedRoute>} />
           <Route path="/admin/uae-excel-import" element={<ProtectedRoute><UaeExcelImport /></ProtectedRoute>} />
           
           {/* Legal Pages */}
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/about-us" element={<AboutUs />} />
           <Route path="/help-center" element={<HelpCenter />} />
           <Route path="/faq" element={<FAQ />} />
         </Routes>
         </Suspense>
-        <Footer />
+        <CompactFooter />
         <WhatsAppFloat />
         </div>
       </Router>

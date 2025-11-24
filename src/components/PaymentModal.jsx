@@ -1,18 +1,52 @@
 import { useState } from 'react';
 
-const PaymentModal = ({ isOpen, onClose, supplierId, onSuccess }) => {
+const PaymentModal = ({ isOpen, onClose, supplierId, productId, onSuccess }) => {
   const [paymentMethod, setPaymentMethod] = useState('jazzcash');
   const [transactionId, setTransactionId] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCVV, setCardCVV] = useState('');
+  const [paymentReceipt, setPaymentReceipt] = useState(null);
+  const [receiptPreview, setReceiptPreview] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleReceiptUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please upload an image file (JPG, PNG, etc.)');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPaymentReceipt(reader.result);
+        setReceiptPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      // Validate receipt upload for Pakistani payment methods
+      if ((paymentMethod === 'jazzcash' || paymentMethod === 'easypaisa' || paymentMethod === 'bank_transfer') && !paymentReceipt) {
+        alert('❌ Please upload payment receipt');
+        setLoading(false);
+        return;
+      }
+
       const token = localStorage.getItem('buyerToken');
       const response = await fetch(`http://localhost:5000/api/buyer/unlock-supplier/${supplierId}`, {
         method: 'POST',
@@ -22,7 +56,9 @@ const PaymentModal = ({ isOpen, onClose, supplierId, onSuccess }) => {
         },
         body: JSON.stringify({
           paymentMethod,
-          transactionId: paymentMethod === 'jazzcash' || paymentMethod === 'easypaisa' ? transactionId : undefined,
+          transactionId: paymentMethod === 'jazzcash' || paymentMethod === 'easypaisa' || paymentMethod === 'bank_transfer' ? transactionId : undefined,
+          paymentReceipt: paymentReceipt,
+          productId: productId,
           cardDetails: (paymentMethod === 'visa' || paymentMethod === 'mastercard') ? {
             cardNumber,
             expiry: cardExpiry,
@@ -34,7 +70,11 @@ const PaymentModal = ({ isOpen, onClose, supplierId, onSuccess }) => {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        alert('✅ Payment successful! Supplier contact unlocked.\n\nTransaction ID: ' + data.payment.transactionId);
+        if (data.payment.status === 'pending') {
+          alert('✅ Payment receipt submitted successfully!\n\nYour payment is pending admin approval. You will be notified once approved.\n\nTransaction ID: ' + data.payment.transactionId);
+        } else {
+          alert('✅ Payment successful! Supplier contact unlocked.\n\nTransaction ID: ' + data.payment.transactionId);
+        }
         onSuccess();
         onClose();
       } else {
@@ -223,26 +263,70 @@ const PaymentModal = ({ isOpen, onClose, supplierId, onSuccess }) => {
           )}
 
           {(paymentMethod === 'jazzcash' || paymentMethod === 'easypaisa' || paymentMethod === 'bank_transfer') && (
-            <div style={{marginBottom: '20px'}}>
-              <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#111827'}}>
-                Transaction ID *
-              </label>
-              <input
-                type="text"
-                value={transactionId}
-                onChange={(e) => setTransactionId(e.target.value)}
-                placeholder="Enter your transaction ID"
-                required
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '0.95rem',
-                  outline: 'none'
-                }}
-              />
-            </div>
+            <>
+              <div style={{marginBottom: '20px'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#111827'}}>
+                  Transaction ID *
+                </label>
+                <input
+                  type="text"
+                  value={transactionId}
+                  onChange={(e) => setTransactionId(e.target.value)}
+                  placeholder="Enter your transaction ID"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '0.95rem',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div style={{marginBottom: '20px'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#111827'}}>
+                  Upload Payment Receipt * 📸
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleReceiptUpload}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '0.95rem',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                />
+                <small style={{fontSize: '0.75rem', color: '#6b7280', marginTop: '4px', display: 'block'}}>
+                  Upload screenshot of payment confirmation (JPG, PNG - Max 5MB)
+                </small>
+                
+                {receiptPreview && (
+                  <div style={{marginTop: '10px', textAlign: 'center'}}>
+                    <img 
+                      src={receiptPreview} 
+                      alt="Receipt preview" 
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '200px',
+                        borderRadius: '8px',
+                        border: '2px solid #e5e7eb'
+                      }}
+                    />
+                    <p style={{fontSize: '0.8rem', color: '#10b981', marginTop: '5px'}}>
+                      ✓ Receipt uploaded successfully
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           {(paymentMethod === 'visa' || paymentMethod === 'mastercard') && (

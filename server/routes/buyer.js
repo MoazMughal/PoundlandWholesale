@@ -329,7 +329,7 @@ router.put('/:id/status', async (req, res) => {
 // Unlock supplier contact (requires payment)
 router.post('/unlock-supplier/:supplierId', authenticateBuyer, async (req, res) => {
   try {
-    const { paymentMethod, transactionId, cardDetails } = req.body;
+    const { paymentMethod, transactionId, cardDetails, paymentReceipt, productId } = req.body;
     const supplierId = req.params.supplierId;
     
     const buyer = await Buyer.findById(req.buyer.id);
@@ -349,6 +349,14 @@ router.post('/unlock-supplier/:supplierId', authenticateBuyer, async (req, res) 
     // Validate payment based on method
     let paymentStatus = 'pending';
     let paymentTransactionId = transactionId || `TXN-${Date.now()}`;
+    
+    // For Pakistani payment methods, require receipt upload
+    if ((paymentMethod === 'jazzcash' || paymentMethod === 'easypaisa' || paymentMethod === 'bank_transfer') && !paymentReceipt) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Payment receipt is required for this payment method' 
+      });
+    }
 
     // For card payments (Visa/Mastercard), validate card details
     if (paymentMethod === 'visa' || paymentMethod === 'mastercard') {
@@ -435,8 +443,8 @@ router.post('/unlock-supplier/:supplierId', authenticateBuyer, async (req, res) 
           message: 'Transaction ID is required' 
         });
       }
-      // Mark as completed (manual verification can be added later)
-      paymentStatus = 'completed';
+      // Mark as pending for admin approval
+      paymentStatus = 'pending';
     }
 
     // Create payment record
@@ -446,13 +454,15 @@ router.post('/unlock-supplier/:supplierId', authenticateBuyer, async (req, res) 
       paymentMethod,
       transactionId: paymentTransactionId,
       supplierId,
+      productId: productId || null,
       status: paymentStatus,
+      paymentReceipt: paymentReceipt || null,
       description: 'Unlock supplier contact'
     };
 
     buyer.paymentHistory.push(payment);
     
-    // Only unlock supplier if payment is completed
+    // Only unlock supplier if payment is completed (card payments)
     if (paymentStatus === 'completed') {
       buyer.unlockedSuppliers.push({
         supplierId,
@@ -464,7 +474,7 @@ router.post('/unlock-supplier/:supplierId', authenticateBuyer, async (req, res) 
 
     res.json({
       success: true,
-      message: 'Payment successful! Supplier unlocked.',
+      message: paymentStatus === 'pending' ? 'Payment receipt submitted! Waiting for admin approval.' : 'Payment successful! Supplier unlocked.',
       payment: {
         transactionId: payment.transactionId,
         amount: payment.amount,
@@ -687,3 +697,151 @@ router.post('/reset-password', async (req, res) => {
 });
 
 export default router;
+
+// Admin: Get all pending payments
+router.get('/admin/pending-payments', async (req, res) => {
+  try {
+    const buyers = await Buyer.find({
+      'paymentHistory.status': 'pending'
+    })
+    .populate('paymentHistory.supplierId', 'businessName contactPerson email phone')
+    .populate('paymentHistory.productId', 'name images price')
+    .select('firstName lastName email paymentHistory');
+
+    const pendingPayments = [];
+    buyers.forEach(buyer => {
+      buyer.paymentHistory.forEach(payment => {
+        if (payment.status === 'pending') {
+          pendingPayments.push({
+            paymentId: payment._id,
+            buyerId: buyer._id,
+            buyerName: `${buyer.firstName} ${buyer.lastName}`,
+            buyerEmail: buyer.email,
+            amount: payment.amount,
+            currency: payment.currency,
+            paymentMethod: payment.paymentMethod,
+            transactionId: payment.transactionId,
+            paymentReceipt: payment.paymentReceipt,
+            supplier: payment.supplierId,
+            product: payment.productId,
+            paymentDate: payment.paymentDate,
+            description: payment.description
+          });
+        }
+      });
+    });
+
+    res.json({
+      success: true,
+      pendingPayments: pendingPayments.sort((a, b) => 
+        new Date(b.paymentDate) - new Date(a.paymentDate)
+      )
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error', 
+      error: error.message 
+    });
+  }
+});
+
+// Admin: Approve payment
+router.post('/admin/approve-payment/:buyerId/:paymentId', async (req, res) => {
+  try {
+    const { buyerId, paymentId } = req.params;
+    const { adminNotes } = req.body;
+    
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    const payment = buyer.paymentHistory.id(paymentId);
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment not found' });
+    }
+
+    if (payment.status !== 'pending') {
+      return res.status(400).json({ message: 'Payment is not pending' });
+    }
+
+    // Update payment status
+    payment.status = 'approved';
+    payment.approvedAt = new Date();
+    payment.adminNotes = adminNotes || 'Payment approved';
+
+    // Unlock supplier for buyer
+    const alreadyUnlocked = buyer.unlockedSuppliers.some(
+      u => u.supplierId.toString() === payment.supplierId.toString()
+    );
+
+    if (!alreadyUnlocked) {
+      buyer.unlockedSuppliers.push({
+        supplierId: payment.supplierId,
+        paymentId: payment.transactionId
+      });
+    }
+
+    await buyer.save();
+
+    res.json({
+      success: true,
+      message: 'Payment approved successfully',
+      payment: {
+        transactionId: payment.transactionId,
+        status: payment.status,
+        approvedAt: payment.approvedAt
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error', 
+      error: error.message 
+    });
+  }
+});
+
+// Admin: Reject payment
+router.post('/admin/reject-payment/:buyerId/:paymentId', async (req, res) => {
+  try {
+    const { buyerId, paymentId } = req.params;
+    const { adminNotes } = req.body;
+    
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    const payment = buyer.paymentHistory.id(paymentId);
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment not found' });
+    }
+
+    if (payment.status !== 'pending') {
+      return res.status(400).json({ message: 'Payment is not pending' });
+    }
+
+    // Update payment status
+    payment.status = 'rejected';
+    payment.adminNotes = adminNotes || 'Payment rejected';
+
+    await buyer.save();
+
+    res.json({
+      success: true,
+      message: 'Payment rejected',
+      payment: {
+        transactionId: payment.transactionId,
+        status: payment.status
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error', 
+      error: error.message 
+    });
+  }
+});
