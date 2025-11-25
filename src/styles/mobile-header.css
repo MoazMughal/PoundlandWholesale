@@ -1,0 +1,118 @@
+/* Mobile Responsive Header Styles */
+
+/* Tablet and below */
+@media (max-width: 768px) {
+  .header-main {
+    padding: 6px 8px !important;
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+  }
+  
+  .header-logo {
+    min-width: 80px !important;
+    font-size: 11px !important;
+  }
+  
+  .header-logo-text {
+    font-size: 9px !important;
+  }
+  
+  .header-search-form {
+    max-width: 100% !important;
+    flex: 1 !important;
+  }
+  
+  .header-search-form input {
+    font-size: 10px !important;
+    padding: 3px 6px 3px 26px !important;
+  }
+  
+  .header-actions {
+    gap: 4px !important;
+    flex-wrap: nowrap !important;
+  }
+  
+  .header-actions button,
+  .header-actions a {
+    padding: 3px 6px !important;
+    font-size: 8px !important;
+  }
+  
+  .basket-icon {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 11px !important;
+  }
+  
+  .currency-selector {
+    min-width: 50px !important;
+    font-size: 8px !important;
+    padding: 3px 4px 3px 18px !important;
+  }
+  
+  .hide-mobile-text {
+    display: none !important;
+  }
+}
+
+/* Mobile phones */
+@media (max-width: 576px) {
+  .header-main {
+    padding: 4px 6px !important;
+    gap: 4px !important;
+  }
+  
+  .header-logo {
+    min-width: 60px !important;
+    font-size: 10px !important;
+  }
+  
+  .header-logo span:first-child {
+    font-size: 14px !important;
+  }
+  
+  .header-logo-text {
+    font-size: 8px !important;
+  }
+  
+  .header-search-form input {
+    font-size: 9px !important;
+    padding: 2px 4px 2px 24px !important;
+  }
+  
+  .header-search-form i {
+    left: 6px !important;
+    font-size: 9px !important;
+  }
+  
+  .header-actions {
+    gap: 3px !important;
+  }
+  
+  .header-actions button,
+  .header-actions a {
+    padding: 2px 4px !important;
+    font-size: 7px !important;
+  }
+  
+  .basket-icon {
+    width: 22px !important;
+    height: 22px !important;
+    font-size: 10px !important;
+  }
+  
+  .currency-selector {
+    min-width: 45px !important;
+    font-size: 7px !important;
+    padding: 2px 3px 2px 16px !important;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 400px) {
+  .header-logo-text {
+    max-width: 50px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+}

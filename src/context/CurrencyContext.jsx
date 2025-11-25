@@ -16,12 +16,12 @@ export const CurrencyProvider = ({ children }) => {
     return localStorage.getItem('selectedCurrency') || 'PKR';
   });
 
-  // Currency conversion rates (base: PKR)
+  // Currency conversion rates (base: PKR) - Manual rates
   const currencyRates = {
     PKR: 1,
-    USD: 0.0036,  // 1 PKR = 0.0036 USD
-    GBP: 0.0028,  // 1 PKR = 0.0028 GBP
-    AED: 0.013    // 1 PKR = 0.013 AED (1 AED ≈ 77 PKR)
+    USD: 0.00353,   // 1 USD = 283.32 PKR
+    GBP: 0.00272,   // 1 GBP = 367.74 PKR
+    AED: 0.01310    // 1 AED = 76.37 PKR
   };
 
   const currencySymbols = {

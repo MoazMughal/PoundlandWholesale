@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useEffect, lazy, Suspense } from 'react'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
-import CompactHeader from './components/CompactHeader'
+import MobileHeader from './components/MobileHeader'
 import CompactFooter from './components/CompactFooter'
 import WhatsAppFloat from './components/WhatsAppFloat'
 import ScrollToTopOnRouteChange from './components/ScrollToTopOnRouteChange'
@@ -104,9 +104,10 @@ function App() {
         <SellerProvider>
           <AdminProvider>
           <Router>
-        <div className="App">
+        <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
           <ScrollToTopOnRouteChange />
-          <CompactHeader />
+          <MobileHeader />
+          <main style={{ flex: '1 0 auto' }}>
           <Suspense fallback={<PageLoader />}>
           <Routes>
           <Route path="/" element={<AmazonsChoice />} />
@@ -164,6 +165,7 @@ function App() {
           <Route path="/faq" element={<FAQ />} />
         </Routes>
         </Suspense>
+        </main>
         <CompactFooter />
         <WhatsAppFloat />
         </div>

@@ -12,9 +12,9 @@ const ExcelImport = () => {
   const [currency, setCurrency] = useState('PKR');
   const navigate = useNavigate();
 
-  // Currency conversion
-  const currencyRates = { PKR: 1, USD: 0.0036, GBP: 0.0028 };
-  const currencySymbols = { PKR: 'Rs', USD: '$', GBP: '£' };
+  // Currency conversion - Manual rates
+  const currencyRates = { PKR: 1, USD: 0.00353, GBP: 0.00272, AED: 0.01310 };
+  const currencySymbols = { PKR: 'Rs', USD: '$', GBP: '£', AED: 'د.إ' };
   
   const formatPrice = (price) => {
     const converted = price * currencyRates[currency];

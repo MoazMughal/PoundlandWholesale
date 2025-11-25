@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useSeller } from '../context/SellerContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
+import logo from '../assets/Generic wholesale logo.png';
+import '../styles/mobile-header.css';
 
 const CompactHeader = () => {
   const navigate = useNavigate();
@@ -81,8 +83,9 @@ const CompactHeader = () => {
     <>
       <style>{`
         @media (max-width: 768px) {
-          .header-logo-text {
-            font-size: 12px !important;
+          .header-logo img {
+            height: 40px !important;
+            width: auto !important;
           }
           .header-search-form {
             max-width: 100% !important;
@@ -102,8 +105,30 @@ const CompactHeader = () => {
           .header-logo {
             min-width: 100px !important;
           }
-          .header-logo-text {
-            font-size: 10px !important;
+          .header-logo img {
+            height: 36px !important;
+            width: auto !important;
+          }
+        }
+        @media (min-width: 769px) and (max-width: 1199px) {
+          .header-logo img {
+            width: auto !important;
+            height: 45px !important;
+            object-fit: contain !important;
+          }
+        }
+        @media (min-width: 1200px) {
+          .header-logo img {
+            width: auto !important;
+            height: 50px !important;
+            object-fit: contain !important;
+          }
+        }
+        @media (min-width: 1600px) {
+          .header-logo img {
+            width: auto !important;
+            height: 55px !important;
+            object-fit: contain !important;
           }
         }
       `}</style>
@@ -116,7 +141,7 @@ const CompactHeader = () => {
       }}>
         {/* Main Header */}
         <div className="header-main" style={{
-          padding: '4px 12px',
+          padding: '2px 12px',
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
@@ -125,31 +150,21 @@ const CompactHeader = () => {
         }}>
         {/* Logo */}
         <Link to="/" className="header-logo" style={{
-          fontSize: '15px',
-          fontWeight: '900',
-          color: '#fff',
           textDecoration: 'none',
           whiteSpace: 'nowrap',
-          minWidth: '140px',
-          textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
-          letterSpacing: '0.5px',
-          fontFamily: 'Arial Black, sans-serif',
           display: 'flex',
           alignItems: 'center',
-          gap: '6px'
+          gap: '6px',
+          marginRight: '10px',
+          overflow: 'hidden'
         }}>
-          <span style={{
-            fontSize: '18px',
-            background: 'linear-gradient(135deg, #fff 0%, #ffe6cc 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            fontWeight: '900'
-          }}>⚡</span>
-          <span className="header-logo-text" style={{
-            background: 'linear-gradient(135deg, #fff 0%, #ffe6cc 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
-          }}>Generic Wholesale</span>
+          <img src={logo} alt="Generic Wholesale" style={{ 
+            width: 'auto',
+            height: '45px',
+            objectFit: 'contain',
+            background: 'transparent',
+            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
+          }} />
         </Link>
 
         {/* Search Bar */}
@@ -195,25 +210,43 @@ const CompactHeader = () => {
           whiteSpace: 'nowrap'
         }}>
           {/* Currency Selector */}
-          <select 
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-            style={{
-              padding: '5px 8px',
-              border: '1px solid #fff',
-              borderRadius: '4px',
-              fontSize: '11px',
-              fontWeight: '500',
+          <div style={{ position: 'relative' }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
               cursor: 'pointer',
-              outline: 'none',
-              background: '#fff'
-            }}
-          >
-            <option value="PKR">PKR</option>
-            <option value="USD">USD</option>
-            <option value="GBP">GBP</option>
-            <option value="AED">AED</option>
-          </select>
+              padding: '4px 8px',
+              background: 'rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '4px'
+            }}>
+              <img 
+                src={`https://flagcdn.com/w40/${currency === 'PKR' ? 'pk' : currency === 'USD' ? 'us' : currency === 'GBP' ? 'gb' : 'ae'}.png`}
+                alt={currency}
+                style={{ width: '28px', height: '20px', objectFit: 'cover', borderRadius: '2px' }}
+              />
+              <i className="fas fa-chevron-down" style={{ fontSize: '9px', color: '#fff' }}></i>
+            </div>
+            <select 
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                opacity: 0,
+                cursor: 'pointer'
+              }}
+            >
+              <option value="PKR">PKR</option>
+              <option value="USD">USD</option>
+              <option value="GBP">GBP</option>
+              <option value="AED">AED</option>
+            </select>
+          </div>
 
           {!userInfo ? (
             <>
@@ -234,7 +267,7 @@ const CompactHeader = () => {
                   onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
                   onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
                 >
-                  <i className="fas fa-user"></i> Login
+                  <i className="fas fa-user"></i> <span className="hide-mobile-text">Login</span>
                 </button>
                 {showLoginMenu && (
                   <div style={{
@@ -310,7 +343,7 @@ const CompactHeader = () => {
                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
               >
-                <i className="fas fa-user-plus"></i> Register
+                <i className="fas fa-user-plus"></i> <span className="hide-mobile-text">Register</span>
               </Link>
             </>
           ) : (
@@ -331,7 +364,7 @@ const CompactHeader = () => {
                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
               >
-                <i className="fas fa-user-circle"></i> {userInfo.type}
+                <i className="fas fa-user-circle"></i> <span className="hide-mobile-text">{userInfo.type}</span>
               </button>
               {showUserMenu && (
                 <div style={{

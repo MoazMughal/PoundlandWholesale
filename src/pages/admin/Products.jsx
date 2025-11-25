@@ -28,10 +28,12 @@ const AdminProducts = () => {
     { value: 'lampshade', label: 'Lampshades', icon: '💡' }
   ];
 
-  // Currency conversion rates (base: PKR)
+  // Currency conversion rates (base: PKR) - Manual rates
   const currencyRates = {
     PKR: 1,
-    USD: 0.0036,
+    USD: 0.00353,   // 1 USD = 283.32 PKR
+    GBP: 0.00272,   // 1 GBP = 367.74 PKR
+    AED: 0.01310,   // 1 AED = 76.37 PKR
     GBP: 0.0028
   };
 

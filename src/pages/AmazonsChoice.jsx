@@ -3,8 +3,10 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import ScrollToTop from '../components/ScrollToTop'
 import { useCurrency } from '../context/CurrencyContext'
 import { useSeller } from '../context/SellerContext'
+import { useBasket } from '../context/BasketContext'
 import { getImageUrl } from '../utils/imageImports'
 import { getApiUrl } from '../utils/api'
+import '../styles/mobile-products.css'
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
@@ -20,7 +22,7 @@ const AmazonsChoice = () => {
   const [activeTab, setActiveTab] = useState('all') // 'all', 'fast', 'best'
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('cat') || 'all')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '')
   const [sortBy, setSortBy] = useState('featured')
   const [priceFilter, setPriceFilter] = useState('all')
   const [ratingFilter, setRatingFilter] = useState('all')
@@ -44,6 +46,7 @@ const AmazonsChoice = () => {
   })
   const { formatPrice } = useCurrency()
   const { isLoggedIn: isSellerLoggedIn } = useSeller()
+  const { addToBasket, isInBasket } = useBasket()
   
   const productsPerPage = 48
   const indexOfLastProduct = currentPage * productsPerPage
@@ -261,11 +264,22 @@ const AmazonsChoice = () => {
       })
     }
 
-    // Search filter
+    // Search filter - search by name, category, subcategory, brand, or description
     if (searchQuery && searchQuery.trim() !== '') {
-      filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      const query = searchQuery.toLowerCase().trim()
+      filtered = filtered.filter(p => {
+        const name = (p.name || '').toLowerCase()
+        const category = (p.category || '').toLowerCase()
+        const subcategory = (p.subcategory || '').toLowerCase()
+        const brand = (p.brand || '').toLowerCase()
+        const description = (p.description || '').toLowerCase()
+        
+        return name.includes(query) || 
+               category.includes(query) || 
+               subcategory.includes(query) || 
+               brand.includes(query) || 
+               description.includes(query)
+      })
     }
 
     // Price filter
@@ -313,13 +327,21 @@ const AmazonsChoice = () => {
     setCurrentPage(1) // Always reset to page 1 when filters change
   }, [selectedCategory, searchQuery, sortBy, priceFilter, ratingFilter, products, fastSellingProducts, bestSellingProducts, activeTab])
 
-  // Update category when URL parameter changes
+  // Update category and search when URL parameters change
   useEffect(() => {
     const catParam = searchParams.get('cat')
+    const searchParam = searchParams.get('search')
+    
     if (catParam && catParam !== selectedCategory) {
       setSelectedCategory(catParam)
     }
-  }, [searchParams, selectedCategory])
+    
+    if (searchParam !== null && searchParam !== searchQuery) {
+      setSearchQuery(searchParam)
+    } else if (searchParam === null && searchQuery !== '') {
+      setSearchQuery('')
+    }
+  }, [searchParams])
 
   // Use ref to keep track of current products without causing re-renders
   const currentProductsRef = useRef(currentProducts)
@@ -786,6 +808,28 @@ const AmazonsChoice = () => {
                       {renderStars(product.rating)}
                       <span className="rating-count" style={{fontWeight: '700', color: '#374151', marginLeft: '2px', fontSize: '8px'}}>({product.reviews})</span>
                     </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        addToBasket(product)
+                      }}
+                      style={{
+                        background: isInBasket(product.id) ? '#10b981' : '#667eea',
+                        color: 'white',
+                        border: 'none',
+                        padding: '3px 6px',
+                        borderRadius: '3px',
+                        fontSize: '10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s'
+                      }}
+                      title={isInBasket(product.id) ? 'In Basket' : 'Add to Basket'}
+                    >
+                      <i className={isInBasket(product.id) ? 'fas fa-check' : 'fas fa-shopping-basket'}></i>
+                    </button>
                   </div>
                   
                   <div className="price" style={{fontWeight: '800', fontSize: '12px', color: '#0b3b2e'}}>{formatPrice(product.price)}</div>

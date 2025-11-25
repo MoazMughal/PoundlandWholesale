@@ -6,6 +6,7 @@ import { getImageUrl } from '../utils/imageImports'
 import ScrollToTop from '../components/ScrollToTop'
 import PaymentModal from '../components/PaymentModal'
 import apiConfig from '../config/api.config'
+import { useCurrency } from '../context/CurrencyContext'
 
 const ProductDetail = () => {
   const { id } = useParams()
@@ -14,7 +15,8 @@ const ProductDetail = () => {
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedImage, setSelectedImage] = useState(0)
-  const [currency, setCurrency] = useState('GBP')
+  // Use currency from context instead of local state
+  const { currency, currencyRates, currencySymbols } = useCurrency()
   const [relatedProducts, setRelatedProducts] = useState([])
   const [selectedVariations, setSelectedVariations] = useState({
     color: null,
@@ -34,27 +36,33 @@ const ProductDetail = () => {
     return getImageUrl(imagePath)
   }
 
-  const currencyRates = {
-    PKR: 1,      // Base currency
-    GBP: 0.0028, // 1 PKR = 0.0028 GBP
-    USD: 0.0036  // 1 PKR = 0.0036 USD
-  }
-
-  const currencySymbols = {
-    GBP: '£',
-    USD: '$',
-    PKR: '₨'
-  }
+  // Currency rates and symbols are now from context
 
   const convertPrice = (priceStr) => {
     // Extract the price number and detect original currency
-    const price = parseFloat(priceStr.replace(/[£$₨]/g, ''))
+    const price = parseFloat(String(priceStr).replace(/[₨£$€Rs]/g, '').trim())
     
-    // Detect if price is in PKR (has ₨ symbol or is a plain number from database)
-    const isPKR = priceStr.includes('₨') || !priceStr.includes('£') && !priceStr.includes('$')
+    if (isNaN(price)) return priceStr
     
-    // Convert from PKR to target currency
-    const converted = isPKR ? price * currencyRates[currency] : price * currencyRates[currency]
+    // Detect if price is in GBP (has £ symbol)
+    const isGBP = String(priceStr).includes('£')
+    
+    // Detect if price is in PKR (has ₨ or Rs symbol or is a plain number from database)
+    const isPKR = String(priceStr).includes('?') || String(priceStr).includes('Rs') || (!isGBP && !String(priceStr).includes('$'))
+    
+    // Convert to target currency
+    let converted
+    if (isGBP) {
+      // Convert from GBP to PKR first, then to target currency
+      const pkrValue = price / 0.00272
+      converted = pkrValue * currencyRates[currency]
+    } else if (isPKR) {
+      // Convert from PKR to target currency
+      converted = price * currencyRates[currency]
+    } else {
+      // Already in target currency or unknown
+      converted = price
+    }
     
     return `${currencySymbols[currency]}${converted.toFixed(2)}`
   }
@@ -133,7 +141,8 @@ const ProductDetail = () => {
             showEvaluation: dbProduct.name.toLowerCase().includes('nose ring') ||
                            dbProduct.name.toLowerCase().includes('bulb') ||
                            dbProduct.name.toLowerCase().includes('fuse') ||
-                           dbProduct.name.toLowerCase().includes('lampshade'),
+                           dbProduct.name.toLowerCase().includes('lampshade') ||
+                           dbProduct.name.toLowerCase().includes('lamp'),
             description: dbProduct.description || `High-quality ${dbProduct.name} available at wholesale prices.`,
             features: [
               'Amazon\'s Choice Product',
@@ -144,7 +153,7 @@ const ProductDetail = () => {
             ],
             dealInfo: {
               location: 'Pakistan',
-              flag: '🇵🇰',
+              flag: '????',
               minOrder: '100 Unit',
               condition: 'New'
             },
@@ -154,9 +163,9 @@ const ProductDetail = () => {
               'Origin': 'Pakistan'
             },
             platforms: [
-              { name: 'RRP', price: '£420.99', grossProfit: '£328.39', markup: '354.63%' },
-              { name: 'Amazon', price: '£419.00', grossProfit: '£326.40', markup: '352.48%' },
-              { name: 'eBay', price: '£199.00', grossProfit: '£106.40', markup: '114.90%' }
+              { name: 'RRP', price: '?420.99', grossProfit: '?328.39', markup: '354.63%' },
+              { name: 'Amazon', price: '?419.00', grossProfit: '?326.40', markup: '352.48%' },
+              { name: 'eBay', price: '?199.00', grossProfit: '?106.40', markup: '114.90%' }
             ],
             testimonials: [
               {
@@ -174,6 +183,57 @@ const ProductDetail = () => {
                 date: '1 month ago'
               }
             ]
+          }
+          
+          // Add profit calculations if applicable
+          console.log('=== PROFIT CALCULATION DEBUG (DATABASE) ===')
+          console.log('Product name:', productData.name)
+          console.log('showEvaluation:', productData.showEvaluation)
+          
+          // Only show profit calculations for bulbs
+          const isBulb = productData.name.toLowerCase().includes('bulb')
+          if (productData.showEvaluation && isBulb) {
+            const costPricePKR = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+            const costPriceGBP = costPricePKR * 0.00272 // Convert PKR to GBP
+            console.log('Adding profit calculations, costPrice PKR:', costPricePKR, 'GBP:', costPriceGBP)
+            
+            // Calculate profit for bulbs only
+            const sellingPrice = 3.79
+            const commissionBase = -0.57
+            const commissionTax = -0.12
+            const digitalServiceBase = -0.04
+            const digitalServiceTax = -0.02
+            const fbaFeeBase = -1.46
+            const fbaFeeTax = -0.30
+            const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+            const changeToBalance = sellingPrice + totalFees
+            const netProfit = changeToBalance - costPriceGBP
+            
+            productData.hasProfit = true
+            productData.profitCalculations = {
+              costPrice: costPriceGBP,
+              sellingPrice: sellingPrice,
+              profitPerUnit: netProfit,
+              monthlyProfit: netProfit * 100,
+              yearlyProfit: netProfit * 1200,
+              monthlyProfitPKR: netProfit * 100 * 350,
+              yearlyProfitPKR: netProfit * 1200 * 350
+            }
+            
+            productData.evaluation = {
+              salesProceeds: sellingPrice,
+              commissionBase: commissionBase,
+              commissionTax: commissionTax,
+              digitalServiceBase: digitalServiceBase,
+              digitalServiceTax: digitalServiceTax,
+              fbaFeeBase: fbaFeeBase,
+              fbaFeeTax: fbaFeeTax,
+              totalFees: totalFees,
+              productCost: costPriceGBP,
+              netProfit: netProfit,
+              changeToBalance: changeToBalance
+            }
+            console.log('Profit calculations added:', productData.hasProfit, productData.evaluation)
           }
           
           setProduct(productData)
@@ -216,8 +276,8 @@ const ProductDetail = () => {
         const productData = {
           id: id,
           name: nameParam,
-          price: `£${price}`,
-          rrp: `£${originalPrice.toFixed(2)}`,
+          price: `₨${price}`,
+          rrp: `₨${originalPrice.toFixed(2)}`,
           rating: parseFloat(ratingParam) || 4.5,
           reviews: parseInt(reviewsParam) || Math.floor(Math.random() * 2000) + 100,
           image: processedImage,
@@ -228,15 +288,17 @@ const ProductDetail = () => {
           showEvaluation: nameParam.toLowerCase().includes('nose ring') ||
                          nameParam.toLowerCase().includes('bulb') ||
                          nameParam.toLowerCase().includes('fuse') ||
-                         nameParam.toLowerCase().includes('lampshade'),
+                         nameParam.toLowerCase().includes('lampshade') ||
+                         nameParam.toLowerCase().includes('lamp'),
+          hasProfit: false, // Will be set below if showEvaluation is true
           platforms: [
-            { name: 'RRP', price: '£420.99', grossProfit: '£328.39', markup: '354.63%' },
-            { name: 'Amazon', price: '£419.00', grossProfit: '£326.40', markup: '352.48%' },
-            { name: 'eBay', price: '£199.00', grossProfit: '£106.40', markup: '114.90%' }
+            { name: 'RRP', price: '?420.99', grossProfit: '?328.39', markup: '354.63%' },
+            { name: 'Amazon', price: '?419.00', grossProfit: '?326.40', markup: '352.48%' },
+            { name: 'eBay', price: '?199.00', grossProfit: '?106.40', markup: '114.90%' }
           ],
           dealInfo: {
             location: 'Pakistan',
-            flag: '🇵🇰',
+            flag: '????',
             minOrder: '100 Unit',
             condition: 'New'
           },
@@ -272,27 +334,58 @@ const ProductDetail = () => {
         }
         
         // Add profit calculations if applicable
-        if (productData.showEvaluation) {
-          const costPrice = parseFloat(productData.price.replace(/[£$₨]/g, ''))
+        console.log('=== PROFIT CALCULATION DEBUG (URL PARAMS) ===')
+        console.log('Product name:', productData.name)
+        console.log('Product name lowercase:', productData.name.toLowerCase())
+        console.log('showEvaluation:', productData.showEvaluation)
+        console.log('Has "bulb"?:', productData.name.toLowerCase().includes('bulb'))
+        console.log('Has "lamp"?:', productData.name.toLowerCase().includes('lamp'))
+        console.log('Has "fuse"?:', productData.name.toLowerCase().includes('fuse'))
+        console.log('Has "nose ring"?:', productData.name.toLowerCase().includes('nose ring'))
+        
+        // Only show profit calculations for bulbs
+        const isBulb = productData.name.toLowerCase().includes('bulb')
+        if (productData.showEvaluation && isBulb) {
+          const costPrice = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+          console.log('Adding profit calculations, costPrice:', costPrice)
+          
+          // Calculate profit for bulbs only
+          const sellingPrice = 3.79
+          const commissionBase = -0.57
+          const commissionTax = -0.12
+          const digitalServiceBase = -0.04
+          const digitalServiceTax = -0.02
+          const fbaFeeBase = -1.46
+          const fbaFeeTax = -0.30
+          const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+          const changeToBalance = sellingPrice + totalFees
+          const netProfit = changeToBalance - costPrice
+          
+          productData.hasProfit = true
           productData.profitCalculations = {
             costPrice: costPrice,
-            sellingPrice: 2.99,
-            profitPerUnit: 0.23,
-            monthlyProfit: 23.00,
-            yearlyProfit: 276.00,
-            monthlyProfitPKR: 23.00 * 350,
-            yearlyProfitPKR: 276.00 * 350
+            sellingPrice: sellingPrice,
+            profitPerUnit: netProfit,
+            monthlyProfit: netProfit * 100,
+            yearlyProfit: netProfit * 1200,
+            monthlyProfitPKR: netProfit * 100 * 350,
+            yearlyProfitPKR: netProfit * 1200 * 350
           }
           
           productData.evaluation = {
-            salesProceeds: 2.99,
-            commission: -0.72,
-            digitalServicesFee: -0.05,
-            fbaFee: -1.75,
-            totalFees: -2.52,
-            productCost: -costPrice,
-            netProfit: 0.23
+            salesProceeds: sellingPrice,
+            commissionBase: commissionBase,
+            commissionTax: commissionTax,
+            digitalServiceBase: digitalServiceBase,
+            digitalServiceTax: digitalServiceTax,
+            fbaFeeBase: fbaFeeBase,
+            fbaFeeTax: fbaFeeTax,
+            totalFees: totalFees,
+            productCost: costPrice,
+            netProfit: netProfit,
+            changeToBalance: changeToBalance
           }
+          console.log('Profit calculations added:', productData.hasProfit, productData.profitCalculations)
         }
         
           console.log('Setting product data:', productData)
@@ -353,7 +446,8 @@ const ProductDetail = () => {
               foundProduct.name.toLowerCase().includes('nose ring') ||
               foundProduct.name.toLowerCase().includes('bulb') ||
               foundProduct.name.toLowerCase().includes('fuse') ||
-              foundProduct.name.toLowerCase().includes('lampshade')
+              foundProduct.name.toLowerCase().includes('lampshade') ||
+              foundProduct.name.toLowerCase().includes('lamp')
             
             const productImage = foundProduct.images && foundProduct.images.length > 0 
               ? getImageUrl(foundProduct.images[0]) 
@@ -362,8 +456,8 @@ const ProductDetail = () => {
             const productData = {
               id: foundProduct._id,
               name: foundProduct.name,
-              price: `£${foundProduct.price}`,
-              rrp: foundProduct.originalPrice ? `£${foundProduct.originalPrice}` : '£420.99',
+              price: `₨${foundProduct.price}`,
+              rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
               rating: foundProduct.rating || 4.5,
               reviews: foundProduct.reviews || 100,
               image: productImage,
@@ -374,13 +468,13 @@ const ProductDetail = () => {
               showEvaluation: shouldShowEvaluation,
               seller: foundProduct.seller, // Add seller field
               platforms: [
-                { name: 'RRP', price: '£420.99', grossProfit: '£328.39', markup: '354.63%' },
-                { name: 'Amazon', price: '£419.00', grossProfit: '£326.40', markup: '352.48%' },
-                { name: 'eBay', price: '£199.00', grossProfit: '£106.40', markup: '114.90%' }
+                { name: 'RRP', price: '?420.99', grossProfit: '?328.39', markup: '354.63%' },
+                { name: 'Amazon', price: '?419.00', grossProfit: '?326.40', markup: '352.48%' },
+                { name: 'eBay', price: '?199.00', grossProfit: '?106.40', markup: '114.90%' }
               ],
               dealInfo: {
                 location: 'Pakistan',
-                flag: '🇵🇰',
+                flag: '????',
                 minOrder: '100 Unit',
                 condition: 'New'
               },
@@ -416,26 +510,50 @@ const ProductDetail = () => {
             }
             
             // Add profit calculations if applicable
-            if (shouldShowEvaluation) {
+            console.log('=== PROFIT CALCULATION DEBUG (API 1) ===')
+            console.log('Product name:', foundProduct.name)
+            console.log('shouldShowEvaluation:', shouldShowEvaluation)
+            
+            // Only show profit calculations for bulbs
+            const isBulb = foundProduct.name.toLowerCase().includes('bulb')
+            if (shouldShowEvaluation && isBulb) {
               const costPrice = foundProduct.price
+              
+              // Calculate profit for bulbs only
+              const sellingPrice = 3.79
+              const commissionBase = -0.57
+              const commissionTax = -0.12
+              const digitalServiceBase = -0.04
+              const digitalServiceTax = -0.02
+              const fbaFeeBase = -1.46
+              const fbaFeeTax = -0.30
+              const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+              const changeToBalance = sellingPrice + totalFees
+              const netProfit = changeToBalance - costPrice
+              
+              productData.hasProfit = true
               productData.profitCalculations = {
                 costPrice: costPrice,
-                sellingPrice: 2.99,
-                profitPerUnit: 0.23,
-                monthlyProfit: 23.00,
-                yearlyProfit: 276.00,
-                monthlyProfitPKR: 23.00 * 350,
-                yearlyProfitPKR: 276.00 * 350
+                sellingPrice: sellingPrice,
+                profitPerUnit: netProfit,
+                monthlyProfit: netProfit * 100,
+                yearlyProfit: netProfit * 1200,
+                monthlyProfitPKR: netProfit * 100 * 350,
+                yearlyProfitPKR: netProfit * 1200 * 350
               }
               
               productData.evaluation = {
-                salesProceeds: 2.99,
-                commission: -0.72,
-                digitalServicesFee: -0.05,
-                fbaFee: -1.75,
-                totalFees: -2.52,
-                productCost: -costPrice,
-                netProfit: 0.23
+                salesProceeds: sellingPrice,
+                commissionBase: commissionBase,
+                commissionTax: commissionTax,
+                digitalServiceBase: digitalServiceBase,
+                digitalServiceTax: digitalServiceTax,
+                fbaFeeBase: fbaFeeBase,
+                fbaFeeTax: fbaFeeTax,
+                totalFees: totalFees,
+                productCost: costPrice,
+                netProfit: netProfit,
+                changeToBalance: changeToBalance
               }
             }
             
@@ -460,7 +578,7 @@ const ProductDetail = () => {
               .map(p => ({
                 ...p,
                 id: p._id,
-                price: `£${p.price}`,
+                price: `₨${p.price}`,
                 image: p.images && p.images.length > 0 ? getImageUrl(p.images[0]) : ''
               }))
             setRelatedProducts(related)
@@ -497,7 +615,8 @@ const ProductDetail = () => {
                 foundProduct.name.toLowerCase().includes('nose ring') ||
                 foundProduct.name.toLowerCase().includes('bulb') ||
                 foundProduct.name.toLowerCase().includes('fuse') ||
-                foundProduct.name.toLowerCase().includes('lampshade')
+                foundProduct.name.toLowerCase().includes('lampshade') ||
+                foundProduct.name.toLowerCase().includes('lamp')
               
               const productImage = foundProduct.images && foundProduct.images.length > 0 
                 ? getImageUrl(foundProduct.images[0]) 
@@ -506,8 +625,8 @@ const ProductDetail = () => {
               const productData = {
                 id: foundProduct._id,
                 name: foundProduct.name,
-                price: `£${foundProduct.price}`,
-                rrp: foundProduct.originalPrice ? `£${foundProduct.originalPrice}` : '£420.99',
+                price: `₨${foundProduct.price}`,
+                rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
                 rating: foundProduct.rating || 4.5,
                 reviews: foundProduct.reviews || 100,
                 image: productImage,
@@ -518,13 +637,13 @@ const ProductDetail = () => {
                 showEvaluation: shouldShowEvaluation,
                 seller: foundProduct.seller,
                 platforms: [
-                  { name: 'RRP', price: '£420.99', grossProfit: '£328.39', markup: '354.63%' },
-                  { name: 'Amazon', price: '£419.00', grossProfit: '£326.40', markup: '352.48%' },
-                  { name: 'eBay', price: '£199.00', grossProfit: '£106.40', markup: '114.90%' }
+                  { name: 'RRP', price: '?420.99', grossProfit: '?328.39', markup: '354.63%' },
+                  { name: 'Amazon', price: '?419.00', grossProfit: '?326.40', markup: '352.48%' },
+                  { name: 'eBay', price: '?199.00', grossProfit: '?106.40', markup: '114.90%' }
                 ],
                 dealInfo: {
                   location: 'Pakistan',
-                  flag: '🇵🇰',
+                  flag: '????',
                   minOrder: '100 Unit',
                   condition: 'New'
                 },
@@ -550,6 +669,49 @@ const ProductDetail = () => {
                     date: '2 weeks ago'
                   }
                 ]
+              }
+              
+              // Add profit calculations if applicable - only for bulbs
+              const isBulb = foundProduct.name.toLowerCase().includes('bulb')
+              if (shouldShowEvaluation && isBulb) {
+                const costPrice = foundProduct.price
+                
+                // Calculate profit for bulbs only
+                const sellingPrice = 3.79
+                const commissionBase = -0.57
+                const commissionTax = -0.12
+                const digitalServiceBase = -0.04
+                const digitalServiceTax = -0.02
+                const fbaFeeBase = -1.46
+                const fbaFeeTax = -0.30
+                const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+                const changeToBalance = sellingPrice + totalFees
+                const netProfit = changeToBalance - costPrice
+                
+                productData.hasProfit = true
+                productData.profitCalculations = {
+                  costPrice: costPrice,
+                  sellingPrice: sellingPrice,
+                  profitPerUnit: netProfit,
+                  monthlyProfit: netProfit * 100,
+                  yearlyProfit: netProfit * 1200,
+                  monthlyProfitPKR: netProfit * 100 * 350,
+                  yearlyProfitPKR: netProfit * 1200 * 350
+                }
+                
+                productData.evaluation = {
+                  salesProceeds: sellingPrice,
+                  commissionBase: commissionBase,
+                  commissionTax: commissionTax,
+                  digitalServiceBase: digitalServiceBase,
+                  digitalServiceTax: digitalServiceTax,
+                  fbaFeeBase: fbaFeeBase,
+                  fbaFeeTax: fbaFeeTax,
+                  totalFees: totalFees,
+                  productCost: costPrice,
+                  netProfit: netProfit,
+                  changeToBalance: changeToBalance
+                }
               }
               
               setProduct(productData)
@@ -613,7 +775,7 @@ const ProductDetail = () => {
 
     if (isSupplierUnlocked) {
       // Show supplier contact details
-      alert('📞 Supplier Contact:\nPhone: +92 301 6611011\nWhatsApp: +92 301 6611011\nEmail: supplier@amazongymkhana.com')
+      alert('?? Supplier Contact:\nPhone: +92 301 6611011\nWhatsApp: +92 301 6611011\nEmail: supplier@amazongymkhana.com')
     } else {
       // Show payment modal
       setShowPaymentModal(true)
@@ -623,7 +785,7 @@ const ProductDetail = () => {
   const handlePaymentSuccess = () => {
     setIsSupplierUnlocked(true)
     setShowPaymentModal(false)
-    alert('✅ Supplier unlocked! You can now contact them.')
+    alert('? Supplier unlocked! You can now contact them.')
   }
   
   // Get top deals (products with highest markup)
@@ -641,6 +803,21 @@ const ProductDetail = () => {
     .filter(p => p.id !== product?.id)
     .sort((a, b) => (b.reviews || 0) - (a.reviews || 0))
     .slice(0, 6)
+
+  // Helper function to safely format numbers and filter NaN
+  const safeNumber = (value) => {
+    const num = parseFloat(value);
+    return isNaN(num) || !isFinite(num) ? 0 : num;
+  };
+
+  // Helper function to convert GBP values to selected currency
+  const convertFromGBP = (gbpValue) => {
+    const value = safeNumber(gbpValue);
+    // Convert GBP to PKR first, then to target currency
+    const pkrValue = value / 0.00272; // GBP to PKR
+    const converted = pkrValue * currencyRates[currency];
+    return `${currencySymbols[currency]}${converted.toFixed(2)}`;
+  };
 
   const renderStars = (rating) => {
     // Validate and cap rating between 0 and 5
@@ -715,76 +892,21 @@ const ProductDetail = () => {
   console.log('Rendering product details')
   return (
     <div className="product-detail-page">
-      {/* Currency Selector - Mobile Responsive */}
-      <div className="d-block d-lg-none" style={{ marginBottom: '12px' }}>
-        <div className="container">
-          <select 
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-            className="form-select form-select-sm"
-            style={{
-              border: '1px solid #ddd',
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              outline: 'none',
-              paddingRight: '30px',
-              minWidth: '110px'
-            }}
-          >
-            <option value="GBP">GBP (£)</option>
-            <option value="USD">USD ($)</option>
-            <option value="PKR">PKR (₨)</option>
-          </select>
-        </div>
-      </div>
-      
-      {/* Currency Selector - Desktop Fixed Position */}
-      <div className="d-none d-lg-block" style={{
-        position: 'fixed',
-        top: '80px',
-        right: '20px',
-        zIndex: 999,
-        background: 'white',
-        padding: '8px 12px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-      }}>
-        <select 
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value)}
-          className="form-select form-select-sm"
-          style={{
-            border: '1px solid #ddd',
-            fontSize: '0.85rem',
-            fontWeight: '600',
-            cursor: 'pointer',
-            outline: 'none',
-            paddingRight: '30px',
-            minWidth: '110px'
-          }}
-        >
-          <option value="GBP">GBP (£)</option>
-          <option value="USD">USD ($)</option>
-          <option value="PKR">PKR (₨)</option>
-        </select>
-      </div>
 
       {/* Breadcrumb with Animation */}
-      <div className="container mt-2 animate__animated animate__fadeInDown">
+      <div className="container mt-1 mb-0 animate__animated animate__fadeInDown">
         <nav aria-label="breadcrumb">
-          <ol className="breadcrumb bg-light p-2 rounded shadow-sm" style={{fontSize: '0.85rem'}}>
-            <li className="breadcrumb-item"><Link to="/" className="text-decoration-none"><i className="fas fa-home me-1"></i>Home</Link></li>
-            <li className="breadcrumb-item"><Link to="/amazons-choice" className="text-decoration-none">Amazon's Choice</Link></li>
+          <ol className="breadcrumb bg-light p-2 rounded shadow-sm mb-0" style={{fontSize: '0.85rem'}}>
+            <li className="breadcrumb-item"><Link to="/" className="text-decoration-none"><i className="fas fa-home me-1"></i>Amazon's Choice</Link></li>
             <li className="breadcrumb-item active fw-bold">{product.name}</li>
           </ol>
         </nav>
       </div>
 
       {/* Product Detail Section - Responsive Layout */}
-      <section className="product-detail-section py-3" style={{background: '#ffffff'}}>
+      <section className="product-detail-section py-1" style={{background: '#ffffff'}}>
         <div className="container-fluid" style={{maxWidth: '1600px', padding: '0 15px'}}>
-          <div className="row g-3">
+          <div className="row g-2">
             
             {/* LEFT COLUMN - Product Images Only */}
             <div className="col-12 col-lg-4 order-1 order-lg-1">
@@ -853,11 +975,20 @@ const ProductDetail = () => {
             <div className="col-12 col-lg-5 order-3 order-lg-2">
               <div className="product-middle-info">
                 
+                {/* Home Page Link */}
+                <div className="mb-2">
+                  <Link to="/" className="text-decoration-none" style={{fontSize: '0.85rem', color: '#666'}}>
+                    <i className="fas fa-home me-1"></i>Amazon's Choice
+                  </Link>
+                  <span className="mx-2" style={{color: '#999'}}>?</span>
+                  <span style={{fontSize: '0.85rem', color: '#999'}}>Product Details</span>
+                </div>
+                
                 {/* Product Title */}
                 <h1 className="fw-bold text-dark mb-2" style={{fontSize: '1.1rem', lineHeight: '1.3'}}>{product.name}</h1>
                   
                 {/* Rating and Reviews */}
-                <div className="d-flex align-items-center mb-2">
+                <div className="d-flex align-items-center flex-wrap mb-2">
                   <div className="text-warning me-2" style={{fontSize: '0.75rem'}}>
                     {renderStars(product.rating)}
                   </div>
@@ -865,8 +996,14 @@ const ProductDetail = () => {
                     {product.reviews} ratings
                   </Link>
                   {product.markup && (
-                    <span className="badge bg-success px-2 py-1" style={{fontSize: '0.65rem'}}>
+                    <span className="badge bg-success px-2 py-1 me-2" style={{fontSize: '0.65rem'}}>
                       {product.markup}
+                    </span>
+                  )}
+                  {product.hasProfit && product.profitCalculations && safeNumber(product.profitCalculations.profitPerUnit) > 0 && (
+                    <span className="badge bg-primary px-2 py-1" style={{fontSize: '0.65rem'}}>
+                      <i className="fas fa-coins me-1"></i>
+                      Profit: {convertFromGBP(product.profitCalculations.profitPerUnit)}/unit
                     </span>
                   )}
                 </div>
@@ -891,8 +1028,8 @@ const ProductDetail = () => {
                       <small className="text-muted" style={{fontSize: '0.7rem'}}>Save: </small>
                       <span className="fw-semibold text-danger" style={{fontSize: '0.8rem'}}>
                         {(() => {
-                          const wholesale = parseFloat(product.price.replace(/[£$₨]/g, ''))
-                          const rrp = parseFloat(product.rrp.replace(/[£$₨]/g, ''))
+                          const wholesale = parseFloat(product.price.replace(/[?$?]/g, ''))
+                          const rrp = parseFloat(product.rrp.replace(/[?$?]/g, ''))
                           const savings = ((rrp - wholesale) / rrp * 100).toFixed(0)
                           return `${savings}%`
                         })()}
@@ -1150,7 +1287,7 @@ const ProductDetail = () => {
                           </div>
                         )}
                         <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Location:</strong> 🇵🇰 {sellerInfo.city}, {sellerInfo.country}
+                          <strong>Location:</strong> ???? {sellerInfo.city}, {sellerInfo.country}
                         </div>
                         <div className="mb-1" style={{fontSize: '0.7rem'}}>
                           <strong>Category:</strong> {sellerInfo.productCategory}
@@ -1282,33 +1419,36 @@ const ProductDetail = () => {
           <div className="row mt-4">
             <div className="col-12">
               
-                {/* Platform Pricing Table - Enhanced */}
-                  {product.platforms && (
+              {/* Platform Comparison and Profit Evaluation Side by Side */}
+              <div className="row g-3">
+                {/* Platform Pricing Table - Left Side */}
+                {product.platforms && (
+                  <div className={product.showEvaluation && product.evaluation ? "col-lg-6" : "col-12"}>
                     <div className="mb-3">
                       <div className="fw-bold mb-2" style={{fontSize: '0.9rem', color: '#2d3748'}}>
                         <i className="fas fa-chart-line me-2"></i>Platform Comparison
                       </div>
-                      <div className="table-responsive">
-                        <table className="table table-hover table-sm table-bordered shadow-sm mb-0" style={{fontSize: '0.8rem'}}>
+                      <div className="table-responsive" style={{overflowX: 'auto', overflowY: 'hidden'}}>
+                        <table className="table table-sm table-bordered shadow-sm mb-0" style={{fontSize: '0.75rem'}}>
                           <thead style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white'}}>
                             <tr>
-                              <th className="fw-bold py-2 px-3" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Platform</th>
-                              <th className="fw-bold py-2 px-3 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Selling Price</th>
-                              <th className="fw-bold py-2 px-3 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Gross Profit</th>
-                              <th className="fw-bold py-2 px-3 text-center">Markup %</th>
+                              <th className="fw-bold py-2 px-2" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Platform</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Price</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Profit</th>
+                              <th className="fw-bold py-2 px-2 text-center">Markup</th>
                             </tr>
                           </thead>
                           <tbody>
                             {product.platforms.map((platform, idx) => (
                               <tr key={idx} style={{background: idx % 2 === 0 ? '#f8f9fa' : 'white'}}>
-                                <td className="fw-semibold py-2 px-3" style={{color: '#2d3748'}}>
-                                  <i className={`fas fa-${platform.name === 'Amazon' ? 'shopping-cart' : platform.name === 'eBay' ? 'gavel' : 'store'} me-2 text-primary`}></i>
+                                <td className="fw-semibold py-2 px-2" style={{color: '#2d3748', fontSize: '0.75rem'}}>
+                                  <i className={`fas fa-${platform.name === 'Amazon' ? 'shopping-cart' : platform.name === 'eBay' ? 'gavel' : 'store'} me-1 text-primary`} style={{fontSize: '0.7rem'}}></i>
                                   {platform.name}
                                 </td>
-                                <td className="fw-bold text-primary py-2 px-3 text-center">{convertPrice(platform.price)}</td>
-                                <td className="fw-bold text-success py-2 px-3 text-center">{convertPrice(platform.grossProfit)}</td>
-                                <td className="py-2 px-3 text-center">
-                                  <span className="badge bg-info" style={{fontSize: '0.75rem', padding: '4px 8px'}}>
+                                <td className="fw-bold text-primary py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>{convertPrice(platform.price)}</td>
+                                <td className="fw-bold text-success py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>{convertPrice(platform.grossProfit)}</td>
+                                <td className="py-2 px-2 text-center">
+                                  <span className="badge bg-info" style={{fontSize: '0.65rem', padding: '3px 6px'}}>
                                     {platform.markup}
                                   </span>
                                 </td>
@@ -1317,45 +1457,104 @@ const ProductDetail = () => {
                           </tbody>
                         </table>
                       </div>
-                      <div className="alert alert-info border-0 mt-2 mb-0" style={{fontSize: '0.75rem', padding: '8px 12px'}}>
-                        <i className="fas fa-info-circle me-2"></i>
-                        <strong>Note:</strong> Prices shown are estimates. Actual selling prices may vary based on market conditions.
+                      <div className="alert alert-info border-0 mt-2 mb-0" style={{fontSize: '0.7rem', padding: '6px 10px'}}>
+                        <i className="fas fa-info-circle me-1"></i>
+                        <strong>Note:</strong> Prices are estimates.
                       </div>
                     </div>
-                  )}
-              
-                  {/* Profit Calculations - Compact */}
-                  {product.hasProfit && product.profitCalculations && (
-                    <div className="alert alert-success border-0 mb-2 py-2 px-2">
-                      <div className="fw-bold mb-2" style={{fontSize: '0.8rem'}}>
-                        <i className="fas fa-calculator me-1"></i>Profit Calculations
+
+                    {/* Profit Calculations - Below Platform Comparison */}
+                    {product.hasProfit && product.profitCalculations && (
+                      <div className="mb-3">
+                        <div className="card border-0 shadow-sm" style={{background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'}}>
+                          <div className="card-body p-2">
+                            <div className="fw-bold mb-2 text-white" style={{fontSize: '0.85rem'}}>
+                              <i className="fas fa-calculator me-2"></i>Profit Calculations
+                            </div>
+                            <div className="row g-1">
+                              <div className="col-md-4">
+                                <div className="bg-white rounded p-2">
+                                  <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Profit per Unit</div>
+                                  <div className="fw-bold text-success" style={{fontSize: '0.9rem'}}>
+                                    {convertFromGBP(product.profitCalculations.profitPerUnit)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="col-md-4">
+                                <div className="bg-white rounded p-2">
+                                  <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Monthly (100 units)</div>
+                                  <div className="fw-bold text-primary" style={{fontSize: '0.9rem'}}>
+                                    {convertFromGBP(product.profitCalculations.monthlyProfit)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="col-md-4">
+                                <div className="bg-white rounded p-2">
+                                  <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Yearly (1200 units)</div>
+                                  <div className="fw-bold text-danger" style={{fontSize: '0.9rem'}}>
+                                    {convertFromGBP(product.profitCalculations.yearlyProfit)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                  <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.85rem'}}>
-                    <span style={{color: '#718096'}}>Profit per Unit:</span>
-                    <span style={{fontWeight: '600', color: '#0b3b2e'}}>
-                      {currency === 'GBP' && `£${product.profitCalculations.profitPerUnit}`}
-                      {currency === 'USD' && `$${(product.profitCalculations.profitPerUnit * 1.27).toFixed(2)}`}
-                      {currency === 'PKR' && `₨${(product.profitCalculations.profitPerUnit * 350).toFixed(0)}`}
-                    </span>
+                    )}
                   </div>
-                  <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.85rem', borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '8px', fontWeight: '700'}}>
-                    <span style={{color: '#718096'}}>Monthly Profit ({currency}):</span>
-                    <span className="blink" style={{fontWeight: '600', color: '#0b3b2e'}}>
-                      {currency === 'GBP' && `£${product.profitCalculations.monthlyProfit}`}
-                      {currency === 'USD' && `$${(product.profitCalculations.monthlyProfit * 1.27).toFixed(0)}`}
-                      {currency === 'PKR' && `₨${(product.profitCalculations.monthlyProfit * 350).toLocaleString()}`}
-                    </span>
-                  </div>
-                  <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.85rem', borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '8px', fontWeight: '700'}}>
-                    <span style={{color: '#718096'}}>Yearly Profit ({currency}):</span>
-                    <span className="blink" style={{fontWeight: '600', color: '#0b3b2e'}}>
-                      {currency === 'GBP' && `£${product.profitCalculations.yearlyProfit.toLocaleString()}`}
-                      {currency === 'USD' && `$${(product.profitCalculations.yearlyProfit * 1.27).toLocaleString()}`}
-                      {currency === 'PKR' && `₨${(product.profitCalculations.yearlyProfit * 350).toLocaleString()}`}
-                    </span>
-                  </div>
+                )}
+                
+                {/* Profit Evaluation - Right Side */}
+                {product.showEvaluation && product.evaluation && (
+                  <div className="col-lg-6">
+                    <div className="mb-3">
+                      <div className="fw-bold mb-2" style={{fontSize: '0.9rem', color: '#2d3748'}}>
+                        <i className="fas fa-calculator me-2"></i>Profit Evaluation
+                      </div>
+                      <div className="table-responsive">
+                        <table className="table table-sm table-bordered shadow-sm mb-0" style={{fontSize: '0.75rem'}}>
+                          <thead style={{background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', color: 'white'}}>
+                            <tr>
+                              <th className="fw-bold py-2 px-2">Description</th>
+                              <th className="fw-bold py-2 px-2 text-end">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style={{background: '#f1f5f9'}}>
+                              <td className="fw-semibold py-2 px-2">Sales Proceeds</td>
+                              <td className="fw-bold py-2 px-2 text-end text-success">{convertFromGBP(product.evaluation.salesProceeds)}</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 px-2 ps-3" style={{fontSize: '0.7rem'}}>Commission</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertFromGBP(product.evaluation.commissionBase + product.evaluation.commissionTax)}</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 px-2 ps-3" style={{fontSize: '0.7rem'}}>Digital Services Fee</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertFromGBP(product.evaluation.digitalServiceBase + product.evaluation.digitalServiceTax)}</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 px-2 ps-3" style={{fontSize: '0.7rem'}}>FBA Fulfilment Fee</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertFromGBP(product.evaluation.fbaFeeBase + product.evaluation.fbaFeeTax)}</td>
+                            </tr>
+                            <tr style={{background: '#fff3cd'}}>
+                              <td className="fw-semibold py-2 px-2">Balance Change</td>
+                              <td className="fw-bold py-2 px-2 text-end">{convertFromGBP(product.evaluation.changeToBalance)}</td>
+                            </tr>
+                            <tr>
+                              <td className="fw-semibold py-2 px-2">Product Cost</td>
+                              <td className="fw-bold py-2 px-2 text-end text-danger">-{convertFromGBP(product.evaluation.productCost)}</td>
+                            </tr>
+                            <tr style={{background: '#e6f7ee'}}>
+                              <td className="fw-bold py-2 px-2" style={{fontSize: '0.85rem'}}>Net Profit</td>
+                              <td className="fw-bold py-2 px-2 text-end text-success" style={{fontSize: '0.85rem'}}>{convertFromGBP(product.evaluation.netProfit)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  )}
+                  </div>
+                )}
+              </div>
 
               {/* Platform Verify Buttons - Below Main Sections */}
               <div className="card border-0 shadow-sm rounded-3 mb-3" style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}}>
@@ -1427,73 +1626,76 @@ const ProductDetail = () => {
           <div className="row mt-4">
             <div className="col-12">
               
-              {/* Product Description */}
-          {product.description && (
-            <div className="product-description" style={{marginTop: '20px', background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)'}}>
-              <h3 style={{fontSize: '1.1rem', fontWeight: '700', marginBottom: '12px', color: '#2d3748', borderBottom: '2px solid var(--bs-primary)', paddingBottom: '8px'}}>
-                <i className="fas fa-info-circle me-2"></i>Product Description
-              </h3>
-              <p style={{fontSize: '0.9rem', lineHeight: '1.6', color: '#4a5568', marginBottom: '15px'}}>
-                {product.description}
-              </p>
-              
-              {product.features && (
-                <div>
-                  <h4 style={{fontSize: '0.95rem', fontWeight: '600', marginBottom: '10px', color: '#2d3748'}}>Key Features:</h4>
-                  <ul style={{paddingLeft: '20px', marginBottom: 0}}>
-                    {product.features.map((feature, idx) => (
-                      <li key={idx} style={{fontSize: '0.85rem', color: '#4a5568', marginBottom: '6px'}}>
-                        <i className="fas fa-check-circle text-success me-2"></i>{feature}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {/* Product Description and Technical Specifications Side by Side */}
+              <div className="row g-3" style={{marginTop: '20px'}}>
+                {/* Product Description - Left Side */}
+                {product.description && (
+                  <div className={product.specifications ? "col-lg-6" : "col-12"}>
+                    <div className="product-description" style={{background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', height: '100%'}}>
+                      <h3 style={{fontSize: '1.1rem', fontWeight: '700', marginBottom: '12px', color: '#2d3748', borderBottom: '2px solid var(--bs-primary)', paddingBottom: '8px'}}>
+                        <i className="fas fa-info-circle me-2"></i>Product Description
+                      </h3>
+                      <p style={{fontSize: '0.9rem', lineHeight: '1.6', color: '#4a5568', marginBottom: '15px'}}>
+                        {product.description}
+                      </p>
+                      
+                      {product.features && (
+                        <div>
+                          <h4 style={{fontSize: '0.95rem', fontWeight: '600', marginBottom: '10px', color: '#2d3748'}}>Key Features:</h4>
+                          <ul style={{paddingLeft: '20px', marginBottom: 0}}>
+                            {product.features.map((feature, idx) => (
+                              <li key={idx} style={{fontSize: '0.85rem', color: '#4a5568', marginBottom: '6px'}}>
+                                <i className="fas fa-check-circle text-success me-2"></i>{feature}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Technical Specifications - Right Side */}
+                {product.specifications && (
+                  <div className={product.description ? "col-lg-6" : "col-12"}>
+                    <div className="product-specs" style={{background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', height: '100%'}}>
+                      <h3 style={{fontSize: '1.1rem', fontWeight: '700', marginBottom: '15px', color: '#2d3748', borderBottom: '2px solid var(--bs-primary)', paddingBottom: '8px'}}>
+                        <i className="fas fa-clipboard-list me-2"></i>Technical Specifications
+                      </h3>
+                      <div className="table-responsive">
+                        <table className="table mb-0" style={{fontSize: '0.85rem'}}>
+                          <tbody>
+                            {Object.entries(product.specifications).map(([key, value], idx) => (
+                              <tr key={key} style={{background: idx % 2 === 0 ? '#f8f9fa' : 'white'}}>
+                                <td style={{padding: '12px 15px', fontWeight: '600', color: '#4a5568', width: '35%', borderRight: '2px solid #e2e8f0'}}>
+                                  <i className="fas fa-check-circle text-success me-2" style={{fontSize: '0.75rem'}}></i>
+                                  {key}
+                                </td>
+                                <td style={{padding: '12px 15px', color: '#2d3748', fontWeight: '500'}}>{value}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
             
-            {/* Product Specifications */}
-          {product.specifications && (
-            <div className="product-specs" style={{marginTop: '20px', background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)'}}>
-              <h3 style={{fontSize: '1.1rem', fontWeight: '700', marginBottom: '15px', color: '#2d3748', borderBottom: '2px solid var(--bs-primary)', paddingBottom: '8px'}}>
-                <i className="fas fa-clipboard-list me-2"></i>Technical Specifications
-              </h3>
-              <div className="table-responsive">
-                <table className="table table-hover mb-0" style={{fontSize: '0.85rem'}}>
-                  <tbody>
-                    {Object.entries(product.specifications).map(([key, value], idx) => (
-                      <tr key={key} style={{background: idx % 2 === 0 ? '#f8f9fa' : 'white'}}>
-                        <td style={{padding: '12px 15px', fontWeight: '600', color: '#4a5568', width: '35%', borderRight: '2px solid #e2e8f0'}}>
-                          <i className="fas fa-check-circle text-success me-2" style={{fontSize: '0.75rem'}}></i>
-                          {key}
-                        </td>
-                        <td style={{padding: '12px 15px', color: '#2d3748', fontWeight: '500'}}>{value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            )}
-            
-            {/* Product Evaluation - ONLY for nose rings, bulbs, fuses, lampshades */}
-          {product.showEvaluation && product.evaluation && (
-            <div className="product-evaluation" style={{marginTop: '20px', background: '#f8f9fa', borderRadius: '12px', padding: '15px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)'}}>
-              <h3 style={{fontSize: '1rem', fontWeight: '700', marginBottom: '12px', color: '#2d3748', borderBottom: '2px solid var(--bs-primary)', paddingBottom: '6px'}}>
-                Product Evaluation & Profit Calculation
-              </h3>
+            {/* Related Products */}
+          {relatedProducts.length > 0 && (
+            <div className="related-products" style={{marginTop: '30px', paddingTop: '20px', borderTop: '2px solid #e2e8f0'}}>
+              <h3 style={{fontSize: '1.1rem', fontWeight: '700', marginBottom: '15px', color: '#2d3748', textAlign: 'center'}}>Related Products</h3>
               
               <div style={{background: '#fff', borderRadius: '8px', padding: '15px', marginBottom: '20px', borderLeft: '4px solid var(--bs-primary)'}}>
                 <p style={{marginBottom: '8px', fontSize: '0.9rem'}}><strong>Example single unit selling on Amazon & calculation:</strong></p>
                 <p style={{marginBottom: '8px', fontSize: '0.9rem'}}>
-                  Cost price: <strong>{convertPrice(`£${product.profitCalculations.costPrice}`)}</strong>
+                  Cost price: <strong>{convertFromGBP(product.profitCalculations.costPrice)}</strong>
                 </p>
                 <p style={{marginBottom: '8px', fontSize: '0.9rem'}}>
                   After deducting all Amazon fees and product cost, your profit per unit is: 
                   <span style={{fontWeight: '800', color: '#28a745', fontSize: '1.1rem'}}>
-                    {currency === 'GBP' && `£${product.profitCalculations.profitPerUnit}`}
-                    {currency === 'USD' && `$${(product.profitCalculations.profitPerUnit * 1.27).toFixed(2)}`}
-                    {currency === 'PKR' && `₨${(product.profitCalculations.profitPerUnit * 350).toFixed(0)}`}
+                    {convertFromGBP(product.profitCalculations.profitPerUnit)}
                   </span>
                 </p>
               </div>
@@ -1502,50 +1704,50 @@ const ProductDetail = () => {
                 <thead>
                   <tr>
                     <th style={{padding: '10px 12px', fontWeight: '600', color: '#4a5568', background: '#f1f5f9', textAlign: 'left'}}>Description</th>
-                    <th style={{padding: '10px 12px', fontWeight: '600', color: '#4a5568', background: '#f1f5f9', textAlign: 'left'}}>Base Amount</th>
-                    <th style={{padding: '10px 12px', fontWeight: '600', color: '#4a5568', background: '#f1f5f9', textAlign: 'left'}}>Tax</th>
-                    <th style={{padding: '10px 12px', fontWeight: '600', color: '#4a5568', background: '#f1f5f9', textAlign: 'left'}}>Total</th>
+                    <th style={{padding: '10px 12px', fontWeight: '600', color: '#4a5568', background: '#f1f5f9', textAlign: 'right'}}>Base Amount</th>
+                    <th style={{padding: '10px 12px', fontWeight: '600', color: '#4a5568', background: '#f1f5f9', textAlign: 'right'}}>Tax</th>
+                    <th style={{padding: '10px 12px', fontWeight: '600', color: '#4a5568', background: '#f1f5f9', textAlign: 'right'}}>Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', fontWeight: '600', color: '#2d3748', background: '#f1f5f9'}}>Sales Proceeds</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0'}}>£{product.evaluation.salesProceeds}</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0'}}>-</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0'}}>£{product.evaluation.salesProceeds}</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', textAlign: 'right'}}>{convertFromGBP(product.evaluation.salesProceeds)}</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', textAlign: 'right'}}>-</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: '600'}}>{convertFromGBP(product.evaluation.salesProceeds)}</td>
                   </tr>
                   <tr>
                     <td colSpan="4" style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', fontWeight: '600', color: '#2d3748', background: '#f1f5f9'}}>Amazon Fees</td>
                   </tr>
                   <tr>
-                    <td style={{padding: '10px 12px', paddingLeft: '25px', borderBottom: '1px solid #e2e8f0', color: '#718096'}}>Commission</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e'}}>£{product.evaluation.commission}</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e'}}>-£0.12</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e'}}>-£0.72</td>
+                    <td style={{padding: '10px 12px', paddingLeft: '25px', borderBottom: '1px solid #e2e8f0', color: '#718096'}}>Commission:</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e', textAlign: 'right'}}>{convertFromGBP(product.evaluation.commissionBase)}</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e', textAlign: 'right'}}>{convertFromGBP(product.evaluation.commissionTax)}</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e', textAlign: 'right', fontWeight: '600'}}>{convertFromGBP(product.evaluation.commissionBase + product.evaluation.commissionTax)}</td>
                   </tr>
                   <tr>
-                    <td style={{padding: '10px 12px', paddingLeft: '25px', borderBottom: '1px solid #e2e8f0', color: '#718096'}}>Digital Services Fee</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e'}}>£{product.evaluation.digitalServicesFee}</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e'}}>-£0.01</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e'}}>-£0.05</td>
+                    <td style={{padding: '10px 12px', paddingLeft: '25px', borderBottom: '1px solid #e2e8f0', color: '#718096'}}>Digital Services Fee:</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e', textAlign: 'right'}}>{convertFromGBP(product.evaluation.digitalServiceBase)}</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e', textAlign: 'right'}}>{convertFromGBP(product.evaluation.digitalServiceTax)}</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e', textAlign: 'right', fontWeight: '600'}}>{convertFromGBP(product.evaluation.digitalServiceBase + product.evaluation.digitalServiceTax)}</td>
                   </tr>
                   <tr>
-                    <td style={{padding: '10px 12px', paddingLeft: '25px', borderBottom: '1px solid #e2e8f0', color: '#718096'}}>FBA Fulfilment Fee</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e'}}>£{product.evaluation.fbaFee}</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e'}}>-£0.29</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e'}}>-£1.75</td>
+                    <td style={{padding: '10px 12px', paddingLeft: '25px', borderBottom: '1px solid #e2e8f0', color: '#718096'}}>FBA Fulfilment Fee per Unit:</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e', textAlign: 'right'}}>{convertFromGBP(product.evaluation.fbaFeeBase)}</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e', textAlign: 'right'}}>{convertFromGBP(product.evaluation.fbaFeeTax)}</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e', textAlign: 'right', fontWeight: '600'}}>{convertFromGBP(product.evaluation.fbaFeeBase + product.evaluation.fbaFeeTax)}</td>
                   </tr>
                   <tr>
-                    <td colSpan="3" style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', fontWeight: '700', color: '#2d3748', background: '#e6f7ee'}}>Total Fees</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', fontWeight: '700', color: '#2d3748', background: '#e6f7ee'}}>£{product.evaluation.totalFees}</td>
+                    <td colSpan="3" style={{padding: '10px 12px', borderBottom: '2px solid #e2e8f0', fontWeight: '700', color: '#2d3748', background: '#fff3cd'}}>Change to Your Seller Account Balance</td>
+                    <td style={{padding: '10px 12px', borderBottom: '2px solid #e2e8f0', fontWeight: '700', color: '#2d3748', background: '#fff3cd', textAlign: 'right'}}>{convertFromGBP(product.evaluation.changeToBalance)}</td>
                   </tr>
                   <tr>
                     <td colSpan="3" style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', fontWeight: '600', color: '#2d3748'}}>Product Cost</td>
-                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e'}}>£{product.evaluation.productCost}</td>
+                    <td style={{padding: '10px 12px', borderBottom: '1px solid #e2e8f0', color: '#e53e3e', textAlign: 'right', fontWeight: '600'}}>-{convertFromGBP(product.evaluation.productCost)}</td>
                   </tr>
                   <tr>
-                    <td colSpan="3" style={{padding: '10px 12px', fontWeight: '700', color: '#28a745', background: '#e6f7ee'}}>Net Profit</td>
-                    <td style={{padding: '10px 12px', fontWeight: '700', color: '#28a745', background: '#e6f7ee'}}>£{product.evaluation.netProfit}</td>
+                    <td colSpan="3" style={{padding: '12px', fontWeight: '700', color: '#28a745', background: '#e6f7ee', fontSize: '1rem'}}>Net Profit</td>
+                    <td style={{padding: '12px', fontWeight: '700', color: '#28a745', background: '#e6f7ee', textAlign: 'right', fontSize: '1rem'}}>{convertFromGBP(product.evaluation.netProfit)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1593,7 +1795,7 @@ const ProductDetail = () => {
               {topDeals.map((deal, idx) => (
                 <div key={deal.id} className="col-lg-2 col-md-3 col-sm-4 col-6">
                   <Link 
-                    to={`/product/${deal.id}?name=${encodeURIComponent(deal.name)}&img=${encodeURIComponent(deal.image)}&price=${parseFloat(deal.price.replace(/[£$₨]/g, ''))}&rating=${deal.rating}&reviews=${deal.reviews || 100}&category=${encodeURIComponent(deal.category || 'General')}&brand=${encodeURIComponent(deal.brand || '')}&discount=${deal.markup || '250%'}`}
+                    to={`/product/${deal.id}?name=${encodeURIComponent(deal.name)}&img=${encodeURIComponent(deal.image)}&price=${parseFloat(deal.price.replace(/[?$?]/g, ''))}&rating=${deal.rating}&reviews=${deal.reviews || 100}&category=${encodeURIComponent(deal.category || 'General')}&brand=${encodeURIComponent(deal.brand || '')}&discount=${deal.markup || '250%'}`}
                     className="card border-0 shadow-sm h-100 text-decoration-none" 
                     style={{transition: 'all 0.3s ease'}}
                   >
@@ -1632,7 +1834,7 @@ const ProductDetail = () => {
               {mostPopular.map((popular, idx) => (
                 <div key={popular.id} className="col-lg-2 col-md-3 col-sm-4 col-6">
                   <Link 
-                    to={`/product/${popular.id}?name=${encodeURIComponent(popular.name)}&img=${encodeURIComponent(popular.image)}&price=${parseFloat(popular.price.replace(/[£$₨]/g, ''))}&rating=${popular.rating}&reviews=${popular.reviews || 100}&category=${encodeURIComponent(popular.category || 'General')}&brand=${encodeURIComponent(popular.brand || '')}&discount=${popular.markup || '250%'}`}
+                    to={`/product/${popular.id}?name=${encodeURIComponent(popular.name)}&img=${encodeURIComponent(popular.image)}&price=${parseFloat(popular.price.replace(/[?$?]/g, ''))}&rating=${popular.rating}&reviews=${popular.reviews || 100}&category=${encodeURIComponent(popular.category || 'General')}&brand=${encodeURIComponent(popular.brand || '')}&discount=${popular.markup || '250%'}`}
                     className="card border-0 shadow-sm h-100 text-decoration-none" 
                     style={{transition: 'all 0.3s ease'}}
                   >

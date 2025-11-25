@@ -1,0 +1,156 @@
+/* Mobile Product Grid Responsive Styles */
+
+/* Base styles for all screens */
+.product-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Mobile phones - 2 columns */
+@media (max-width: 576px) {
+  #products-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    padding: 8px !important;
+  }
+
+  .product-card {
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .product-image-container {
+    height: 120px !important;
+  }
+
+  .product-info {
+    padding: 6px !important;
+  }
+
+  .product-title {
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+    height: 32px !important;
+    overflow: hidden !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+  }
+
+  .rating-stars {
+    font-size: 9px !important;
+  }
+
+  .rating-count {
+    font-size: 9px !important;
+  }
+
+  .price {
+    font-size: 13px !important;
+    font-weight: 800 !important;
+  }
+
+  .product-actions button,
+  .product-actions a {
+    font-size: 9px !important;
+    padding: 5px 8px !important;
+  }
+}
+
+/* Small tablets - 3 columns */
+@media (min-width: 577px) and (max-width: 768px) {
+  #products-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .product-image-container {
+    height: 140px !important;
+  }
+
+  .product-title {
+    font-size: 12px !important;
+  }
+
+  .price {
+    font-size: 14px !important;
+  }
+}
+
+/* Tablets - 4 columns */
+@media (min-width: 769px) and (max-width: 992px) {
+  #products-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 12px !important;
+  }
+}
+
+/* Small laptops - 5 columns */
+@media (min-width: 993px) and (max-width: 1200px) {
+  #products-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+  }
+}
+
+/* Medium laptops - 6 columns */
+@media (min-width: 1201px) and (max-width: 1400px) {
+  #products-grid {
+    grid-template-columns: repeat(6, 1fr) !important;
+  }
+}
+
+/* Large screens - 7 columns */
+@media (min-width: 1401px) and (max-width: 1600px) {
+  #products-grid {
+    grid-template-columns: repeat(7, 1fr) !important;
+  }
+}
+
+/* Extra large screens - 8 columns */
+@media (min-width: 1601px) {
+  #products-grid {
+    grid-template-columns: repeat(8, 1fr) !important;
+  }
+}
+
+/* Container padding adjustments */
+@media (max-width: 576px) {
+  .products-container {
+    padding: 8px !important;
+  }
+
+  .container {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+}
+
+/* Footer responsive */
+@media (max-width: 768px) {
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+
+  .footer-section {
+    text-align: center;
+  }
+}
+
+/* Loading state */
+.loading-container {
+  min-height: 60vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+@media (max-width: 576px) {
+  .loading-container {
+    min-height: 40vh;
+  }
+}

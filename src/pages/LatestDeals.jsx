@@ -27,10 +27,12 @@ const LatestDeals = () => {
   const [dealTimers, setDealTimers] = useState({})
   const [visibleDeals, setVisibleDeals] = useState(8)
 
-  // Currency conversion rates
+  // Currency conversion rates - Manual rates
   const currencyRates = {
     PKR: 1,
-    GBP: 0.0028,
+    GBP: 0.00272,   // 1 GBP = 367.74 PKR
+    USD: 0.00353,   // 1 USD = 283.32 PKR
+    AED: 0.01310,   // 1 AED = 76.37 PKR
     USD: 0.0036
   }
 
