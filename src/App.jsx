@@ -11,6 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import { CurrencyProvider } from './context/CurrencyContext'
 import { SellerProvider } from './context/SellerContext'
 import { AdminProvider } from './context/AdminContext'
+import { BasketProvider } from './context/BasketContext'
 import authSessionManager from './utils/authSession'
 import './App.css'
 import './styles/mobile-responsive.css'
@@ -18,10 +19,9 @@ import './styles/mobile-responsive.css'
 // Lazy load pages for better performance
 const Home = lazy(() => import('./pages/Home'))
 const AmazonsChoice = lazy(() => import('./pages/AmazonsChoice'))
-const BestSellers = lazy(() => import('./pages/BestSellers'))
+const Basket = lazy(() => import('./pages/Basket'))
 const Categories = lazy(() => import('./pages/Categories'))
-const LatestDeals = lazy(() => import('./pages/LatestDeals'))
-const Contact = lazy(() => import('./pages/Contact'))
+const AboutUs = lazy(() => import('./pages/AboutUs'))
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
@@ -60,7 +60,6 @@ const SellerEditProfile = lazy(() => import('./pages/seller/EditProfile'))
 // Legal Pages
 const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'))
 const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy'))
-const AboutUs = lazy(() => import('./pages/legal/AboutUs'))
 const HelpCenter = lazy(() => import('./pages/legal/HelpCenter'))
 const FAQ = lazy(() => import('./pages/legal/FAQ'))
 
@@ -101,17 +100,19 @@ function App() {
   
   return (
     <CurrencyProvider>
-      <SellerProvider>
-        <AdminProvider>
-        <Router>
+      <BasketProvider>
+        <SellerProvider>
+          <AdminProvider>
+          <Router>
         <div className="App">
           <ScrollToTopOnRouteChange />
           <CompactHeader />
           <Suspense fallback={<PageLoader />}>
           <Routes>
           <Route path="/" element={<AmazonsChoice />} />
+          <Route path="/basket" element={<Basket />} />
           <Route path="/clear-storage" element={<ClearStorage />} />
-          <Route path="/about-us" element={<Home />} />
+          <Route path="/about-us" element={<AboutUs />} />
           <Route path="/categories" element={<Categories />} />
           {/* Legacy routes - redirect to new auth system */}
           <Route path="/login" element={<AuthLanding />} />
@@ -166,9 +167,10 @@ function App() {
         <CompactFooter />
         <WhatsAppFloat />
         </div>
-      </Router>
-      </AdminProvider>
-      </SellerProvider>
+        </Router>
+        </AdminProvider>
+        </SellerProvider>
+      </BasketProvider>
     </CurrencyProvider>
   )
 }

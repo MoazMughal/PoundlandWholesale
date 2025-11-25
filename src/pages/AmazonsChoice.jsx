@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react'
-import { Link, useSearchParams, useNavigate } from 'react-router-dom'
-import AlternatingProfit from '../components/AlternatingProfit'
+import { useState, useEffect, useRef } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import ScrollToTop from '../components/ScrollToTop'
-import CurrencySelector from '../components/CurrencySelector'
 import { useCurrency } from '../context/CurrencyContext'
 import { useSeller } from '../context/SellerContext'
 import { getImageUrl } from '../utils/imageImports'
@@ -30,7 +28,10 @@ const AmazonsChoice = () => {
   const [currentStatusIndex, setCurrentStatusIndex] = useState({})
   const [showYearlyProfit, setShowYearlyProfit] = useState(false)
   const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(false)
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [showQuickView, setShowQuickView] = useState(false)
+  const [quickViewProduct, setQuickViewProduct] = useState(null)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('jazzcash')
@@ -42,7 +43,7 @@ const AmazonsChoice = () => {
     cardHolderName: ''
   })
   const { formatPrice } = useCurrency()
-  const { seller, isLoggedIn: isSellerLoggedIn } = useSeller()
+  const { isLoggedIn: isSellerLoggedIn } = useSeller()
   
   const productsPerPage = 48
   const indexOfLastProduct = currentPage * productsPerPage
@@ -75,10 +76,12 @@ const AmazonsChoice = () => {
 
 
 
-  // Check if buyer is logged in
+  // Check if buyer or admin is logged in
   useEffect(() => {
-    const token = localStorage.getItem('buyerToken')
-    setIsBuyerLoggedIn(!!token)
+    const buyerToken = localStorage.getItem('buyerToken')
+    const adminToken = localStorage.getItem('adminToken')
+    setIsBuyerLoggedIn(!!buyerToken)
+    setIsAdminLoggedIn(!!adminToken)
   }, [])
 
   // Handle window resize for responsive grid
@@ -97,8 +100,15 @@ const AmazonsChoice = () => {
       try {
         setLoading(true)
         
-        // Fetch Amazon's Choice products from database (NOT Excel)
-        const response = await fetch(getApiUrl('products/public?isAmazonsChoice=true&limit=1000'))
+        // Fetch Amazon's Choice products from database with timeout
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+        
+        const response = await fetch(getApiUrl('products/public?isAmazonsChoice=true&limit=1000'), {
+          signal: controller.signal
+        })
+        
+        clearTimeout(timeoutId)
         
         if (response.ok) {
           const data = await response.json()
@@ -203,9 +213,15 @@ const AmazonsChoice = () => {
           setBestSellingProducts(bestSelling)
         } else {
           console.error('❌ Database API error:', response.status, response.statusText)
+          alert('⚠️ Unable to load products. Server returned error: ' + response.status)
         }
       } catch (error) {
         console.error('❌ Error fetching products:', error)
+        if (error.name === 'AbortError') {
+          alert('⚠️ Loading products is taking too long. Please check if the backend server is running on http://localhost:5000')
+        } else {
+          alert('⚠️ Unable to connect to server. Please make sure the backend is running:\n\nRun: npm run server\n\nOr check if MongoDB is connected.')
+        }
       } finally {
         setLoading(false)
       }
@@ -305,36 +321,55 @@ const AmazonsChoice = () => {
     }
   }, [searchParams, selectedCategory])
 
-  // Initialize random starting index for each product
+  // Use ref to keep track of current products without causing re-renders
+  const currentProductsRef = useRef(currentProducts)
+  
+  // Update ref when products change
   useEffect(() => {
-    const initialIndex = {}
-    currentProducts.forEach((product, idx) => {
-      initialIndex[idx] = Math.floor(Math.random() * (product.statuses?.length || 1))
-    })
-    setCurrentStatusIndex(initialIndex)
+    currentProductsRef.current = currentProducts
+  }, [currentProducts])
+
+  // Initialize random starting index for each product - only when products change
+  useEffect(() => {
+    if (currentProducts.length > 0) {
+      setCurrentStatusIndex(prev => {
+        const initialIndex = {}
+        currentProducts.forEach((product, idx) => {
+          // Keep existing index if it exists, otherwise set random
+          initialIndex[idx] = prev[idx] !== undefined ? prev[idx] : Math.floor(Math.random() * (product.statuses?.length || 1))
+        })
+        return initialIndex
+      })
+    }
   }, [currentProducts.length])
 
-  // Rotate status indicators every 1 second - each product independently (faster rotation)
+  // Rotate status indicators every 2 seconds - continuous rotation
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentStatusIndex(prev => {
-        const newIndex = {}
-        currentProducts.forEach((product, idx) => {
-          const currentIdx = prev[idx] !== undefined ? prev[idx] : Math.floor(Math.random() * (product.statuses?.length || 1))
-          newIndex[idx] = (currentIdx + 1) % (product.statuses?.length || 1)
-        })
+        const newIndex = { ...prev }
+        const products = currentProductsRef.current
+        
+        // Rotate through all current product indices
+        for (let idx = 0; idx < products.length; idx++) {
+          const product = products[idx]
+          if (product && product.statuses && product.statuses.length > 0) {
+            const currentIdx = newIndex[idx] !== undefined ? newIndex[idx] : 0
+            newIndex[idx] = (currentIdx + 1) % product.statuses.length
+          }
+        }
         return newIndex
       })
-    }, 1000)
+    }, 2000)
     
     return () => clearInterval(interval)
-  }, [currentProducts])
+  }, []) // Empty dependency array - run once and keep rotating forever
 
-  // Rotate profit display between monthly and yearly every 1 second (faster)
+  // Rotate profit display between monthly and yearly every 2 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setShowYearlyProfit(prev => !prev)
-    }, 1000)
+    }, 2000)
     
     return () => clearInterval(interval)
   }, [])
@@ -380,6 +415,12 @@ const AmazonsChoice = () => {
   }
 
 
+
+  const handleQuickView = (e, product) => {
+    e.stopPropagation()
+    setQuickViewProduct(product)
+    setShowQuickView(true)
+  }
 
   const handleContactNow = (e, product) => {
     e.stopPropagation()
@@ -559,224 +600,38 @@ const AmazonsChoice = () => {
 
   if (loading) {
     return (
-      <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh'}}>
+      <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', flexDirection: 'column', gap: '20px'}}>
         <div style={{textAlign: 'center'}}>
-          <div style={{fontSize: '2rem', marginBottom: '10px'}}>⏳</div>
-          <div style={{fontSize: '1.2rem', fontWeight: '600', color: '#333'}}>Loading Products...</div>
+          <div style={{fontSize: '3rem', marginBottom: '15px', animation: 'spin 2s linear infinite'}}>⚡</div>
+          <div style={{fontSize: '1.3rem', fontWeight: '700', color: '#ff9900', marginBottom: '10px'}}>Loading Products...</div>
+          <div style={{fontSize: '0.9rem', color: '#666'}}>Fetching from database...</div>
         </div>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     )
   }
 
   return (
     <div>
+      <div className="container products-container" style={{maxWidth: '1600px', padding: '10px 15px'}}>
 
 
-      {/* Stats Banner */}
-      <div style={{background: 'linear-gradient(135deg, #ff9900 0%, #ff6600 100%)', padding: '4px 0', marginBottom: '8px'}}>
-        <div className="container">
-          <div style={{display: 'flex', justifyContent: 'space-around', alignItems: 'center', flexWrap: 'wrap', gap: '8px', textAlign: 'center'}}>
-            <div>
-              <div style={{fontSize: '0.9rem', fontWeight: '700', color: 'white', marginBottom: '1px', lineHeight: '1.2'}}>{products.length}+</div>
-              <div style={{fontSize: '0.6rem', color: 'rgba(255,255,255,0.9)', lineHeight: '1'}}>Products</div>
-            </div>
-            <div>
-              <div style={{fontSize: '0.9rem', fontWeight: '700', color: 'white', marginBottom: '1px', lineHeight: '1.2'}}>170%</div>
-              <div style={{fontSize: '0.6rem', color: 'rgba(255,255,255,0.9)', lineHeight: '1'}}>Markup</div>
-            </div>
-            <div>
-              <div style={{fontSize: '0.9rem', fontWeight: '700', color: 'white', marginBottom: '1px', lineHeight: '1.2'}}>21K+</div>
-              <div style={{fontSize: '0.6rem', color: 'rgba(255,255,255,0.9)', lineHeight: '1'}}>Deals</div>
-            </div>
-            <div>
-              <div style={{fontSize: '0.9rem', fontWeight: '700', color: 'white', marginBottom: '1px', lineHeight: '1.2'}}>10+</div>
-              <div style={{fontSize: '0.6rem', color: 'rgba(255,255,255,0.9)', lineHeight: '1'}}>Categories</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Currency Selector - Fixed Position */}
-      <CurrencySelector />
-
-      <div className="container products-container">
-
-        {/* Page Header */}
-        <div className="page-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-          <div className="header-content" style={{flex: 1, minWidth: '300px'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px'}}>
-              <div style={{flex: 1, minWidth: '300px'}}>
-                <h2 className="section-title" style={{marginBottom: '4px', fontSize: '1.5rem', fontWeight: '800'}}>Amazon's Choice Products</h2>
-                <div className="section-sub" style={{marginBottom: '6px', color: '#6b7280', fontSize: '0.85rem'}}>Hand-picked haul-style items across categories — fashion, home, electronics, beauty & more.</div>
-              </div>
-              
-              {/* Search Bar */}
-              <div className="search-filter-bar" style={{margin: 0, maxWidth: '700px', minWidth: '500px', display: 'flex', gap: '8px'}}>
-                <div className="search-container" style={{flex: 1, position: 'relative'}}>
-                  <input 
-                    type="text" 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                    className="search-input" 
-                    placeholder="Search products..."
-                    style={{width: '100%', padding: '10px 35px 10px 12px', border: '2px solid #e2e8f0', borderRadius: '8px', fontSize: '14px'}}
-                  />
-                  <i className="fas fa-search search-icon" style={{position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#6b7280', fontSize: '14px'}}></i>
-                </div>
-                <button onClick={handleSearch} className="search-btn" style={{background: 'var(--bs-primary)', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 12px', fontWeight: '600'}}>
-                  <i className="fas fa-search"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter Section */}
-        <div className="filter-section" style={{background: 'white', borderRadius: '8px', padding: '8px', marginBottom: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px'}}>
-          <div className="filter-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flex: 1, cursor: 'pointer'}} onClick={() => setShowFilters(!showFilters)}>
-            <h3 className="filter-title" style={{fontSize: '1rem', fontWeight: '700', margin: 0}}>Filter Products</h3>
-            <button className="filter-toggle" style={{background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '0.85rem'}}>
-              <i className="fas fa-sliders-h"></i> {showFilters ? 'Hide' : 'Show'} Filters
-            </button>
-          </div>
-          
-          <div className="filter-controls" style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="sort-select" style={{padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '8px', background: 'white', fontSize: '13px', minWidth: '140px'}}>
-              <option value="featured">Sort: Featured</option>
-              <option value="price-low">Price: Low to High</option>
-              <option value="price-high">Price: High to Low</option>
-              <option value="rating">Highest Rated</option>
-              <option value="popular">Most Popular</option>
-            </select>
-            
-            <div className="filter-buttons" style={{display: 'flex', gap: '6px'}}>
-              <button onClick={() => setShowFilters(!showFilters)} className="filter-btn filter-apply" style={{padding: '8px 12px', border: 'none', borderRadius: '8px', background: 'var(--bs-primary)', color: 'white', fontWeight: '600', fontSize: '13px'}}>
-                <i className="fas fa-filter"></i>
-              </button>
-              <button onClick={handleResetFilters} className="filter-btn filter-reset" style={{padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#f8f9fa', color: '#6b7280', fontWeight: '600', fontSize: '13px'}}>
-                <i className="fas fa-redo"></i>
-              </button>
-            </div>
-          </div>
-          
-          {showFilters && (
-            <div className="filter-content" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', width: '100%', marginTop: '12px'}}>
-              <div className="filter-group">
-                <label className="filter-label" style={{display: 'block', fontWeight: '600', marginBottom: '6px', fontSize: '0.85rem'}}>Price Range</label>
-                <select value={priceFilter} onChange={(e) => setPriceFilter(e.target.value)} className="filter-select" style={{width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px'}}>
-                  <option value="all">All Prices</option>
-                  <option value="0-10">Under £10</option>
-                  <option value="10-20">£10 - £20</option>
-                  <option value="20-50">£20 - £50</option>
-                  <option value="50-100">£50 - £100</option>
-                </select>
-              </div>
-              
-              <div className="filter-group">
-                <label className="filter-label" style={{display: 'block', fontWeight: '600', marginBottom: '6px', fontSize: '0.85rem'}}>Rating</label>
-                <select value={ratingFilter} onChange={(e) => setRatingFilter(e.target.value)} className="filter-select" style={{width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px'}}>
-                  <option value="all">All Ratings</option>
-                  <option value="4.5">4.5+ Stars</option>
-                  <option value="4.0">4.0+ Stars</option>
-                  <option value="3.5">3.5+ Stars</option>
-                  <option value="3.0">3.0+ Stars</option>
-                </select>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Product Category Tabs */}
-        <div className="product-tabs" style={{display: 'flex', gap: '10px', marginBottom: '15px', borderBottom: '2px solid #e5e7eb', paddingBottom: '0'}}>
-          <button
-            onClick={() => setActiveTab('all')}
-            style={{
-              padding: '12px 24px',
-              border: 'none',
-              background: activeTab === 'all' ? 'var(--bs-primary)' : 'transparent',
-              color: activeTab === 'all' ? 'white' : '#6b7280',
-              fontWeight: '700',
-              fontSize: '0.95rem',
-              cursor: 'pointer',
-              borderRadius: '8px 8px 0 0',
-              transition: 'all 0.3s',
-              borderBottom: activeTab === 'all' ? '3px solid var(--bs-primary)' : 'none'
-            }}
-          >
-            <i className="fas fa-th-large me-2"></i>
-            All Products ({products.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('fast')}
-            style={{
-              padding: '12px 24px',
-              border: 'none',
-              background: activeTab === 'fast' ? '#10b981' : 'transparent',
-              color: activeTab === 'fast' ? 'white' : '#6b7280',
-              fontWeight: '700',
-              fontSize: '0.95rem',
-              cursor: 'pointer',
-              borderRadius: '8px 8px 0 0',
-              transition: 'all 0.3s',
-              borderBottom: activeTab === 'fast' ? '3px solid #10b981' : 'none'
-            }}
-          >
-            <i className="fas fa-fire me-2"></i>
-            Fast Selling ({fastSellingProducts.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('best')}
-            style={{
-              padding: '12px 24px',
-              border: 'none',
-              background: activeTab === 'best' ? '#f59e0b' : 'transparent',
-              color: activeTab === 'best' ? 'white' : '#6b7280',
-              fontWeight: '700',
-              fontSize: '0.95rem',
-              cursor: 'pointer',
-              borderRadius: '8px 8px 0 0',
-              transition: 'all 0.3s',
-              borderBottom: activeTab === 'best' ? '3px solid #f59e0b' : 'none'
-            }}
-          >
-            <i className="fas fa-trophy me-2"></i>
-            Best Selling ({bestSellingProducts.length})
-          </button>
-        </div>
-
-        {/* Results Info */}
-        <div className="results-info" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', padding: '4px 0'}}>
-          <div className="results-count" style={{fontSize: '0.85rem', color: '#6b7280'}}>
-            Showing {indexOfFirstProduct + 1}-{Math.min(indexOfLastProduct, activeProducts.length)} of {activeProducts.length} products
-            {activeTab === 'fast' && <span style={{marginLeft: '10px', color: '#10b981', fontWeight: '600'}}>(Fast Selling)</span>}
-            {activeTab === 'best' && <span style={{marginLeft: '10px', color: '#f59e0b', fontWeight: '600'}}>(Best Selling)</span>}
-          </div>
-        </div>
-
-        {/* Category Filters */}
-        <div className="categories mb-3" style={{display: 'flex', gap: '6px', flexWrap: 'wrap'}}>
-          {categories.map(cat => (
-            <button 
-              key={cat.value}
-              className={`category-btn ${selectedCategory === cat.value ? 'active' : ''}`}
-              onClick={() => handleCategoryClick(cat.value)}
-              style={{borderRadius: '999px', padding: '6px 12px', border: '1px solid rgba(0,0,0,0.06)', background: selectedCategory === cat.value ? 'var(--bs-primary)' : '#fff', cursor: 'pointer', fontWeight: '600', color: selectedCategory === cat.value ? '#fff' : '#333', fontSize: '0.85rem'}}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
 
         {/* Products Grid */}
         <div id="products-grid" style={{
           display: 'grid', 
           gridTemplateColumns: windowWidth < 576 ? 'repeat(2, 1fr)' : 
-                              windowWidth < 768 ? 'repeat(3, 1fr)' : 
-                              windowWidth < 992 ? 'repeat(4, 1fr)' : 
-                              windowWidth < 1400 ? 'repeat(5, 1fr)' :
-                              'repeat(6, 1fr)', 
-          gap: windowWidth < 576 ? '8px' : '12px',
+                              windowWidth < 768 ? 'repeat(4, 1fr)' : 
+                              windowWidth < 992 ? 'repeat(5, 1fr)' : 
+                              windowWidth < 1200 ? 'repeat(6, 1fr)' :
+                              windowWidth < 1400 ? 'repeat(7, 1fr)' :
+                              'repeat(8, 1fr)', 
+          gap: windowWidth < 576 ? '6px' : '10px',
           maxWidth: '1600px',
           margin: '0 auto'
         }}>
@@ -801,10 +656,17 @@ const AmazonsChoice = () => {
                 }}
                 style={{cursor: 'pointer'}}
               >
-                <div className="product-image-container" style={{position: 'relative', height: '200px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff'}}>
-                  {/* Rotating Status Badge on Image - Top Right Corner */}
+                <div className="product-image-container" style={{position: 'relative', height: '140px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff'}}>
+                  <img 
+                    src={product.image}
+                    alt={product.name} 
+                    className="product-image" 
+                    style={{maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain', padding: '3px'}} 
+                  />
+                  
+                  {/* Rotating Status Badge - Top Right Corner */}
                   {product.statuses && product.statuses.length > 0 && (
-                    <div style={{position: 'absolute', top: '6px', right: '6px', zIndex: 10}}>
+                    <div style={{position: 'absolute', top: '4px', right: '4px', zIndex: 2}}>
                       {product.statuses.map((status, statusIdx) => {
                         const isActive = (currentStatusIndex[index] || 0) === statusIdx;
                         let bgColor = '#667eea';
@@ -812,7 +674,7 @@ const AmazonsChoice = () => {
                         
                         if (status.includes("Best Seller")) {
                           bgColor = '#ffd700';
-                          textColor = '#333';
+                          textColor = '#111';
                         } else if (status.includes("Selling Fast")) {
                           bgColor = '#ff6b6b';
                           textColor = 'white';
@@ -831,17 +693,22 @@ const AmazonsChoice = () => {
                           <span 
                             key={statusIdx}
                             style={{
-                              padding: '6px 12px',
-                              borderRadius: '6px',
+                              padding: '2px 6px',
+                              borderRadius: '3px',
                               fontWeight: '700',
-                              fontSize: '0.7rem',
-                              display: isActive ? 'inline-block' : 'none',
+                              fontSize: '0.55rem',
+                              display: 'inline-block',
+                              position: 'absolute',
+                              top: 0,
+                              right: 0,
                               whiteSpace: 'nowrap',
-                              boxShadow: '0 3px 10px rgba(0,0,0,0.3)',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                               lineHeight: '1.2',
                               backgroundColor: bgColor,
                               color: textColor,
-                              transition: 'all 0.3s ease'
+                              transition: 'opacity 0.5s ease-in-out',
+                              opacity: isActive ? 1 : 0,
+                              pointerEvents: 'none'
                             }}
                           >
                             {status}
@@ -851,58 +718,91 @@ const AmazonsChoice = () => {
                     </div>
                   )}
                   
-                  {/* Rotating Profit Badge on Image - Bottom Left Corner */}
+                  {/* Rotating Profit Display - Bottom Left Corner */}
                   {product.monthlyProfit && product.yearlyProfit && (
-                    <div style={{position: 'absolute', bottom: '6px', left: '6px', zIndex: 3}}>
+                    <div style={{position: 'absolute', bottom: '4px', left: '4px', zIndex: 2}}>
                       <div style={{
+                        padding: '2px 6px',
+                        borderRadius: '3px',
+                        fontWeight: '700',
+                        fontSize: '0.55rem',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                        lineHeight: '1.2',
                         background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        padding: '5px 10px',
-                        borderRadius: '5px',
-                        boxShadow: '0 3px 8px rgba(0,0,0,0.25)',
-                        transition: 'all 0.3s ease'
+                        color: '#fff',
+                        transition: 'opacity 0.5s ease-in-out'
                       }}>
-                        <div style={{fontSize: '0.7rem', fontWeight: '700', color: '#fff', lineHeight: '1.2'}}>
-                          {showYearlyProfit ? (
-                            <>� {formatPrice(product.yearlyProfit)}/yr</>
-                          ) : (
-                            <>💰 {formatPrice(product.monthlyProfit)}/mo</>
-                          )}
-                        </div>
+                        {showYearlyProfit ? (
+                          <>💰 {formatPrice(product.yearlyProfit)}/yr</>
+                        ) : (
+                          <>💰 {formatPrice(product.monthlyProfit)}/mo</>
+                        )}
                       </div>
                     </div>
                   )}
                   
-                  <img 
-                    src={product.image}
-                    alt={product.name} 
-                    className="product-image" 
-                    style={{maxWidth: '95%', maxHeight: '95%', width: 'auto', height: 'auto', objectFit: 'contain', padding: '8px'}} 
-                  />
+                  {/* Quick View Plus Icon - Bottom Right Corner */}
+                  <button
+                    onClick={(e) => handleQuickView(e, product)}
+                    style={{
+                      position: 'absolute',
+                      bottom: '4px',
+                      right: '4px',
+                      zIndex: 3,
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      background: 'rgba(0, 0, 0, 0.7)',
+                      color: '#fff',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '16px',
+                      fontWeight: '700',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(0, 0, 0, 0.9)'
+                      e.currentTarget.style.transform = 'scale(1.1)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(0, 0, 0, 0.7)'
+                      e.currentTarget.style.transform = 'scale(1)'
+                    }}
+                  >
+                    +
+                  </button>
                 </div>
                 
-                <div className="product-info" style={{padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                  <h5 className="product-title" style={{fontSize: '11px', fontWeight: '700', margin: 0, lineHeight: '1.3', height: '30px', overflow: 'hidden'}}>{product.name}</h5>
+                <div className="product-info" style={{padding: '4px 6px', display: 'flex', flexDirection: 'column', gap: '3px'}}>
+                  <h5 className="product-title" style={{fontSize: '10px', fontWeight: '700', margin: 0, lineHeight: '1.2', height: '24px', overflow: 'hidden'}}>{product.name}</h5>
                   
-                  <div className="rating-container" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <div className="rating-stars" style={{color: '#f6b042', fontSize: '9px'}}>
+                  <div className="rating-container" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px'}}>
+                    <div className="rating-stars" style={{color: '#f6b042', fontSize: '8px', flex: 1}}>
                       {renderStars(product.rating)}
-                      <span className="rating-count" style={{fontWeight: '700', color: '#374151', marginLeft: '3px', fontSize: '9px'}}>({product.reviews})</span>
+                      <span className="rating-count" style={{fontWeight: '700', color: '#374151', marginLeft: '2px', fontSize: '8px'}}>({product.reviews})</span>
                     </div>
                   </div>
                   
-                  <div className="price" style={{fontWeight: '800', fontSize: '13px', color: '#0b3b2e'}}>{formatPrice(product.price)}</div>
+                  <div className="price" style={{fontWeight: '800', fontSize: '12px', color: '#0b3b2e'}}>{formatPrice(product.price)}</div>
                   
                   {/* Total Deal Price Calculation */}
-                  <div style={{background: '#f0fdf4', padding: '4px 6px', borderRadius: '3px', border: '1px solid #86efac'}}>
+                  <div style={{background: '#f0fdf4', padding: '3px 5px', borderRadius: '3px', border: '1px solid #86efac'}}>
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                      <span style={{fontSize: '8px', color: '#166534', fontWeight: '600'}}>💰 Deal Value</span>
-                      <span style={{fontSize: '11px', fontWeight: '800', color: '#15803d'}}>
+                      <span style={{fontSize: '7px', color: '#166534', fontWeight: '600'}}>💰 Deal</span>
+                      <span style={{fontSize: '9px', fontWeight: '800', color: '#15803d'}}>
                         {formatPrice((parseFloat(product.price.replace(/[£$₨]/g, '')) * product.monthlyOrders * 2).toFixed(2))}
                       </span>
                     </div>
                   </div>
                   
                   <div style={{display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px'}}>
+
+                    
                     <a 
                       href={`https://www.amazon.com/s?k=${encodeURIComponent(product.name)}`}
                       target="_blank"
@@ -913,6 +813,7 @@ const AmazonsChoice = () => {
                     >
                       <i className="fab fa-amazon"></i> Verify on Amazon
                     </a>
+                    
                     {isBuyerLoggedIn && (
                       <button
                         onClick={(e) => handleContactNow(e, product)}
@@ -953,7 +854,202 @@ const AmazonsChoice = () => {
             </ul>
           </div>
         )}
-      </div>
+
+      {/* Quick View Modal */}
+      {showQuickView && quickViewProduct && (
+        <div 
+          className="modal show d-block" 
+          style={{backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 9999}}
+          onClick={() => setShowQuickView(false)}
+        >
+          <div 
+            className="modal-dialog modal-dialog-centered" 
+            style={{maxWidth: windowWidth < 576 ? '90%' : '500px'}}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-content" style={{borderRadius: '12px', overflow: 'hidden'}}>
+              <div className="modal-header" style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', padding: '15px 20px', border: 'none'}}>
+                <h5 className="modal-title" style={{fontSize: '16px', fontWeight: '700', margin: 0}}>
+                  Quick View
+                </h5>
+                <button 
+                  type="button" 
+                  onClick={() => setShowQuickView(false)}
+                  style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    border: 'none',
+                    color: '#fff',
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    fontSize: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '700'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="modal-body" style={{padding: '20px'}}>
+                {/* Product Image */}
+                <div style={{textAlign: 'center', marginBottom: '20px'}}>
+                  <img 
+                    src={quickViewProduct.image} 
+                    alt={quickViewProduct.name}
+                    style={{width: '100%', maxWidth: '250px', height: 'auto', objectFit: 'contain', borderRadius: '8px', border: '1px solid #e5e7eb'}}
+                  />
+                </div>
+                
+                {/* Product Title */}
+                <h6 style={{fontSize: '14px', fontWeight: '700', marginBottom: '10px', color: '#111'}}>
+                  {quickViewProduct.name}
+                </h6>
+                
+                {/* Price */}
+                <div style={{fontSize: '18px', fontWeight: '800', color: '#10b981', marginBottom: '15px'}}>
+                  {formatPrice(quickViewProduct.price)}
+                </div>
+                
+                {/* Rating */}
+                <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px'}}>
+                  <div style={{color: '#f6b042', fontSize: '12px'}}>
+                    {renderStars(quickViewProduct.rating)}
+                  </div>
+                  <span style={{fontSize: '12px', color: '#6b7280'}}>
+                    ({quickViewProduct.reviews} reviews)
+                  </span>
+                </div>
+                
+                {/* Supplier Information */}
+                <div style={{
+                  background: '#f9fafb',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  marginBottom: '15px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <h6 style={{fontSize: '13px', fontWeight: '700', marginBottom: '10px', color: '#374151'}}>
+                    <i className="fas fa-store"></i> Supplier Information
+                  </h6>
+                  
+                  {isAdminLoggedIn ? (
+                    <div style={{fontSize: '12px', color: '#111'}}>
+                      <div style={{marginBottom: '6px'}}>
+                        <strong>Supplier:</strong> Generic Wholesale Ltd.
+                      </div>
+                      <div style={{marginBottom: '6px'}}>
+                        <strong>Contact:</strong> +92 300 1234567
+                      </div>
+                      <div style={{marginBottom: '6px'}}>
+                        <strong>Email:</strong> supplier@genericwholesale.com
+                      </div>
+                      <div style={{marginBottom: '6px'}}>
+                        <strong>Location:</strong> Karachi, Pakistan
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      background: '#fff',
+                      borderRadius: '6px',
+                      border: '1px dashed #d1d5db'
+                    }}>
+                      <i className="fas fa-lock" style={{fontSize: '24px', color: '#9ca3af'}}></i>
+                      <div style={{fontSize: '11px', color: '#6b7280'}}>
+                        <div style={{fontWeight: '600', marginBottom: '3px'}}>Supplier details locked</div>
+                        <div>Login as admin to view supplier information</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Number of Suppliers */}
+                <div style={{
+                  background: '#ecfdf5',
+                  padding: '12px 15px',
+                  borderRadius: '8px',
+                  border: '1px solid #a7f3d0',
+                  marginBottom: '15px'
+                }}>
+                  <div style={{fontSize: '12px', color: '#065f46', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                    <i className="fas fa-users" style={{fontSize: '16px'}}></i>
+                    <span>
+                      <strong>{Math.floor(Math.random() * 15) + 3} suppliers</strong> are selling this product
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Action Buttons */}
+                <div style={{display: 'flex', gap: '10px', marginTop: '20px'}}>
+                  <button
+                    onClick={() => {
+                      setShowQuickView(false)
+                      const params = new URLSearchParams({
+                        name: quickViewProduct.name,
+                        img: quickViewProduct.image,
+                        price: quickViewProduct.price.replace(/[£$₨]/g, ''),
+                        rating: quickViewProduct.rating || 4.5,
+                        reviews: quickViewProduct.reviews || 0,
+                        category: quickViewProduct.category || 'General',
+                        brand: quickViewProduct.brand || '',
+                        discount: quickViewProduct.discount || 0
+                      })
+                      navigate(`/product/${quickViewProduct.id}?${params.toString()}`)
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      background: '#667eea',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#5568d3'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = '#667eea'}
+                  >
+                    <i className="fas fa-eye"></i> View Full Details
+                  </button>
+                  
+                  {isSellerLoggedIn && (
+                    <button
+                      onClick={() => {
+                        setShowQuickView(false)
+                        handleListProduct({ stopPropagation: () => {} }, quickViewProduct)
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        background: '#f59e0b',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#d97706'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = '#f59e0b'}
+                    >
+                      <i className="fas fa-plus"></i> List (₨500)
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payment Modal */}
       {showPaymentModal && selectedProduct && (
@@ -1116,6 +1212,7 @@ const AmazonsChoice = () => {
 
       {/* Scroll to Top Button */}
       <ScrollToTop />
+      </div>
     </div>
   )
 }

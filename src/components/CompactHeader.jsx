@@ -1,12 +1,60 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSeller } from '../context/SellerContext';
+import { useCurrency } from '../context/CurrencyContext';
+import { useBasket } from '../context/BasketContext';
 
 const CompactHeader = () => {
   const navigate = useNavigate();
-  const { isLoggedIn: isSellerLoggedIn } = useSeller();
+  const { isLoggedIn: isSellerLoggedIn, logout: sellerLogout } = useSeller();
+  const { currency, setCurrency } = useCurrency();
+  const { getBasketCount } = useBasket();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showLoginMenu, setShowLoginMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const isBuyerLoggedIn = !!localStorage.getItem('buyerToken');
+  const isAdminLoggedIn = !!localStorage.getItem('adminToken');
+  const loginMenuRef = useRef(null);
+  const userMenuRef = useRef(null);
+
+  // Get user type and name
+  const getUserInfo = () => {
+    if (isAdminLoggedIn) return { type: 'Admin', name: 'Admin' };
+    if (isSellerLoggedIn) return { type: 'Seller', name: 'Seller' };
+    if (isBuyerLoggedIn) return { type: 'Buyer', name: 'Buyer' };
+    return null;
+  };
+
+  const userInfo = getUserInfo();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (loginMenuRef.current && !loginMenuRef.current.contains(event.target)) {
+        setShowLoginMenu(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    if (isAdminLoggedIn) {
+      localStorage.removeItem('adminToken');
+    } else if (isSellerLoggedIn) {
+      localStorage.removeItem('sellerToken');
+      sellerLogout();
+    } else if (isBuyerLoggedIn) {
+      localStorage.removeItem('buyerToken');
+    }
+    setShowUserMenu(false);
+    navigate('/');
+    window.location.reload();
+  };
 
   const categories = [
     { value: 'all', label: 'All' },
@@ -30,39 +78,86 @@ const CompactHeader = () => {
   };
 
   return (
-    <header style={{
-      position: 'sticky',
-      top: 0,
-      zIndex: 1000,
-      background: '#fff',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-    }}>
-      {/* Main Header */}
-      <div style={{
-        padding: '8px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '20px',
-        borderBottom: '1px solid #e5e7eb'
+    <>
+      <style>{`
+        @media (max-width: 768px) {
+          .header-logo-text {
+            font-size: 12px !important;
+          }
+          .header-search-form {
+            max-width: 100% !important;
+          }
+          .header-actions {
+            gap: 8px !important;
+          }
+          .header-actions > * {
+            font-size: 10px !important;
+          }
+        }
+        @media (max-width: 576px) {
+          .header-main {
+            padding: 6px 8px !important;
+            gap: 8px !important;
+          }
+          .header-logo {
+            min-width: 100px !important;
+          }
+          .header-logo-text {
+            font-size: 10px !important;
+          }
+        }
+      `}</style>
+      <header style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 1000,
+        background: '#fff',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
+        {/* Main Header */}
+        <div className="header-main" style={{
+          padding: '4px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          background: '#ff9900',
+          borderBottom: '1px solid #e67e00'
+        }}>
         {/* Logo */}
-        <Link to="/" style={{
-          fontSize: '16px',
-          fontWeight: '700',
-          color: '#111',
+        <Link to="/" className="header-logo" style={{
+          fontSize: '15px',
+          fontWeight: '900',
+          color: '#fff',
           textDecoration: 'none',
           whiteSpace: 'nowrap',
-          minWidth: '140px'
+          minWidth: '140px',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+          letterSpacing: '0.5px',
+          fontFamily: 'Arial Black, sans-serif',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
         }}>
-          Generic Wholesale
+          <span style={{
+            fontSize: '18px',
+            background: 'linear-gradient(135deg, #fff 0%, #ffe6cc 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            fontWeight: '900'
+          }}>⚡</span>
+          <span className="header-logo-text" style={{
+            background: 'linear-gradient(135deg, #fff 0%, #ffe6cc 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          }}>Generic Wholesale</span>
         </Link>
 
         {/* Search Bar */}
-        <form onSubmit={handleSearch} style={{
+        <form onSubmit={handleSearch} className="header-search-form" style={{
           flex: 1,
-          maxWidth: '800px',
+          maxWidth: '700px',
           display: 'flex',
-          gap: '8px'
+          gap: '6px'
         }}>
           <input
             type="text"
@@ -71,20 +166,20 @@ const CompactHeader = () => {
             placeholder="Search products..."
             style={{
               flex: 1,
-              padding: '8px 12px',
-              border: '2px solid #e5e7eb',
-              borderRadius: '6px',
-              fontSize: '14px',
+              padding: '6px 10px',
+              border: '1px solid #fff',
+              borderRadius: '4px',
+              fontSize: '12px',
               outline: 'none'
             }}
           />
           <button type="submit" style={{
-            padding: '8px 20px',
-            background: '#ff9900',
+            padding: '6px 15px',
+            background: '#232f3e',
             color: '#fff',
             border: 'none',
-            borderRadius: '6px',
-            fontSize: '14px',
+            borderRadius: '4px',
+            fontSize: '12px',
             fontWeight: '600',
             cursor: 'pointer'
           }}>
@@ -93,62 +188,254 @@ const CompactHeader = () => {
         </form>
 
         {/* User Actions */}
-        <div style={{
+        <div className="header-actions" style={{
           display: 'flex',
           alignItems: 'center',
           gap: '15px',
           whiteSpace: 'nowrap'
         }}>
-          {!isBuyerLoggedIn && !isSellerLoggedIn ? (
+          {/* Currency Selector */}
+          <select 
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            style={{
+              padding: '5px 8px',
+              border: '1px solid #fff',
+              borderRadius: '4px',
+              fontSize: '11px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              outline: 'none',
+              background: '#fff'
+            }}
+          >
+            <option value="PKR">PKR</option>
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+            <option value="AED">AED</option>
+          </select>
+
+          {!userInfo ? (
             <>
-              <Link to="/login/buyer" style={{
-                fontSize: '13px',
-                color: '#111',
-                textDecoration: 'none',
-                fontWeight: '500'
-              }}>
-                Login
-              </Link>
-              <Link to="/register/buyer" style={{
-                fontSize: '13px',
-                color: '#111',
-                textDecoration: 'none',
-                fontWeight: '500'
-              }}>
-                Register
+              <div ref={loginMenuRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowLoginMenu(!showLoginMenu)}
+                  style={{
+                    fontSize: '11px',
+                    color: '#fff',
+                    background: 'rgba(255,255,255,0.2)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '4px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    padding: '5px 12px',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                >
+                  <i className="fas fa-user"></i> Login
+                </button>
+                {showLoginMenu && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    background: '#fff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '4px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    marginTop: '4px',
+                    minWidth: '140px',
+                    zIndex: 1000
+                  }}>
+                    <Link 
+                      to="/login/buyer" 
+                      onClick={() => setShowLoginMenu(false)}
+                      style={{
+                        display: 'block',
+                        padding: '8px 12px',
+                        fontSize: '11px',
+                        color: '#111',
+                        textDecoration: 'none',
+                        borderBottom: '1px solid #e5e7eb'
+                      }}
+                    >
+                      Buyer Login
+                    </Link>
+                    <Link 
+                      to="/login/supplier" 
+                      onClick={() => setShowLoginMenu(false)}
+                      style={{
+                        display: 'block',
+                        padding: '8px 12px',
+                        fontSize: '11px',
+                        color: '#111',
+                        textDecoration: 'none',
+                        borderBottom: '1px solid #e5e7eb'
+                      }}
+                    >
+                      Supplier Login
+                    </Link>
+                    <Link 
+                      to="/admin/login" 
+                      onClick={() => setShowLoginMenu(false)}
+                      style={{
+                        display: 'block',
+                        padding: '8px 12px',
+                        fontSize: '11px',
+                        color: '#111',
+                        textDecoration: 'none'
+                      }}
+                    >
+                      Admin Login
+                    </Link>
+                  </div>
+                )}
+              </div>
+              <Link 
+                to="/register/buyer" 
+                style={{
+                  fontSize: '11px',
+                  color: '#fff',
+                  textDecoration: 'none',
+                  fontWeight: '600',
+                  background: 'rgba(255,255,255,0.2)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  borderRadius: '4px',
+                  padding: '5px 12px',
+                  transition: 'all 0.2s',
+                  display: 'inline-block'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+              >
+                <i className="fas fa-user-plus"></i> Register
               </Link>
             </>
           ) : (
-            <Link to={isBuyerLoggedIn ? '/buyer/dashboard' : '/seller/dashboard'} style={{
-              fontSize: '13px',
-              color: '#111',
-              textDecoration: 'none',
-              fontWeight: '500'
-            }}>
-              Dashboard
-            </Link>
+            <div ref={userMenuRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                style={{
+                  fontSize: '11px',
+                  color: '#fff',
+                  background: 'rgba(255,255,255,0.2)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  borderRadius: '4px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  padding: '5px 12px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+              >
+                <i className="fas fa-user-circle"></i> {userInfo.type}
+              </button>
+              {showUserMenu && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  background: '#fff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '4px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  marginTop: '4px',
+                  minWidth: '140px',
+                  zIndex: 1000
+                }}>
+                  <Link 
+                    to={isAdminLoggedIn ? '/admin/dashboard' : isBuyerLoggedIn ? '/buyer/dashboard' : '/seller/dashboard'} 
+                    style={{
+                      display: 'block',
+                      padding: '8px 12px',
+                      fontSize: '11px',
+                      color: '#111',
+                      textDecoration: 'none',
+                      borderBottom: '1px solid #e5e7eb'
+                    }}
+                  >
+                    Dashboard
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '8px 12px',
+                      fontSize: '11px',
+                      color: '#dc2626',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           )}
-          <div style={{
-            fontSize: '13px',
-            color: '#111',
-            fontWeight: '500',
-            cursor: 'pointer'
-          }}>
-            🛒 Basket
-          </div>
+          
+          {/* Basket Button */}
+          <Link 
+            to="/basket"
+            style={{
+              position: 'relative',
+              fontSize: '11px',
+              color: '#fff',
+              textDecoration: 'none',
+              fontWeight: '600',
+              background: 'rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '4px',
+              padding: '5px 12px',
+              transition: 'all 0.2s',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+          >
+            <i className="fas fa-shopping-basket"></i> Basket
+            {getBasketCount() > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '-6px',
+                right: '-6px',
+                background: '#dc2626',
+                color: '#fff',
+                borderRadius: '50%',
+                width: '18px',
+                height: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '9px',
+                fontWeight: '700',
+                border: '2px solid #ff9900'
+              }}>
+                {getBasketCount()}
+              </span>
+            )}
+          </Link>
         </div>
       </div>
 
       {/* Category Navigation */}
       <div style={{
-        padding: '8px 20px',
-        background: '#f8f9fa',
+        padding: '4px 12px',
+        background: '#ffb84d',
         overflowX: 'auto',
         whiteSpace: 'nowrap'
       }}>
         <div style={{
           display: 'flex',
-          gap: '15px',
+          gap: '10px',
           alignItems: 'center'
         }}>
           {categories.map(cat => (
@@ -156,11 +443,11 @@ const CompactHeader = () => {
               key={cat.value}
               to={cat.value === 'all' ? '/' : `/?cat=${cat.value}`}
               style={{
-                fontSize: '13px',
+                fontSize: '10px',
                 color: '#111',
                 textDecoration: 'none',
-                fontWeight: '500',
-                padding: '4px 0',
+                fontWeight: '600',
+                padding: '2px 0',
                 borderBottom: '2px solid transparent',
                 transition: 'border-color 0.2s'
               }}
@@ -173,6 +460,7 @@ const CompactHeader = () => {
         </div>
       </div>
     </header>
+    </>
   );
 };
 

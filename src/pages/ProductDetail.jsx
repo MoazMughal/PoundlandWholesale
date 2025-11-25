@@ -1106,12 +1106,7 @@ const ProductDetail = () => {
                     </select>
                   </div>
 
-                  {/* Add to Basket Button */}
-                  <div className="d-grid gap-2 mb-2">
-                    <button className="btn btn-warning" style={{fontSize: '0.8rem', padding: '8px'}}>
-                      <i className="fas fa-shopping-cart me-1"></i>Add to Basket
-                    </button>
-                  </div>
+
 
                   {/* Buy Now Button */}
                   <div className="d-grid gap-2 mb-2">
@@ -1268,9 +1263,6 @@ const ProductDetail = () => {
                       </div>
                       <div className="col-6">
                         <div className="d-grid gap-1">
-                          <button className="btn btn-warning btn-sm">
-                            <i className="fas fa-shopping-cart me-1"></i>Add to Basket
-                          </button>
                           <button className="btn btn-danger btn-sm">
                             <i className="fas fa-bolt me-1"></i>Buy Now
                           </button>
