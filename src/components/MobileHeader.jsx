@@ -123,9 +123,9 @@ const MobileHeader = () => {
         }
 
         .mobile-logo img {
-          height: 40px;
+          height: 50px;
           width: auto;
-          max-width: 250px;
+          max-width: 280px;
           object-fit: contain;
           background: transparent;
         }
@@ -133,8 +133,8 @@ const MobileHeader = () => {
         /* Small mobile phones */
         @media (max-width: 400px) {
           .mobile-logo img {
-            height: 36px;
-            max-width: 200px;
+            height: 44px;
+            max-width: 240px;
           }
         }
 
@@ -331,8 +331,8 @@ const MobileHeader = () => {
         /* Tablet Adjustments */
         @media (min-width: 577px) and (max-width: 768px) {
           .mobile-logo img {
-            height: 44px;
-            max-width: 260px;
+            height: 54px;
+            max-width: 300px;
           }
 
           .mobile-search-input {
@@ -341,7 +341,7 @@ const MobileHeader = () => {
           }
 
           .desktop-header img[alt="Generic Wholesale"] {
-            height: 48px;
+            height: 58px;
             max-width: none;
             width: auto;
           }
@@ -360,7 +360,7 @@ const MobileHeader = () => {
 
           .desktop-header img[alt="Generic Wholesale"] {
             width: auto;
-            height: 45px;
+            height: 55px;
             object-fit: contain;
           }
         }
@@ -369,7 +369,7 @@ const MobileHeader = () => {
         @media (min-width: 1200px) {
           .desktop-header img[alt="Generic Wholesale"] {
             width: auto;
-            height: 50px;
+            height: 60px;
             object-fit: contain;
           }
         }
@@ -378,7 +378,7 @@ const MobileHeader = () => {
         @media (min-width: 1600px) {
           .desktop-header img[alt="Generic Wholesale"] {
             width: auto;
-            height: 55px;
+            height: 65px;
             object-fit: contain;
           }
         }
@@ -730,7 +730,7 @@ const MobileHeader = () => {
         {/* Mobile Menu Sidebar */}
         <div className={`mobile-menu-sidebar ${showMobileMenu ? 'active' : ''}`}>
           <div className="mobile-menu-header">
-            <img src={logo} alt="Generic Wholesale" style={{ height: '38px', width: 'auto', maxWidth: '220px', objectFit: 'contain', background: 'transparent' }} />
+            <img src={logo} alt="Generic Wholesale" style={{ height: '48px', width: 'auto', maxWidth: '260px', objectFit: 'contain', background: 'transparent' }} />
             <button className="mobile-menu-close" onClick={() => setShowMobileMenu(false)}>
               ×
             </button>

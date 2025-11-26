@@ -84,7 +84,7 @@ const CompactHeader = () => {
       <style>{`
         @media (max-width: 768px) {
           .header-logo img {
-            height: 40px !important;
+            height: 50px !important;
             width: auto !important;
           }
           .header-search-form {
@@ -103,31 +103,31 @@ const CompactHeader = () => {
             gap: 8px !important;
           }
           .header-logo {
-            min-width: 100px !important;
+            min-width: 120px !important;
           }
           .header-logo img {
-            height: 36px !important;
+            height: 44px !important;
             width: auto !important;
           }
         }
         @media (min-width: 769px) and (max-width: 1199px) {
           .header-logo img {
             width: auto !important;
-            height: 45px !important;
+            height: 55px !important;
             object-fit: contain !important;
           }
         }
         @media (min-width: 1200px) {
           .header-logo img {
             width: auto !important;
-            height: 50px !important;
+            height: 60px !important;
             object-fit: contain !important;
           }
         }
         @media (min-width: 1600px) {
           .header-logo img {
             width: auto !important;
-            height: 55px !important;
+            height: 65px !important;
             object-fit: contain !important;
           }
         }
@@ -160,7 +160,7 @@ const CompactHeader = () => {
         }}>
           <img src={logo} alt="Generic Wholesale" style={{ 
             width: 'auto',
-            height: '45px',
+            height: '55px',
             objectFit: 'contain',
             background: 'transparent',
             filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'

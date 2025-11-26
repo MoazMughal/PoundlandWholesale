@@ -1445,8 +1445,12 @@ const ProductDetail = () => {
                                   <i className={`fas fa-${platform.name === 'Amazon' ? 'shopping-cart' : platform.name === 'eBay' ? 'gavel' : 'store'} me-1 text-primary`} style={{fontSize: '0.7rem'}}></i>
                                   {platform.name}
                                 </td>
-                                <td className="fw-bold text-primary py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>{convertPrice(platform.price)}</td>
-                                <td className="fw-bold text-success py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>{convertPrice(platform.grossProfit)}</td>
+                                <td className="fw-bold text-primary py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
+                                  {platform.price.replace(/\?/g, currencySymbols[currency])}
+                                </td>
+                                <td className="fw-bold text-success py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
+                                  {platform.grossProfit.replace(/\?/g, currencySymbols[currency])}
+                                </td>
                                 <td className="py-2 px-2 text-center">
                                   <span className="badge bg-info" style={{fontSize: '0.65rem', padding: '3px 6px'}}>
                                     {platform.markup}
