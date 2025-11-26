@@ -686,12 +686,12 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Product Cards - Smaller Size */
 .product-card {
-  border: none;
+  border: 1px solid #e5e7eb !important;
   border-radius: 12px;
   overflow: hidden;
   transition: all 0.3s ease;
   margin-bottom: 20px;
-  background: white;
+  background: #ffffff !important;
   box-shadow: 0 5px 15px rgba(0,0,0,0.08);
   position: relative;
   height: 100%;
@@ -707,7 +707,7 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
   height: 200px;
   overflow: hidden;
-  background-color: #f8f9fa;
+  background-color: #ffffff !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -727,6 +727,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .product-card .card-body {
   padding: 15px;
+  background: #ffffff !important;
 }
 
 .product-card .card-title {
@@ -735,11 +736,12 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 8px;
   height: 40px;
   overflow: hidden;
+  color: #111827 !important;
 }
 
 .product-card .card-text {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: #6b7280 !important;
   margin-bottom: 10px;
   height: 36px;
   overflow: hidden;
@@ -778,7 +780,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Price styling */
 .price {
-  color: var(--bs-primary);
+  color: #0b3b2e !important;
   font-weight: 700;
   font-size: 1rem;
   margin-bottom: 8px;
@@ -786,15 +788,16 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Rating stars */
 .rating {
-  color: #ffc107;
+  color: #ffc107 !important;
   margin-bottom: 8px;
   font-size: 0.8rem;
 }
 
 .rating-count {
-  color: #718096;
+  color: #374151 !important;
   font-size: 0.75rem;
   margin-left: 3px;
+  font-weight: 700 !important;
 }
 
 /* Monthly Orders */

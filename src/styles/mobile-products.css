@@ -3,6 +3,9 @@
 /* Base styles for all screens */
 .product-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
 }
 
 .product-card:hover {
@@ -25,10 +28,12 @@
 
   .product-image-container {
     height: 120px !important;
+    background: #ffffff !important;
   }
 
   .product-info {
     padding: 6px !important;
+    background: #ffffff !important;
   }
 
   .product-title {
@@ -39,19 +44,25 @@
     display: -webkit-box !important;
     -webkit-line-clamp: 2 !important;
     -webkit-box-orient: vertical !important;
+    color: #111827 !important;
+    font-weight: 700 !important;
   }
 
   .rating-stars {
     font-size: 9px !important;
+    color: #f6b042 !important;
   }
 
   .rating-count {
     font-size: 9px !important;
+    color: #374151 !important;
+    font-weight: 700 !important;
   }
 
   .price {
     font-size: 13px !important;
     font-weight: 800 !important;
+    color: #0b3b2e !important;
   }
 
   .product-actions button,
@@ -153,4 +164,42 @@
   .loading-container {
     min-height: 40vh;
   }
+}
+
+/* Force white backgrounds and dark text for all product card elements */
+.product-card,
+.product-card *,
+.product-image-container,
+.product-info {
+  background-color: #ffffff !important;
+}
+
+.product-card .product-title,
+.product-card h5,
+.product-card h6,
+.product-card .card-title {
+  color: #111827 !important;
+  font-weight: 700 !important;
+}
+
+.product-card .price {
+  color: #0b3b2e !important;
+  font-weight: 800 !important;
+}
+
+.product-card .rating-stars {
+  color: #f6b042 !important;
+}
+
+.product-card .rating-count {
+  color: #374151 !important;
+  font-weight: 700 !important;
+}
+
+/* Ensure buttons and badges keep their colors */
+.product-card button,
+.product-card a.verify-amazon-btn,
+.product-card .status-indicator,
+.product-card [style*="background"] {
+  background-color: initial !important;
 }
