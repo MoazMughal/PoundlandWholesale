@@ -686,12 +686,12 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Product Cards - Smaller Size */
 .product-card {
-  border: 1px solid #e5e7eb !important;
+  border: none;
   border-radius: 12px;
   overflow: hidden;
   transition: all 0.3s ease;
   margin-bottom: 20px;
-  background: #ffffff !important;
+  background: white;
   box-shadow: 0 5px 15px rgba(0,0,0,0.08);
   position: relative;
   height: 100%;
@@ -707,7 +707,7 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
   height: 200px;
   overflow: hidden;
-  background-color: #ffffff !important;
+  background-color: #f8f9fa;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -727,7 +727,6 @@ h1, h2, h3, h4, h5, h6 {
 
 .product-card .card-body {
   padding: 15px;
-  background: #ffffff !important;
 }
 
 .product-card .card-title {
@@ -736,12 +735,11 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 8px;
   height: 40px;
   overflow: hidden;
-  color: #111827 !important;
 }
 
 .product-card .card-text {
   font-size: 0.8rem;
-  color: #6b7280 !important;
+  color: #6b7280;
   margin-bottom: 10px;
   height: 36px;
   overflow: hidden;
@@ -780,7 +778,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Price styling */
 .price {
-  color: #0b3b2e !important;
+  color: var(--bs-primary);
   font-weight: 700;
   font-size: 1rem;
   margin-bottom: 8px;
@@ -788,16 +786,15 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Rating stars */
 .rating {
-  color: #ffc107 !important;
+  color: #ffc107;
   margin-bottom: 8px;
   font-size: 0.8rem;
 }
 
 .rating-count {
-  color: #374151 !important;
+  color: #718096;
   font-size: 0.75rem;
   margin-left: 3px;
-  font-weight: 700 !important;
 }
 
 /* Monthly Orders */
@@ -3029,4 +3026,38 @@ h1:not([style*="background"]),
 h2:not([style*="background"]),
 h3:not([style*="background"]) {
   color: #1f2937 !important;
+}
+
+/* Mobile-specific product card visibility fixes - ONLY for mobile devices */
+@media (max-width: 768px) {
+  .product-card {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  .product-card .product-title,
+  .product-card h5,
+  .product-card h6,
+  .product-card .card-title {
+    color: #111827 !important;
+  }
+
+  .product-card .price {
+    color: #0b3b2e !important;
+  }
+
+  .product-card .rating-count {
+    color: #374151 !important;
+  }
+  
+  .product-image-container,
+  .product-card .product-image-container {
+    background-color: #ffffff !important;
+  }
+  
+  .product-info,
+  .product-card .product-info {
+    background-color: #ffffff !important;
+  }
 }
