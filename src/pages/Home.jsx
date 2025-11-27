@@ -133,7 +133,7 @@ const Home = () => {
     { id: 'prod-006', name: "1M Charger Cable", price: "£19.89", rating: 4.5, reviews: 13, image: cableImg, basket: 28, monthlyOrders: "1.1K", markup: "220%",
       statuses: ["Selling Fast", "28 in basket", "Amazon's Choice"] },
     { id: 'prod-005', name: "Extra Thin Nose Ring 0.5mm", price: "£0.24", rating: 4.5, reviews: 67, image: noseRingImg, basket: 52, monthlyOrders: "2.1K", markup: "1145%",
-      statuses: ["Selling Fast", "52 in basket", "Amazon's Choice"], hasProfit: true, monthlyProfit: 575, yearlyProfit: 6900 },
+      statuses: ["Selling Fast", "52 in basket", "Amazon's Choice"], hasProfit: true, monthlyProfit: 575, yearlyProfit: 6900, rrp: "£3.49" },
     { id: 'prod-020', name: "10 Pieces G4 Halogen Bulbs", price: "£0.18", rating: 4.3, reviews: 42, image: bulbImg, basket: 37, monthlyOrders: "1.8K", markup: "1283%",
       statuses: ["Selling Fast", "37 in basket", "Amazon's Choice"], hasProfit: true, monthlyProfit: 342, yearlyProfit: 4104 },
     { id: 'prod-lamp-001', name: "Red Paper Lampshade", price: "£0.32", rating: 4.5, reviews: 72, image: lampshadeImg, basket: 58, monthlyOrders: "2.3K", markup: "1147%",
@@ -572,6 +572,26 @@ const Home = () => {
                       <p className="card-text">Premium quality product with excellent customer reviews</p>
                       
                       <div className="price">{formatPrice(product.price)}</div>
+                      
+                      {/* RRP Display - Test for nose ring */}
+                      {(product.rrp || product.name.toLowerCase().includes('nose ring')) && (
+                        <div className="rrp-display" style={{
+                          fontSize: '0.9rem',
+                          fontWeight: '800',
+                          color: '#ffffff',
+                          background: '#dc2626',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          marginTop: '6px',
+                          marginBottom: '6px',
+                          display: 'block',
+                          textAlign: 'center',
+                          boxShadow: '0 2px 4px rgba(220, 38, 38, 0.3)'
+                        }}>
+                          RRP: {product.rrp || '£3.49'}
+                        </div>
+                      )}
+                      
                       <div className="monthly-orders">Monthly Orders: {product.monthlyOrders}</div>
                       
                       <div className="rating">

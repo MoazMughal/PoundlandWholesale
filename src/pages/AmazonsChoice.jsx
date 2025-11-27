@@ -126,7 +126,7 @@ const AmazonsChoice = () => {
             let monthlyProfit = p.monthlyProfit || null
             let yearlyProfit = p.yearlyProfit || null
             
-            // Calculate profit only for specific products: bulbs, fuses, jewelry, lampshades
+            // Calculate profit only for specific products: bulbs, fuses, nose rings, lampshades
             if (!monthlyProfit && (
               productName.includes('nose ring') || 
               productName.includes('bulb') || 
@@ -137,10 +137,86 @@ const AmazonsChoice = () => {
             )) {
               const price = parseFloat(p.price) || 0
               if (price > 0) {
-                // Estimate monthly profit: price * 1200 orders * 0.4 margin
-                monthlyProfit = Math.round(price * 1200 * 0.4)
-                yearlyProfit = monthlyProfit * 12
+                // Calculate actual profit based on product type (matching ProductDetail page)
+                let sellingPrice = 0
+                let costPriceGBP = price * 0.00272 // Convert PKR to GBP
+                let commissionBase = 0, commissionTax = 0, digitalServiceBase = 0, digitalServiceTax = 0, fbaFeeBase = 0, fbaFeeTax = 0
+                
+                if (productName.includes('bulb')) {
+                  sellingPrice = 3.79
+                  commissionBase = -0.57
+                  commissionTax = -0.12
+                  digitalServiceBase = -0.04
+                  digitalServiceTax = -0.02
+                  fbaFeeBase = -1.46
+                  fbaFeeTax = -0.30
+                } else if (productName.includes('nose ring')) {
+                  sellingPrice = 3.49
+                  commissionBase = -0.52
+                  commissionTax = -0.10
+                  digitalServiceBase = -0.03
+                  digitalServiceTax = -0.01
+                  fbaFeeBase = -1.46
+                  fbaFeeTax = -0.29
+                } else if (productName.includes('fuse')) {
+                  sellingPrice = 4.99
+                  commissionBase = -0.75
+                  commissionTax = -0.15
+                  digitalServiceBase = -0.05
+                  digitalServiceTax = -0.01
+                  fbaFeeBase = -1.46
+                  fbaFeeTax = -0.29
+                } else if (productName.includes('lampshade')) {
+                  sellingPrice = 5.86
+                  commissionBase = -0.76
+                  commissionTax = -0.15
+                  digitalServiceBase = -0.08
+                  digitalServiceTax = -0.01
+                  fbaFeeBase = -3.10
+                  fbaFeeTax = -0.62
+                } else if (productName.includes('leather') && (productName.includes('watch strap') || productName.includes('watch band'))) {
+                  sellingPrice = 5.79
+                  commissionBase = -0.87
+                  commissionTax = -0.18
+                  digitalServiceBase = -0.05
+                  digitalServiceTax = -0.01
+                  fbaFeeBase = -1.46
+                  fbaFeeTax = -0.29
+                } else {
+                  // Default calculation for other jewelry
+                  monthlyProfit = Math.round(price * 1200 * 0.4)
+                  yearlyProfit = monthlyProfit * 12
+                }
+                
+                // Calculate net profit if we have selling price
+                if (sellingPrice > 0) {
+                  const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+                  const changeToBalance = sellingPrice + totalFees
+                  const netProfit = changeToBalance - costPriceGBP
+                  
+                  // Store profit as GBP price string for formatPrice to handle currency conversion
+                  monthlyProfit = `£${(netProfit * 100).toFixed(2)}` // 100 units per month
+                  yearlyProfit = `£${(netProfit * 1200).toFixed(2)}` // 1200 units per year
+                  
+                  // Debug log for verification
+                  if (productName.includes('bulb')) {
+                    console.log(`Bulb Profit Calculation: Cost=${costPriceGBP.toFixed(4)}, NetProfit=${netProfit.toFixed(4)}, Monthly=${monthlyProfit}, Yearly=${yearlyProfit}`)
+                  }
+                }
               }
+            }
+            
+            // Calculate RRP - same logic as ProductDetail page
+            // RRP is stored in database as originalPrice or calculated as 1.5x price
+            let rrp = null
+            if (productName.includes('nose ring')) {
+              rrp = '£3.49' // Fixed RRP for nose ring
+            } else if (p.rrp) {
+              rrp = `£${p.rrp}` // Use RRP from database if available
+            } else if (p.originalPrice) {
+              rrp = `£${p.originalPrice}` // Use originalPrice as RRP
+            } else if (p.price) {
+              rrp = `£${(p.price * 1.5).toFixed(2)}` // Calculate as 1.5x price
             }
             
             return {
@@ -149,6 +225,7 @@ const AmazonsChoice = () => {
               description: p.description || '',
               price: `£${p.price}`,
               originalPrice: p.originalPrice ? `£${p.originalPrice}` : null,
+              rrp: rrp,
               discount: p.discount || 0,
               category: p.category,
               subcategory: p.subcategory || '',
@@ -173,6 +250,20 @@ const AmazonsChoice = () => {
               isFastSelling: false
             }
           })
+          
+          // Remove duplicates based on product name (case-insensitive)
+          const uniqueProducts = []
+          const seenNames = new Set()
+          
+          transformedProducts.forEach(p => {
+            const normalizedName = p.name.toLowerCase().trim()
+            if (!seenNames.has(normalizedName)) {
+              seenNames.add(normalizedName)
+              uniqueProducts.push(p)
+            }
+          })
+          
+          transformedProducts = uniqueProducts
           
           // Distribute products evenly by category for better variety
           const productsByCategory = {};
@@ -264,21 +355,64 @@ const AmazonsChoice = () => {
       })
     }
 
-    // Search filter - search by name, category, subcategory, brand, or description
+    // Search filter - prioritize exact matches, then partial matches, then word matches
     if (searchQuery && searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase().trim()
+      const queryWords = query.split(/\s+/).filter(word => word.length > 2) // Split into words, ignore short words
+      
+      // Filter products that match the search (full query OR individual words)
       filtered = filtered.filter(p => {
         const name = (p.name || '').toLowerCase()
         const category = (p.category || '').toLowerCase()
         const subcategory = (p.subcategory || '').toLowerCase()
         const brand = (p.brand || '').toLowerCase()
         const description = (p.description || '').toLowerCase()
+        const searchText = `${name} ${category} ${subcategory} ${brand} ${description}`
         
-        return name.includes(query) || 
-               category.includes(query) || 
-               subcategory.includes(query) || 
-               brand.includes(query) || 
-               description.includes(query)
+        // Match if full query is found OR if any significant word is found
+        const fullMatch = name.includes(query) || 
+                         category.includes(query) || 
+                         subcategory.includes(query) || 
+                         brand.includes(query) || 
+                         description.includes(query)
+        
+        // Match if at least one word from query is found
+        const wordMatch = queryWords.some(word => searchText.includes(word))
+        
+        return fullMatch || wordMatch
+      })
+      
+      // Sort by relevance: exact name match first, then starts with, then word matches
+      filtered.sort((a, b) => {
+        const aName = (a.name || '').toLowerCase()
+        const bName = (b.name || '').toLowerCase()
+        const aSearchText = `${aName} ${(a.category || '').toLowerCase()} ${(a.description || '').toLowerCase()}`
+        const bSearchText = `${bName} ${(b.category || '').toLowerCase()} ${(b.description || '').toLowerCase()}`
+        
+        // Exact match gets highest priority (10000 points)
+        const aExact = aName === query ? 10000 : 0
+        const bExact = bName === query ? 10000 : 0
+        
+        // Full query in name gets second priority (1000 points)
+        const aFullInName = aName.includes(query) ? 1000 : 0
+        const bFullInName = bName.includes(query) ? 1000 : 0
+        
+        // Starts with query gets third priority (500 points)
+        const aStarts = aName.startsWith(query) ? 500 : 0
+        const bStarts = bName.startsWith(query) ? 500 : 0
+        
+        // Count matching words (10 points per word)
+        const aWordMatches = queryWords.filter(word => aSearchText.includes(word)).length * 10
+        const bWordMatches = queryWords.filter(word => bSearchText.includes(word)).length * 10
+        
+        // Contains query anywhere gets lower priority (5 points)
+        const aContains = aSearchText.includes(query) ? 5 : 0
+        const bContains = bSearchText.includes(query) ? 5 : 0
+        
+        const aScore = aExact + aFullInName + aStarts + aWordMatches + aContains
+        const bScore = bExact + bFullInName + bStarts + bWordMatches + bContains
+        
+        return bScore - aScore // Higher score first
       })
     }
 
@@ -678,12 +812,39 @@ const AmazonsChoice = () => {
                 }}
                 style={{cursor: 'pointer'}}
               >
-                <div className="product-image-container" style={{position: 'relative', height: '140px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff'}}>
+                <div className="product-image-container" style={{
+                  position: 'relative', 
+                  height: windowWidth < 576 ? '120px' : '140px', 
+                  overflow: 'visible', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  background: '#fff',
+                  padding: windowWidth < 576 ? '5px' : '8px',
+                  minHeight: windowWidth < 576 ? '120px' : '140px'
+                }}>
                   <img 
                     src={product.image}
                     alt={product.name} 
                     className="product-image" 
-                    style={{maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain', padding: '3px'}} 
+                    loading="lazy"
+                    onError={(e) => {
+                      console.error('Image failed to load:', product.image)
+                      e.target.style.display = 'none'
+                    }}
+                    style={{
+                      maxWidth: '100%', 
+                      maxHeight: '100%', 
+                      width: 'auto', 
+                      height: 'auto', 
+                      objectFit: 'contain',
+                      display: 'block',
+                      margin: 'auto',
+                      visibility: 'visible',
+                      opacity: 1,
+                      position: 'relative',
+                      zIndex: 1
+                    }} 
                   />
                   
                   {/* Rotating Status Badge - Top Right Corner */}
@@ -803,33 +964,73 @@ const AmazonsChoice = () => {
                 <div className="product-info" style={{padding: '4px 6px', display: 'flex', flexDirection: 'column', gap: '3px'}}>
                   <h5 className="product-title" style={{fontSize: '10px', fontWeight: '700', margin: 0, lineHeight: '1.2', height: '24px', overflow: 'hidden'}}>{product.name}</h5>
                   
-                  <div className="rating-container" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px'}}>
+                  <div className="rating-container" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '4px'}}>
                     <div className="rating-stars" style={{color: '#f6b042', fontSize: '8px', flex: 1}}>
                       {renderStars(product.rating)}
                       <span className="rating-count" style={{fontWeight: '700', color: '#374151', marginLeft: '2px', fontSize: '8px'}}>({product.reviews})</span>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        addToBasket(product)
-                      }}
-                      style={{
-                        background: isInBasket(product.id) ? '#10b981' : '#667eea',
-                        color: 'white',
-                        border: 'none',
-                        padding: '3px 6px',
-                        borderRadius: '3px',
-                        fontSize: '10px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.2s'
-                      }}
-                      title={isInBasket(product.id) ? 'In Basket' : 'Add to Basket'}
-                    >
-                      <i className={isInBasket(product.id) ? 'fas fa-check' : 'fas fa-shopping-basket'}></i>
-                    </button>
+                    
+                    {/* RRP and Basket - Side by side on right */}
+                    {product.rrp ? (
+                      <div style={{display: 'flex', gap: '3px', alignItems: 'center'}}>
+                        <div style={{
+                          background: '#dc2626',
+                          color: '#ffffff',
+                          padding: '2px 5px',
+                          borderRadius: '3px',
+                          fontSize: '7px',
+                          fontWeight: '700',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          RRP: {product.rrp}
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            addToBasket(product)
+                          }}
+                          style={{
+                            background: isInBasket(product.id) ? '#10b981' : '#667eea',
+                            color: 'white',
+                            border: 'none',
+                            padding: '3px 6px',
+                            borderRadius: '3px',
+                            fontSize: '10px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
+                          }}
+                          title={isInBasket(product.id) ? 'In Basket' : 'Add to Basket'}
+                        >
+                          <i className={isInBasket(product.id) ? 'fas fa-check' : 'fas fa-shopping-basket'}></i>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          addToBasket(product)
+                        }}
+                        style={{
+                          background: isInBasket(product.id) ? '#10b981' : '#667eea',
+                          color: 'white',
+                          border: 'none',
+                          padding: '3px 6px',
+                          borderRadius: '3px',
+                          fontSize: '10px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s'
+                        }}
+                        title={isInBasket(product.id) ? 'In Basket' : 'Add to Basket'}
+                      >
+                        <i className={isInBasket(product.id) ? 'fas fa-check' : 'fas fa-shopping-basket'}></i>
+                      </button>
+                    )}
                   </div>
                   
                   <div className="price" style={{fontWeight: '800', fontSize: '12px', color: '#0b3b2e'}}>{formatPrice(product.price)}</div>
@@ -845,7 +1046,6 @@ const AmazonsChoice = () => {
                   </div>
                   
                   <div style={{display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px'}}>
-
                     
                     <a 
                       href={`https://www.amazon.com/s?k=${encodeURIComponent(product.name)}`}

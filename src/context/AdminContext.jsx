@@ -14,19 +14,14 @@ export const AdminProvider = ({ children }) => {
   const [admin, setAdmin] = useState(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [currentPath, setCurrentPath] = useState(window.location.pathname)
 
   useEffect(() => {
     const initializeAuth = async () => {
-      // Only initialize admin auth on admin routes
-      if (!window.location.pathname.startsWith('/admin')) {
-        setLoading(false)
-        return
-      }
-      
       // Check for logout flag (set when user logs out)
       const logoutFlag = sessionStorage.getItem('admin_logged_out')
-      if (logoutFlag) {
-        // User has logged out, clear everything
+      if (logoutFlag && window.location.pathname.startsWith('/admin')) {
+        // User has logged out, clear everything only on admin routes
         localStorage.removeItem('adminToken')
         localStorage.removeItem('adminData')
         setAdmin(null)
@@ -45,30 +40,32 @@ export const AdminProvider = ({ children }) => {
           setAdmin(parsedAdmin)
           setIsLoggedIn(true)
           
-          // Then validate with server in background
-          try {
-            const response = await fetch('http://localhost:5000/api/auth/verify', {
-              headers: {
-                'Authorization': `Bearer ${token}`
+          // Only validate with server on admin routes to avoid unnecessary API calls
+          if (window.location.pathname.startsWith('/admin')) {
+            try {
+              const response = await fetch('http://localhost:5000/api/auth/verify', {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              })
+              
+              if (response.ok) {
+                const freshAdminData = await response.json()
+                setAdmin(freshAdminData)
+                localStorage.setItem('adminData', JSON.stringify(freshAdminData))
+              } else if (response.status === 401) {
+                // Only clear on 401 (unauthorized) - token is definitely invalid
+                console.log('Admin token is invalid (401), clearing localStorage')
+                localStorage.removeItem('adminToken')
+                localStorage.removeItem('adminData')
+                setAdmin(null)
+                setIsLoggedIn(false)
               }
-            })
-            
-            if (response.ok) {
-              const freshAdminData = await response.json()
-              setAdmin(freshAdminData)
-              localStorage.setItem('adminData', JSON.stringify(freshAdminData))
-            } else if (response.status === 401) {
-              // Only clear on 401 (unauthorized) - token is definitely invalid
-              console.log('Admin token is invalid (401), clearing localStorage')
-              localStorage.removeItem('adminToken')
-              localStorage.removeItem('adminData')
-              setAdmin(null)
-              setIsLoggedIn(false)
+              // For other errors (500, network issues), keep existing auth state
+            } catch (networkError) {
+              console.log('Network error during admin token validation, keeping existing auth state')
+              // Keep the admin logged in if it's just a network issue
             }
-            // For other errors (500, network issues), keep existing auth state
-          } catch (networkError) {
-            console.log('Network error during admin token validation, keeping existing auth state')
-            // Keep the admin logged in if it's just a network issue
           }
         } catch (parseError) {
           console.error('Error parsing admin data:', parseError)
@@ -83,6 +80,43 @@ export const AdminProvider = ({ children }) => {
     
     initializeAuth()
   }, [])
+
+  // Re-check auth when navigating to admin routes
+  useEffect(() => {
+    const handlePathChange = () => {
+      const newPath = window.location.pathname
+      if (newPath !== currentPath) {
+        setCurrentPath(newPath)
+        
+        // If navigating to admin route and we have a token, ensure we're logged in
+        if (newPath.startsWith('/admin') && !newPath.includes('/login')) {
+          const token = localStorage.getItem('adminToken')
+          const adminData = localStorage.getItem('adminData')
+          const logoutFlag = sessionStorage.getItem('admin_logged_out')
+          
+          if (token && adminData && !logoutFlag && !isLoggedIn) {
+            try {
+              const parsedAdmin = JSON.parse(adminData)
+              setAdmin(parsedAdmin)
+              setIsLoggedIn(true)
+            } catch (error) {
+              console.error('Error restoring admin session:', error)
+            }
+          }
+        }
+      }
+    }
+    
+    // Listen for navigation events
+    window.addEventListener('popstate', handlePathChange)
+    
+    // Check on mount and when path changes
+    handlePathChange()
+    
+    return () => {
+      window.removeEventListener('popstate', handlePathChange)
+    }
+  }, [currentPath, isLoggedIn])
 
   const login = (adminData, token) => {
     setAdmin(adminData)

@@ -25,7 +25,24 @@
 
   .product-image-container {
     height: 120px !important;
+    min-height: 120px !important;
     background: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: relative !important;
+    overflow: visible !important;
+  }
+  
+  .product-image-container img {
+    display: block !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 
   .product-info {
@@ -169,6 +186,7 @@
     background: #ffffff !important;
     border: 1px solid #e5e7eb !important;
     border-radius: 8px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
   }
   
   /* Fix product image container - ensure images are visible */
@@ -179,14 +197,19 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    min-height: 120px !important;
+    overflow: visible !important;
   }
   
-  /* Ensure product images are visible - ALL variations */
+  /* Ensure product images are visible - ALL variations with higher specificity */
   .product-image,
   .product-card .product-image,
   .product-image-container img,
   .product-card .product-image-container img,
-  img.product-image {
+  img.product-image,
+  .product-card img,
+  #products-grid img,
+  #products-grid .product-card img {
     display: block !important;
     max-width: 100% !important;
     max-height: 100% !important;
@@ -196,6 +219,21 @@
     opacity: 1 !important;
     visibility: visible !important;
     background: transparent !important;
+    filter: none !important;
+    transform: none !important;
+    position: relative !important;
+    z-index: 1 !important;
+  }
+  
+  /* Fallback for broken images */
+  .product-image-container img[src=""],
+  .product-image-container img:not([src]) {
+    display: none !important;
+  }
+  
+  .product-image-container img[src]::before {
+    content: '' !important;
+    display: block !important;
   }
   
   /* Ensure badges are visible - ALL variations */

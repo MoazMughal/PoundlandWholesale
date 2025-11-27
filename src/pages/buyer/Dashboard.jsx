@@ -229,63 +229,35 @@ const BuyerDashboard = () => {
         border: '1px solid #e5e7eb'
       }}>
         <h2 style={{fontSize: '1.3rem', marginBottom: '20px', color: '#111827'}}>🚀 Quick Actions</h2>
-        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px'}}>
+        <div style={{display: 'flex', justifyContent: 'center'}}>
           <button
-            onClick={() => navigate('/amazons-choice')}
+            onClick={() => navigate('/')}
             style={{
-              padding: '15px',
-              background: '#ff9900',
+              padding: '20px 40px',
+              background: 'linear-gradient(135deg, #ff9900 0%, #ff6600 100%)',
               color: 'white',
               border: 'none',
-              borderRadius: '8px',
-              fontSize: '0.95rem',
-              fontWeight: '600',
+              borderRadius: '12px',
+              fontSize: '1.1rem',
+              fontWeight: '700',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px'
+              gap: '10px',
+              boxShadow: '0 4px 12px rgba(255, 153, 0, 0.3)',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-3px)'
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 153, 0, 0.4)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)'
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.3)'
             }}
           >
-            🏆 Amazon's Choice
-          </button>
-          <button
-            onClick={() => navigate('/best-sellers')}
-            style={{
-              padding: '15px',
-              background: '#dc2626',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '0.95rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            🔥 Best Sellers
-          </button>
-          <button
-            onClick={() => navigate('/latest-deals')}
-            style={{
-              padding: '15px',
-              background: '#7c3aed',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '0.95rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            ⚡ Latest Deals
+            🏆 View All Products
           </button>
         </div>
       </div>

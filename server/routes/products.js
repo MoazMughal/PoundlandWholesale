@@ -22,15 +22,15 @@ router.get('/public', async (req, res) => {
       source
     } = req.query;
 
-    const query = { status: 'active' }; // Only show active products to public
-    
-    // Exclude seller copies - only show original admin products
-    // This prevents duplicates when sellers list admin products
-    query.$or = [
-      { isAdminProduct: true }, // Show admin products
-      { originalAdminProductId: { $exists: false } }, // Show products without originalAdminProductId
-      { originalAdminProductId: null } // Show products with null originalAdminProductId
-    ];
+    const query = { 
+      status: 'active',
+      // Exclude seller copies - only show original products
+      // Products with originalAdminProductId are seller copies of admin products
+      $or: [
+        { originalAdminProductId: { $exists: false } }, // No originalAdminProductId field
+        { originalAdminProductId: null } // Or it's null
+      ]
+    };
     
     // If source=excel is specified, filter for Excel products (not Amazon's Choice)
     if (source === 'excel') {
@@ -433,7 +433,21 @@ router.put('/seller/:id', authenticateSeller, async (req, res) => {
     });
 
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ message: 'Product not found or you do not have permission to edit this product' });
+    }
+
+    // Prevent sellers from editing admin products
+    if (product.isAdminProduct && !product.originalAdminProductId) {
+      return res.status(403).json({ 
+        message: 'Cannot edit admin products. Only admin can modify these products.' 
+      });
+    }
+
+    // Prevent editing seller copies of admin products (they should edit their own copy)
+    if (product.originalAdminProductId) {
+      return res.status(403).json({ 
+        message: 'This is a copy of an admin product. Changes to the original will not affect your listing.' 
+      });
     }
 
     if (product.approvalStatus === 'approved') {

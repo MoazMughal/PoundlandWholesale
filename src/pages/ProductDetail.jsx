@@ -131,7 +131,7 @@ const ProductDetail = () => {
             id: dbProduct._id,
             name: dbProduct.name,
             price: `₨${dbProduct.price}`, // Store as PKR
-            rrp: dbProduct.originalPrice ? `₨${dbProduct.originalPrice}` : `₨${(dbProduct.price * 1.5).toFixed(2)}`,
+            rrp: dbProduct.name.toLowerCase().includes('nose ring') ? '£3.49' : (dbProduct.originalPrice ? `₨${dbProduct.originalPrice}` : `₨${(dbProduct.price * 1.5).toFixed(2)}`),
             rating: dbProduct.rating || 4.5,
             reviews: dbProduct.reviews || 100,
             image: dbProduct.images && dbProduct.images.length > 0 ? getImageUrl(dbProduct.images[0]) : '',
@@ -193,9 +193,13 @@ const ProductDetail = () => {
           
           // Check product type for profit calculations
           const isBulb = productData.name.toLowerCase().includes('bulb')
+          const isNoseRing = productData.name.toLowerCase().includes('nose ring')
+          const isFuse = productData.name.toLowerCase().includes('fuse')
           const isLeatherWatchStrap = (productData.name.toLowerCase().includes('leather') && 
                                        (productData.name.toLowerCase().includes('watch strap') || 
                                         productData.name.toLowerCase().includes('watch band')))
+          const isLampshade = productData.name.toLowerCase().includes('lampshade') || 
+                              productData.name.toLowerCase().includes('lamp shade')
           
           if (productData.showEvaluation && isBulb) {
             const costPricePKR = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
@@ -282,6 +286,135 @@ const ProductDetail = () => {
               changeToBalance: changeToBalance
             }
             console.log('Leather watch strap profit calculations added:', productData.hasProfit, productData.evaluation)
+          } else if (isLampshade) {
+            const costPricePKR = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+            const costPriceGBP = costPricePKR * 0.00272 // Convert PKR to GBP
+            console.log('Adding lampshade profit calculations, costPrice PKR:', costPricePKR, 'GBP:', costPriceGBP)
+            
+            // Calculate profit for lampshades
+            const sellingPrice = 5.86
+            const commissionBase = -0.76
+            const commissionTax = -0.15
+            const digitalServiceBase = -0.08
+            const digitalServiceTax = -0.01
+            const fbaFeeBase = -3.10
+            const fbaFeeTax = -0.62
+            const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+            const changeToBalance = sellingPrice + totalFees
+            const netProfit = changeToBalance - costPriceGBP
+            
+            productData.hasProfit = true
+            productData.showEvaluation = true
+            productData.profitCalculations = {
+              costPrice: costPriceGBP,
+              sellingPrice: sellingPrice,
+              profitPerUnit: netProfit,
+              monthlyProfit: netProfit * 100,
+              yearlyProfit: netProfit * 1200,
+              monthlyProfitPKR: netProfit * 100 * 350,
+              yearlyProfitPKR: netProfit * 1200 * 350
+            }
+            
+            productData.evaluation = {
+              salesProceeds: sellingPrice,
+              commissionBase: commissionBase,
+              commissionTax: commissionTax,
+              digitalServiceBase: digitalServiceBase,
+              digitalServiceTax: digitalServiceTax,
+              fbaFeeBase: fbaFeeBase,
+              fbaFeeTax: fbaFeeTax,
+              totalFees: totalFees,
+              productCost: costPriceGBP,
+              netProfit: netProfit,
+              changeToBalance: changeToBalance
+            }
+            console.log('Lampshade profit calculations added:', productData.hasProfit, productData.evaluation)
+          } else if (isNoseRing) {
+            const costPricePKR = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+            const costPriceGBP = costPricePKR * 0.00272 // Convert PKR to GBP
+            console.log('Adding nose ring profit calculations, costPrice PKR:', costPricePKR, 'GBP:', costPriceGBP)
+            
+            // Calculate profit for nose rings
+            const sellingPrice = 3.49
+            const commissionBase = -0.52
+            const commissionTax = -0.10
+            const digitalServiceBase = -0.03
+            const digitalServiceTax = -0.01
+            const fbaFeeBase = -1.46
+            const fbaFeeTax = -0.29
+            const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+            const changeToBalance = sellingPrice + totalFees
+            const netProfit = changeToBalance - costPriceGBP
+            
+            productData.hasProfit = true
+            productData.showEvaluation = true
+            productData.profitCalculations = {
+              costPrice: costPriceGBP,
+              sellingPrice: sellingPrice,
+              profitPerUnit: netProfit,
+              monthlyProfit: netProfit * 100,
+              yearlyProfit: netProfit * 1200,
+              monthlyProfitPKR: netProfit * 100 * 350,
+              yearlyProfitPKR: netProfit * 1200 * 350
+            }
+            
+            productData.evaluation = {
+              salesProceeds: sellingPrice,
+              commissionBase: commissionBase,
+              commissionTax: commissionTax,
+              digitalServiceBase: digitalServiceBase,
+              digitalServiceTax: digitalServiceTax,
+              fbaFeeBase: fbaFeeBase,
+              fbaFeeTax: fbaFeeTax,
+              totalFees: totalFees,
+              productCost: costPriceGBP,
+              netProfit: netProfit,
+              changeToBalance: changeToBalance
+            }
+            console.log('Nose ring profit calculations added:', productData.hasProfit, productData.evaluation)
+          } else if (isFuse) {
+            const costPricePKR = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+            const costPriceGBP = costPricePKR * 0.00272 // Convert PKR to GBP
+            console.log('Adding fuse profit calculations, costPrice PKR:', costPricePKR, 'GBP:', costPriceGBP)
+            
+            // Calculate profit for fuses
+            const sellingPrice = 4.99
+            const commissionBase = -0.75
+            const commissionTax = -0.15
+            const digitalServiceBase = -0.05
+            const digitalServiceTax = -0.01
+            const fbaFeeBase = -1.46
+            const fbaFeeTax = -0.29
+            const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+            const changeToBalance = sellingPrice + totalFees
+            const netProfit = changeToBalance - costPriceGBP
+            
+            productData.hasProfit = true
+            productData.showEvaluation = true
+            productData.profitCalculations = {
+              costPrice: costPriceGBP,
+              sellingPrice: sellingPrice,
+              profitPerUnit: netProfit,
+              monthlyProfit: netProfit * 100,
+              yearlyProfit: netProfit * 1200,
+              monthlyProfitPKR: netProfit * 100 * 350,
+              yearlyProfitPKR: netProfit * 1200 * 350
+            }
+            
+            productData.evaluation = {
+              salesProceeds: sellingPrice,
+              commissionBase: commissionBase,
+              commissionTax: commissionTax,
+              digitalServiceBase: digitalServiceBase,
+              digitalServiceTax: digitalServiceTax,
+              fbaFeeBase: fbaFeeBase,
+              fbaFeeTax: fbaFeeTax,
+              totalFees: totalFees,
+              productCost: costPriceGBP,
+              netProfit: netProfit,
+              changeToBalance: changeToBalance
+            }
+            console.log('Fuse profit calculations added:', productData.hasProfit, productData.evaluation)
           }
           
           setProduct(productData)
@@ -338,6 +471,7 @@ const ProductDetail = () => {
                          nameParam.toLowerCase().includes('fuse') ||
                          nameParam.toLowerCase().includes('lampshade') ||
                          nameParam.toLowerCase().includes('lamp'),
+          rrp: nameParam.toLowerCase().includes('nose ring') ? '£3.49' : null,
           hasProfit: false, // Will be set below if showEvaluation is true
           platforms: [
             { name: 'RRP', price: '?420.99', grossProfit: '?328.39', markup: '354.63%' },
@@ -392,12 +526,17 @@ const ProductDetail = () => {
         console.log('Has "nose ring"?:', productData.name.toLowerCase().includes('nose ring'))
         console.log('Has "watch strap"?:', productData.name.toLowerCase().includes('watch strap'))
         console.log('Has "leather watch strap"?:', productData.name.toLowerCase().includes('leather') && productData.name.toLowerCase().includes('watch strap'))
+        console.log('Has "lampshade"?:', productData.name.toLowerCase().includes('lampshade'))
         
         // Check product type for profit calculations
         const isBulb = productData.name.toLowerCase().includes('bulb')
+        const isNoseRing = productData.name.toLowerCase().includes('nose ring')
+        const isFuse = productData.name.toLowerCase().includes('fuse')
         const isLeatherWatchStrap = (productData.name.toLowerCase().includes('leather') && 
                                      (productData.name.toLowerCase().includes('watch strap') || 
                                       productData.name.toLowerCase().includes('watch band')))
+        const isLampshade = productData.name.toLowerCase().includes('lampshade') || 
+                            productData.name.toLowerCase().includes('lamp shade')
         
         if (productData.showEvaluation && isBulb) {
           const costPrice = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
@@ -440,7 +579,7 @@ const ProductDetail = () => {
             changeToBalance: changeToBalance
           }
           console.log('Bulb profit calculations added:', productData.hasProfit, productData.profitCalculations)
-        } else if (isWatchStrap) {
+        } else if (isLeatherWatchStrap) {
           const costPrice = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
           console.log('Adding watch strap profit calculations, costPrice:', costPrice)
           
@@ -482,6 +621,132 @@ const ProductDetail = () => {
             changeToBalance: changeToBalance
           }
           console.log('Leather watch strap profit calculations added:', productData.hasProfit, productData.profitCalculations)
+        } else if (isLampshade) {
+          const costPrice = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+          console.log('Adding lampshade profit calculations, costPrice:', costPrice)
+          
+          // Calculate profit for lampshades
+          const sellingPrice = 5.86
+          const commissionBase = -0.76
+          const commissionTax = -0.15
+          const digitalServiceBase = -0.08
+          const digitalServiceTax = -0.01
+          const fbaFeeBase = -3.10
+          const fbaFeeTax = -0.62
+          const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+          const changeToBalance = sellingPrice + totalFees
+          const netProfit = changeToBalance - costPrice
+          
+          productData.hasProfit = true
+          productData.showEvaluation = true
+          productData.profitCalculations = {
+            costPrice: costPrice,
+            sellingPrice: sellingPrice,
+            profitPerUnit: netProfit,
+            monthlyProfit: netProfit * 100,
+            yearlyProfit: netProfit * 1200,
+            monthlyProfitPKR: netProfit * 100 * 350,
+            yearlyProfitPKR: netProfit * 1200 * 350
+          }
+          
+          productData.evaluation = {
+            salesProceeds: sellingPrice,
+            commissionBase: commissionBase,
+            commissionTax: commissionTax,
+            digitalServiceBase: digitalServiceBase,
+            digitalServiceTax: digitalServiceTax,
+            fbaFeeBase: fbaFeeBase,
+            fbaFeeTax: fbaFeeTax,
+            totalFees: totalFees,
+            productCost: costPrice,
+            netProfit: netProfit,
+            changeToBalance: changeToBalance
+          }
+          console.log('Lampshade profit calculations added:', productData.hasProfit, productData.profitCalculations)
+        } else if (isNoseRing) {
+          const costPrice = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+          console.log('Adding nose ring profit calculations, costPrice:', costPrice)
+          
+          // Calculate profit for nose rings
+          const sellingPrice = 3.49
+          const commissionBase = -0.52
+          const commissionTax = -0.10
+          const digitalServiceBase = -0.03
+          const digitalServiceTax = -0.01
+          const fbaFeeBase = -1.46
+          const fbaFeeTax = -0.29
+          const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+          const changeToBalance = sellingPrice + totalFees
+          const netProfit = changeToBalance - costPrice
+          
+          productData.hasProfit = true
+          productData.showEvaluation = true
+          productData.profitCalculations = {
+            costPrice: costPrice,
+            sellingPrice: sellingPrice,
+            profitPerUnit: netProfit,
+            monthlyProfit: netProfit * 100,
+            yearlyProfit: netProfit * 1200,
+            monthlyProfitPKR: netProfit * 100 * 350,
+            yearlyProfitPKR: netProfit * 1200 * 350
+          }
+          
+          productData.evaluation = {
+            salesProceeds: sellingPrice,
+            commissionBase: commissionBase,
+            commissionTax: commissionTax,
+            digitalServiceBase: digitalServiceBase,
+            digitalServiceTax: digitalServiceTax,
+            fbaFeeBase: fbaFeeBase,
+            fbaFeeTax: fbaFeeTax,
+            totalFees: totalFees,
+            productCost: costPrice,
+            netProfit: netProfit,
+            changeToBalance: changeToBalance
+          }
+          console.log('Nose ring profit calculations added:', productData.hasProfit, productData.profitCalculations)
+        } else if (isFuse) {
+          const costPrice = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+          console.log('Adding fuse profit calculations, costPrice:', costPrice)
+          
+          // Calculate profit for fuses
+          const sellingPrice = 4.99
+          const commissionBase = -0.75
+          const commissionTax = -0.15
+          const digitalServiceBase = -0.05
+          const digitalServiceTax = -0.01
+          const fbaFeeBase = -1.46
+          const fbaFeeTax = -0.29
+          const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+          const changeToBalance = sellingPrice + totalFees
+          const netProfit = changeToBalance - costPrice
+          
+          productData.hasProfit = true
+          productData.showEvaluation = true
+          productData.profitCalculations = {
+            costPrice: costPrice,
+            sellingPrice: sellingPrice,
+            profitPerUnit: netProfit,
+            monthlyProfit: netProfit * 100,
+            yearlyProfit: netProfit * 1200,
+            monthlyProfitPKR: netProfit * 100 * 350,
+            yearlyProfitPKR: netProfit * 1200 * 350
+          }
+          
+          productData.evaluation = {
+            salesProceeds: sellingPrice,
+            commissionBase: commissionBase,
+            commissionTax: commissionTax,
+            digitalServiceBase: digitalServiceBase,
+            digitalServiceTax: digitalServiceTax,
+            fbaFeeBase: fbaFeeBase,
+            fbaFeeTax: fbaFeeTax,
+            totalFees: totalFees,
+            productCost: costPrice,
+            netProfit: netProfit,
+            changeToBalance: changeToBalance
+          }
+          console.log('Fuse profit calculations added:', productData.hasProfit, productData.profitCalculations)
         }
         
           console.log('Setting product data:', productData)
@@ -612,9 +877,13 @@ const ProductDetail = () => {
             
             // Check product type for profit calculations
             const isBulb = foundProduct.name.toLowerCase().includes('bulb')
+            const isNoseRing = foundProduct.name.toLowerCase().includes('nose ring')
+            const isFuse = foundProduct.name.toLowerCase().includes('fuse')
             const isLeatherWatchStrap = (foundProduct.name.toLowerCase().includes('leather') && 
                                          (foundProduct.name.toLowerCase().includes('watch strap') || 
                                           foundProduct.name.toLowerCase().includes('watch band')))
+            const isLampshade = foundProduct.name.toLowerCase().includes('lampshade') || 
+                                foundProduct.name.toLowerCase().includes('lamp shade')
             
             if (shouldShowEvaluation && isBulb) {
               const costPrice = foundProduct.price
@@ -662,6 +931,126 @@ const ProductDetail = () => {
               const sellingPrice = 5.79
               const commissionBase = -0.87
               const commissionTax = -0.18
+              const digitalServiceBase = -0.05
+              const digitalServiceTax = -0.01
+              const fbaFeeBase = -1.46
+              const fbaFeeTax = -0.29
+              const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+              const changeToBalance = sellingPrice + totalFees
+              const netProfit = changeToBalance - costPrice
+              
+              productData.hasProfit = true
+              productData.showEvaluation = true
+              productData.profitCalculations = {
+                costPrice: costPrice,
+                sellingPrice: sellingPrice,
+                profitPerUnit: netProfit,
+                monthlyProfit: netProfit * 100,
+                yearlyProfit: netProfit * 1200,
+                monthlyProfitPKR: netProfit * 100 * 350,
+                yearlyProfitPKR: netProfit * 1200 * 350
+              }
+              
+              productData.evaluation = {
+                salesProceeds: sellingPrice,
+                commissionBase: commissionBase,
+                commissionTax: commissionTax,
+                digitalServiceBase: digitalServiceBase,
+                digitalServiceTax: digitalServiceTax,
+                fbaFeeBase: fbaFeeBase,
+                fbaFeeTax: fbaFeeTax,
+                totalFees: totalFees,
+                productCost: costPrice,
+                netProfit: netProfit,
+                changeToBalance: changeToBalance
+              }
+            } else if (isLampshade) {
+              const costPrice = foundProduct.price
+              
+              // Calculate profit for lampshades
+              const sellingPrice = 5.86
+              const commissionBase = -0.76
+              const commissionTax = -0.15
+              const digitalServiceBase = -0.08
+              const digitalServiceTax = -0.01
+              const fbaFeeBase = -3.10
+              const fbaFeeTax = -0.62
+              const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+              const changeToBalance = sellingPrice + totalFees
+              const netProfit = changeToBalance - costPrice
+              
+              productData.hasProfit = true
+              productData.showEvaluation = true
+              productData.profitCalculations = {
+                costPrice: costPrice,
+                sellingPrice: sellingPrice,
+                profitPerUnit: netProfit,
+                monthlyProfit: netProfit * 100,
+                yearlyProfit: netProfit * 1200,
+                monthlyProfitPKR: netProfit * 100 * 350,
+                yearlyProfitPKR: netProfit * 1200 * 350
+              }
+              
+              productData.evaluation = {
+                salesProceeds: sellingPrice,
+                commissionBase: commissionBase,
+                commissionTax: commissionTax,
+                digitalServiceBase: digitalServiceBase,
+                digitalServiceTax: digitalServiceTax,
+                fbaFeeBase: fbaFeeBase,
+                fbaFeeTax: fbaFeeTax,
+                totalFees: totalFees,
+                productCost: costPrice,
+                netProfit: netProfit,
+                changeToBalance: changeToBalance
+              }
+            } else if (isNoseRing) {
+              const costPrice = foundProduct.price
+              
+              // Calculate profit for nose rings
+              const sellingPrice = 3.49
+              const commissionBase = -0.52
+              const commissionTax = -0.10
+              const digitalServiceBase = -0.03
+              const digitalServiceTax = -0.01
+              const fbaFeeBase = -1.46
+              const fbaFeeTax = -0.29
+              const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+              const changeToBalance = sellingPrice + totalFees
+              const netProfit = changeToBalance - costPrice
+              
+              productData.hasProfit = true
+              productData.showEvaluation = true
+              productData.profitCalculations = {
+                costPrice: costPrice,
+                sellingPrice: sellingPrice,
+                profitPerUnit: netProfit,
+                monthlyProfit: netProfit * 100,
+                yearlyProfit: netProfit * 1200,
+                monthlyProfitPKR: netProfit * 100 * 350,
+                yearlyProfitPKR: netProfit * 1200 * 350
+              }
+              
+              productData.evaluation = {
+                salesProceeds: sellingPrice,
+                commissionBase: commissionBase,
+                commissionTax: commissionTax,
+                digitalServiceBase: digitalServiceBase,
+                digitalServiceTax: digitalServiceTax,
+                fbaFeeBase: fbaFeeBase,
+                fbaFeeTax: fbaFeeTax,
+                totalFees: totalFees,
+                productCost: costPrice,
+                netProfit: netProfit,
+                changeToBalance: changeToBalance
+              }
+            } else if (isFuse) {
+              const costPrice = foundProduct.price
+              
+              // Calculate profit for fuses
+              const sellingPrice = 4.99
+              const commissionBase = -0.75
+              const commissionTax = -0.15
               const digitalServiceBase = -0.05
               const digitalServiceTax = -0.01
               const fbaFeeBase = -1.46
@@ -1159,8 +1548,21 @@ const ProductDetail = () => {
                       <small className="text-muted" style={{fontSize: '0.7rem'}}>Save: </small>
                       <span className="fw-semibold text-danger" style={{fontSize: '0.8rem'}}>
                         {(() => {
-                          const wholesale = parseFloat(product.price.replace(/[?$?]/g, ''))
-                          const rrp = parseFloat(product.rrp.replace(/[?$?]/g, ''))
+                          const wholesale = parseFloat(product.price.replace(/[₨£$€Rs]/g, ''))
+                          const rrp = parseFloat(product.rrp.replace(/[₨£$€Rs]/g, ''))
+                          
+                          // If we can't parse prices, calculate based on product type
+                          if (isNaN(wholesale) || isNaN(rrp) || rrp === 0) {
+                            // Default savings by product type
+                            const productName = product.name.toLowerCase()
+                            if (productName.includes('nose ring')) return '65%'
+                            if (productName.includes('bulb')) return '70%'
+                            if (productName.includes('fuse')) return '60%'
+                            if (productName.includes('lampshade')) return '55%'
+                            if (productName.includes('leather') && productName.includes('watch strap')) return '50%'
+                            return '50%' // Default
+                          }
+                          
                           const savings = ((rrp - wholesale) / rrp * 100).toFixed(0)
                           return `${savings}%`
                         })()}

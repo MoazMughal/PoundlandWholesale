@@ -5,13 +5,18 @@ import '../../styles/AdminLayout.css';
 
 const AdminProducts = () => {
   const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ category: '', status: '' });
   const [currency, setCurrency] = useState('PKR');
   const [editingCell, setEditingCell] = useState(null); // Track which cell is being edited
   const [editValues, setEditValues] = useState({}); // Store temporary edit values
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
   const navigate = useNavigate();
+  
+  const productsPerPage = 50;
 
   // Available categories for quick filter buttons (matching database exactly)
   const categories = [
@@ -56,6 +61,23 @@ const AdminProducts = () => {
     fetchProducts();
   }, [search, filters]);
 
+  // Update filteredProducts when products or filters change
+  useEffect(() => {
+    let filtered = [...products];
+    
+    // Apply category filter
+    if (filters.category) {
+      filtered = filtered.filter(p => p.category === filters.category);
+    }
+    
+    // Apply status filter
+    if (filters.status) {
+      filtered = filtered.filter(p => p.status === filters.status);
+    }
+    
+    setFilteredProducts(filtered);
+  }, [products, filters.category, filters.status]);
+
   const fetchProducts = async () => {
     try {
       setLoading(true);
@@ -71,7 +93,8 @@ const AdminProducts = () => {
         ...(search && { search }),
         ...(filters.category && { category: filters.category }),
         ...(filters.status && { status: filters.status }),
-        excludeSellerCopies: 'true' // Exclude seller copies to avoid duplicates
+        excludeSellerCopies: 'true', // Exclude seller copies to avoid duplicates
+        limit: '10000' // Get all products
       });
 
       const url = `http://localhost:5000/api/products?${params}`;
@@ -90,7 +113,10 @@ const AdminProducts = () => {
       
       const data = await response.json();
       console.log('✅ Received:', data.products.length, 'products');
+      console.log('📊 Total in database:', data.total || data.products.length);
       setProducts(data.products);
+      setTotalProducts(data.total || data.products.length);
+      setFilteredProducts(data.products);
     } catch (error) {
       console.error('❌ Error fetching products:', error);
       alert('Failed to fetch products. Please check console for details.');
@@ -172,18 +198,24 @@ const AdminProducts = () => {
       });
 
       if (response.ok) {
-        // Update local state without refetching
-        setProducts(products.map(p => 
+        // Update both products and filteredProducts state
+        const updatedProducts = products.map(p => 
+          p._id === productId ? { ...p, [field]: parsedValue } : p
+        );
+        setProducts(updatedProducts);
+        setFilteredProducts(filteredProducts.map(p => 
           p._id === productId ? { ...p, [field]: parsedValue } : p
         ));
         setEditingCell(null);
+        
         // Show success indicator with green flash
         const cell = document.querySelector(`[data-cell="${cellKey}"]`);
         if (cell) {
           cell.style.background = '#d4edda';
           setTimeout(() => { cell.style.background = ''; }, 1000);
         }
-        // No alert - silent success with visual feedback only
+        
+        console.log(`✅ Updated ${field} to ${parsedValue} for product ${productId}`);
       } else {
         const errorData = await response.json();
         console.error('Update failed:', errorData);
@@ -217,65 +249,66 @@ const AdminProducts = () => {
 
   return (
     <div className="admin-products" style={{fontSize: '0.85rem'}}>
-      <header className="page-header" style={{padding: '12px 0', marginBottom: '15px'}}>
-        <h1 style={{fontSize: '1.3rem', margin: 0}}>📦 Products ({products.length})</h1>
-        <div className="header-actions" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-          <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-            <select 
-              value={currency} 
-              onChange={(e) => setCurrency(e.target.value)}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '4px',
-                border: '1px solid #667eea',
-                background: 'white',
-                color: '#667eea',
-                fontWeight: '600',
-                fontSize: '0.75rem',
-                cursor: 'pointer',
-                outline: 'none'
-              }}
-            >
-              <option value="PKR">Rs</option>
-              <option value="USD">$</option>
-              <option value="GBP">£</option>
-            </select>
-          </div>
-          <button 
-            onClick={() => navigate('/admin/excel-import')} 
-            className="add-btn"
-            style={{padding: '5px 10px', fontSize: '0.75rem'}}
-          >
-            ➕ Add from Excel
-          </button>
-          <button 
-            onClick={() => navigate('/admin/dashboard')} 
-            className="back-btn"
-            style={{padding: '5px 10px', fontSize: '0.75rem'}}
-          >
-            ← Back
-          </button>
-        </div>
-      </header>
 
-      <div className="filters-section" style={{padding: '10px', marginBottom: '10px'}}>
-        <div className="search-box" style={{marginBottom: '8px'}}>
+      <div className="filters-section" style={{padding: '6px 8px', marginBottom: '6px', background: 'white', borderRadius: '6px'}}>
+        <div style={{display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center'}}>
           <input
             type="text"
             placeholder="🔍 Search products..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="search-input"
-            style={{padding: '6px 10px', fontSize: '0.8rem'}}
+            style={{
+              padding: '6px 10px',
+              fontSize: '0.75rem',
+              flex: 1,
+              border: '1px solid #e5e7eb',
+              borderRadius: '4px',
+              outline: 'none'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#667eea'}
+            onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
           />
+          <button 
+            onClick={() => navigate('/admin/dashboard')} 
+            style={{
+              padding: '6px 10px',
+              fontSize: '0.7rem',
+              background: '#667eea',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            🏠 Dashboard
+          </button>
+          <button 
+            onClick={() => navigate('/admin/excel-import')} 
+            style={{
+              padding: '6px 10px',
+              fontSize: '0.7rem',
+              background: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            📊 Import
+          </button>
         </div>
         
-        {/* Category Quick Filter Buttons */}
-        <div style={{marginBottom: '10px'}}>
-          <div style={{fontSize: '0.75rem', fontWeight: '600', marginBottom: '8px', color: '#666'}}>
-            📂 Filter by Category:
+        {/* Category Quick Filter Buttons - Compact */}
+        <div style={{marginBottom: '6px'}}>
+          <div style={{fontSize: '0.7rem', fontWeight: '600', marginBottom: '4px', color: '#374151'}}>
+            📂 Categories:
           </div>
-          <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px'}}>
+          <div style={{display: 'flex', gap: '4px', flexWrap: 'wrap'}}>
             {categories.map(cat => {
               const isActive = (filters.category === cat.value || (cat.value === 'all' && !filters.category));
               return (
@@ -283,58 +316,74 @@ const AdminProducts = () => {
                   key={cat.value}
                   onClick={() => handleCategoryFilter(cat.value)}
                   style={{
-                    padding: '8px 12px',
-                    fontSize: '0.75rem',
-                    borderRadius: '8px',
-                    border: '2px solid #667eea',
+                    padding: '4px 8px',
+                    fontSize: '0.65rem',
+                    borderRadius: '4px',
+                    border: '1px solid #667eea',
                     background: isActive ? '#667eea' : 'white',
                     color: isActive ? 'white' : '#667eea',
                     cursor: 'pointer',
                     fontWeight: '600',
                     transition: 'all 0.2s',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    boxShadow: isActive ? '0 4px 12px rgba(102, 126, 234, 0.3)' : 'none'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.target.style.background = '#f0f0ff';
-                      e.target.style.transform = 'translateY(-2px)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.target.style.background = 'white';
-                      e.target.style.transform = 'translateY(0)';
-                    }
+                    gap: '3px',
+                    whiteSpace: 'nowrap'
                   }}
                 >
-                  <span>{cat.icon}</span>
+                  <span style={{fontSize: '0.7rem'}}>{cat.icon}</span>
                   <span>{cat.label}</span>
+                  {isActive && (
+                    <span style={{
+                      background: 'rgba(255,255,255,0.3)',
+                      padding: '1px 4px',
+                      borderRadius: '8px',
+                      fontSize: '0.6rem',
+                      fontWeight: '700'
+                    }}>
+                      {products.filter(p => cat.value === 'all' || p.category === cat.value).length}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
         </div>
         
-        <div className="filters" style={{display: 'flex', gap: '8px'}}>
+        <div className="filters" style={{display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap'}}>
           <select
             value={filters.status}
             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
             className="filter-select"
-            style={{padding: '5px 8px', fontSize: '0.75rem'}}
+            style={{
+              padding: '4px 8px',
+              fontSize: '0.7rem',
+              border: '1px solid #e5e7eb',
+              borderRadius: '4px',
+              outline: 'none',
+              fontWeight: '600',
+              cursor: 'pointer',
+              background: 'white'
+            }}
           >
             <option value="">All Status</option>
             <option value="active">✅ Active</option>
             <option value="inactive">❌ Inactive</option>
             <option value="pending">⏳ Pending</option>
           </select>
-        </div>
-        
-        <div style={{marginTop: '8px', padding: '6px 10px', background: '#e7f3ff', borderRadius: '6px', fontSize: '0.7rem', color: '#0066cc'}}>
-          💡 <strong>Tip:</strong> Click on Price or Stock to edit. Press <kbd style={{padding: '2px 4px', background: 'white', border: '1px solid #ccc', borderRadius: '3px'}}>Enter</kbd> to save instantly!
+          
+          <div style={{
+            fontSize: '0.65rem',
+            color: '#6b7280',
+            marginLeft: 'auto',
+            padding: '4px 8px',
+            background: '#fef3c7',
+            borderRadius: '4px',
+            border: '1px solid #fbbf24',
+            fontWeight: '600'
+          }}>
+            💡 Click Price/Stock • <kbd style={{padding: '1px 4px', background: 'white', border: '1px solid #d1d5db', borderRadius: '2px', fontSize: '0.6rem', fontWeight: '700'}}>Enter</kbd> to save
+          </div>
         </div>
       </div>
 
@@ -367,37 +416,40 @@ const AdminProducts = () => {
         </div>
       ) : (
         <div className="products-table-container">
-          {/* Category Header */}
+          {/* Category Header - Compact */}
           {filters.category && (
             <div style={{
-              padding: '12px 16px',
+              padding: '6px 10px',
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              borderRadius: '8px',
-              marginBottom: '12px',
+              borderRadius: '6px',
+              marginBottom: '6px',
               color: 'white',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
-              <div>
-                <span style={{fontSize: '1.2rem', marginRight: '8px'}}>
+              <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+                <span style={{fontSize: '0.9rem'}}>
                   {categories.find(c => c.value === filters.category)?.icon}
                 </span>
-                <span style={{fontSize: '1rem', fontWeight: '700'}}>
+                <span style={{fontSize: '0.8rem', fontWeight: '700'}}>
                   {categories.find(c => c.value === filters.category)?.label}
                 </span>
               </div>
-              <div style={{fontSize: '0.9rem', fontWeight: '600'}}>
+              <div style={{fontSize: '0.75rem', fontWeight: '600'}}>
                 {products.length} products
               </div>
             </div>
           )}
           
-          <div className="table-info" style={{padding: '6px 0', fontSize: '0.75rem', color: '#666'}}>
-            <span>
+          <div className="table-info" style={{padding: '4px 8px', fontSize: '0.7rem', color: '#374151', background: '#f9fafb', borderRadius: '4px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            <span style={{fontWeight: '600'}}>
               {filters.category 
-                ? `Showing ${products.length} products in ${categories.find(c => c.value === filters.category)?.label}` 
-                : `Showing all ${products.length} products`}
+                ? `📂 ${categories.find(c => c.value === filters.category)?.label}: ${filteredProducts.length}` 
+                : `📦 Showing: ${filteredProducts.length}`}
+            </span>
+            <span style={{fontSize: '0.65rem', color: '#6b7280'}}>
+              Page {currentPage}/{Math.ceil(filteredProducts.length / productsPerPage)}
             </span>
           </div>
           
@@ -405,28 +457,28 @@ const AdminProducts = () => {
             <table style={{width: '100%'}}>
               <thead>
                 <tr style={{background: '#f8f9fa'}}>
-                  <th style={{padding: '8px', fontSize: '0.75rem', fontWeight: '600'}}>Product</th>
-                  <th style={{padding: '8px', fontSize: '0.75rem', fontWeight: '600'}}>Category</th>
-                  <th style={{padding: '8px', fontSize: '0.75rem', fontWeight: '600'}}>Price</th>
-                  <th style={{padding: '8px', fontSize: '0.75rem', fontWeight: '600'}}>Stock</th>
-                  <th style={{padding: '8px', fontSize: '0.75rem', fontWeight: '600'}}>Status</th>
-                  <th style={{padding: '8px', fontSize: '0.75rem', fontWeight: '600'}}>Seller</th>
-                  <th style={{padding: '8px', fontSize: '0.75rem', fontWeight: '600'}}>Actions</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Product</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Category</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Price</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Stock</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Status</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Seller</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {products.map(product => (
+                {filteredProducts.slice((currentPage - 1) * productsPerPage, currentPage * productsPerPage).map(product => (
                   <tr key={product._id} style={{borderBottom: '1px solid #e5e7eb'}}>
-                    <td className="product-info" style={{padding: '6px 8px'}}>
-                      <div className="product-name" style={{fontSize: '0.8rem', fontWeight: '500', marginBottom: '2px'}}>{product.name}</div>
-                      <div className="product-id" style={{fontSize: '0.65rem', color: '#6b7280'}}>ID: {product._id.slice(-6)}</div>
+                    <td className="product-info" style={{padding: '4px 8px'}}>
+                      <div className="product-name" style={{fontSize: '0.75rem', fontWeight: '500', marginBottom: '1px'}}>{product.name}</div>
+                      <div className="product-id" style={{fontSize: '0.6rem', color: '#6b7280'}}>ID: {product._id.slice(-6)}</div>
                     </td>
-                    <td style={{padding: '6px 8px'}}>
-                      <span className="category-badge" style={{fontSize: '0.7rem', padding: '2px 6px'}}>{product.category}</span>
+                    <td style={{padding: '4px 8px'}}>
+                      <span className="category-badge" style={{fontSize: '0.65rem', padding: '2px 6px'}}>{product.category}</span>
                     </td>
                     <td 
                       className="price" 
-                      style={{padding: '6px 8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s'}}
+                      style={{padding: '4px 8px', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s'}}
                       data-cell={`${product._id}-price`}
                       onClick={() => handleCellClick(product._id, 'price', product.price)}
                       onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
@@ -443,9 +495,9 @@ const AdminProducts = () => {
                           onKeyDown={(e) => handleKeyPress(e, product._id, 'price')}
                           autoFocus
                           style={{
-                            width: '80px',
-                            padding: '4px',
-                            fontSize: '0.8rem',
+                            width: '70px',
+                            padding: '3px',
+                            fontSize: '0.75rem',
                             border: '2px solid #667eea',
                             borderRadius: '4px',
                             outline: 'none'
@@ -454,13 +506,13 @@ const AdminProducts = () => {
                       ) : (
                         <span>
                           {formatPrice(product.price)}
-                          <span style={{marginLeft: '4px', fontSize: '0.6rem', color: '#999'}}>✏️</span>
+                          <span style={{marginLeft: '3px', fontSize: '0.55rem', color: '#999'}}>✏️</span>
                         </span>
                       )}
                     </td>
                     <td 
                       className="stock" 
-                      style={{padding: '6px 8px', cursor: 'pointer', transition: 'background 0.2s'}}
+                      style={{padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s'}}
                       data-cell={`${product._id}-stock`}
                       onClick={() => handleCellClick(product._id, 'stock', product.stock)}
                       onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
@@ -476,42 +528,42 @@ const AdminProducts = () => {
                           onKeyDown={(e) => handleKeyPress(e, product._id, 'stock')}
                           autoFocus
                           style={{
-                            width: '60px',
-                            padding: '4px',
-                            fontSize: '0.75rem',
+                            width: '50px',
+                            padding: '3px',
+                            fontSize: '0.7rem',
                             border: '2px solid #667eea',
                             borderRadius: '4px',
                             outline: 'none'
                           }}
                         />
                       ) : (
-                        <span className={product.stock > 10 ? 'in-stock' : 'low-stock'} style={{fontSize: '0.75rem', padding: '2px 6px'}}>
+                        <span className={product.stock > 10 ? 'in-stock' : 'low-stock'} style={{fontSize: '0.7rem', padding: '2px 4px'}}>
                           {product.stock}
-                          <span style={{marginLeft: '4px', fontSize: '0.6rem', color: '#999'}}>✏️</span>
+                          <span style={{marginLeft: '3px', fontSize: '0.55rem', color: '#999'}}>✏️</span>
                         </span>
                       )}
                     </td>
-                    <td style={{padding: '6px 8px'}}>
+                    <td style={{padding: '4px 8px'}}>
                       <select
                         value={product.status}
                         onChange={(e) => handleStatusChange(product._id, e.target.value)}
                         className={`status-select ${product.status}`}
-                        style={{fontSize: '0.7rem', padding: '3px 6px'}}
+                        style={{fontSize: '0.65rem', padding: '2px 4px'}}
                       >
                         <option value="active">✅</option>
                         <option value="inactive">❌</option>
                         <option value="pending">⏳</option>
                       </select>
                     </td>
-                    <td className="seller-info" style={{padding: '6px 8px', fontSize: '0.75rem'}}>
+                    <td className="seller-info" style={{padding: '4px 8px', fontSize: '0.7rem'}}>
                       {product.seller?.businessName || 'Direct'}
                     </td>
-                    <td className="actions" style={{padding: '6px 8px'}}>
+                    <td className="actions" style={{padding: '4px 8px'}}>
                       <button
                         onClick={() => navigate(`/admin/products/edit/${product._id}`)}
                         className="edit-btn"
                         title="Edit Product"
-                        style={{padding: '3px 8px', fontSize: '0.7rem', marginRight: '4px'}}
+                        style={{padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px'}}
                       >
                         ✏️
                       </button>
@@ -519,7 +571,7 @@ const AdminProducts = () => {
                         onClick={() => handleDelete(product._id)}
                         className="delete-btn"
                         title="Delete Product"
-                        style={{padding: '3px 8px', fontSize: '0.7rem'}}
+                        style={{padding: '2px 6px', fontSize: '0.65rem'}}
                       >
                         🗑️
                       </button>
@@ -530,7 +582,7 @@ const AdminProducts = () => {
             </table>
           </div>
 
-          {products.length === 0 && (
+          {filteredProducts.length === 0 && (
             <div className="no-products" style={{padding: '30px', textAlign: 'center'}}>
               <h3 style={{fontSize: '1rem', marginBottom: '8px'}}>No products found</h3>
               <p style={{fontSize: '0.8rem', marginBottom: '12px'}}>Try adjusting your search or filters</p>
@@ -540,6 +592,102 @@ const AdminProducts = () => {
                 style={{padding: '6px 12px', fontSize: '0.8rem'}}
               >
                 ➕ Add from Excel
+              </button>
+            </div>
+          )}
+          
+          {/* Pagination - Compact */}
+          {filteredProducts.length > productsPerPage && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '10px',
+              gap: '6px',
+              borderTop: '1px solid #e5e7eb',
+              background: '#f9fafb',
+              marginTop: '10px'
+            }}>
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '0.7rem',
+                  border: '1px solid #667eea',
+                  background: currentPage === 1 ? '#f3f4f6' : 'white',
+                  color: currentPage === 1 ? '#9ca3af' : '#667eea',
+                  borderRadius: '4px',
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                ⏮
+              </button>
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '0.7rem',
+                  border: '1px solid #667eea',
+                  background: currentPage === 1 ? '#f3f4f6' : 'white',
+                  color: currentPage === 1 ? '#9ca3af' : '#667eea',
+                  borderRadius: '4px',
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                ←
+              </button>
+              
+              <div style={{
+                padding: '4px 12px',
+                fontSize: '0.7rem',
+                color: '#374151',
+                fontWeight: '600',
+                background: 'white',
+                border: '1px solid #667eea',
+                borderRadius: '4px',
+                minWidth: '80px',
+                textAlign: 'center'
+              }}>
+                {currentPage} / {Math.ceil(filteredProducts.length / productsPerPage)}
+              </div>
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredProducts.length / productsPerPage), prev + 1))}
+                disabled={currentPage === Math.ceil(filteredProducts.length / productsPerPage)}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '0.7rem',
+                  border: '1px solid #667eea',
+                  background: currentPage === Math.ceil(filteredProducts.length / productsPerPage) ? '#f3f4f6' : 'white',
+                  color: currentPage === Math.ceil(filteredProducts.length / productsPerPage) ? '#9ca3af' : '#667eea',
+                  borderRadius: '4px',
+                  cursor: currentPage === Math.ceil(filteredProducts.length / productsPerPage) ? 'not-allowed' : 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                →
+              </button>
+              
+              <button
+                onClick={() => setCurrentPage(Math.ceil(filteredProducts.length / productsPerPage))}
+                disabled={currentPage === Math.ceil(filteredProducts.length / productsPerPage)}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '0.7rem',
+                  border: '1px solid #667eea',
+                  background: currentPage === Math.ceil(filteredProducts.length / productsPerPage) ? '#f3f4f6' : 'white',
+                  color: currentPage === Math.ceil(filteredProducts.length / productsPerPage) ? '#9ca3af' : '#667eea',
+                  borderRadius: '4px',
+                  cursor: currentPage === Math.ceil(filteredProducts.length / productsPerPage) ? 'not-allowed' : 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                ⏭
               </button>
             </div>
           )}

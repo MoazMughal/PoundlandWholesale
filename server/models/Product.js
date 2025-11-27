@@ -13,6 +13,7 @@ const productSchema = new mongoose.Schema({
     required: true
   },
   originalPrice: Number,
+  rrp: Number, // Recommended Retail Price
   discount: Number,
   category: {
     type: String,

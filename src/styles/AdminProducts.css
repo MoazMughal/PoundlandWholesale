@@ -1,59 +1,96 @@
 .admin-products {
-  padding: 20px;
-  max-width: 1400px;
+  padding: 8px;
+  max-width: 1600px;
   margin: 0 auto;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 4px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 5px 10px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  min-height: auto;
 }
 
 .page-header h1 {
-  color: #333;
+  color: white;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  line-height: 1.2;
 }
 
 .back-btn {
-  padding: 10px 20px;
-  background: #6c757d;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.2);
   color: white;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 5px;
   cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  font-size: 0.7rem;
 }
 
 .back-btn:hover {
-  background: #5a6268;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
 }
 
 .filters-section {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 30px;
+  background: white;
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  margin-bottom: 6px;
 }
 
 .search-input {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
   font-size: 14px;
+  transition: all 0.3s ease;
+  background: #f8fafc;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .filter-select {
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
+  padding: 10px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
   font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .products-table {
   background: white;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
 }
 
 .products-table table {
@@ -62,17 +99,27 @@
 }
 
 .products-table th {
-  background: #f8f9fa;
-  padding: 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 8px 10px;
   text-align: left;
-  font-weight: 600;
-  color: #333;
-  border-bottom: 2px solid #dee2e6;
+  font-weight: 700;
+  color: white;
+  border-bottom: none;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .products-table td {
-  padding: 15px;
-  border-bottom: 1px solid #dee2e6;
+  padding: 6px 8px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  transition: background 0.2s ease;
+  font-size: 0.75rem;
+}
+
+.products-table tr:hover td {
+  background: #f8fafc;
 }
 
 .status-select {
@@ -84,16 +131,20 @@
 
 .delete-btn {
   padding: 6px 12px;
-  background: #dc3545;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
   border: none;
-  border-radius: 3px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
 }
 
 .delete-btn:hover {
-  background: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
 .header-actions {
@@ -102,17 +153,21 @@
 }
 
 .add-btn {
-  padding: 10px 20px;
-  background: #28a745;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
   border: none;
   border-radius: 5px;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  font-size: 0.7rem;
 }
 
 .add-btn:hover {
-  background: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.4);
 }
 
 .filters-section {
@@ -135,17 +190,18 @@
 
 .products-table-container {
   background: white;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   overflow: hidden;
 }
 
 .table-info {
-  padding: 15px 20px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
-  font-weight: 600;
-  color: #666;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-bottom: 1px solid #cbd5e1;
+  font-weight: 700;
+  color: #475569;
+  font-size: 0.7rem;
 }
 
 .product-info {
@@ -161,12 +217,14 @@
 
 .category-badge {
   display: inline-block;
-  padding: 4px 12px;
-  background: #e7f3ff;
-  color: #0066cc;
+  padding: 5px 12px;
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #4338ca;
   border-radius: 20px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
+  border: 1px solid #a5b4fc;
+  box-shadow: 0 2px 4px rgba(67, 56, 202, 0.1);
 }
 
 .stock {
@@ -193,35 +251,41 @@
 
 .edit-btn {
   padding: 6px 12px;
-  background: #007bff;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
   border: none;
-  border-radius: 3px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
 .edit-btn:hover {
-  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 .status-select.active {
-  background: #d4edda;
-  color: #155724;
-  border-color: #c3e6cb;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+  border: 2px solid #6ee7b7;
+  font-weight: 700;
 }
 
 .status-select.inactive {
-  background: #f8d7da;
-  color: #721c24;
-  border-color: #f5c6cb;
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 2px solid #fca5a5;
+  font-weight: 700;
 }
 
 .status-select.pending {
-  background: #fff3cd;
-  color: #856404;
-  border-color: #ffeaa7;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 2px solid #fcd34d;
+  font-weight: 700;
 }
 
 .no-products {
