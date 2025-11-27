@@ -3030,12 +3030,18 @@ h3:not([style*="background"]) {
 
 /* Mobile-specific product card visibility fixes - ONLY for mobile devices */
 @media (max-width: 768px) {
-  .product-card {
+  /* Product cards */
+  .product-card,
+  .featured-item .product-card,
+  .featured-item-small .product-card {
     background-color: #ffffff !important;
     color: #111827 !important;
     border: 1px solid #e5e7eb !important;
   }
 
+  /* Product titles */
+  .product-title,
+  .card-title,
   .product-card .product-title,
   .product-card h5,
   .product-card h6,
@@ -3043,21 +3049,53 @@ h3:not([style*="background"]) {
     color: #111827 !important;
   }
 
+  /* Prices */
+  .price,
   .product-card .price {
     color: #0b3b2e !important;
   }
 
+  /* Ratings */
+  .rating-count,
   .product-card .rating-count {
     color: #374151 !important;
   }
   
+  /* Image containers */
   .product-image-container,
-  .product-card .product-image-container {
+  .product-card .product-image-container,
+  .featured-item .product-image-container,
+  .featured-item-small .product-image-container {
     background-color: #ffffff !important;
   }
   
+  /* Product images - ensure visibility */
+  .product-image,
+  .product-card .product-image,
+  .product-image-container img,
+  .product-card .product-image-container img,
+  .featured-item img,
+  .featured-item-small img {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  /* Product info sections */
   .product-info,
-  .product-card .product-info {
+  .product-card .product-info,
+  .card-body,
+  .product-card .card-body {
     background-color: #ffffff !important;
+  }
+  
+  /* Badges */
+  .amazon-choice-badge,
+  .markup-badge,
+  .product-card .amazon-choice-badge,
+  .product-card .markup-badge {
+    opacity: 1 !important;
+    visibility: visible !important;
+    z-index: 10 !important;
   }
 }
