@@ -7,6 +7,7 @@ import ScrollToTop from '../components/ScrollToTop'
 import PaymentModal from '../components/PaymentModal'
 import apiConfig from '../config/api.config'
 import { useCurrency } from '../context/CurrencyContext'
+import '../styles/product-detail-compact.css'
 
 const ProductDetail = () => {
   const { id } = useParams()
@@ -190,14 +191,18 @@ const ProductDetail = () => {
           console.log('Product name:', productData.name)
           console.log('showEvaluation:', productData.showEvaluation)
           
-          // Only show profit calculations for bulbs
+          // Check product type for profit calculations
           const isBulb = productData.name.toLowerCase().includes('bulb')
+          const isLeatherWatchStrap = (productData.name.toLowerCase().includes('leather') && 
+                                       (productData.name.toLowerCase().includes('watch strap') || 
+                                        productData.name.toLowerCase().includes('watch band')))
+          
           if (productData.showEvaluation && isBulb) {
             const costPricePKR = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
             const costPriceGBP = costPricePKR * 0.00272 // Convert PKR to GBP
-            console.log('Adding profit calculations, costPrice PKR:', costPricePKR, 'GBP:', costPriceGBP)
+            console.log('Adding bulb profit calculations, costPrice PKR:', costPricePKR, 'GBP:', costPriceGBP)
             
-            // Calculate profit for bulbs only
+            // Calculate profit for bulbs
             const sellingPrice = 3.79
             const commissionBase = -0.57
             const commissionTax = -0.12
@@ -233,7 +238,50 @@ const ProductDetail = () => {
               netProfit: netProfit,
               changeToBalance: changeToBalance
             }
-            console.log('Profit calculations added:', productData.hasProfit, productData.evaluation)
+            console.log('Bulb profit calculations added:', productData.hasProfit, productData.evaluation)
+          } else if (isLeatherWatchStrap) {
+            const costPricePKR = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+            const costPriceGBP = costPricePKR * 0.00272 // Convert PKR to GBP
+            console.log('Adding watch strap profit calculations, costPrice PKR:', costPricePKR, 'GBP:', costPriceGBP)
+            
+            // Calculate profit for watch straps
+            const sellingPrice = 5.79
+            const commissionBase = -0.87
+            const commissionTax = -0.18
+            const digitalServiceBase = -0.05
+            const digitalServiceTax = -0.01
+            const fbaFeeBase = -1.46
+            const fbaFeeTax = -0.29
+            const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+            const changeToBalance = sellingPrice + totalFees
+            const netProfit = changeToBalance - costPriceGBP
+            
+            productData.hasProfit = true
+            productData.showEvaluation = true
+            productData.profitCalculations = {
+              costPrice: costPriceGBP,
+              sellingPrice: sellingPrice,
+              profitPerUnit: netProfit,
+              monthlyProfit: netProfit * 100,
+              yearlyProfit: netProfit * 1200,
+              monthlyProfitPKR: netProfit * 100 * 350,
+              yearlyProfitPKR: netProfit * 1200 * 350
+            }
+            
+            productData.evaluation = {
+              salesProceeds: sellingPrice,
+              commissionBase: commissionBase,
+              commissionTax: commissionTax,
+              digitalServiceBase: digitalServiceBase,
+              digitalServiceTax: digitalServiceTax,
+              fbaFeeBase: fbaFeeBase,
+              fbaFeeTax: fbaFeeTax,
+              totalFees: totalFees,
+              productCost: costPriceGBP,
+              netProfit: netProfit,
+              changeToBalance: changeToBalance
+            }
+            console.log('Leather watch strap profit calculations added:', productData.hasProfit, productData.evaluation)
           }
           
           setProduct(productData)
@@ -342,12 +390,18 @@ const ProductDetail = () => {
         console.log('Has "lamp"?:', productData.name.toLowerCase().includes('lamp'))
         console.log('Has "fuse"?:', productData.name.toLowerCase().includes('fuse'))
         console.log('Has "nose ring"?:', productData.name.toLowerCase().includes('nose ring'))
+        console.log('Has "watch strap"?:', productData.name.toLowerCase().includes('watch strap'))
+        console.log('Has "leather watch strap"?:', productData.name.toLowerCase().includes('leather') && productData.name.toLowerCase().includes('watch strap'))
         
-        // Only show profit calculations for bulbs
+        // Check product type for profit calculations
         const isBulb = productData.name.toLowerCase().includes('bulb')
+        const isLeatherWatchStrap = (productData.name.toLowerCase().includes('leather') && 
+                                     (productData.name.toLowerCase().includes('watch strap') || 
+                                      productData.name.toLowerCase().includes('watch band')))
+        
         if (productData.showEvaluation && isBulb) {
           const costPrice = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
-          console.log('Adding profit calculations, costPrice:', costPrice)
+          console.log('Adding bulb profit calculations, costPrice:', costPrice)
           
           // Calculate profit for bulbs only
           const sellingPrice = 3.79
@@ -385,7 +439,49 @@ const ProductDetail = () => {
             netProfit: netProfit,
             changeToBalance: changeToBalance
           }
-          console.log('Profit calculations added:', productData.hasProfit, productData.profitCalculations)
+          console.log('Bulb profit calculations added:', productData.hasProfit, productData.profitCalculations)
+        } else if (isWatchStrap) {
+          const costPrice = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+          console.log('Adding watch strap profit calculations, costPrice:', costPrice)
+          
+          // Calculate profit for watch straps
+          const sellingPrice = 5.79
+          const commissionBase = -0.87
+          const commissionTax = -0.18
+          const digitalServiceBase = -0.05
+          const digitalServiceTax = -0.01
+          const fbaFeeBase = -1.46
+          const fbaFeeTax = -0.29
+          const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+          const changeToBalance = sellingPrice + totalFees
+          const netProfit = changeToBalance - costPrice
+          
+          productData.hasProfit = true
+          productData.showEvaluation = true
+          productData.profitCalculations = {
+            costPrice: costPrice,
+            sellingPrice: sellingPrice,
+            profitPerUnit: netProfit,
+            monthlyProfit: netProfit * 100,
+            yearlyProfit: netProfit * 1200,
+            monthlyProfitPKR: netProfit * 100 * 350,
+            yearlyProfitPKR: netProfit * 1200 * 350
+          }
+          
+          productData.evaluation = {
+            salesProceeds: sellingPrice,
+            commissionBase: commissionBase,
+            commissionTax: commissionTax,
+            digitalServiceBase: digitalServiceBase,
+            digitalServiceTax: digitalServiceTax,
+            fbaFeeBase: fbaFeeBase,
+            fbaFeeTax: fbaFeeTax,
+            totalFees: totalFees,
+            productCost: costPrice,
+            netProfit: netProfit,
+            changeToBalance: changeToBalance
+          }
+          console.log('Leather watch strap profit calculations added:', productData.hasProfit, productData.profitCalculations)
         }
         
           console.log('Setting product data:', productData)
@@ -514,12 +610,16 @@ const ProductDetail = () => {
             console.log('Product name:', foundProduct.name)
             console.log('shouldShowEvaluation:', shouldShowEvaluation)
             
-            // Only show profit calculations for bulbs
+            // Check product type for profit calculations
             const isBulb = foundProduct.name.toLowerCase().includes('bulb')
+            const isLeatherWatchStrap = (foundProduct.name.toLowerCase().includes('leather') && 
+                                         (foundProduct.name.toLowerCase().includes('watch strap') || 
+                                          foundProduct.name.toLowerCase().includes('watch band')))
+            
             if (shouldShowEvaluation && isBulb) {
               const costPrice = foundProduct.price
               
-              // Calculate profit for bulbs only
+              // Calculate profit for bulbs
               const sellingPrice = 3.79
               const commissionBase = -0.57
               const commissionTax = -0.12
@@ -532,6 +632,46 @@ const ProductDetail = () => {
               const netProfit = changeToBalance - costPrice
               
               productData.hasProfit = true
+              productData.profitCalculations = {
+                costPrice: costPrice,
+                sellingPrice: sellingPrice,
+                profitPerUnit: netProfit,
+                monthlyProfit: netProfit * 100,
+                yearlyProfit: netProfit * 1200,
+                monthlyProfitPKR: netProfit * 100 * 350,
+                yearlyProfitPKR: netProfit * 1200 * 350
+              }
+              
+              productData.evaluation = {
+                salesProceeds: sellingPrice,
+                commissionBase: commissionBase,
+                commissionTax: commissionTax,
+                digitalServiceBase: digitalServiceBase,
+                digitalServiceTax: digitalServiceTax,
+                fbaFeeBase: fbaFeeBase,
+                fbaFeeTax: fbaFeeTax,
+                totalFees: totalFees,
+                productCost: costPrice,
+                netProfit: netProfit,
+                changeToBalance: changeToBalance
+              }
+            } else if (isLeatherWatchStrap) {
+              const costPrice = foundProduct.price
+              
+              // Calculate profit for leather watch straps
+              const sellingPrice = 5.79
+              const commissionBase = -0.87
+              const commissionTax = -0.18
+              const digitalServiceBase = -0.05
+              const digitalServiceTax = -0.01
+              const fbaFeeBase = -1.46
+              const fbaFeeTax = -0.29
+              const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
+              const changeToBalance = sellingPrice + totalFees
+              const netProfit = changeToBalance - costPrice
+              
+              productData.hasProfit = true
+              productData.showEvaluation = true
               productData.profitCalculations = {
                 costPrice: costPrice,
                 sellingPrice: sellingPrice,
@@ -974,15 +1114,6 @@ const ProductDetail = () => {
             {/* MIDDLE COLUMN - Title, Reviews, Price, Variations, About */}
             <div className="col-12 col-lg-5 order-3 order-lg-2">
               <div className="product-middle-info">
-                
-                {/* Home Page Link */}
-                <div className="mb-2">
-                  <Link to="/" className="text-decoration-none" style={{fontSize: '0.85rem', color: '#666'}}>
-                    <i className="fas fa-home me-1"></i>Amazon's Choice
-                  </Link>
-                  <span className="mx-2" style={{color: '#999'}}>?</span>
-                  <span style={{fontSize: '0.85rem', color: '#999'}}>Product Details</span>
-                </div>
                 
                 {/* Product Title */}
                 <h1 className="fw-bold text-dark mb-2" style={{fontSize: '1.1rem', lineHeight: '1.3'}}>{product.name}</h1>
