@@ -17,7 +17,6 @@ import './App.css'
 import './styles/mobile-responsive.css'
 
 // Lazy load pages for better performance
-const Home = lazy(() => import('./pages/Home'))
 const AmazonsChoice = lazy(() => import('./pages/AmazonsChoice'))
 const Basket = lazy(() => import('./pages/Basket'))
 const Categories = lazy(() => import('./pages/Categories'))

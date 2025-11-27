@@ -334,11 +334,11 @@ const ProductDetail = () => {
             const costPriceGBP = costPricePKR * 0.00272 // Convert PKR to GBP
             console.log('Adding nose ring profit calculations, costPrice PKR:', costPricePKR, 'GBP:', costPriceGBP)
             
-            // Calculate profit for nose rings
-            const sellingPrice = 3.49
-            const commissionBase = -0.52
-            const commissionTax = -0.10
-            const digitalServiceBase = -0.03
+            // Calculate profit for nose rings - Updated values
+            const sellingPrice = 2.99
+            const commissionBase = -0.60
+            const commissionTax = -0.12
+            const digitalServiceBase = -0.04
             const digitalServiceTax = -0.01
             const fbaFeeBase = -1.46
             const fbaFeeTax = -0.29
@@ -667,11 +667,11 @@ const ProductDetail = () => {
           const costPrice = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
           console.log('Adding nose ring profit calculations, costPrice:', costPrice)
           
-          // Calculate profit for nose rings
-          const sellingPrice = 3.49
-          const commissionBase = -0.52
-          const commissionTax = -0.10
-          const digitalServiceBase = -0.03
+          // Calculate profit for nose rings - Updated values
+          const sellingPrice = 2.99
+          const commissionBase = -0.60
+          const commissionTax = -0.12
+          const digitalServiceBase = -0.04
           const digitalServiceTax = -0.01
           const fbaFeeBase = -1.46
           const fbaFeeTax = -0.29
@@ -1007,11 +1007,11 @@ const ProductDetail = () => {
             } else if (isNoseRing) {
               const costPrice = foundProduct.price
               
-              // Calculate profit for nose rings
-              const sellingPrice = 3.49
-              const commissionBase = -0.52
-              const commissionTax = -0.10
-              const digitalServiceBase = -0.03
+              // Calculate profit for nose rings - Updated values
+              const sellingPrice = 2.99
+              const commissionBase = -0.60
+              const commissionTax = -0.12
+              const digitalServiceBase = -0.04
               const digitalServiceTax = -0.01
               const fbaFeeBase = -1.46
               const fbaFeeTax = -0.29

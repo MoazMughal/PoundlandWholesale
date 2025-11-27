@@ -143,65 +143,34 @@ const AmazonsChoice = () => {
                 let commissionBase = 0, commissionTax = 0, digitalServiceBase = 0, digitalServiceTax = 0, fbaFeeBase = 0, fbaFeeTax = 0
                 
                 if (productName.includes('bulb')) {
-                  sellingPrice = 3.79
-                  commissionBase = -0.57
-                  commissionTax = -0.12
-                  digitalServiceBase = -0.04
-                  digitalServiceTax = -0.02
-                  fbaFeeBase = -1.46
-                  fbaFeeTax = -0.30
+                  // Use fixed profit values for bulbs (matching Product Detail page)
+                  monthlyProfit = '£125.55'
+                  yearlyProfit = '£1506.66'
+                  sellingPrice = 0 // Skip calculation, use fixed values
                 } else if (productName.includes('nose ring')) {
-                  sellingPrice = 3.49
-                  commissionBase = -0.52
-                  commissionTax = -0.10
-                  digitalServiceBase = -0.03
-                  digitalServiceTax = -0.01
-                  fbaFeeBase = -1.46
-                  fbaFeeTax = -0.29
+                  // Use fixed profit values for nose rings (matching Product Detail page)
+                  monthlyProfit = '£20.07'
+                  yearlyProfit = '£240.86'
+                  sellingPrice = 0 // Skip calculation, use fixed values
                 } else if (productName.includes('fuse')) {
-                  sellingPrice = 4.99
-                  commissionBase = -0.75
-                  commissionTax = -0.15
-                  digitalServiceBase = -0.05
-                  digitalServiceTax = -0.01
-                  fbaFeeBase = -1.46
-                  fbaFeeTax = -0.29
+                  // Use fixed profit values for fuses (matching Product Detail page)
+                  monthlyProfit = '£227.90'
+                  yearlyProfit = '£2734.80'
+                  sellingPrice = 0 // Skip calculation, use fixed values
                 } else if (productName.includes('lampshade')) {
-                  sellingPrice = 5.86
-                  commissionBase = -0.76
-                  commissionTax = -0.15
-                  digitalServiceBase = -0.08
-                  digitalServiceTax = -0.01
-                  fbaFeeBase = -3.10
-                  fbaFeeTax = -0.62
+                  // Use fixed profit values for lampshades (matching Product Detail page)
+                  monthlyProfit = '£113.90'
+                  yearlyProfit = '£1366.80'
+                  sellingPrice = 0 // Skip calculation, use fixed values
                 } else if (productName.includes('leather') && (productName.includes('watch strap') || productName.includes('watch band'))) {
-                  sellingPrice = 5.79
-                  commissionBase = -0.87
-                  commissionTax = -0.18
-                  digitalServiceBase = -0.05
-                  digitalServiceTax = -0.01
-                  fbaFeeBase = -1.46
-                  fbaFeeTax = -0.29
+                  // Use fixed profit values for leather watch straps (matching Product Detail page)
+                  monthlyProfit = '£293.00'
+                  yearlyProfit = '£3516.00'
+                  sellingPrice = 0 // Skip calculation, use fixed values
                 } else {
                   // Default calculation for other jewelry
                   monthlyProfit = Math.round(price * 1200 * 0.4)
                   yearlyProfit = monthlyProfit * 12
-                }
-                
-                // Calculate net profit if we have selling price
-                if (sellingPrice > 0) {
-                  const totalFees = commissionBase + commissionTax + digitalServiceBase + digitalServiceTax + fbaFeeBase + fbaFeeTax
-                  const changeToBalance = sellingPrice + totalFees
-                  const netProfit = changeToBalance - costPriceGBP
-                  
-                  // Store profit as GBP price string for formatPrice to handle currency conversion
-                  monthlyProfit = `£${(netProfit * 100).toFixed(2)}` // 100 units per month
-                  yearlyProfit = `£${(netProfit * 1200).toFixed(2)}` // 1200 units per year
-                  
-                  // Debug log for verification
-                  if (productName.includes('bulb')) {
-                    console.log(`Bulb Profit Calculation: Cost=${costPriceGBP.toFixed(4)}, NetProfit=${netProfit.toFixed(4)}, Monthly=${monthlyProfit}, Yearly=${yearlyProfit}`)
-                  }
                 }
               }
             }
@@ -917,9 +886,9 @@ const AmazonsChoice = () => {
                         transition: 'opacity 0.5s ease-in-out'
                       }}>
                         {showYearlyProfit ? (
-                          <>💰 {formatPrice(product.yearlyProfit)}/yr</>
+                          <>💰 {product.yearlyProfit}/yr</>
                         ) : (
-                          <>💰 {formatPrice(product.monthlyProfit)}/mo</>
+                          <>💰 {product.monthlyProfit}/mo</>
                         )}
                       </div>
                     </div>

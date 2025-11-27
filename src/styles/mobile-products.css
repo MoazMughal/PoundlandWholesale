@@ -1,8 +1,12 @@
 /* Mobile Product Grid Responsive Styles */
 
-/* Base styles for all screens */
+/* Base styles for all screens - Force vertical layout */
 .product-card {
+  display: flex !important;
+  flex-direction: column !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .product-card:hover {
@@ -10,17 +14,38 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
+/* Ensure image container is always on top */
+.product-image-container {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+/* Ensure product info is below image */
+.product-info {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
 /* Mobile phones - 2 columns */
 @media (max-width: 576px) {
   #products-grid {
+    display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 8px !important;
     padding: 8px !important;
+    width: 100% !important;
   }
 
   .product-card {
+    display: flex !important;
+    flex-direction: column !important;
     border-radius: 8px;
     overflow: hidden;
+    width: 100% !important;
   }
 
   .product-image-container {
@@ -89,12 +114,20 @@
 /* Small tablets - 3 columns */
 @media (min-width: 577px) and (max-width: 768px) {
   #products-grid {
+    display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important;
     gap: 10px !important;
   }
 
+  .product-card {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
   .product-image-container {
     height: 140px !important;
+    width: 100% !important;
   }
 
   .product-title {
@@ -109,36 +142,71 @@
 /* Tablets - 4 columns */
 @media (min-width: 769px) and (max-width: 992px) {
   #products-grid {
+    display: grid !important;
     grid-template-columns: repeat(4, 1fr) !important;
     gap: 12px !important;
+  }
+
+  .product-card {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  .product-image-container {
+    width: 100% !important;
   }
 }
 
 /* Small laptops - 5 columns */
 @media (min-width: 993px) and (max-width: 1200px) {
   #products-grid {
+    display: grid !important;
     grid-template-columns: repeat(5, 1fr) !important;
+  }
+
+  .product-card {
+    display: flex !important;
+    flex-direction: column !important;
   }
 }
 
 /* Medium laptops - 6 columns */
 @media (min-width: 1201px) and (max-width: 1400px) {
   #products-grid {
+    display: grid !important;
     grid-template-columns: repeat(6, 1fr) !important;
+  }
+
+  .product-card {
+    display: flex !important;
+    flex-direction: column !important;
   }
 }
 
 /* Large screens - 7 columns */
 @media (min-width: 1401px) and (max-width: 1600px) {
   #products-grid {
+    display: grid !important;
     grid-template-columns: repeat(7, 1fr) !important;
+  }
+
+  .product-card {
+    display: flex !important;
+    flex-direction: column !important;
   }
 }
 
 /* Extra large screens - 8 columns */
 @media (min-width: 1601px) {
   #products-grid {
+    display: grid !important;
     grid-template-columns: repeat(8, 1fr) !important;
+  }
+
+  .product-card {
+    display: flex !important;
+    flex-direction: column !important;
   }
 }
 
