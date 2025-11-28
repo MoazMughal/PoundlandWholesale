@@ -171,16 +171,22 @@ router.post('/send-otp', async (req, res) => {
     await user.save();
 
     // Send OTP
+    console.log(`🚀 Starting OTP send process for ${userType}: ${contactInfo}`);
     const userName = userType === 'buyer' ? user.getFullName() : user.username;
+    console.log(`👤 User name: ${userName}`);
+    
     const sendResult = await sendOTP(contactInfo, otp, userName);
+    console.log(`📬 Send result:`, sendResult);
 
     if (!sendResult.success) {
+      console.error(`❌ Failed to send OTP: ${sendResult.message}`);
       return res.status(500).json({ 
         success: false,
         message: sendResult.message 
       });
     }
 
+    console.log(`✅ OTP sent successfully, sending response to client`);
     res.json({
       success: true,
       message: `OTP sent to your ${contactMethod === 'email' ? 'email' : 'WhatsApp'}`,
@@ -190,9 +196,12 @@ router.post('/send-otp', async (req, res) => {
     });
 
   } catch (error) {
+    console.error('❌ Send OTP route error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ 
       success: false,
-      message: 'Server error. Please try again later.' 
+      message: 'Server error. Please try again later.',
+      error: process.env.NODE_ENV !== 'production' ? error.message : undefined
     });
   }
 });
