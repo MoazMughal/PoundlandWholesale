@@ -213,7 +213,9 @@ router.put('/:id/approve', authenticateAdmin, async (req, res) => {
         status: 'verified',
         verificationStatus: 'approved',
         approvedBy: req.admin._id,
-        approvedAt: new Date()
+        approvedAt: new Date(),
+        canListProducts: true,
+        dashboardAccessible: true
       },
       { new: true }
     ).select('-password');
@@ -473,7 +475,8 @@ router.put('/admin/verification/:id/approve', authenticateAdmin, async (req, res
         verificationStatus: 'approved',
         verificationApprovedBy: req.admin._id,
         verificationApprovedAt: new Date(),
-        dashboardAccessible: true
+        dashboardAccessible: true,
+        canListProducts: true
       },
       { new: true }
     ).select('-password');
@@ -598,7 +601,11 @@ router.put('/debug/approve/:id', authenticateAdmin, async (req, res) => {
   try {
     const seller = await Seller.findByIdAndUpdate(
       req.params.id,
-      { verificationStatus: 'approved' },
+      { 
+        verificationStatus: 'approved',
+        canListProducts: true,
+        dashboardAccessible: true
+      },
       { new: true }
     ).select('-password');
     

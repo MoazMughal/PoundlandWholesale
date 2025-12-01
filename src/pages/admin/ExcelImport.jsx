@@ -204,93 +204,66 @@ const ExcelImport = () => {
   }
 
   return (
-    <div style={{padding: '20px', fontSize: '0.85rem'}}>
-      {/* Header */}
-      <header style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '15px', borderBottom: '2px solid #e5e7eb'}}>
+    <div style={{padding: '8px', fontSize: '0.85rem'}}>
+      {/* Compact Header */}
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', padding: '4px 0'}}>
         <div>
-          <h1 style={{fontSize: '1.5rem', margin: 0, marginBottom: '5px'}}>📊 Excel Products Import</h1>
-          <p style={{fontSize: '0.8rem', color: '#6b7280', margin: 0}}>Manage products from Excel file</p>
+          <h6 style={{fontSize: '0.9rem', margin: 0, marginBottom: '2px', fontWeight: '600'}}>
+            📊 UK Products ({filteredData.length}) | Selected: {selectedProducts.size}
+          </h6>
         </div>
-        <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-          <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-            <select 
-              value={currency} 
-              onChange={(e) => setCurrency(e.target.value)}
-              style={{padding: '4px 8px', borderRadius: '4px', border: '1px solid #667eea', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer'}}
-            >
-              <option value="PKR">Rs</option>
-              <option value="USD">$</option>
-              <option value="GBP">£</option>
-            </select>
-          </div>
-          <label style={{padding: '6px 12px', background: '#667eea', color: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600'}}>
-            📁 Upload Excel
+        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+          <select 
+            value={currency} 
+            onChange={(e) => setCurrency(e.target.value)}
+            style={{padding: '2px 6px', borderRadius: '4px', border: '1px solid #667eea', fontSize: '0.7rem', fontWeight: '600', cursor: 'pointer'}}
+          >
+            <option value="PKR">Rs</option>
+            <option value="USD">$</option>
+            <option value="GBP">£</option>
+          </select>
+          <label style={{padding: '4px 8px', background: '#667eea', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600'}}>
+            📁 Upload
             <input type="file" accept=".xlsx,.xls" onChange={handleFileUpload} style={{display: 'none'}} />
           </label>
-          <button onClick={() => navigate('/admin/dashboard')} style={{padding: '6px 12px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer'}}>
+          <button onClick={() => navigate('/admin/dashboard')} style={{padding: '4px 8px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '600', cursor: 'pointer'}}>
             ← Back
-          </button>
-        </div>
-      </header>
-
-      {/* Search & Actions */}
-      <div style={{background: 'white', padding: '15px', borderRadius: '8px', marginBottom: '15px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)'}}>
-        <div style={{display: 'flex', gap: '10px', marginBottom: '12px'}}>
-          <input
-            type="text"
-            placeholder="🔍 Search by ASIN or Title..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{flex: 1, padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem'}}
-          />
-          <button 
-            onClick={selectAll}
-            style={{padding: '8px 16px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer'}}
-          >
-            {selectedProducts.size === filteredData.length ? '☑️ Deselect All' : '☐ Select All'}
-          </button>
-        </div>
-
-        <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
-          <button 
-            onClick={() => addToPage('amazons-choice')}
-            disabled={selectedProducts.size === 0}
-            style={{padding: '6px 12px', background: '#ff9900', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', cursor: selectedProducts.size === 0 ? 'not-allowed' : 'pointer', opacity: selectedProducts.size === 0 ? 0.5 : 1}}
-          >
-            🏆 Add to Amazon's Choice ({selectedProducts.size})
-          </button>
-          <button 
-            onClick={() => addToPage('best-sellers')}
-            disabled={selectedProducts.size === 0}
-            style={{padding: '6px 12px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', cursor: selectedProducts.size === 0 ? 'not-allowed' : 'pointer', opacity: selectedProducts.size === 0 ? 0.5 : 1}}
-          >
-            🔥 Add to Best Sellers ({selectedProducts.size})
-          </button>
-          <button 
-            onClick={() => addToPage('latest-deals')}
-            disabled={selectedProducts.size === 0}
-            style={{padding: '6px 12px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', cursor: selectedProducts.size === 0 ? 'not-allowed' : 'pointer', opacity: selectedProducts.size === 0 ? 0.5 : 1}}
-          >
-            ⚡ Add to Latest Deals ({selectedProducts.size})
-          </button>
-          <button 
-            onClick={() => addToPage('home')}
-            disabled={selectedProducts.size === 0}
-            style={{padding: '6px 12px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', cursor: selectedProducts.size === 0 ? 'not-allowed' : 'pointer', opacity: selectedProducts.size === 0 ? 0.5 : 1}}
-          >
-            🏠 Add to Home ({selectedProducts.size})
           </button>
         </div>
       </div>
 
+      {/* Compact Controls */}
+      <div style={{display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center'}}>
+        <input
+          type="text"
+          placeholder="🔍 Search by ASIN or Title..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{flex: 1, padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.75rem'}}
+        />
+        <button 
+          onClick={selectAll}
+          style={{padding: '6px 12px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap'}}
+        >
+          {selectedProducts.size === filteredData.length ? '☑️ Deselect All' : '☐ Select All'}
+        </button>
+        <button 
+          onClick={() => addToPage('amazons-choice')}
+          disabled={selectedProducts.size === 0}
+          style={{padding: '6px 12px', background: '#ff9900', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '600', cursor: selectedProducts.size === 0 ? 'not-allowed' : 'pointer', opacity: selectedProducts.size === 0 ? 0.5 : 1, whiteSpace: 'nowrap'}}
+        >
+          🏆 Import to Amazon's Choice ({selectedProducts.size})
+        </button>
+      </div>
+
       {/* Products Table */}
-      <div style={{background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden'}}>
-        <div style={{padding: '10px 15px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', color: '#6b7280'}}>
+      <div style={{background: 'white', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden'}}>
+        <div style={{padding: '6px 10px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: '0.7rem', color: '#6b7280'}}>
           Showing {filteredData.length} products
         </div>
         
-        <div style={{overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto'}}>
-          <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem'}}>
+        <div style={{overflow: 'hidden', overflowY: 'auto', maxHeight: '70vh'}}>
+          <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', tableLayout: 'fixed'}}>
             <thead style={{position: 'sticky', top: 0, background: '#f9fafb', zIndex: 10}}>
               <tr>
                 <th style={{padding: '10px', textAlign: 'left', fontWeight: '600', fontSize: '0.75rem', borderBottom: '2px solid #e5e7eb'}}>

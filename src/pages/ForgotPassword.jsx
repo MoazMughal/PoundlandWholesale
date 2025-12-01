@@ -16,6 +16,7 @@ const ForgotPassword = () => {
   const [maskedWhatsApp, setMaskedWhatsApp] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [sendingProgress, setSendingProgress] = useState('')
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -31,11 +32,19 @@ const ForgotPassword = () => {
     setSuccess('')
     
     if (!formData.identifier.trim()) {
-      setError('Please enter your email or WhatsApp number')
+      setError('Please enter your email address')
+      return
+    }
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.identifier.trim())) {
+      setError('Please enter a valid email address')
       return
     }
     
     setLoading(true)
+    setSendingProgress('Connecting to email server...')
     
     try {
       const response = await fetch(getApiUrl('auth/send-otp'), {
@@ -54,15 +63,25 @@ const ForgotPassword = () => {
       if (response.ok) {
         setMaskedWhatsApp(data.contactInfo)
         setStep(2)
-        setSuccess(`OTP sent to your ${data.method === 'email' ? 'email' : 'WhatsApp'}: ${data.contactInfo}`)
+        
+        if (data.emailFailed && data.developmentOTP) {
+          setSuccess(`${data.message}`)
+          // Auto-fill OTP in development mode
+          setFormData(prev => ({ ...prev, otp: data.developmentOTP }))
+        } else if (data.emailFailed) {
+          setSuccess(`OTP generated for: ${data.contactInfo}`)
+          setError('Email delivery failed. Check server console for OTP or contact support.')
+        } else {
+          setSuccess(`OTP sent to your email: ${data.contactInfo}`)
+        }
       } else {
         setError(data.message || 'Failed to send OTP')
       }
     } catch (error) {
-      console.error('Send OTP error:', error)
-      setError('Failed to send OTP. Please check your connection.')
+      setError('Failed to send OTP. Please check your connection and try again.')
     } finally {
       setLoading(false)
+      setSendingProgress('')
     }
   }
 
@@ -180,25 +199,23 @@ const ForgotPassword = () => {
       </div>
 
       <div className="mb-3">
-        <label className="form-label fw-semibold small">
-          {userType === 'seller' ? 'Username, Email, or WhatsApp' : 'Email or WhatsApp Number'}
-        </label>
+        <label className="form-label fw-semibold small">Email Address</label>
         <div className="input-group">
           <span className="input-group-text bg-light">
-            <i className="fas fa-user text-muted"></i>
+            <i className="fas fa-envelope text-muted"></i>
           </span>
           <input
-            type="text"
+            type="email"
             className="form-control"
             name="identifier"
             value={formData.identifier}
             onChange={handleChange}
-            placeholder={userType === 'seller' ? 'Username, email, or WhatsApp' : 'Email or WhatsApp number'}
+            placeholder="Enter your email address"
             required
           />
         </div>
         <div className="form-text small">
-          {userType === 'seller' ? 'Use username, email, or WhatsApp number' : 'Use email or WhatsApp number'}
+          Enter the email address associated with your account
         </div>
       </div>
 
@@ -220,6 +237,8 @@ const ForgotPassword = () => {
           </>
         )}
       </button>
+
+
 
       <div className="text-center">
         <Link to="/auth" className="text-decoration-none small">
@@ -376,6 +395,8 @@ const ForgotPassword = () => {
                     </div>
                   </div>
                 )}
+
+
 
                 {error && (
                   <div className="alert alert-danger alert-dismissible fade show mb-3" role="alert">

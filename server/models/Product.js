@@ -38,6 +38,14 @@ const productSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Seller'
   },
+  // Seller contact info (cached for performance)
+  sellerInfo: {
+    businessName: String,
+    whatsappNo: String,
+    city: String,
+    country: String,
+    verificationStatus: String
+  },
   isAmazonsChoice: {
     type: Boolean,
     default: false
@@ -76,6 +84,14 @@ const productSchema = new mongoose.Schema({
   listedAt: Date,
   monthlyProfit: String,
   yearlyProfit: String,
+  dealUnits: {
+    type: Number,
+    default: 1
+  },
+  costPrice: {
+    type: Number,
+    default: 0
+  },
   asin: {
     type: String,
     sparse: true,
@@ -83,7 +99,7 @@ const productSchema = new mongoose.Schema({
   },
   marketplace: {
     type: String,
-    enum: ['UK', 'UAE', 'US', 'Other'],
+    enum: ['UK', 'UAE', 'US', 'Amazon10', 'Other'],
     default: 'UK'
   },
   currency: {
@@ -103,11 +119,86 @@ const productSchema = new mongoose.Schema({
   showOnHome: {
     type: Boolean,
     default: false
+  },
+  // Platform Comparison Data
+  platformComparison: [{
+    platform: {
+      type: String,
+      required: true
+    },
+    rrpPerUnit: {
+      type: Number,
+      required: true
+    },
+    profitFor200Units: {
+      type: Number,
+      required: true
+    },
+    markup: {
+      type: String,
+      required: true
+    }
+  }],
+  // Profit Calculations Data
+  profitCalculations: {
+    profitPerUnit: {
+      type: Number,
+      default: 0
+    },
+    profitFor200Units: {
+      type: Number,
+      default: 0
+    },
+    dealUnitsProfit: {
+      type: Number,
+      default: 0
+    },
+    profitForDealUnits: {
+      type: Number,
+      default: 0
+    }
+  },
+  // Profit Evaluation Data
+  profitEvaluation: {
+    salesProceeds: {
+      type: Number,
+      default: 0
+    },
+    commission: {
+      type: Number,
+      default: 0
+    },
+    digitalServicesFee: {
+      type: Number,
+      default: 0
+    },
+    fbaFulfilmentFee: {
+      type: Number,
+      default: 0
+    },
+    balanceChange: {
+      type: Number,
+      default: 0
+    },
+    productCost: {
+      type: Number,
+      default: 0
+    },
+    netProfit: {
+      type: Number,
+      default: 0
+    }
+  },
+  // Keep existing field
+  showOnHome: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 
 // Indexes for better query performance
 productSchema.index({ name: 'text', description: 'text', brand: 'text' }); // Text search
+productSchema.index({ status: 1, isAmazonsChoice: 1, originalAdminProductId: 1 }); // Optimized compound index for main query
 productSchema.index({ category: 1, isAmazonsChoice: 1 }); // Category + Amazon's Choice filter
 productSchema.index({ category: 1, isBestSeller: 1 }); // Category + Best Seller filter
 productSchema.index({ seller: 1, status: 1 }); // Seller products query

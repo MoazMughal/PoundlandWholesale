@@ -628,8 +628,8 @@ const SellerDashboard = () => {
                   <tr>
                     <td><strong>Can List Products:</strong></td>
                     <td>
-                      <span className={`badge bg-${seller?.canListProducts ? 'success' : 'danger'}`}>
-                        {seller?.canListProducts ? 'YES' : 'NO'}
+                      <span className={`badge bg-${(seller?.canListProducts || seller?.verificationStatus === 'approved') ? 'success' : 'danger'}`}>
+                        {(seller?.canListProducts || seller?.verificationStatus === 'approved') ? 'YES' : 'NO'}
                       </span>
                     </td>
                   </tr>
@@ -647,10 +647,6 @@ const SellerDashboard = () => {
                       </td>
                     </tr>
                   )}
-                  <tr>
-                    <td><strong>Joined:</strong></td>
-                    <td>{seller.createdAt ? new Date(seller.createdAt).toLocaleDateString() : 'Unknown'}</td>
-                  </tr>
                 </tbody>
               </table>
             </div>
@@ -753,6 +749,69 @@ const SellerDashboard = () => {
         </div>
       </div>
 
+      {/* Product Listing Section */}
+      <div className="row mb-4">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-header">
+              <h5><i className="fas fa-shopping-cart"></i> List Products to Amazon's Choice</h5>
+              <small className="text-muted">Browse and list products from our catalog</small>
+            </div>
+            <div className="card-body">
+              <div className="row g-2">
+                <div className="col-md-3">
+                  <button 
+                    className="btn btn-primary w-100"
+                    disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
+                    onClick={() => navigate('/seller/uk-products')}
+                  >
+                    <i className="fas fa-file-excel me-1"></i> UK Products
+                    <small className="d-block">Browse UK Excel products</small>
+                  </button>
+                </div>
+                <div className="col-md-3">
+                  <button 
+                    className="btn btn-success w-100"
+                    disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
+                    onClick={() => navigate('/seller/uae-products')}
+                  >
+                    <i className="fas fa-file-excel me-1"></i> UAE Products
+                    <small className="d-block">Browse UAE Excel products</small>
+                  </button>
+                </div>
+                <div className="col-md-3">
+                  <button 
+                    className="btn btn-info w-100"
+                    disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
+                    onClick={() => navigate('/seller/amazon10-products')}
+                  >
+                    <i className="fas fa-file-excel me-1"></i> Amazon 10 Products
+                    <small className="d-block">Browse Amazon 10 products</small>
+                  </button>
+                </div>
+                <div className="col-md-3">
+                  <button 
+                    className="btn btn-warning w-100"
+                    disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
+                    onClick={() => navigate('/seller/amazons-choice-products')}
+                  >
+                    <i className="fas fa-trophy me-1"></i> Amazon's Choice
+                    <small className="d-block">Browse existing products</small>
+                  </button>
+                </div>
+              </div>
+              
+              {!(seller?.canListProducts || seller?.verificationStatus === 'approved') && (
+                <div className="alert alert-warning mt-3 mb-0">
+                  <i className="fas fa-exclamation-triangle"></i> 
+                  <strong>Verification Required:</strong> Complete your verification to list products.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Quick Actions */}
       <div className="row">
         <div className="col-12">
@@ -767,24 +826,24 @@ const SellerDashboard = () => {
                     className="btn btn-primary w-100"
                     onClick={() => navigate('/seller/add-products')}
                   >
-                    <i className="fas fa-plus"></i> Add Products
+                    <i className="fas fa-plus"></i> Add Custom Products
                   </button>
                 </div>
                 <div className="col-md-3 mb-2">
                   <button 
                     className="btn btn-info w-100"
-                    onClick={() => navigate('/seller/products')}
+                    onClick={() => navigate('/seller/listed-products')}
                   >
-                    <i className="fas fa-list"></i> My Products
+                    <i className="fas fa-list"></i> My Listed Products
                   </button>
                 </div>
                 <div className="col-md-3 mb-2">
                   <button 
                     className="btn btn-success w-100"
-                    disabled={!seller.canListProducts}
-                    onClick={() => navigate('/admin/products')}
+                    disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
+                    onClick={() => navigate('/seller/admin-products')}
                   >
-                    <i className="fas fa-shopping-cart"></i> List Admin Products
+                    <i className="fas fa-shopping-cart"></i> Admin Products
                   </button>
                 </div>
                 <div className="col-md-3 mb-2">

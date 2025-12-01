@@ -36,15 +36,35 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // MongoDB connection with optimizations
+console.log('🔄 Attempting to connect to MongoDB...');
+console.log('📍 MongoDB URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
+
 mongoose.connect(process.env.MONGODB_URI, {
   maxPoolSize: 10, // Maximum number of connections in the pool
   minPoolSize: 2,  // Minimum number of connections
   socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-  serverSelectionTimeoutMS: 5000, // Timeout for server selection
+  serverSelectionTimeoutMS: 10000, // Increased timeout for server selection
   family: 4 // Use IPv4, skip trying IPv6
 })
-  .then(() => console.log('✅ MongoDB connected with connection pooling'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+  .then(() => {
+    console.log('✅ MongoDB connected successfully with connection pooling');
+    console.log('🏪 Database:', mongoose.connection.db.databaseName);
+  })
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err.message);
+    console.error('🔍 Error details:', {
+      name: err.name,
+      code: err.code,
+      reason: err.reason?.type
+    });
+    
+    // Provide helpful suggestions
+    console.log('\n💡 Troubleshooting suggestions:');
+    console.log('1. Check your internet connection');
+    console.log('2. Verify MongoDB Atlas IP whitelist');
+    console.log('3. Ensure cluster is not paused');
+    console.log('4. Check if connection string is correct');
+  });
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);

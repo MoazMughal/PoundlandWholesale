@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import ScrollToTop from '../components/ScrollToTop'
+import ProductCardSkeleton from '../components/ProductCardSkeleton'
 import { useCurrency } from '../context/CurrencyContext'
 import { useSeller } from '../context/SellerContext'
 import { useBasket } from '../context/BasketContext'
+import { useAdmin } from '../context/AdminContext'
 import { getImageUrl } from '../utils/imageImports'
 import { getApiUrl } from '../utils/api'
+import cacheManager from '../utils/cacheManager'
 import '../styles/mobile-products.css'
 
 const AmazonsChoice = () => {
@@ -19,6 +22,7 @@ const AmazonsChoice = () => {
   const [filteredFastSelling, setFilteredFastSelling] = useState([])
   const [filteredBestSelling, setFilteredBestSelling] = useState([])
   const [loading, setLoading] = useState(true)
+  const [initialLoad, setInitialLoad] = useState(true)
   const [activeTab, setActiveTab] = useState('all') // 'all', 'fast', 'best'
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('cat') || 'all')
@@ -28,7 +32,7 @@ const AmazonsChoice = () => {
   const [ratingFilter, setRatingFilter] = useState('all')
   const [showFilters, setShowFilters] = useState(false)
   const [currentStatusIndex, setCurrentStatusIndex] = useState({})
-  const [showYearlyProfit, setShowYearlyProfit] = useState(false)
+
   const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(false)
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -47,6 +51,7 @@ const AmazonsChoice = () => {
   const { formatPrice } = useCurrency()
   const { isLoggedIn: isSellerLoggedIn } = useSeller()
   const { addToBasket, isInBasket } = useBasket()
+  const { admin, isLoggedIn: isAdminContextLoggedIn } = useAdmin()
   
   const productsPerPage = 48
   const indexOfLastProduct = currentPage * productsPerPage
@@ -62,6 +67,15 @@ const AmazonsChoice = () => {
   const activeProducts = getActiveProducts()
   const currentProducts = activeProducts.slice(indexOfFirstProduct, indexOfLastProduct)
   const totalPages = Math.ceil(activeProducts.length / productsPerPage)
+  
+  console.log('📊 Products state:', {
+    products: products.length,
+    filteredProducts: filteredProducts.length,
+    activeProducts: activeProducts.length,
+    currentProducts: currentProducts.length,
+    loading: loading,
+    activeTab: activeTab
+  })
 
   const categories = [
     { value: 'all', label: 'All' },
@@ -82,10 +96,9 @@ const AmazonsChoice = () => {
   // Check if buyer or admin is logged in
   useEffect(() => {
     const buyerToken = localStorage.getItem('buyerToken')
-    const adminToken = localStorage.getItem('adminToken')
     setIsBuyerLoggedIn(!!buyerToken)
-    setIsAdminLoggedIn(!!adminToken)
-  }, [])
+    setIsAdminLoggedIn(isAdminContextLoggedIn)
+  }, [isAdminContextLoggedIn])
 
   // Handle window resize for responsive grid
   useEffect(() => {
@@ -103,11 +116,36 @@ const AmazonsChoice = () => {
       try {
         setLoading(true)
         
-        // Fetch Amazon's Choice products from database with timeout
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+        // Check cache first - but skip cache if URL has refresh parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const forceRefresh = urlParams.get('refresh') === 'true';
         
-        const response = await fetch(getApiUrl('products/public?isAmazonsChoice=true&limit=1000'), {
+        const cacheKey = 'amazons_choice_products'
+        const cachedData = !forceRefresh ? cacheManager.get(cacheKey) : null;
+        
+        if (cachedData && !forceRefresh) {
+          console.log('✅ Loading products from cache')
+          setProducts(cachedData.products)
+          setFastSellingProducts(cachedData.fastSelling)
+          setBestSellingProducts(cachedData.bestSelling)
+          setLoading(false)
+          setInitialLoad(false)
+          return
+        }
+        
+        if (forceRefresh) {
+          console.log('🔄 Force refresh requested - clearing all cache');
+          cacheManager.clearAll();
+        }
+        
+        // Fetch Amazon's Choice products from database with timeout and pagination
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+        
+        // Use pagination for better performance - fetch in smaller chunks
+        // Add cache busting parameter to ensure fresh data
+        const cacheBuster = Date.now();
+        const response = await fetch(getApiUrl(`products/public?isAmazonsChoice=true&limit=200&page=1&_t=${cacheBuster}`), {
           signal: controller.signal
         })
         
@@ -116,77 +154,29 @@ const AmazonsChoice = () => {
         if (response.ok) {
           const data = await response.json()
           
-          // Transform API data to match expected format
+          // Transform API data to match expected format - optimized for performance
           let transformedProducts = data.products.map(p => {
-            // Get the first image and convert path to actual imported URL
-            const imageUrl = p.images && p.images.length > 0 ? getImageUrl(p.images[0]) : ''
+            // Optimize image processing - defer getImageUrl call
+            const imageUrl = p.images && p.images.length > 0 ? p.images[0] : ''
             
-            // Calculate profit for specific product types
+            // Simplified profit calculation - use database values when available
             const productName = p.name.toLowerCase()
-            let monthlyProfit = p.monthlyProfit || null
-            let yearlyProfit = p.yearlyProfit || null
+            let monthlyProfit = p.monthlyProfit
             
-            // Calculate profit only for specific products: bulbs, fuses, nose rings, lampshades
-            if (!monthlyProfit && (
-              productName.includes('nose ring') || 
-              productName.includes('bulb') || 
-              productName.includes('fuse') || 
-              productName.includes('lampshade') ||
-              productName.includes('jewelry') ||
-              productName.includes('jewellery')
-            )) {
-              const price = parseFloat(p.price) || 0
-              if (price > 0) {
-                // Calculate actual profit based on product type (matching ProductDetail page)
-                let sellingPrice = 0
-                let costPriceGBP = price * 0.00272 // Convert PKR to GBP
-                let commissionBase = 0, commissionTax = 0, digitalServiceBase = 0, digitalServiceTax = 0, fbaFeeBase = 0, fbaFeeTax = 0
-                
-                if (productName.includes('bulb')) {
-                  // Use fixed profit values for bulbs (matching Product Detail page)
-                  monthlyProfit = '£125.55'
-                  yearlyProfit = '£1506.66'
-                  sellingPrice = 0 // Skip calculation, use fixed values
-                } else if (productName.includes('nose ring')) {
-                  // Use fixed profit values for nose rings (matching Product Detail page)
-                  monthlyProfit = '£20.07'
-                  yearlyProfit = '£240.86'
-                  sellingPrice = 0 // Skip calculation, use fixed values
-                } else if (productName.includes('fuse')) {
-                  // Use fixed profit values for fuses (matching Product Detail page)
-                  monthlyProfit = '£227.90'
-                  yearlyProfit = '£2734.80'
-                  sellingPrice = 0 // Skip calculation, use fixed values
-                } else if (productName.includes('lampshade')) {
-                  // Use fixed profit values for lampshades (matching Product Detail page)
-                  monthlyProfit = '£113.90'
-                  yearlyProfit = '£1366.80'
-                  sellingPrice = 0 // Skip calculation, use fixed values
-                } else if (productName.includes('leather') && (productName.includes('watch strap') || productName.includes('watch band'))) {
-                  // Use fixed profit values for leather watch straps (matching Product Detail page)
-                  monthlyProfit = '£293.00'
-                  yearlyProfit = '£3516.00'
-                  sellingPrice = 0 // Skip calculation, use fixed values
-                } else {
-                  // Default calculation for other jewelry
-                  monthlyProfit = Math.round(price * 1200 * 0.4)
-                  yearlyProfit = monthlyProfit * 12
-                }
-              }
+            // Only calculate if not already in database
+            if (!monthlyProfit) {
+              if (productName.includes('nose ring')) monthlyProfit = '£40.14'
+              else if (productName.includes('bulb')) monthlyProfit = '£251.10'
+              else if (productName.includes('fuse')) monthlyProfit = '£455.80'
+              else if (productName.includes('lampshade')) monthlyProfit = '£227.80'
+              else if (productName.includes('leather') && productName.includes('watch')) monthlyProfit = '£586.00'
             }
             
-            // Calculate RRP - same logic as ProductDetail page
-            // RRP is stored in database as originalPrice or calculated as 1.5x price
-            let rrp = null
-            if (productName.includes('nose ring')) {
-              rrp = '£3.49' // Fixed RRP for nose ring
-            } else if (p.rrp) {
-              rrp = `£${p.rrp}` // Use RRP from database if available
-            } else if (p.originalPrice) {
-              rrp = `£${p.originalPrice}` // Use originalPrice as RRP
-            } else if (p.price) {
-              rrp = `£${(p.price * 1.5).toFixed(2)}` // Calculate as 1.5x price
-            }
+            // Simplified RRP calculation
+            let rrp = p.rrp ? `£${p.rrp}` : 
+                     p.originalPrice ? `£${p.originalPrice}` : 
+                     productName.includes('nose ring') ? '£3.49' : 
+                     `£${(p.price * 1.5).toFixed(2)}`
             
             return {
               id: p._id,
@@ -199,20 +189,18 @@ const AmazonsChoice = () => {
               category: p.category,
               subcategory: p.subcategory || '',
               brand: p.brand || '',
-              image: imageUrl,
-              images: p.images ? p.images.map(img => getImageUrl(img)) : [],
+              image: imageUrl, // Store raw path, process later
+              images: p.images || [],
               rating: p.rating || 4.0,
               reviews: p.reviews || 0,
               stock: p.stock || 0,
+              dealUnits: p.dealUnits || 1,
+              costPrice: p.costPrice || 0,
               monthlyOrders: Math.floor(Math.random() * 500) + 100,
               monthlyProfit: monthlyProfit,
-              yearlyProfit: yearlyProfit,
               statuses: [
-                'Amazon\'s Choice', 
-                'Selling Fast', 
-                'Trending Now',
-                'Best Seller',
-                `${Math.floor(Math.random() * 1000) + 100} in basket`
+                `${Math.floor(Math.random() * 1000) + 100} in basket`,
+                ['Amazon\'s Choice', 'Selling Fast', 'Best Seller'][Math.floor(Math.random() * 3)]
               ],
               isAmazonsChoice: p.isAmazonsChoice,
               isBestSeller: p.isBestSeller,
@@ -220,60 +208,55 @@ const AmazonsChoice = () => {
             }
           })
           
-          // Remove duplicates based on product name (case-insensitive)
-          const uniqueProducts = []
-          const seenNames = new Set()
-          
+          // Optimized deduplication using Map for better performance
+          const uniqueProductsMap = new Map()
           transformedProducts.forEach(p => {
-            const normalizedName = p.name.toLowerCase().trim()
-            if (!seenNames.has(normalizedName)) {
-              seenNames.add(normalizedName)
-              uniqueProducts.push(p)
+            const key = p.name.toLowerCase().trim()
+            if (!uniqueProductsMap.has(key)) {
+              uniqueProductsMap.set(key, p)
             }
           })
           
-          transformedProducts = uniqueProducts
+          // Convert back to array and shuffle for variety
+          transformedProducts = Array.from(uniqueProductsMap.values())
           
-          // Distribute products evenly by category for better variety
-          const productsByCategory = {};
-          transformedProducts.forEach(p => {
-            if (!productsByCategory[p.category]) {
-              productsByCategory[p.category] = [];
-            }
-            productsByCategory[p.category].push(p);
-          });
-          
-          // Shuffle each category's products
-          Object.keys(productsByCategory).forEach(category => {
-            const arr = productsByCategory[category];
-            for (let i = arr.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [arr[i], arr[j]] = [arr[j], arr[i]];
-            }
-          });
-          
-          // Interleave products from different categories for variety
-          const categories = Object.keys(productsByCategory);
-          const interleavedProducts = [];
-          let maxLength = Math.max(...Object.values(productsByCategory).map(arr => arr.length));
-          
-          for (let i = 0; i < maxLength; i++) {
-            categories.forEach(category => {
-              if (productsByCategory[category][i]) {
-                interleavedProducts.push(productsByCategory[category][i]);
-              }
-            });
+          // Simple shuffle for better performance than complex interleaving
+          for (let i = transformedProducts.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [transformedProducts[i], transformedProducts[j]] = [transformedProducts[j], transformedProducts[i]];
           }
           
           // Set all products to the main products array
-          setProducts(interleavedProducts)
+          console.log('✅ Setting products:', transformedProducts.length, 'products')
+          
+          // Debug: Log unique categories and sample product data
+          const uniqueCategories = [...new Set(transformedProducts.map(p => p.category))];
+          console.log('📂 Available categories in products:', uniqueCategories);
+          console.log('🔍 Sample product data (first 3 products):');
+          transformedProducts.slice(0, 3).forEach((p, i) => {
+            console.log(`   Product ${i + 1}: ${p.name}`);
+            console.log(`     - costPrice: ${p.costPrice}`);
+            console.log(`     - price: ${p.price}`);
+            console.log(`     - dealUnits: ${p.dealUnits}`);
+          });
+          
+          setProducts(transformedProducts)
           
           // Separate into Fast Selling and Best Selling for tabs
-          const fastSelling = interleavedProducts.filter(p => p.isFastSelling)
-          const bestSelling = interleavedProducts.filter(p => p.isBestSeller)
+          const fastSelling = transformedProducts.filter(p => p.isFastSelling)
+          const bestSelling = transformedProducts.filter(p => p.isBestSeller)
           
+          console.log('✅ Fast selling:', fastSelling.length, 'Best selling:', bestSelling.length)
           setFastSellingProducts(fastSelling)
           setBestSellingProducts(bestSelling)
+          
+          // Cache the products data for 10 minutes (increased cache time)
+          cacheManager.set('amazons_choice_products', {
+            products: transformedProducts,
+            fastSelling: fastSelling,
+            bestSelling: bestSelling
+          }, 10 * 60 * 1000)
+          console.log('✅ Products cached successfully')
         } else {
           console.error('❌ Database API error:', response.status, response.statusText)
           alert('⚠️ Unable to load products. Server returned error: ' + response.status)
@@ -287,6 +270,7 @@ const AmazonsChoice = () => {
         }
       } finally {
         setLoading(false)
+        setInitialLoad(false)
       }
     }
 
@@ -302,132 +286,91 @@ const AmazonsChoice = () => {
            name.includes('lampshade')
   }
 
-  // Filter and sort products
+  // Filter and sort products - Optimized for performance
   useEffect(() => {
+    console.log('🔍 Filter useEffect triggered. Products:', products.length, 'Active tab:', activeTab)
     
-    // Determine which products to filter based on active tab
-    let sourceProducts = products.slice()
-    if (activeTab === 'fast') {
-      sourceProducts = fastSellingProducts.slice()
-    } else if (activeTab === 'best') {
-      sourceProducts = bestSellingProducts.slice()
+    // Don't filter if no products loaded yet
+    if (products.length === 0) {
+      console.log('⚠️ No products to filter yet')
+      return
     }
     
-    // Always start fresh from the source products array
-    let filtered = sourceProducts.slice() // Create a true copy
-
-    // Category filter - STRICT matching
-    if (selectedCategory && selectedCategory !== 'all') {
-      const beforeFilter = filtered.length
-      filtered = filtered.filter(p => {
-        return p.category === selectedCategory
-      })
-    }
-
-    // Search filter - prioritize exact matches, then partial matches, then word matches
-    if (searchQuery && searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase().trim()
-      const queryWords = query.split(/\s+/).filter(word => word.length > 2) // Split into words, ignore short words
+    // Use requestAnimationFrame to prevent blocking UI
+    const filterProducts = () => {
+      // Determine which products to filter based on active tab
+      let sourceProducts = products
+      if (activeTab === 'fast') {
+        sourceProducts = fastSellingProducts
+      } else if (activeTab === 'best') {
+        sourceProducts = bestSellingProducts
+      }
       
-      // Filter products that match the search (full query OR individual words)
-      filtered = filtered.filter(p => {
-        const name = (p.name || '').toLowerCase()
-        const category = (p.category || '').toLowerCase()
-        const subcategory = (p.subcategory || '').toLowerCase()
-        const brand = (p.brand || '').toLowerCase()
-        const description = (p.description || '').toLowerCase()
-        const searchText = `${name} ${category} ${subcategory} ${brand} ${description}`
-        
-        // Match if full query is found OR if any significant word is found
-        const fullMatch = name.includes(query) || 
-                         category.includes(query) || 
-                         subcategory.includes(query) || 
-                         brand.includes(query) || 
-                         description.includes(query)
-        
-        // Match if at least one word from query is found
-        const wordMatch = queryWords.some(word => searchText.includes(word))
-        
-        return fullMatch || wordMatch
-      })
+      console.log('🔍 Source products:', sourceProducts.length)
       
-      // Sort by relevance: exact name match first, then starts with, then word matches
-      filtered.sort((a, b) => {
-        const aName = (a.name || '').toLowerCase()
-        const bName = (b.name || '').toLowerCase()
-        const aSearchText = `${aName} ${(a.category || '').toLowerCase()} ${(a.description || '').toLowerCase()}`
-        const bSearchText = `${bName} ${(b.category || '').toLowerCase()} ${(b.description || '').toLowerCase()}`
-        
-        // Exact match gets highest priority (10000 points)
-        const aExact = aName === query ? 10000 : 0
-        const bExact = bName === query ? 10000 : 0
-        
-        // Full query in name gets second priority (1000 points)
-        const aFullInName = aName.includes(query) ? 1000 : 0
-        const bFullInName = bName.includes(query) ? 1000 : 0
-        
-        // Starts with query gets third priority (500 points)
-        const aStarts = aName.startsWith(query) ? 500 : 0
-        const bStarts = bName.startsWith(query) ? 500 : 0
-        
-        // Count matching words (10 points per word)
-        const aWordMatches = queryWords.filter(word => aSearchText.includes(word)).length * 10
-        const bWordMatches = queryWords.filter(word => bSearchText.includes(word)).length * 10
-        
-        // Contains query anywhere gets lower priority (5 points)
-        const aContains = aSearchText.includes(query) ? 5 : 0
-        const bContains = bSearchText.includes(query) ? 5 : 0
-        
-        const aScore = aExact + aFullInName + aStarts + aWordMatches + aContains
-        const bScore = bExact + bFullInName + bStarts + bWordMatches + bContains
-        
-        return bScore - aScore // Higher score first
-      })
-    }
+      // Start with source products reference (no unnecessary copying)
+      let filtered = sourceProducts
 
-    // Price filter
-    if (priceFilter !== 'all') {
-      const [min, max] = priceFilter.split('-').map(Number)
-      filtered = filtered.filter(p => {
-        const price = parseFloat(p.price.replace(/[£$₨]/g, ''))
-        return max ? (price >= min && price <= max) : price >= min
-      })
-    }
+      // Category filter - STRICT matching
+      if (selectedCategory && selectedCategory !== 'all') {
+        console.log('🔍 Filtering by category:', selectedCategory);
+        console.log('🔍 Products before filter:', filtered.length);
+        filtered = filtered.filter(p => p.category === selectedCategory);
+        console.log('🔍 Products after filter:', filtered.length);
+        console.log('🔍 Sample categories in filtered products:', filtered.slice(0, 5).map(p => p.category));
+      }
 
-    // Rating filter
-    if (ratingFilter !== 'all') {
-      const minRating = parseFloat(ratingFilter)
-      filtered = filtered.filter(p => p.rating >= minRating)
-    }
+      // Search is now handled by separate useEffect
+      // This filter function handles other filters (price, rating, etc.)
 
-    // Sort
-    switch (sortBy) {
-      case 'price-low':
-        filtered.sort((a, b) => parseFloat(a.price.replace(/[£$₨]/g, '')) - parseFloat(b.price.replace(/[£$₨]/g, '')))
-        break
-      case 'price-high':
-        filtered.sort((a, b) => parseFloat(b.price.replace(/[£$₨]/g, '')) - parseFloat(a.price.replace(/[£$₨]/g, '')))
-        break
-      case 'rating':
-        filtered.sort((a, b) => b.rating - a.rating)
-        break
-      case 'popular':
-        filtered.sort((a, b) => b.reviews - a.reviews)
-        break
-      default:
-        break
+      // Price filter
+      if (priceFilter !== 'all') {
+        const [min, max] = priceFilter.split('-').map(Number)
+        filtered = filtered.filter(p => {
+          const price = parseFloat(p.price.replace(/[£$₨]/g, ''))
+          return max ? (price >= min && price <= max) : price >= min
+        })
+      }
+
+      // Rating filter
+      if (ratingFilter !== 'all') {
+        const minRating = parseFloat(ratingFilter)
+        filtered = filtered.filter(p => p.rating >= minRating)
+      }
+
+      // Sort
+      switch (sortBy) {
+        case 'price-low':
+          filtered.sort((a, b) => parseFloat(a.price.replace(/[£$₨]/g, '')) - parseFloat(b.price.replace(/[£$₨]/g, '')))
+          break
+        case 'price-high':
+          filtered.sort((a, b) => parseFloat(b.price.replace(/[£$₨]/g, '')) - parseFloat(a.price.replace(/[£$₨]/g, '')))
+          break
+        case 'rating':
+          filtered.sort((a, b) => b.rating - a.rating)
+          break
+        case 'popular':
+          filtered.sort((a, b) => b.reviews - a.reviews)
+          break
+        default:
+          break
+      }
+      
+      // Update the appropriate filtered state based on active tab
+      console.log('🔍 Setting filtered products:', filtered.length, 'for tab:', activeTab)
+      if (activeTab === 'fast') {
+        setFilteredFastSelling(filtered)
+      } else if (activeTab === 'best') {
+        setFilteredBestSelling(filtered)
+      } else {
+        setFilteredProducts(filtered)
+      }
+      
+      setCurrentPage(1) // Always reset to page 1 when filters change
     }
     
-    // Update the appropriate filtered state based on active tab
-    if (activeTab === 'fast') {
-      setFilteredFastSelling(filtered)
-    } else if (activeTab === 'best') {
-      setFilteredBestSelling(filtered)
-    } else {
-      setFilteredProducts(filtered)
-    }
-    
-    setCurrentPage(1) // Always reset to page 1 when filters change
+    // Use requestAnimationFrame for non-blocking execution
+    requestAnimationFrame(filterProducts)
   }, [selectedCategory, searchQuery, sortBy, priceFilter, ratingFilter, products, fastSellingProducts, bestSellingProducts, activeTab])
 
   // Update category and search when URL parameters change
@@ -435,16 +378,146 @@ const AmazonsChoice = () => {
     const catParam = searchParams.get('cat')
     const searchParam = searchParams.get('search')
     
+    console.log('🔗 URL params changed:', { catParam, searchParam, currentCategory: selectedCategory })
+    
+    // Handle category parameter
     if (catParam && catParam !== selectedCategory) {
+      console.log('📂 Setting category to:', catParam)
       setSelectedCategory(catParam)
+    } else if (!catParam && selectedCategory !== 'all') {
+      // Reset to 'all' when no category parameter in URL
+      console.log('📂 Resetting category to: all')
+      setSelectedCategory('all')
     }
     
+    // Handle search parameter
     if (searchParam !== null && searchParam !== searchQuery) {
       setSearchQuery(searchParam)
     } else if (searchParam === null && searchQuery !== '') {
       setSearchQuery('')
     }
   }, [searchParams])
+
+  // Enhanced search with server-side results
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!searchQuery || searchQuery.trim() === '') {
+        // If no search query, reload all Amazon's Choice products
+        try {
+          setLoading(true)
+          const cacheBuster = Date.now();
+          const response = await fetch(getApiUrl(`products/public?isAmazonsChoice=true&limit=200&page=1&_t=${cacheBuster}`))
+          
+          if (response.ok) {
+            const data = await response.json()
+            if (data.products && Array.isArray(data.products)) {
+              const allProducts = data.products.map(p => {
+                const imageUrl = p.images && p.images.length > 0 ? p.images[0] : ''
+                
+                return {
+                  id: p._id,
+                  name: p.name,
+                  price: `${p.price}`,
+                  originalPrice: p.originalPrice,
+                  discount: p.discount,
+                  category: p.category,
+                  subcategory: p.subcategory,
+                  brand: p.brand,
+                  image: imageUrl,
+                  images: p.images || [imageUrl],
+                  rating: p.rating || 4.5,
+                  reviews: p.reviews || 0,
+                  stock: p.stock,
+                  dealUnits: p.dealUnits || 1,
+                  costPrice: p.costPrice || 0,
+                  isAmazonsChoice: p.isAmazonsChoice,
+                  isBestSeller: p.isBestSeller,
+                  monthlyProfit: p.monthlyProfit,
+                  sellerInfo: p.sellerInfo
+                }
+              })
+              
+              setProducts(allProducts)
+              setFilteredProducts(allProducts)
+              console.log('🔄 Reloaded all Amazon\'s Choice products:', allProducts.length)
+            }
+          }
+        } catch (error) {
+          console.error('Error reloading products:', error)
+        } finally {
+          setLoading(false)
+        }
+        return
+      }
+
+      try {
+        setLoading(true)
+        
+        // Build search URL with enhanced parameters
+        const cacheBuster = Date.now();
+        const searchUrl = getApiUrl(`products/public?search=${encodeURIComponent(searchQuery)}&isAmazonsChoice=true&limit=200&page=1${selectedCategory !== 'all' ? `&category=${selectedCategory}` : ''}&_t=${cacheBuster}`)
+        
+        const response = await fetch(searchUrl)
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Search API response:', data)
+          
+          if (data.products && Array.isArray(data.products)) {
+            // Transform search results
+            const searchResults = data.products.map(p => {
+              const imageUrl = p.images && p.images.length > 0 ? p.images[0] : ''
+              
+              return {
+                id: p._id,
+                name: p.name,
+                price: `${p.price}`,
+                originalPrice: p.originalPrice,
+                discount: p.discount,
+                category: p.category,
+                subcategory: p.subcategory,
+                brand: p.brand,
+                image: imageUrl,
+                images: p.images || [imageUrl],
+                rating: p.rating || 4.5,
+                reviews: p.reviews || 0,
+                stock: p.stock,
+                dealUnits: p.dealUnits || 1,
+                costPrice: p.costPrice || 0,
+                isAmazonsChoice: p.isAmazonsChoice,
+                isBestSeller: p.isBestSeller,
+                monthlyProfit: p.monthlyProfit,
+                sellerInfo: p.sellerInfo
+              }
+            })
+            
+            // Update products with search results
+            setProducts(searchResults)
+            setFilteredProducts(searchResults)
+            
+            console.log(`🔍 Search results for "${searchQuery}":`, searchResults.length, 'products')
+          } else {
+            console.error('Invalid search response format:', data)
+            setProducts([])
+            setFilteredProducts([])
+          }
+        } else {
+          const errorText = await response.text()
+          console.error('Search failed:', response.status, errorText)
+          // Don't clear products on search error, keep showing current products
+        }
+      } catch (error) {
+        console.error('Search error:', error)
+        // On search error, don't clear products - keep showing current products
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    // Debounce search to avoid too many API calls
+    const searchTimeout = setTimeout(performSearch, 500)
+    return () => clearTimeout(searchTimeout)
+  }, [searchQuery, selectedCategory])
 
   // Use ref to keep track of current products without causing re-renders
   const currentProductsRef = useRef(currentProducts)
@@ -490,14 +563,7 @@ const AmazonsChoice = () => {
     return () => clearInterval(interval)
   }, []) // Empty dependency array - run once and keep rotating forever
 
-  // Rotate profit display between monthly and yearly every 2 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setShowYearlyProfit(prev => !prev)
-    }, 2000)
-    
-    return () => clearInterval(interval)
-  }, [])
+
 
   const handleCategoryClick = (category) => {
     setSelectedCategory(category)
@@ -513,6 +579,9 @@ const AmazonsChoice = () => {
     setSortBy('featured')
     setPriceFilter('all')
     setRatingFilter('all')
+    
+    // Reload all products when filters are reset
+    window.location.reload()
   }
 
   const renderStars = (rating) => {
@@ -725,21 +794,38 @@ const AmazonsChoice = () => {
 
   if (loading) {
     return (
-      <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', flexDirection: 'column', gap: '20px'}}>
-        <div style={{textAlign: 'center'}}>
-          <div style={{fontSize: '3rem', marginBottom: '15px', animation: 'spin 2s linear infinite'}}>⚡</div>
-          <div style={{fontSize: '1.3rem', fontWeight: '700', color: '#ff9900', marginBottom: '10px'}}>Loading Products...</div>
-          <div style={{fontSize: '0.9rem', color: '#666'}}>Fetching from database...</div>
+      <div className="container products-container" style={{maxWidth: '1600px', padding: '10px 15px'}}>
+        <ScrollToTop />
+        
+        {/* Show skeleton grid while loading */}
+        <div id="products-grid" style={{
+          display: 'grid', 
+          gridTemplateColumns: windowWidth < 576 ? 'repeat(2, 1fr)' : 
+                              windowWidth < 768 ? 'repeat(4, 1fr)' : 
+                              windowWidth < 992 ? 'repeat(5, 1fr)' : 
+                              windowWidth < 1200 ? 'repeat(6, 1fr)' :
+                              windowWidth < 1400 ? 'repeat(7, 1fr)' :
+                              'repeat(8, 1fr)', 
+          gap: windowWidth < 576 ? '6px' : '10px',
+          maxWidth: '1600px',
+          margin: '0 auto'
+        }}>
+          {/* Show 48 skeleton cards (one page worth) */}
+          {Array.from({ length: 48 }).map((_, index) => (
+            <ProductCardSkeleton key={index} />
+          ))}
         </div>
-        <style>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
     )
   }
+
+  console.log('📦 Rendering products. Loading:', loading, 'Current products:', currentProducts.length, 'Active products:', activeProducts.length, 'Filtered:', filteredProducts.length)
+  console.log('🔍 Admin state debug:', { 
+    isAdminLoggedIn, 
+    isAdminContextLoggedIn, 
+    admin,
+    adminToken: !!localStorage.getItem('adminToken')
+  })
 
   return (
     <div>
@@ -766,18 +852,38 @@ const AmazonsChoice = () => {
                 key={product.id} 
                 className="product-card"
                 onClick={() => {
-                  const params = new URLSearchParams({
-                    name: product.name,
-                    img: product.image,
-                    price: product.price.replace(/[£$₨]/g, ''),
-                    rating: product.rating || 4.5,
-                    reviews: product.reviews || 0,
-                    category: product.category || 'General',
-                    brand: product.brand || '',
-                    discount: product.discount || 0
-                  });
-                  const url = `/product/${product.id}?${params.toString()}`;
-                  navigate(url);
+                  try {
+                    // Get the currently displayed badge, but filter out "in basket" badges
+                    const currentBadgeIndex = currentStatusIndex[index] || 0;
+                    let currentBadge = product.statuses && product.statuses[currentBadgeIndex] 
+                      ? product.statuses[currentBadgeIndex] 
+                      : 'Amazon\'s Choice';
+                    
+                    // If current badge is "in basket", find the actual product badge
+                    if (currentBadge.includes('in basket')) {
+                      // Find the first non-basket badge
+                      const productBadge = product.statuses?.find(status => !status.includes('in basket'));
+                      currentBadge = productBadge || 'Amazon\'s Choice';
+                    }
+                    
+                    const params = new URLSearchParams({
+                      name: product.name || 'Product',
+                      img: product.image || '',
+                      price: (product.price || '£0').replace(/[£$₨]/g, ''),
+                      rating: product.rating || 4.5,
+                      reviews: product.reviews || 0,
+                      category: product.category || 'General',
+                      brand: product.brand || '',
+                      discount: product.discount || 0,
+                      badge: currentBadge
+                    });
+                    const url = `/product/${product.id}?${params.toString()}`;
+                    navigate(url);
+                  } catch (error) {
+                    console.error('Navigation error:', error);
+                    // Fallback navigation
+                    navigate(`/product/${product.id}`);
+                  }
                 }}
                 style={{cursor: 'pointer'}}
               >
@@ -793,7 +899,7 @@ const AmazonsChoice = () => {
                   minHeight: windowWidth < 576 ? '120px' : '140px'
                 }}>
                   <img 
-                    src={product.image}
+                    src={getImageUrl(product.image)}
                     alt={product.name} 
                     className="product-image" 
                     loading="lazy"
@@ -816,11 +922,12 @@ const AmazonsChoice = () => {
                     }} 
                   />
                   
-                  {/* Rotating Status Badge - Top Right Corner */}
+                  {/* Single Rotating Status Badge - Top Right Corner */}
                   {product.statuses && product.statuses.length > 0 && (
                     <div style={{position: 'absolute', top: '4px', right: '4px', zIndex: 2}}>
-                      {product.statuses.map((status, statusIdx) => {
-                        const isActive = (currentStatusIndex[index] || 0) === statusIdx;
+                      {(() => {
+                        const currentBadgeIndex = currentStatusIndex[index] || 0;
+                        const status = product.statuses[currentBadgeIndex];
                         let bgColor = '#667eea';
                         let textColor = 'white';
                         
@@ -843,56 +950,29 @@ const AmazonsChoice = () => {
                         
                         return (
                           <span 
-                            key={statusIdx}
                             style={{
-                              padding: '2px 6px',
+                              padding: windowWidth < 576 ? '1px 4px' : '2px 6px',
                               borderRadius: '3px',
                               fontWeight: '700',
-                              fontSize: '0.55rem',
+                              fontSize: windowWidth < 576 ? '0.5rem' : '0.55rem',
                               display: 'inline-block',
-                              position: 'absolute',
-                              top: 0,
-                              right: 0,
                               whiteSpace: 'nowrap',
                               boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                               lineHeight: '1.2',
                               backgroundColor: bgColor,
                               color: textColor,
-                              transition: 'opacity 0.5s ease-in-out',
-                              opacity: isActive ? 1 : 0,
+                              transition: 'all 0.3s ease-in-out',
                               pointerEvents: 'none'
                             }}
                           >
                             {status}
                           </span>
                         );
-                      })}
+                      })()}
                     </div>
                   )}
                   
-                  {/* Rotating Profit Display - Bottom Left Corner */}
-                  {product.monthlyProfit && product.yearlyProfit && (
-                    <div style={{position: 'absolute', bottom: '4px', left: '4px', zIndex: 2}}>
-                      <div style={{
-                        padding: '2px 6px',
-                        borderRadius: '3px',
-                        fontWeight: '700',
-                        fontSize: '0.55rem',
-                        whiteSpace: 'nowrap',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                        lineHeight: '1.2',
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        color: '#fff',
-                        transition: 'opacity 0.5s ease-in-out'
-                      }}>
-                        {showYearlyProfit ? (
-                          <>💰 {product.yearlyProfit}/yr</>
-                        ) : (
-                          <>💰 {product.monthlyProfit}/mo</>
-                        )}
-                      </div>
-                    </div>
-                  )}
+
                   
                   {/* Quick View Plus Icon - Bottom Right Corner */}
                   <button
@@ -1002,16 +1082,67 @@ const AmazonsChoice = () => {
                     )}
                   </div>
                   
-                  <div className="price" style={{fontWeight: '800', fontSize: '12px', color: '#0b3b2e'}}>{formatPrice(product.price)}</div>
+                  <div className="price" style={{fontWeight: '800', fontSize: '12px', color: '#0b3b2e'}}>
+                    {formatPrice(product.price)}/unit
+                  </div>
                   
-                  {/* Total Deal Price Calculation */}
-                  <div style={{background: '#f0fdf4', padding: '3px 5px', borderRadius: '3px', border: '1px solid #86efac'}}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                      <span style={{fontSize: '7px', color: '#166534', fontWeight: '600'}}>💰 Deal</span>
-                      <span style={{fontSize: '9px', fontWeight: '800', color: '#15803d'}}>
-                        {formatPrice((parseFloat(product.price.replace(/[£$₨]/g, '')) * product.monthlyOrders * 2).toFixed(2))}
-                      </span>
+                  {/* Seller Info for verified sellers */}
+                  {product.sellerInfo && product.sellerInfo.verificationStatus === 'approved' && (
+                    <div style={{
+                      background: '#f0f9ff', 
+                      border: '1px solid #0ea5e9', 
+                      borderRadius: '3px', 
+                      padding: '2px 4px',
+                      fontSize: '7px',
+                      color: '#0369a1'
+                    }}>
+                      <i className="fas fa-check-circle me-1"></i>
+                      Verified Seller • {product.sellerInfo.city}
                     </div>
+                  )}
+                  
+                  {/* Deal Units Calculation */}
+                  <div style={{display: 'flex', gap: '3px'}}>
+                    <div style={{background: '#f0fdf4', padding: '3px 5px', borderRadius: '3px', border: '1px solid #86efac', flex: 1}}>
+                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                        <span style={{fontSize: '8px', color: '#166534', fontWeight: '600'}}>💰 Deal of {product.dealUnits || 1} units</span>
+                        <span style={{fontSize: '9px', fontWeight: '800', color: '#15803d'}}>
+                          {(() => {
+                            try {
+                              const dealUnits = product.dealUnits || 1;
+                              const unitPrice = parseFloat(product.price.replace(/[£$₨]/g, '')) || 0;
+                              const totalPrice = unitPrice * dealUnits;
+                              if (isNaN(totalPrice)) return formatPrice(product.price);
+                              return formatPrice(`£${totalPrice.toFixed(2)}`);
+                            } catch (error) {
+                              console.error('Deal calculation error:', error);
+                              return formatPrice(product.price);
+                            }
+                          })()}
+                        </span>
+                      </div>
+                    </div>
+                    {product.monthlyProfit && (
+                      <div style={{background: '#e0f2fe', padding: '3px 5px', borderRadius: '3px', border: '1px solid #81d4fa', flex: 1}}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                          <span style={{fontSize: '8px', color: '#0277bd', fontWeight: '600'}}>💰 Profit of {product.dealUnits || 1} units</span>
+                          <span style={{fontSize: '9px', fontWeight: '800', color: '#01579b'}}>
+                            {(() => {
+                              try {
+                                const dealUnits = product.dealUnits || 1;
+                                const profitPerUnit = parseFloat(product.monthlyProfit.replace(/[£$₨]/g, '')) || 0;
+                                const totalProfit = profitPerUnit * dealUnits;
+                                if (isNaN(totalProfit)) return product.monthlyProfit;
+                                return `£${totalProfit.toFixed(2)}`;
+                              } catch (error) {
+                                console.error('Profit calculation error:', error);
+                                return product.monthlyProfit;
+                              }
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div style={{display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px'}}>
@@ -1054,6 +1185,9 @@ const AmazonsChoice = () => {
               <i className="fas fa-search" style={{fontSize: '3rem', marginBottom: '15px', color: '#d1d5db'}}></i>
               <h4 style={{marginBottom: '10px'}}>No products found</h4>
               <p style={{marginBottom: '20px'}}>Try adjusting your filters or search query</p>
+              <div style={{fontSize: '12px', color: '#9ca3af', marginBottom: '15px'}}>
+                Debug: Products: {products.length}, Filtered: {filteredProducts.length}, Active: {activeProducts.length}, Current: {currentProducts.length}
+              </div>
               <button onClick={handleResetFilters} className="btn btn-primary">Reset Filters</button>
             </div>
           )}

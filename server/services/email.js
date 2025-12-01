@@ -1,27 +1,15 @@
 import { createTransport } from 'nodemailer';
 
-// Create email transporter
+// Create email transporter with multiple fallback configurations
 const createTransporter = () => {
   // Check if email credentials are configured
   if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.warn('⚠️  Email credentials not configured. Password reset emails will not be sent.');
-    console.warn('EMAIL_HOST:', process.env.EMAIL_HOST);
-    console.warn('EMAIL_USER:', process.env.EMAIL_USER);
-    console.warn('EMAIL_PASS:', process.env.EMAIL_PASS ? '***configured***' : 'NOT SET');
     return null;
   }
 
-  console.log('✅ Email configuration found - attempting to create transporter');
-  console.log('📧 Email Config:', {
+  // Configuration 1: Gmail service (fastest)
+  const gmailConfig = {
     service: 'gmail',
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS ? '***configured***' : 'NOT SET'
-  });
-
-  const transporter = createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // Use STARTTLS
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
@@ -29,20 +17,36 @@ const createTransporter = () => {
     tls: {
       rejectUnauthorized: false
     },
-    // Reduced timeouts to fail faster
-    connectionTimeout: 10000,  // 10 seconds
-    greetingTimeout: 10000,    // 10 seconds
-    socketTimeout: 10000,      // 10 seconds
-    // Disable pooling
+    connectionTimeout: 5000,   // 5 seconds
+    greetingTimeout: 3000,     // 3 seconds
+    socketTimeout: 5000,       // 5 seconds
     pool: false,
-    maxConnections: 1,
-    maxMessages: 1,
-    // Debug mode for troubleshooting
-    debug: process.env.NODE_ENV !== 'production',
-    logger: process.env.NODE_ENV !== 'production'
-  });
-  
-  return transporter;
+    debug: false,
+    logger: false
+  };
+
+  // Configuration 2: Manual SMTP (fallback)
+  const smtpConfig = {
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    },
+    tls: {
+      rejectUnauthorized: false
+    },
+    connectionTimeout: 8000,   // 8 seconds
+    greetingTimeout: 5000,     // 5 seconds
+    socketTimeout: 8000,       // 8 seconds
+    pool: false,
+    debug: false,
+    logger: false
+  };
+
+  // Try Gmail service first, fallback to SMTP
+  return createTransport(gmailConfig);
 };
 
 // Test email connection
@@ -65,19 +69,32 @@ const testEmailConnection = async () => {
 
 // Send OTP email (for OTP-based password reset)
 export const sendEmailOTP = async (email, otp, userName = 'User') => {
-  try {
-    console.log(`📧 Attempting to send OTP to: ${email}`);
-    
-    const transporter = createTransporter();
-    
-    // If no transporter (email not configured), return error
-    if (!transporter) {
-      console.error('❌ No email transporter available');
-      return { success: false, message: 'Email service not configured' };
-    }
+  // Check if email credentials are configured
+  if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    return { success: false, message: 'Email service not configured' };
+  }
 
-    // Skip verification entirely - just try to send
-    console.log('⏩ Skipping verification, sending email directly...');
+  const configurations = [
+    // Config 1: Gmail service (fastest timeout)
+    {
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      },
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 2000,  // 2 seconds
+      greetingTimeout: 1000,    // 1 second
+      socketTimeout: 2000,      // 2 seconds
+      pool: false
+    }
+  ];
+
+  let lastError = null;
+  
+  for (let configIndex = 0; configIndex < configurations.length; configIndex++) {
+    try {
+      const transporter = createTransport(configurations[configIndex]);
 
     const mailOptions = {
       from: `"${process.env.EMAIL_FROM_NAME || 'Your App'}" <${process.env.EMAIL_USER}>`,
@@ -134,42 +151,38 @@ export const sendEmailOTP = async (email, otp, userName = 'User') => {
       `
     };
 
-    // Send email with shorter timeout wrapper
-    const sendWithTimeout = (transporter, mailOptions, timeout = 30000) => {
+    // Add timeout wrapper to prevent hanging
+    const sendWithTimeout = (transporter, mailOptions, timeout = 15000) => {
       return Promise.race([
         transporter.sendMail(mailOptions),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Email send timeout after 30 seconds')), timeout)
+          setTimeout(() => reject(new Error('Connection timeout')), timeout)
         )
       ]);
     };
 
-    console.log('📤 Sending email now...');
-    const result = await sendWithTimeout(transporter, mailOptions);
-    console.log(`✅ OTP email sent successfully to ${email}`, result);
-    return { success: true, message: 'OTP sent successfully' };
+      // Try to send email with this configuration
+      await sendWithTimeout(transporter, mailOptions, 3000); // 3 second timeout - fail fast
+      return { success: true, message: 'OTP sent successfully' };
 
-  } catch (error) {
-    console.error('❌ Failed to send OTP email:', error.message);
-    console.error('Error details:', error);
-    return { success: false, message: `Failed to send OTP email: ${error.message}` };
+    } catch (error) {
+      lastError = error;
+      // Continue to next configuration
+      continue;
+    }
   }
+  
+  return { success: false, message: `Failed to send OTP email: ${lastError?.message || 'All email configurations failed'}` };
 };
 
 // Send password reset email
 export const sendPasswordResetEmail = async (email, userName, resetUrl) => {
   try {
-    console.log(`📧 Attempting to send password reset email to: ${email}`);
-    
     const transporter = createTransporter();
     
-    // If no transporter (email not configured), return error
     if (!transporter) {
-      console.error('❌ No email transporter available');
       return false;
     }
-    
-    console.log('✅ Transporter created, preparing email...');
 
     const mailOptions = {
       from: `"${process.env.EMAIL_FROM_NAME || 'Your App'}" <${process.env.EMAIL_USER}>`,
@@ -231,23 +244,20 @@ export const sendPasswordResetEmail = async (email, userName, resetUrl) => {
       `
     };
 
-    // Send email with timeout wrapper
+    // Add timeout wrapper
     const sendWithTimeout = (transporter, mailOptions, timeout = 15000) => {
       return Promise.race([
         transporter.sendMail(mailOptions),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Email send timeout after 15 seconds')), timeout)
+          setTimeout(() => reject(new Error('Connection timeout')), timeout)
         )
       ]);
     };
 
     await sendWithTimeout(transporter, mailOptions);
-    console.log(`✅ Password reset email sent successfully to ${email}`);
     return true;
 
   } catch (error) {
-    console.error('❌ Failed to send password reset email:', error.message);
-    console.error('Error details:', error);
     return false;
   }
 };

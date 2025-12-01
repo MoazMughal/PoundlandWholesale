@@ -3,10 +3,10 @@ import crypto from 'crypto';
 import { sendEmailOTP } from './email.js';
 import { sendWhatsAppOTP, validatePhoneNumber } from './whatsapp.js';
 
-// Generate 6-digit OTP
+// Generate 6-digit OTP using crypto for better randomness
 const generateOTP = () => {
-  // Always generate random OTP
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // Use crypto.randomInt for cryptographically secure random numbers
+  return crypto.randomInt(100000, 999999).toString();
 };
 
 // Hash OTP with crypto for secure storage

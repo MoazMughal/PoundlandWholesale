@@ -45,8 +45,10 @@ const AdminSellerProducts = lazy(() => import('./pages/admin/SellerProducts'))
 const AdminSellerVerifications = lazy(() => import('./pages/admin/SellerVerifications'))
 const ExcelImport = lazy(() => import('./pages/admin/ExcelImport'))
 const UaeExcelImport = lazy(() => import('./pages/admin/UaeExcelImport'))
+const Amazon10ExcelImport = lazy(() => import('./pages/admin/Amazon10ExcelImport'))
 const AdminBuyers = lazy(() => import('./pages/admin/Buyers'))
 const AdminPendingPayments = lazy(() => import('./pages/admin/PendingPayments'))
+const AdminSellerListings = lazy(() => import('./pages/admin/SellerListings'))
 const BuyerDashboard = lazy(() => import('./pages/buyer/Dashboard'))
 const SellerDashboard = lazy(() => import('./pages/seller/Dashboard'))
 const ClearStorage = lazy(() => import('./pages/ClearStorage'))
@@ -55,6 +57,12 @@ const SellerProducts = lazy(() => import('./pages/seller/Products'))
 const SellerAddProduct = lazy(() => import('./pages/seller/AddProduct'))
 const SellerAddProducts = lazy(() => import('./pages/seller/AddProducts'))
 const SellerEditProfile = lazy(() => import('./pages/seller/EditProfile'))
+const SellerAdminProducts = lazy(() => import('./pages/seller/AdminProducts'))
+const SellerUkProducts = lazy(() => import('./pages/seller/UkProducts'))
+const SellerUaeProducts = lazy(() => import('./pages/seller/UaeProducts'))
+const SellerAmazon10Products = lazy(() => import('./pages/seller/Amazon10Products'))
+const SellerAmazonsChoiceProducts = lazy(() => import('./pages/seller/AmazonsChoiceProducts'))
+const SellerListedProducts = lazy(() => import('./pages/seller/ListedProducts'))
 
 // Legal Pages
 const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'))
@@ -142,6 +150,12 @@ function App() {
           <Route path="/seller/products" element={<SellerProducts />} />
           <Route path="/seller/products/add" element={<SellerAddProduct />} />
           <Route path="/seller/add-products" element={<SellerAddProducts />} />
+          <Route path="/seller/admin-products" element={<SellerAdminProducts />} />
+          <Route path="/seller/uk-products" element={<SellerUkProducts />} />
+          <Route path="/seller/uae-products" element={<SellerUaeProducts />} />
+          <Route path="/seller/amazon10-products" element={<SellerAmazon10Products />} />
+          <Route path="/seller/amazons-choice-products" element={<SellerAmazonsChoiceProducts />} />
+          <Route path="/seller/listed-products" element={<SellerListedProducts />} />
           
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
@@ -154,8 +168,10 @@ function App() {
           <Route path="/admin/seller-verifications" element={<ProtectedRoute><AdminSellerVerifications /></ProtectedRoute>} />
           <Route path="/admin/buyers" element={<ProtectedRoute><AdminBuyers /></ProtectedRoute>} />
           <Route path="/admin/pending-payments" element={<ProtectedRoute><AdminPendingPayments /></ProtectedRoute>} />
+          <Route path="/admin/seller-listings" element={<ProtectedRoute><AdminSellerListings /></ProtectedRoute>} />
           <Route path="/admin/excel-import" element={<ProtectedRoute><ExcelImport /></ProtectedRoute>} />
           <Route path="/admin/uae-excel-import" element={<ProtectedRoute><UaeExcelImport /></ProtectedRoute>} />
+          <Route path="/admin/amazon10-excel-import" element={<ProtectedRoute><Amazon10ExcelImport /></ProtectedRoute>} />
           
           {/* Legal Pages */}
           <Route path="/terms-of-service" element={<TermsOfService />} />

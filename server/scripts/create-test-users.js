@@ -61,7 +61,7 @@ const createTestUsers = async () => {
         city: 'Lahore',
         productCategory: 'Electronics',
         businessName: 'Test Seller Business',
-        verificationStatus: 'verified',
+        verificationStatus: 'approved',
         status: 'verified'
       });
       await seller.save();

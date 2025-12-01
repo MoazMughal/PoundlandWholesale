@@ -7,6 +7,7 @@ import ScrollToTop from '../components/ScrollToTop'
 import PaymentModal from '../components/PaymentModal'
 import apiConfig from '../config/api.config'
 import { useCurrency } from '../context/CurrencyContext'
+import { useAdmin } from '../context/AdminContext'
 import '../styles/product-detail-compact.css'
 
 const ProductDetail = () => {
@@ -18,7 +19,10 @@ const ProductDetail = () => {
   const [selectedImage, setSelectedImage] = useState(0)
   // Use currency from context instead of local state
   const { currency, currencyRates, currencySymbols } = useCurrency()
+  const { admin, isLoggedIn: isAdminLoggedIn } = useAdmin()
   const [relatedProducts, setRelatedProducts] = useState([])
+  const [topDealsFromDB, setTopDealsFromDB] = useState([])
+  const [mostPopularFromDB, setMostPopularFromDB] = useState([])
   const [selectedVariations, setSelectedVariations] = useState({
     color: null,
     size: null,
@@ -31,6 +35,9 @@ const ProductDetail = () => {
   const [supplierId, setSupplierId] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [sellerInfo, setSellerInfo] = useState(null)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [isSellerLoggedIn, setIsSellerLoggedIn] = useState(false)
+  const [currentSeller, setCurrentSeller] = useState(null)
 
   // Function to get proper image path
   const getImageSrc = (imagePath) => {
@@ -68,13 +75,163 @@ const ProductDetail = () => {
     return `${currencySymbols[currency]}${converted.toFixed(2)}`
   }
 
-  // Check if user is admin
+  // Check if user is admin or seller
   useEffect(() => {
-    const adminToken = localStorage.getItem('adminToken');
-    const isAdminUser = !!adminToken;
-    console.log('Admin check:', { adminToken: !!adminToken, isAdminUser });
-    setIsAdmin(isAdminUser);
-  }, []);
+    const sellerToken = localStorage.getItem('sellerToken');
+    const isSellerUser = !!sellerToken;
+    
+    console.log('Auth check:', { 
+      adminLoggedIn: isAdminLoggedIn, 
+      admin: admin,
+      sellerToken: !!sellerToken, 
+      isSellerUser 
+    });
+    setIsAdmin(isAdminLoggedIn);
+    setIsSellerLoggedIn(isSellerUser);
+    
+    // Get current seller info if logged in
+    if (isSellerUser) {
+      fetchCurrentSeller(sellerToken);
+    }
+  }, [isAdminLoggedIn, admin]);
+
+  // Fetch current seller information
+  const fetchCurrentSeller = async (token) => {
+    try {
+      const response = await fetch(apiConfig.getApiUrl('sellers/profile'), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const sellerData = await response.json();
+        setCurrentSeller(sellerData);
+      }
+    } catch (error) {
+      console.error('Error fetching current seller:', error);
+    }
+  };
+
+  // Fetch related products from database
+  const fetchRelatedProducts = async (currentProduct) => {
+    try {
+      // Fetch a mix of products - some from same category, some from different categories
+      const promises = [
+        // Get products from same category
+        fetch(apiConfig.getApiUrl(`products/public?category=${encodeURIComponent(currentProduct.category || '')}&limit=15`)),
+        // Get products from different categories for diversity
+        fetch(apiConfig.getApiUrl(`products/public?limit=30&sortBy=rating&order=desc`)),
+        // Get products from random categories for more diversity
+        fetch(apiConfig.getApiUrl(`products/public?limit=20&sortBy=createdAt&order=desc`))
+      ];
+      
+      const responses = await Promise.all(promises);
+      const [sameCategoryResponse, diverseResponse, randomResponse] = responses;
+      
+      let allProducts = [];
+      
+      // Combine products from all requests
+      if (sameCategoryResponse.ok) {
+        const sameCategoryData = await sameCategoryResponse.json();
+        allProducts = [...allProducts, ...(sameCategoryData.products || [])];
+      }
+      
+      if (diverseResponse.ok) {
+        const diverseData = await diverseResponse.json();
+        allProducts = [...allProducts, ...(diverseData.products || [])];
+      }
+      
+      if (randomResponse.ok) {
+        const randomData = await randomResponse.json();
+        allProducts = [...allProducts, ...(randomData.products || [])];
+      }
+      
+      // Remove duplicates and current product
+      const uniqueProducts = allProducts.filter((product, index, self) => 
+        product._id !== currentProduct.id && 
+        index === self.findIndex(p => p._id === product._id)
+      );
+      
+      // Get top deals (mix of high-rated and diverse products)
+      const topDeals = uniqueProducts
+        .sort((a, b) => {
+          // Prioritize products from same category, then by rating and price
+          const categoryMatchA = a.category === currentProduct.category ? 1 : 0;
+          const categoryMatchB = b.category === currentProduct.category ? 1 : 0;
+          
+          if (categoryMatchA !== categoryMatchB) {
+            return categoryMatchB - categoryMatchA;
+          }
+          
+          // Then sort by rating and price
+          const ratingDiff = (b.rating || 0) - (a.rating || 0);
+          if (Math.abs(ratingDiff) > 0.5) return ratingDiff;
+          return (b.price || 0) - (a.price || 0);
+        })
+        .slice(0, 6)
+        .map(p => ({
+          id: p._id,
+          name: p.name,
+          price: `₨${p.price}`,
+          image: p.images && p.images.length > 0 ? getImageUrl(p.images[0]) : '',
+          rating: p.rating || 4.0,
+          reviews: p.reviews || 0,
+          category: p.category,
+          brand: p.brand || '',
+          markup: `${Math.floor((p.price || 100) / 10 + 150)}%` // Calculate markup based on price
+        }));
+
+      // Get most popular (mix products from all categories, no category preference)
+      const mostPopular = uniqueProducts
+        .filter(p => (p.rating || 0) >= 3.0) // Include more products by lowering rating threshold
+        .sort((a, b) => {
+          // Score based purely on rating and reviews, no category preference for diversity
+          const scoreA = (a.rating || 0) + Math.log(Math.max(a.reviews || 1, 1)) * 0.2;
+          const scoreB = (b.rating || 0) + Math.log(Math.max(b.reviews || 1, 1)) * 0.2;
+          
+          return scoreB - scoreA;
+        })
+        // Ensure category diversity by grouping and selecting from different categories
+        .reduce((acc, product) => {
+          const categoryCount = acc.filter(p => p.category === product.category).length;
+          // Limit products per category to ensure diversity (max 2 per category)
+          if (categoryCount < 2) {
+            acc.push(product);
+          }
+          return acc;
+        }, [])
+        .slice(0, 6)
+        .map(p => ({
+          id: p._id,
+          name: p.name,
+          price: `₨${p.price}`,
+          image: p.images && p.images.length > 0 ? getImageUrl(p.images[0]) : '',
+          rating: p.rating || 4.0,
+          reviews: p.reviews || 0,
+          category: p.category,
+          brand: p.brand || '',
+          markup: 'Popular'
+        }));
+
+      setTopDealsFromDB(topDeals);
+      setMostPopularFromDB(mostPopular);
+      
+      console.log('✅ Related products fetched from database:', {
+        totalProducts: uniqueProducts.length,
+        topDeals: topDeals.length,
+        mostPopular: mostPopular.length,
+        currentCategory: currentProduct.category,
+        categories: [...new Set(uniqueProducts.map(p => p.category))]
+      });
+      
+    } catch (error) {
+      console.error('Error fetching related products:', error);
+      // Fallback to empty arrays
+      setTopDealsFromDB([]);
+      setMostPopularFromDB([]);
+    }
+  };
 
   // Fetch seller information
   const fetchSellerInfo = async (sellerId) => {
@@ -85,13 +242,14 @@ const ProductDetail = () => {
     }
     
     try {
-      const adminToken = localStorage.getItem('adminToken');
-      console.log('Admin token exists:', !!adminToken);
+      console.log('Admin logged in:', isAdminLoggedIn);
       
-      if (!adminToken) {
-        console.log('No admin token, skipping seller fetch');
+      if (!isAdminLoggedIn) {
+        console.log('Admin not logged in, skipping seller fetch');
         return;
       }
+      
+      const adminToken = localStorage.getItem('adminToken');
       
       const response = await fetch(apiConfig.getApiUrl(`sellers/${sellerId}`), {
         headers: {
@@ -114,17 +272,31 @@ const ProductDetail = () => {
     }
   };
 
+  // Fetch related products when product changes
+  useEffect(() => {
+    if (product && product.id) {
+      fetchRelatedProducts(product);
+    }
+  }, [product]);
+
   useEffect(() => {
     const fetchProduct = async () => {
-      console.log('fetchProduct called')
       setLoading(true)
       
       // Try to fetch from database first using the product ID
       try {
-        const response = await fetch(apiConfig.getApiUrl(`products/public/${id}`))
+        // Add cache busting to ensure fresh data
+        const cacheBuster = new Date().getTime();
+        const response = await fetch(apiConfig.getApiUrl(`products/public/${id}?_=${cacheBuster}`), {
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        })
+        console.log('🔄 Fetching product data with cache buster:', cacheBuster);
         if (response.ok) {
           const dbProduct = await response.json()
-          console.log('Product fetched from database:', dbProduct)
           
           // Use database product data
           const productData = {
@@ -139,11 +311,15 @@ const ProductDetail = () => {
             category: dbProduct.category || 'General',
             brand: dbProduct.brand || '',
             markup: dbProduct.discount ? `${dbProduct.discount}%` : '250%',
+            dealUnits: dbProduct.dealUnits || 1,
+            seller: dbProduct.seller,
+            sellerInfo: dbProduct.sellerInfo,
             showEvaluation: dbProduct.name.toLowerCase().includes('nose ring') ||
                            dbProduct.name.toLowerCase().includes('bulb') ||
                            dbProduct.name.toLowerCase().includes('fuse') ||
                            dbProduct.name.toLowerCase().includes('lampshade') ||
-                           dbProduct.name.toLowerCase().includes('lamp'),
+                           dbProduct.name.toLowerCase().includes('lamp') ||
+                           (dbProduct.profitCalculations || dbProduct.profitEvaluation), // Show if admin panel data exists
             description: dbProduct.description || `High-quality ${dbProduct.name} available at wholesale prices.`,
             features: [
               'Amazon\'s Choice Product',
@@ -186,22 +362,240 @@ const ProductDetail = () => {
             ]
           }
           
-          // Add profit calculations if applicable
-          console.log('=== PROFIT CALCULATION DEBUG (DATABASE) ===')
+          // Add profit data from database
+          console.log('=== PROFIT DATA FROM DATABASE ===')
           console.log('Product name:', productData.name)
-          console.log('showEvaluation:', productData.showEvaluation)
+          console.log('Product ID:', dbProduct._id)
+          console.log('Raw product price from DB:', dbProduct.price)
+          console.log('Processed product price:', productData.price)
+          console.log('Platform Comparison:', dbProduct.platformComparison)
+          console.log('Profit Calculations:', dbProduct.profitCalculations)
+          console.log('Profit Evaluation:', dbProduct.profitEvaluation)
           
-          // Check product type for profit calculations
-          const isBulb = productData.name.toLowerCase().includes('bulb')
-          const isNoseRing = productData.name.toLowerCase().includes('nose ring')
-          const isFuse = productData.name.toLowerCase().includes('fuse')
-          const isLeatherWatchStrap = (productData.name.toLowerCase().includes('leather') && 
-                                       (productData.name.toLowerCase().includes('watch strap') || 
-                                        productData.name.toLowerCase().includes('watch band')))
-          const isLampshade = productData.name.toLowerCase().includes('lampshade') || 
-                              productData.name.toLowerCase().includes('lamp shade')
+          // Special debugging for the specific product (check multiple variations)
+          const isTargetProduct = productData.name.toLowerCase().includes('professional smart remote') || 
+                                  productData.name.toLowerCase().includes('smart remote') ||
+                                  dbProduct._id === '691464c42da932427c2a4e6b';
           
-          if (productData.showEvaluation && isBulb) {
+          console.log('🔍 Target product check:', {
+            productName: productData.name,
+            productId: dbProduct._id,
+            isTargetProduct: isTargetProduct
+          });
+          
+          if (isTargetProduct) {
+            console.log('🔍 DEBUGGING PROFESSIONAL SMART REMOTE - FRESH DATA:')
+            console.log('- Product ID:', dbProduct._id)
+            console.log('- Fetch timestamp:', new Date().toISOString())
+            console.log('- Has platformComparison?', !!dbProduct.platformComparison)
+            console.log('- platformComparison length:', dbProduct.platformComparison?.length)
+            console.log('- Has profitCalculations?', !!dbProduct.profitCalculations)
+            console.log('- Has profitEvaluation?', !!dbProduct.profitEvaluation)
+            console.log('- Raw platformComparison:', JSON.stringify(dbProduct.platformComparison, null, 2))
+            console.log('- Raw profitCalculations:', JSON.stringify(dbProduct.profitCalculations, null, 2))
+            console.log('- Raw profitEvaluation:', JSON.stringify(dbProduct.profitEvaluation, null, 2))
+            
+            // Check if data matches what was saved
+            if (dbProduct.platformComparison && dbProduct.platformComparison.length > 0) {
+              console.log('✅ Platform comparison data found in database!')
+              dbProduct.platformComparison.forEach((platform, idx) => {
+                console.log(`Platform ${idx + 1}:`, {
+                  name: platform.platform,
+                  rrpPerUnit: platform.rrpPerUnit,
+                  profitFor200Units: platform.profitFor200Units,
+                  markup: platform.markup
+                })
+              })
+            } else {
+              console.log('❌ No platform comparison data found in database')
+            }
+          }
+          
+          // Use profit data from admin panel if available
+          if (dbProduct.platformComparison && dbProduct.platformComparison.length > 0) {
+            console.log('Using platform comparison from admin panel:', dbProduct.platformComparison)
+            productData.platforms = dbProduct.platformComparison.map(platform => {
+              const perUnitPrice = platform.rrpPerUnit;
+              const totalPrice = perUnitPrice * 200;
+              const totalRevenue = perUnitPrice * 200;
+              
+              console.log(`Platform ${platform.platform}:`, {
+                originalPerUnit: perUnitPrice,
+                calculatedTotal: totalPrice,
+                calculatedRevenue: totalRevenue
+              });
+              
+              return {
+                name: platform.platform,
+                price: totalPrice, // Total price for 200 units
+                grossProfit: totalRevenue, // Total revenue (RRP × 200)
+                markup: platform.markup,
+                isPKR: true // Mark as PKR data for proper conversion
+              };
+            })
+            console.log('Final converted platforms:', productData.platforms)
+          }
+          
+          if (dbProduct.profitCalculations || dbProduct.profitEvaluation) {
+            console.log('Using profit calculations from admin panel')
+            console.log('Profit calculations:', dbProduct.profitCalculations)
+            console.log('Profit evaluation:', dbProduct.profitEvaluation)
+            productData.hasProfit = true
+            productData.showEvaluation = true
+            
+            // Prepare for profit calculations (will be set after auto-calculation)
+            const costPricePKR = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+            
+            // Mark that this data is from admin panel for proper display
+            productData.isAdminProfitData = true;
+            
+            // Use admin panel profit evaluation
+            if (dbProduct.profitEvaluation) {
+              const costPricePKR = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+              
+              console.log('🔍 PRODUCT COST LOGIC DEBUG:');
+              console.log('- Current product price (PKR):', costPricePKR);
+              console.log('- Saved product cost (PKR):', dbProduct.profitEvaluation.productCost);
+              console.log('- Difference:', Math.abs((dbProduct.profitEvaluation.productCost || 0) - costPricePKR));
+              
+              // For now, ALWAYS use current product price to fix the sync issue
+              // TODO: Add manual override detection later
+              let productCost = costPricePKR; // Always use current product price
+              console.log('💰 FORCING current product price as product cost:', costPricePKR);
+              
+              // Auto-calculate Net Profit and Profit per Unit based on corrected formulas
+              const balanceChange = dbProduct.profitEvaluation.balanceChange || 0;
+              const calculatedNetProfit = productCost - balanceChange; // CORRECTED Formula: Net Profit = Product Cost - Balance Change
+              const calculatedProfitPerUnit = calculatedNetProfit; // Formula: Profit per Unit = Net Profit
+              
+              console.log('🧮 AUTO-CALCULATING PROFITS (CORRECTED FORMULA):');
+              console.log('- Product Cost:', productCost);
+              console.log('- Balance Change:', balanceChange);
+              console.log('- Calculated Net Profit (Product Cost - Balance Change):', calculatedNetProfit);
+              console.log('- Calculated Profit per Unit (= Net Profit):', calculatedProfitPerUnit);
+              
+              // Admin panel values are in PKR, store them as PKR for conversion
+              productData.evaluation = {
+                salesProceeds: dbProduct.profitEvaluation.salesProceeds || 0, // PKR
+                commissionBase: -(Math.abs(dbProduct.profitEvaluation.commission || 0)), // Negative because it's a fee, PKR
+                commissionTax: 0,
+                digitalServiceBase: -(Math.abs(dbProduct.profitEvaluation.digitalServicesFee || 0)), // Negative because it's a fee, PKR
+                digitalServiceTax: 0,
+                fbaFeeBase: -(Math.abs(dbProduct.profitEvaluation.fbaFulfilmentFee || 0)), // Negative because it's a fee, PKR
+                fbaFeeTax: 0,
+                totalFees: -((Math.abs(dbProduct.profitEvaluation.commission || 0)) + (Math.abs(dbProduct.profitEvaluation.digitalServicesFee || 0)) + (Math.abs(dbProduct.profitEvaluation.fbaFulfilmentFee || 0))),
+                productCost: productCost, // Use current product price
+                netProfit: calculatedNetProfit, // Auto-calculated: Balance Change - Product Cost
+                changeToBalance: balanceChange, // PKR
+                isPKR: true // Mark as PKR data for proper conversion
+              }
+              
+              // Set profit calculations with auto-calculated values
+              productData.profitCalculations = {
+                costPrice: costPricePKR, // Keep in PKR
+                sellingPrice: dbProduct.profitEvaluation?.salesProceeds || 0, // PKR
+                profitPerUnit: calculatedProfitPerUnit, // Auto-calculated: = Net Profit
+                monthlyProfit: dbProduct.profitCalculations?.profitFor200Units || (calculatedProfitPerUnit * (productData.dealUnits || 200)), // PKR - use stored value or calculate
+                monthlyProfitPKR: dbProduct.profitCalculations?.profitFor200Units || 0,
+                isPKR: true // Mark as PKR data for proper conversion
+              }
+              
+              console.log('✅ Admin profit calculations applied (PKR) with auto-calculated values:', productData.profitCalculations)
+              
+              // Mark that this data is from admin panel for proper display
+              productData.isAdminProfitData = true;
+              console.log('✅ Admin profit evaluation applied (PKR):', productData.evaluation)
+              
+              // Special debugging for target product
+              if (isTargetProduct) {
+                console.log('🎯 FINAL EVALUATION FOR TARGET PRODUCT:');
+                console.log('- productCost used:', productCost);
+                console.log('- Full evaluation object:', productData.evaluation);
+              }
+            } else if (dbProduct.profitCalculations) {
+              // Handle case where there are profit calculations but no profit evaluation
+              productData.profitCalculations = {
+                costPrice: costPricePKR, // Keep in PKR
+                sellingPrice: 0, // No evaluation data
+                profitPerUnit: dbProduct.profitCalculations.profitPerUnit || 0, // Use stored value
+                monthlyProfit: dbProduct.profitCalculations.profitFor200Units || 0, // PKR
+                monthlyProfitPKR: dbProduct.profitCalculations.profitFor200Units || 0,
+                isPKR: true // Mark as PKR data for proper conversion
+              }
+              
+              console.log('✅ Admin profit calculations applied (PKR) without evaluation:', productData.profitCalculations)
+            }
+            
+            console.log('🎯 Final product data with admin profit details:', {
+              hasProfit: productData.hasProfit,
+              showEvaluation: productData.showEvaluation,
+              platforms: productData.platforms,
+              profitCalculations: productData.profitCalculations,
+              evaluation: productData.evaluation
+            })
+            
+            // Special check for Professional Smart Remote
+            if (productData.name.toLowerCase().includes('professional smart remote')) {
+              console.log('🎯 PROFESSIONAL SMART REMOTE FINAL CHECK:')
+              console.log('- hasProfit:', productData.hasProfit)
+              console.log('- showEvaluation:', productData.showEvaluation)
+              console.log('- isAdminProfitData:', productData.isAdminProfitData)
+              console.log('- platforms count:', productData.platforms?.length)
+              console.log('- platforms data:', productData.platforms)
+              console.log('- profitCalculations:', productData.profitCalculations)
+              console.log('- evaluation:', productData.evaluation)
+              
+              // Detailed condition checks
+              console.log('🔍 DISPLAY CONDITION CHECKS:')
+              console.log('- product.platforms exists?', !!productData.platforms)
+              console.log('- product.platforms.length > 0?', productData.platforms?.length > 0)
+              console.log('- product.hasProfit?', !!productData.hasProfit)
+              console.log('- product.profitCalculations exists?', !!productData.profitCalculations)
+              console.log('- product.showEvaluation?', !!productData.showEvaluation)
+              console.log('- product.evaluation exists?', !!productData.evaluation)
+              
+              console.log('🎯 FINAL DISPLAY DECISIONS:')
+              console.log('- Will show platform comparison?', !!(productData.platforms && productData.platforms.length > 0))
+              console.log('- Will show profit calculations?', !!(productData.hasProfit && productData.profitCalculations))
+              console.log('- Will show profit evaluation?', !!(productData.showEvaluation && productData.evaluation))
+              
+              // Force display for debugging if data exists but flags are wrong
+              if (dbProduct.platformComparison && dbProduct.platformComparison.length > 0 && !productData.platforms) {
+                console.log('🔧 FORCING platform display - data exists but not showing')
+                productData.platforms = dbProduct.platformComparison.map(platform => ({
+                  name: platform.platform,
+                  price: platform.rrpPerUnit,
+                  grossProfit: platform.profitFor200Units,
+                  markup: platform.markup,
+                  isPKR: true
+                }))
+              }
+              
+              if ((dbProduct.profitCalculations || dbProduct.profitEvaluation) && !productData.hasProfit) {
+                console.log('🔧 FORCING profit display - data exists but hasProfit is false')
+                productData.hasProfit = true
+                productData.showEvaluation = true
+              }
+            }
+          }
+          
+          // Check product type for profit calculations - ONLY if no admin panel data exists
+          const hasAdminProfitData = (dbProduct.profitCalculations || dbProduct.profitEvaluation);
+          console.log('🔍 Has admin profit data:', hasAdminProfitData);
+          
+          if (!hasAdminProfitData) {
+            console.log('📝 No admin profit data found, using hardcoded calculations for specific products');
+            
+            const isBulb = productData.name.toLowerCase().includes('bulb')
+            const isNoseRing = productData.name.toLowerCase().includes('nose ring')
+            const isFuse = productData.name.toLowerCase().includes('fuse')
+            const isLeatherWatchStrap = (productData.name.toLowerCase().includes('leather') && 
+                                         (productData.name.toLowerCase().includes('watch strap') || 
+                                          productData.name.toLowerCase().includes('watch band')))
+            const isLampshade = productData.name.toLowerCase().includes('lampshade') || 
+                                productData.name.toLowerCase().includes('lamp shade')
+            
+            if (productData.showEvaluation && isBulb) {
             const costPricePKR = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
             const costPriceGBP = costPricePKR * 0.00272 // Convert PKR to GBP
             console.log('Adding bulb profit calculations, costPrice PKR:', costPricePKR, 'GBP:', costPriceGBP)
@@ -223,10 +617,8 @@ const ProductDetail = () => {
               costPrice: costPriceGBP,
               sellingPrice: sellingPrice,
               profitPerUnit: netProfit,
-              monthlyProfit: netProfit * 100,
-              yearlyProfit: netProfit * 1200,
-              monthlyProfitPKR: netProfit * 100 * 350,
-              yearlyProfitPKR: netProfit * 1200 * 350
+              monthlyProfit: netProfit * 200,
+              monthlyProfitPKR: netProfit * 200 * 350
             }
             
             productData.evaluation = {
@@ -266,10 +658,8 @@ const ProductDetail = () => {
               costPrice: costPriceGBP,
               sellingPrice: sellingPrice,
               profitPerUnit: netProfit,
-              monthlyProfit: netProfit * 100,
-              yearlyProfit: netProfit * 1200,
-              monthlyProfitPKR: netProfit * 100 * 350,
-              yearlyProfitPKR: netProfit * 1200 * 350
+              monthlyProfit: netProfit * 200,
+              monthlyProfitPKR: netProfit * 200 * 350
             }
             
             productData.evaluation = {
@@ -352,10 +742,8 @@ const ProductDetail = () => {
               costPrice: costPriceGBP,
               sellingPrice: sellingPrice,
               profitPerUnit: netProfit,
-              monthlyProfit: netProfit * 100,
-              yearlyProfit: netProfit * 1200,
-              monthlyProfitPKR: netProfit * 100 * 350,
-              yearlyProfitPKR: netProfit * 1200 * 350
+              monthlyProfit: netProfit * 200,
+              monthlyProfitPKR: netProfit * 200 * 350
             }
             
             productData.evaluation = {
@@ -416,6 +804,19 @@ const ProductDetail = () => {
             }
             console.log('Fuse profit calculations added:', productData.hasProfit, productData.evaluation)
           }
+          } else {
+            console.log('✅ Using admin panel profit data, skipping hardcoded calculations');
+          }
+          
+          // Final debugging before setting product
+          if (isTargetProduct) {
+            console.log('🚀 SETTING FINAL PRODUCT DATA:')
+            console.log('- Final productData.hasProfit:', productData.hasProfit)
+            console.log('- Final productData.showEvaluation:', productData.showEvaluation)
+            console.log('- Final productData.platforms:', productData.platforms)
+            console.log('- Final productData.profitCalculations:', productData.profitCalculations)
+            console.log('- Final productData.evaluation:', productData.evaluation)
+          }
           
           setProduct(productData)
           setLoading(false)
@@ -434,8 +835,9 @@ const ProductDetail = () => {
       const categoryParam = searchParams.get('category')
       const brandParam = searchParams.get('brand')
       const discountParam = searchParams.get('discount')
+      const badgeParam = searchParams.get('badge')
       
-      console.log('URL params:', { nameParam, imgParam, priceParam })
+      console.log('URL params:', { nameParam, imgParam, priceParam, badgeParam })
       
       if (nameParam && imgParam) {
         try {
@@ -458,7 +860,7 @@ const ProductDetail = () => {
           id: id,
           name: nameParam,
           price: `₨${price}`,
-          rrp: `₨${originalPrice.toFixed(2)}`,
+          rrp: nameParam.toLowerCase().includes('nose ring') ? '£3.49' : `₨${originalPrice.toFixed(2)}`,
           rating: parseFloat(ratingParam) || 4.5,
           reviews: parseInt(reviewsParam) || Math.floor(Math.random() * 2000) + 100,
           image: processedImage,
@@ -471,7 +873,6 @@ const ProductDetail = () => {
                          nameParam.toLowerCase().includes('fuse') ||
                          nameParam.toLowerCase().includes('lampshade') ||
                          nameParam.toLowerCase().includes('lamp'),
-          rrp: nameParam.toLowerCase().includes('nose ring') ? '£3.49' : null,
           hasProfit: false, // Will be set below if showEvaluation is true
           platforms: [
             { name: 'RRP', price: '?420.99', grossProfit: '?328.39', markup: '354.63%' },
@@ -643,10 +1044,8 @@ const ProductDetail = () => {
             costPrice: costPrice,
             sellingPrice: sellingPrice,
             profitPerUnit: netProfit,
-            monthlyProfit: netProfit * 100,
-            yearlyProfit: netProfit * 1200,
-            monthlyProfitPKR: netProfit * 100 * 350,
-            yearlyProfitPKR: netProfit * 1200 * 350
+            monthlyProfit: netProfit * 200,
+            monthlyProfitPKR: netProfit * 200 * 350
           }
           
           productData.evaluation = {
@@ -685,10 +1084,8 @@ const ProductDetail = () => {
             costPrice: costPrice,
             sellingPrice: sellingPrice,
             profitPerUnit: netProfit,
-            monthlyProfit: netProfit * 100,
-            yearlyProfit: netProfit * 1200,
-            monthlyProfitPKR: netProfit * 100 * 350,
-            yearlyProfitPKR: netProfit * 1200 * 350
+            monthlyProfit: netProfit * 200,
+            monthlyProfitPKR: netProfit * 200 * 350
           }
           
           productData.evaluation = {
@@ -727,10 +1124,8 @@ const ProductDetail = () => {
             costPrice: costPrice,
             sellingPrice: sellingPrice,
             profitPerUnit: netProfit,
-            monthlyProfit: netProfit * 100,
-            yearlyProfit: netProfit * 1200,
-            monthlyProfitPKR: netProfit * 100 * 350,
-            yearlyProfitPKR: netProfit * 1200 * 350
+            monthlyProfit: netProfit * 200,
+            monthlyProfitPKR: netProfit * 200 * 350
           }
           
           productData.evaluation = {
@@ -820,6 +1215,9 @@ const ProductDetail = () => {
               price: `₨${foundProduct.price}`,
               rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
               rating: foundProduct.rating || 4.5,
+              dealUnits: foundProduct.dealUnits || 1,
+              seller: foundProduct.seller,
+              sellerInfo: foundProduct.sellerInfo,
               reviews: foundProduct.reviews || 100,
               image: productImage,
               images: foundProduct.images ? foundProduct.images.map(img => getImageUrl(img)) : [productImage, productImage, productImage, productImage],
@@ -827,7 +1225,6 @@ const ProductDetail = () => {
               brand: foundProduct.brand || '',
               markup: foundProduct.discount ? `${foundProduct.discount}%` : '250%',
               showEvaluation: shouldShowEvaluation,
-              seller: foundProduct.seller, // Add seller field
               platforms: [
                 { name: 'RRP', price: '?420.99', grossProfit: '?328.39', markup: '354.63%' },
                 { name: 'Amazon', price: '?419.00', grossProfit: '?326.40', markup: '352.48%' },
@@ -1025,10 +1422,8 @@ const ProductDetail = () => {
                 costPrice: costPrice,
                 sellingPrice: sellingPrice,
                 profitPerUnit: netProfit,
-                monthlyProfit: netProfit * 100,
-                yearlyProfit: netProfit * 1200,
-                monthlyProfitPKR: netProfit * 100 * 350,
-                yearlyProfitPKR: netProfit * 1200 * 350
+                monthlyProfit: netProfit * 200,
+                monthlyProfitPKR: netProfit * 200 * 350
               }
               
               productData.evaluation = {
@@ -1090,8 +1485,7 @@ const ProductDetail = () => {
             
             // Fetch seller info if product has seller and user is admin
             console.log('Product seller field:', foundProduct.seller);
-            const adminToken = localStorage.getItem('adminToken');
-            if (foundProduct.seller && adminToken) {
+            if (foundProduct.seller && isAdminLoggedIn) {
               console.log('Admin user - Fetching seller info for:', foundProduct.seller);
               await fetchSellerInfo(foundProduct.seller);
             } else if (!foundProduct.seller) {
@@ -1157,6 +1551,9 @@ const ProductDetail = () => {
                 price: `₨${foundProduct.price}`,
                 rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
                 rating: foundProduct.rating || 4.5,
+                dealUnits: foundProduct.dealUnits || 1,
+                seller: foundProduct.seller,
+                sellerInfo: foundProduct.sellerInfo,
                 reviews: foundProduct.reviews || 100,
                 image: productImage,
                 images: foundProduct.images ? foundProduct.images.map(img => getImageUrl(img)) : [productImage],
@@ -1164,7 +1561,6 @@ const ProductDetail = () => {
                 brand: foundProduct.brand || '',
                 markup: foundProduct.discount ? `${foundProduct.discount}%` : '250%',
                 showEvaluation: shouldShowEvaluation,
-                seller: foundProduct.seller,
                 platforms: [
                   { name: 'RRP', price: '?420.99', grossProfit: '?328.39', markup: '354.63%' },
                   { name: 'Amazon', price: '?419.00', grossProfit: '?326.40', markup: '352.48%' },
@@ -1245,16 +1641,31 @@ const ProductDetail = () => {
               
               setProduct(productData)
               
-              if (foundProduct.seller) {
-                const adminToken = localStorage.getItem('adminToken');
-                if (adminToken) {
-                  await fetchSellerInfo(foundProduct.seller);
-                }
+              if (foundProduct.seller && isAdminLoggedIn) {
+                await fetchSellerInfo(foundProduct.seller);
               }
             }
           }
         } catch (error) {
           console.error('Error fetching product by ID:', error)
+          
+          // If database fetch fails and ID looks like a hardcoded product ID, try fallback
+          if (id && (id.startsWith('prod-') || !id.match(/^[0-9a-fA-F]{24}$/))) {
+            console.log('Database fetch failed for custom ID, trying hardcoded data fallback...');
+            
+            try {
+              // Try to get product from hardcoded data
+              const hardcodedProduct = getProductById(id);
+              if (hardcodedProduct) {
+                console.log('Found hardcoded product:', hardcodedProduct.name);
+                setProduct(hardcodedProduct);
+                setLoading(false);
+                return;
+              }
+            } catch (fallbackError) {
+              console.error('Fallback to hardcoded data also failed:', fallbackError);
+            }
+          }
         }
       }
       
@@ -1317,8 +1728,8 @@ const ProductDetail = () => {
     alert('? Supplier unlocked! You can now contact them.')
   }
   
-  // Get top deals (products with highest markup)
-  const topDeals = products
+  // Use database products if available, fallback to hardcoded for backward compatibility
+  const topDeals = topDealsFromDB.length > 0 ? topDealsFromDB : products
     .filter(p => p.id !== product?.id)
     .sort((a, b) => {
       const markupA = parseFloat(a.markup?.replace(/[^0-9.]/g, '') || 0)
@@ -1327,8 +1738,8 @@ const ProductDetail = () => {
     })
     .slice(0, 6)
   
-  // Get most popular (products with most reviews)
-  const mostPopular = products
+  // Use database products if available, fallback to hardcoded for backward compatibility
+  const mostPopular = mostPopularFromDB.length > 0 ? mostPopularFromDB : products
     .filter(p => p.id !== product?.id)
     .sort((a, b) => (b.reviews || 0) - (a.reviews || 0))
     .slice(0, 6)
@@ -1347,6 +1758,180 @@ const ProductDetail = () => {
     const converted = pkrValue * currencyRates[currency];
     return `${currencySymbols[currency]}${converted.toFixed(2)}`;
   };
+
+  // Helper function to convert PKR values to selected currency
+  const convertFromPKR = (pkrValue) => {
+    const value = safeNumber(pkrValue);
+    // Convert PKR to target currency
+    const converted = value * currencyRates[currency];
+    return `${currencySymbols[currency]}${converted.toFixed(2)}`;
+  };
+
+  // Helper function to convert profit values based on data source
+  const convertProfitValue = (value) => {
+    if (product?.isAdminProfitData) {
+      return convertFromPKR(value); // Admin data is in PKR
+    } else {
+      return convertFromGBP(value); // Hardcoded data is in GBP
+    }
+  };
+
+  // Check if platform data has actual values (not dummy/empty data)
+  const hasValidPlatformData = () => {
+    if (product?.platforms && product.platforms.length > 0) {
+      // Check if any platform has non-zero values
+      return product.platforms.some(platform => 
+        (platform.price && parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) > 0) ||
+        (platform.grossProfit && parseFloat(String(platform.grossProfit).replace(/[£₨$€]/g, '')) > 0)
+      );
+    }
+    
+    // For calculated data, check if we have valid RRP
+    if (product?.rrp) {
+      const rrpValue = parseFloat(product.rrp.replace(/[£₨$€]/g, ''));
+      return !isNaN(rrpValue) && rrpValue > 0;
+    }
+    
+    return false;
+  };
+
+  // Check if profit calculations have actual values (not dummy/empty data)
+  const hasValidProfitData = () => {
+    if (!product?.profitCalculations) return false;
+    
+    // Check if any profit calculation has non-zero values
+    return (
+      (product.profitCalculations.profitPerUnit && parseFloat(String(product.profitCalculations.profitPerUnit).replace(/[£₨$€]/g, '')) > 0) ||
+      (product.profitCalculations.monthlyProfit && parseFloat(String(product.profitCalculations.monthlyProfit).replace(/[£₨$€]/g, '')) > 0)
+    );
+  };
+
+  // Check if profit evaluation has actual values (not dummy/empty data)
+  const hasValidEvaluationData = () => {
+    if (!product?.evaluation) return false;
+    
+    // Check if any evaluation field has non-zero values
+    return (
+      (product.evaluation.salesProceeds && parseFloat(String(product.evaluation.salesProceeds).replace(/[£₨$€]/g, '')) > 0) ||
+      (product.evaluation.netProfit && parseFloat(String(product.evaluation.netProfit).replace(/[£₨$€]/g, '')) !== 0) ||
+      (product.evaluation.productCost && parseFloat(String(product.evaluation.productCost).replace(/[£₨$€]/g, '')) > 0)
+    );
+  };
+
+  // Calculate platform comparison data dynamically
+  const calculatePlatformData = () => {
+    // Debug logging for platform data
+    const isTargetProduct = product?.name?.toLowerCase().includes('professional smart remote') || 
+                           product?.name?.toLowerCase().includes('smart remote');
+    
+    if (isTargetProduct) {
+      console.log('🔍 calculatePlatformData called for target product');
+      console.log('- product?.platforms:', product?.platforms);
+      console.log('- product?.platforms length:', product?.platforms?.length);
+      console.log('- product name:', product?.name);
+    }
+    
+    // If we have admin panel platform data, use it
+    if (product?.platforms && product.platforms.length > 0) {
+      if (isTargetProduct) {
+        console.log('✅ Using admin panel platform data:', product.platforms);
+      }
+      return product.platforms;
+    }
+    
+    if (isTargetProduct) {
+      console.log('⚠️ No admin platform data found, using fallback calculation');
+    }
+    // Fallback to dynamic calculation if no admin data
+    if (!product || !product.rrp) {
+      if (isTargetProduct) {
+        console.log('❌ No product or RRP data for fallback calculation');
+      }
+      return [];
+    }
+    
+    // Extract RRP value (in GBP)
+    const rrpValue = parseFloat(product.rrp.replace(/[£₨$€]/g, ''));
+    if (isNaN(rrpValue)) return [];
+    
+    // Calculate prices and profits for 200 units
+    const rrpTotal = rrpValue * 200;
+    const amazonPrice = rrpValue * 0.70; // 30% less than RRP
+    const amazonTotal = amazonPrice * 200;
+    const ebayPrice = rrpValue * 0.75; // 25% less than RRP
+    const ebayTotal = ebayPrice * 200;
+    
+    // Get cost price and convert to GBP if needed
+    const costPriceRaw = parseFloat(product.price.replace(/[£₨$€]/g, ''));
+    // Check if price is in PKR (₨) or GBP (£)
+    const isPKR = product.price.includes('₨') || product.price.includes('Rs');
+    const isGBP = product.price.includes('£');
+    
+    // Convert cost price to GBP
+    let costPriceGBP;
+    if (isPKR) {
+      costPriceGBP = costPriceRaw * 0.00272; // Convert PKR to GBP
+    } else if (isGBP) {
+      costPriceGBP = costPriceRaw; // Already in GBP
+    } else {
+      // Assume PKR if no currency symbol
+      costPriceGBP = costPriceRaw * 0.00272;
+    }
+    
+    const costTotal = costPriceGBP * 200;
+    
+    // Calculate profits as total revenue (RRP * 200 units)
+    const rrpProfit = rrpTotal; // RRP * 200 (total revenue)
+    const amazonProfit = amazonTotal; // Amazon price * 200 (total revenue)
+    const ebayProfit = ebayTotal; // eBay price * 200 (total revenue)
+    
+    // Calculate markup percentages (Revenue vs Cost)
+    const rrpMarkup = (((rrpTotal - costTotal) / costTotal) * 100).toFixed(2);
+    const amazonMarkup = (((amazonTotal - costTotal) / costTotal) * 100).toFixed(2);
+    const ebayMarkup = (((ebayTotal - costTotal) / costTotal) * 100).toFixed(2);
+    
+    return [
+      { 
+        name: 'RRP', 
+        price: `£${rrpTotal.toFixed(2)}`, 
+        grossProfit: `£${rrpProfit.toFixed(2)}`, 
+        markup: `${rrpMarkup}%`,
+        description: 'Total Revenue: RRP × 200 units'
+      },
+      { 
+        name: 'Amazon', 
+        price: `£${amazonTotal.toFixed(2)}`, 
+        grossProfit: `£${amazonProfit.toFixed(2)}`, 
+        markup: `${amazonMarkup}%`,
+        description: 'Total Revenue: Amazon Price × 200 units'
+      },
+      { 
+        name: 'eBay', 
+        price: `£${ebayTotal.toFixed(2)}`, 
+        grossProfit: `£${ebayProfit.toFixed(2)}`, 
+        markup: `${ebayMarkup}%`,
+        description: 'Total Revenue: eBay Price × 200 units'
+      }
+    ];
+  };
+
+  // Get badge styling based on badge text
+  const getBadgeStyle = (badgeText) => {
+    if (!badgeText) {
+      return { bgColor: '#dc3545', icon: 'fa-fire', text: 'Hot Deal' }
+    }
+    
+    if (badgeText.includes('Best Seller')) {
+      return { bgColor: '#ffd700', textColor: '#111', icon: 'fa-trophy', text: badgeText }
+    } else if (badgeText.includes('Selling Fast')) {
+      return { bgColor: '#ff6b6b', textColor: '#fff', icon: 'fa-bolt', text: badgeText }
+    } else if (badgeText.includes("Amazon's Choice")) {
+      return { bgColor: '#667eea', textColor: '#fff', icon: 'fa-star', text: badgeText }
+    } else {
+      // Default to Hot Deal for any other badge
+      return { bgColor: '#dc3545', textColor: '#fff', icon: 'fa-fire', text: 'Hot Deal' }
+    }
+  }
 
   const renderStars = (rating) => {
     // Validate and cap rating between 0 and 5
@@ -1449,9 +2034,22 @@ const ProductDetail = () => {
                     style={{width: '100%', height: window.innerWidth < 768 ? '250px' : '320px', objectFit: 'contain'}}
                   />
                   <div className="position-absolute top-0 start-0 m-2">
-                    <span className="badge bg-danger px-2 py-1" style={{fontSize: '0.65rem'}}>
-                      <i className="fas fa-fire me-1"></i>Hot Deal
-                    </span>
+                    {(() => {
+                      const badgeParam = searchParams.get('badge')
+                      const badgeStyle = getBadgeStyle(badgeParam)
+                      return (
+                        <span 
+                          className="badge px-2 py-1" 
+                          style={{
+                            fontSize: '0.65rem',
+                            backgroundColor: badgeStyle.bgColor,
+                            color: badgeStyle.textColor || '#fff'
+                          }}
+                        >
+                          <i className={`fas ${badgeStyle.icon} me-1`}></i>{badgeStyle.text}
+                        </span>
+                      )
+                    })()}
                   </div>
                 </div>
 
@@ -1520,7 +2118,7 @@ const ProductDetail = () => {
                       {product.markup}
                     </span>
                   )}
-                  {product.hasProfit && product.profitCalculations && safeNumber(product.profitCalculations.profitPerUnit) > 0 && (
+                  {hasValidProfitData() && safeNumber(product.profitCalculations.profitPerUnit) > 0 && (
                     <span className="badge bg-primary px-2 py-1" style={{fontSize: '0.65rem'}}>
                       <i className="fas fa-coins me-1"></i>
                       Profit: {convertFromGBP(product.profitCalculations.profitPerUnit)}/unit
@@ -1532,11 +2130,27 @@ const ProductDetail = () => {
                   
                 {/* Price Section */}
                 <div className="price-section mb-2">
-                  <div className="d-flex align-items-baseline gap-2 mb-1">
+                  <div className="d-flex align-items-baseline gap-2 mb-1 flex-wrap">
                     <span className="fw-bold" style={{fontSize: '1.4rem', color: '#B12704'}}>
                       {convertPrice(product.price)}
                     </span>
                     <span className="text-muted" style={{fontSize: '0.75rem'}}>/Unit ex. VAT</span>
+                    
+                    {/* Monthly Profit Badge */}
+                    {hasValidProfitData() && product.profitCalculations.monthlyProfit && (
+                      <span 
+                        className="badge ms-2" 
+                        style={{
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          color: '#fff',
+                          fontSize: '0.75rem',
+                          padding: '4px 10px',
+                          fontWeight: '600'
+                        }}
+                      >
+                        💰 Profit if sold 200 units: {convertFromGBP(product.profitCalculations.monthlyProfit)}
+                      </span>
+                    )}
                   </div>
                   
                   <div className="d-flex gap-2 mb-1">
@@ -1780,7 +2394,19 @@ const ProductDetail = () => {
 
                   {/* Buy Now Button */}
                   <div className="d-grid gap-2 mb-2">
-                    <button className="btn btn-danger" style={{fontSize: '0.8rem', padding: '8px'}}>
+                    <button 
+                      className="btn btn-danger" 
+                      style={{fontSize: '0.8rem', padding: '8px'}}
+                      onClick={() => {
+                        const buyerToken = localStorage.getItem('buyerToken');
+                        if (!buyerToken) {
+                          setShowLoginModal(true);
+                        } else {
+                          // Handle buy logic for logged in users
+                          alert('Buy functionality will be implemented soon!');
+                        }
+                      }}
+                    >
                       <i className="fas fa-bolt me-1"></i>Buy Now
                     </button>
                   </div>
@@ -1793,8 +2419,118 @@ const ProductDetail = () => {
                     
 
                     
-                    {/* Show seller info for admin */}
-                    {isAdmin && sellerInfo ? (
+                    {/* Show seller info - full for admin and own seller, limited for others */}
+                    {console.log('🔍 Seller info debug:', { 
+                      isAdmin,
+                      isAdminLoggedIn,
+                      adminFromContext: admin,
+                      isSellerLoggedIn, 
+                      currentSeller: currentSeller?._id, 
+                      productSeller: product.seller, 
+                      productSellerInfo: product.sellerInfo,
+                      sellerInfoState: sellerInfo,
+                      match: product.seller === currentSeller?._id || product.seller?.toString() === currentSeller?._id?.toString()
+                    })}
+                    {isSellerLoggedIn && currentSeller && (product.seller === currentSeller._id || product.seller?.toString() === currentSeller._id?.toString()) ? (
+                      <div className="border rounded p-2 mb-2" style={{background: '#f0f9ff'}}>
+                        <div className="mb-2">
+                          <div className="d-flex align-items-center mb-1">
+                            <i className="fas fa-user text-primary me-1" style={{fontSize: '0.75rem'}}></i>
+                            <span className="fw-semibold text-primary" style={{fontSize: '0.75rem'}}>Your Product</span>
+                          </div>
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Supplier ID:</strong> {currentSeller.supplierId}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Location:</strong> 📍 {currentSeller.city}, {currentSeller.country}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>WhatsApp:</strong> {currentSeller.whatsappNo}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Status:</strong> 
+                          <span className={`badge ms-1 ${currentSeller.verificationStatus === 'approved' ? 'bg-success' : 'bg-warning'}`} style={{fontSize: '0.65rem'}}>
+                            {currentSeller.verificationStatus}
+                          </span>
+                        </div>
+                        <div className="alert alert-info border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
+                          <i className="fas fa-info-circle me-1"></i>
+                          This is your listed product
+                        </div>
+                      </div>
+                    ) : (isAdmin || (isSellerLoggedIn && (product.seller === currentSeller?._id || product.seller?.toString() === currentSeller?._id?.toString()))) && product.sellerInfo && product.sellerInfo.verificationStatus === 'approved' ? (
+                      // Show full details to admin or product owner
+                      <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9'}}>
+                        <div className="mb-2">
+                          <div className="d-flex align-items-center mb-1">
+                            <i className="fas fa-check-circle text-success me-1" style={{fontSize: '0.75rem'}}></i>
+                            <span className="fw-semibold text-success" style={{fontSize: '0.75rem'}}>Verified Seller</span>
+                          </div>
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Location:</strong> 📍 {product.sellerInfo.city}, {product.sellerInfo.country}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>WhatsApp:</strong> 
+                          <a 
+                            href={`https://wa.me/${product.sellerInfo.whatsappNo.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-success ms-1"
+                          >
+                            <i className="fab fa-whatsapp me-1"></i>
+                            {product.sellerInfo.whatsappNo}
+                          </a>
+                        </div>
+                      </div>
+                    ) : product.sellerInfo && product.sellerInfo.verificationStatus === 'approved' ? (
+                      // Show locked content for other users
+                      <div className="border rounded p-2 mb-2" style={{background: '#f8f9fa'}}>
+                        <div className="mb-2">
+                          <div className="d-flex align-items-center mb-1">
+                            <i className="fas fa-lock text-warning me-1" style={{fontSize: '0.75rem'}}></i>
+                            <span className="fw-semibold text-warning" style={{fontSize: '0.75rem'}}>Verified Seller - Locked</span>
+                          </div>
+                        </div>
+                        <div className="mb-2" style={{fontSize: '0.7rem', color: '#6c757d'}}>
+                          <i className="fas fa-eye-slash me-1"></i>
+                          Supplier details are protected
+                        </div>
+                        {!isSellerLoggedIn && !isBuyerLoggedIn ? (
+                          <button 
+                            className="btn btn-primary btn-sm w-100"
+                            style={{fontSize: '0.7rem'}}
+                            onClick={() => setShowLoginModal(true)}
+                          >
+                            <i className="fas fa-sign-in-alt me-1"></i>
+                            Join Now to View Supplier
+                          </button>
+                        ) : isSellerLoggedIn ? (
+                          <button 
+                            className="btn btn-warning btn-sm w-100"
+                            style={{fontSize: '0.7rem'}}
+                            onClick={() => {
+                              alert('Payment required to unlock supplier details. Contact admin for pricing.');
+                            }}
+                          >
+                            <i className="fas fa-unlock me-1"></i>
+                            Pay to Unlock Supplier Details
+                          </button>
+                        ) : (
+                          <button 
+                            className="btn btn-success btn-sm w-100"
+                            style={{fontSize: '0.7rem'}}
+                            onClick={() => {
+                              alert('Upgrade to premium to view supplier details.');
+                            }}
+                          >
+                            <i className="fas fa-crown me-1"></i>
+                            Upgrade to View Supplier
+                          </button>
+                        )}
+                      </div>
+                    ) : isAdmin && sellerInfo ? (
                       <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9'}}>
                         <div className="mb-2">
                           <div className="d-flex align-items-center mb-1">
@@ -1820,7 +2556,7 @@ const ProductDetail = () => {
                           </div>
                         )}
                         <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Location:</strong> ???? {sellerInfo.city}, {sellerInfo.country}
+                          <strong>Location:</strong> 📍 {sellerInfo.city}, {sellerInfo.country}
                         </div>
                         <div className="mb-1" style={{fontSize: '0.7rem'}}>
                           <strong>Category:</strong> {sellerInfo.productCategory}
@@ -1839,68 +2575,39 @@ const ProductDetail = () => {
                         <i className="fas fa-exclamation-triangle me-1"></i>
                         No seller assigned to this product
                       </div>
-                    ) : !isAdmin ? (
-                      <>
-                        <div className="mb-1">
+                    ) : (
+                      // Default locked state for all other users
+                      <div className="border rounded p-2 mb-2" style={{background: '#f8f9fa'}}>
+                        <div className="mb-2">
                           <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-check-circle text-success me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold" style={{fontSize: '0.75rem'}}>Verified Seller</span>
+                            <i className="fas fa-lock text-warning me-1" style={{fontSize: '0.75rem'}}></i>
+                            <span className="fw-semibold text-warning" style={{fontSize: '0.75rem'}}>Supplier Information - Locked</span>
                           </div>
                         </div>
-                        
-                        {product.dealInfo && (
-                          <>
-                            <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                              <strong>Location:</strong> {product.dealInfo.flag} {product.dealInfo.location}
-                            </div>
-                            <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                              <strong>Min Order:</strong> {product.dealInfo.minOrder}
-                            </div>
-                            <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                              <strong>Condition:</strong> {product.dealInfo.condition}
-                            </div>
-                          </>
-                        )}
-                        
-                        {!isBuyerLoggedIn && (
-                          <div className="alert alert-warning border-0 mt-2 mb-2" style={{fontSize: '0.7rem', padding: '6px'}}>
-                            <i className="fas fa-lock me-1"></i>
-                            Join to see full contact details
-                          </div>
-                        )}
-
-                        {isBuyerLoggedIn && !isSupplierUnlocked && (
-                          <div className="alert alert-info border-0 mt-2 mb-2" style={{fontSize: '0.7rem', padding: '6px'}}>
-                            <i className="fas fa-lock me-1"></i>
-                            Pay Rs 200 to unlock supplier contact
-                          </div>
-                        )}
-
-                        {isBuyerLoggedIn && isSupplierUnlocked && (
-                          <div className="alert alert-success border-0 mt-2 mb-2" style={{fontSize: '0.7rem', padding: '6px'}}>
-                            <i className="fas fa-unlock me-1"></i>
-                            Supplier contact unlocked!
-                          </div>
-                        )}
-                      </>
-                    ) : null}
-                    
-                    {/* Only show buttons for non-admin users */}
-                    {!isAdmin && (
-                      <div className="d-grid gap-1">
-                        {isBuyerLoggedIn ? (
+                        <div className="mb-2" style={{fontSize: '0.7rem', color: '#6c757d'}}>
+                          <i className="fas fa-eye-slash me-1"></i>
+                          Supplier details are protected
+                        </div>
+                        {!isSellerLoggedIn && !isBuyerLoggedIn ? (
                           <button 
-                            onClick={handleContactSupplier}
-                            className={`btn ${isSupplierUnlocked ? 'btn-success' : 'btn-warning'} btn-sm`}
-                            style={{fontSize: '0.7rem', padding: '6px'}}
+                            className="btn btn-primary btn-sm w-100"
+                            style={{fontSize: '0.7rem'}}
+                            onClick={() => setShowLoginModal(true)}
                           >
-                            <i className={`${isSupplierUnlocked ? 'fab fa-whatsapp' : 'fas fa-lock'} me-1`}></i>
-                            {isSupplierUnlocked ? 'Contact Supplier' : 'Unlock Contact (Rs 200)'}
+                            <i className="fas fa-sign-in-alt me-1"></i>
+                            Join Now to View Supplier
                           </button>
                         ) : (
-                          <Link to="/join-now" className="btn btn-primary btn-sm" style={{fontSize: '0.7rem', padding: '6px'}}>
-                            <i className="fas fa-user-plus me-1"></i>Join Now
-                          </Link>
+                          <button 
+                            className="btn btn-warning btn-sm w-100"
+                            style={{fontSize: '0.7rem'}}
+                            onClick={() => {
+                              alert('Contact admin for supplier access.');
+                            }}
+                          >
+                            <i className="fas fa-unlock me-1"></i>
+                            Request Supplier Access
+                          </button>
                         )}
                       </div>
                     )}
@@ -1933,7 +2640,18 @@ const ProductDetail = () => {
                       </div>
                       <div className="col-6">
                         <div className="d-grid gap-1">
-                          <button className="btn btn-danger btn-sm">
+                          <button 
+                            className="btn btn-danger btn-sm"
+                            onClick={() => {
+                              const buyerToken = localStorage.getItem('buyerToken');
+                              if (!buyerToken) {
+                                setShowLoginModal(true);
+                              } else {
+                                // Handle buy logic for logged in users
+                                alert('Buy functionality will be implemented soon!');
+                              }
+                            }}
+                          >
                             <i className="fas fa-bolt me-1"></i>Buy Now
                           </button>
                         </div>
@@ -1955,34 +2673,34 @@ const ProductDetail = () => {
               {/* Platform Comparison and Profit Evaluation Side by Side */}
               <div className="row g-3">
                 {/* Platform Pricing Table - Left Side */}
-                {product.platforms && (
-                  <div className={product.showEvaluation && product.evaluation ? "col-lg-6" : "col-12"}>
+                {hasValidPlatformData() && (
+                  <div className={hasValidEvaluationData() ? "col-lg-6" : "col-12"}>
                     <div className="mb-3">
                       <div className="fw-bold mb-2" style={{fontSize: '0.9rem', color: '#2d3748'}}>
-                        <i className="fas fa-chart-line me-2"></i>Platform Comparison
+                        <i className="fas fa-chart-line me-2"></i>Platform Comparison (200 units)
                       </div>
                       <div className="table-responsive" style={{overflowX: 'auto', overflowY: 'hidden'}}>
                         <table className="table table-sm table-bordered shadow-sm mb-0" style={{fontSize: '0.75rem'}}>
                           <thead style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white'}}>
                             <tr>
                               <th className="fw-bold py-2 px-2" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Platform</th>
-                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Price</th>
-                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Profit</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>RRP/Total</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Profit (200 units)</th>
                               <th className="fw-bold py-2 px-2 text-center">Markup</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {product.platforms.map((platform, idx) => (
+                            {calculatePlatformData().map((platform, idx) => (
                               <tr key={idx} style={{background: idx % 2 === 0 ? '#f8f9fa' : 'white'}}>
                                 <td className="fw-semibold py-2 px-2" style={{color: '#2d3748', fontSize: '0.75rem'}}>
                                   <i className={`fas fa-${platform.name === 'Amazon' ? 'shopping-cart' : platform.name === 'eBay' ? 'gavel' : 'store'} me-1 text-primary`} style={{fontSize: '0.7rem'}}></i>
                                   {platform.name}
                                 </td>
                                 <td className="fw-bold text-primary py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
-                                  {platform.price.replace(/\?/g, currencySymbols[currency])}
+                                  {platform.isPKR ? convertFromPKR(platform.price) : convertPrice(platform.price)}
                                 </td>
                                 <td className="fw-bold text-success py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
-                                  {platform.grossProfit.replace(/\?/g, currencySymbols[currency])}
+                                  {platform.isPKR ? convertFromPKR(platform.grossProfit) : convertPrice(platform.grossProfit)}
                                 </td>
                                 <td className="py-2 px-2 text-center">
                                   <span className="badge bg-info" style={{fontSize: '0.65rem', padding: '3px 6px'}}>
@@ -1994,42 +2712,30 @@ const ProductDetail = () => {
                           </tbody>
                         </table>
                       </div>
-                      <div className="alert alert-info border-0 mt-2 mb-0" style={{fontSize: '0.7rem', padding: '6px 10px'}}>
-                        <i className="fas fa-info-circle me-1"></i>
-                        <strong>Note:</strong> Prices are estimates.
-                      </div>
                     </div>
 
                     {/* Profit Calculations - Below Platform Comparison */}
-                    {product.hasProfit && product.profitCalculations && (
+                    {hasValidProfitData() && (
                       <div className="mb-3">
                         <div className="card border-0 shadow-sm" style={{background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'}}>
                           <div className="card-body p-2">
                             <div className="fw-bold mb-2 text-white" style={{fontSize: '0.85rem'}}>
                               <i className="fas fa-calculator me-2"></i>Profit Calculations
                             </div>
-                            <div className="row g-1">
-                              <div className="col-md-4">
+                            <div className="row g-1 mb-2">
+                              <div className="col-md-6">
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Profit per Unit</div>
                                   <div className="fw-bold text-success" style={{fontSize: '0.9rem'}}>
-                                    {convertFromGBP(product.profitCalculations.profitPerUnit)}
+                                    {convertProfitValue(product.profitCalculations.profitPerUnit)}
                                   </div>
                                 </div>
                               </div>
-                              <div className="col-md-4">
+                              <div className="col-md-6">
                                 <div className="bg-white rounded p-2">
-                                  <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Monthly (100 units)</div>
+                                  <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>if sold 200 units</div>
                                   <div className="fw-bold text-primary" style={{fontSize: '0.9rem'}}>
-                                    {convertFromGBP(product.profitCalculations.monthlyProfit)}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="col-md-4">
-                                <div className="bg-white rounded p-2">
-                                  <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Yearly (1200 units)</div>
-                                  <div className="fw-bold text-danger" style={{fontSize: '0.9rem'}}>
-                                    {convertFromGBP(product.profitCalculations.yearlyProfit)}
+                                    {convertProfitValue(product.profitCalculations.monthlyProfit)}
                                   </div>
                                 </div>
                               </div>
@@ -2042,7 +2748,7 @@ const ProductDetail = () => {
                 )}
                 
                 {/* Profit Evaluation - Right Side */}
-                {product.showEvaluation && product.evaluation && (
+                {hasValidEvaluationData() && (
                   <div className="col-lg-6">
                     <div className="mb-3">
                       <div className="fw-bold mb-2" style={{fontSize: '0.9rem', color: '#2d3748'}}>
@@ -2059,31 +2765,31 @@ const ProductDetail = () => {
                           <tbody>
                             <tr style={{background: '#f1f5f9'}}>
                               <td className="fw-semibold py-2 px-2">Sales Proceeds</td>
-                              <td className="fw-bold py-2 px-2 text-end text-success">{convertFromGBP(product.evaluation.salesProceeds)}</td>
+                              <td className="fw-bold py-2 px-2 text-end text-success">{convertProfitValue(product.evaluation.salesProceeds)}</td>
                             </tr>
                             <tr>
                               <td className="py-2 px-2 ps-3" style={{fontSize: '0.7rem'}}>Commission</td>
-                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertFromGBP(product.evaluation.commissionBase + product.evaluation.commissionTax)}</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertProfitValue(product.evaluation.commissionBase + product.evaluation.commissionTax)}</td>
                             </tr>
                             <tr>
                               <td className="py-2 px-2 ps-3" style={{fontSize: '0.7rem'}}>Digital Services Fee</td>
-                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertFromGBP(product.evaluation.digitalServiceBase + product.evaluation.digitalServiceTax)}</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertProfitValue(product.evaluation.digitalServiceBase + product.evaluation.digitalServiceTax)}</td>
                             </tr>
                             <tr>
                               <td className="py-2 px-2 ps-3" style={{fontSize: '0.7rem'}}>FBA Fulfilment Fee</td>
-                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertFromGBP(product.evaluation.fbaFeeBase + product.evaluation.fbaFeeTax)}</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertProfitValue(product.evaluation.fbaFeeBase + product.evaluation.fbaFeeTax)}</td>
                             </tr>
                             <tr style={{background: '#fff3cd'}}>
                               <td className="fw-semibold py-2 px-2">Balance Change</td>
-                              <td className="fw-bold py-2 px-2 text-end">{convertFromGBP(product.evaluation.changeToBalance)}</td>
+                              <td className="fw-bold py-2 px-2 text-end">{convertProfitValue(product.evaluation.changeToBalance)}</td>
                             </tr>
                             <tr>
                               <td className="fw-semibold py-2 px-2">Product Cost</td>
-                              <td className="fw-bold py-2 px-2 text-end text-danger">-{convertFromGBP(product.evaluation.productCost)}</td>
+                              <td className="fw-bold py-2 px-2 text-end text-danger">-{convertProfitValue(product.evaluation.productCost)}</td>
                             </tr>
                             <tr style={{background: '#e6f7ee'}}>
                               <td className="fw-bold py-2 px-2" style={{fontSize: '0.85rem'}}>Net Profit</td>
-                              <td className="fw-bold py-2 px-2 text-end text-success" style={{fontSize: '0.85rem'}}>{convertFromGBP(product.evaluation.netProfit)}</td>
+                              <td className="fw-bold py-2 px-2 text-end text-success" style={{fontSize: '0.85rem'}}>{convertProfitValue(product.evaluation.netProfit)}</td>
                             </tr>
                           </tbody>
                         </table>
@@ -2506,6 +3212,115 @@ const ProductDetail = () => {
         productId={product?.id}
         onSuccess={handlePaymentSuccess}
       />
+
+      {/* Login Modal */}
+      {showLoginModal && (
+        <div 
+          className="modal show d-block" 
+          style={{backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 9999}}
+          onClick={() => setShowLoginModal(false)}
+        >
+          <div 
+            className="modal-dialog modal-dialog-centered" 
+            style={{maxWidth: '400px'}}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-content" style={{borderRadius: '12px', overflow: 'hidden'}}>
+              <div className="modal-header" style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', padding: '20px', border: 'none'}}>
+                <h5 className="modal-title" style={{fontSize: '18px', fontWeight: '700', margin: 0}}>
+                  <i className="fas fa-sign-in-alt me-2"></i>Login Required
+                </h5>
+                <button 
+                  type="button" 
+                  onClick={() => setShowLoginModal(false)}
+                  style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    border: 'none',
+                    color: '#fff',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    fontSize: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '700'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="modal-body" style={{padding: '30px', textAlign: 'center'}}>
+                <div style={{marginBottom: '20px'}}>
+                  <i className="fas fa-shopping-cart" style={{fontSize: '48px', color: '#667eea', marginBottom: '15px'}}></i>
+                  <h6 style={{fontSize: '16px', fontWeight: '600', marginBottom: '10px', color: '#111'}}>
+                    Please login to buy products
+                  </h6>
+                  <p style={{fontSize: '14px', color: '#6b7280', marginBottom: '0'}}>
+                    You need to be logged in as a buyer to purchase products from our marketplace.
+                  </p>
+                </div>
+                
+                <div style={{display: 'flex', gap: '10px', marginTop: '25px'}}>
+                  <button
+                    onClick={() => {
+                      setShowLoginModal(false);
+                      navigate('/login/buyer');
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      background: '#667eea',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#5568d3'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = '#667eea'}
+                  >
+                    <i className="fas fa-sign-in-alt me-2"></i>Login
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setShowLoginModal(false);
+                      navigate('/signup/buyer');
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      background: '#10b981',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#059669'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = '#10b981'}
+                  >
+                    <i className="fas fa-user-plus me-2"></i>Sign Up
+                  </button>
+                </div>
+                
+                <div style={{marginTop: '20px', padding: '15px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb'}}>
+                  <p style={{fontSize: '12px', color: '#6b7280', margin: '0'}}>
+                    <i className="fas fa-info-circle me-1"></i>
+                    New to our platform? Sign up to access wholesale prices and exclusive deals.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

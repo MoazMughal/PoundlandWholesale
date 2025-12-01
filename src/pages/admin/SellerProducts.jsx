@@ -86,6 +86,21 @@ const AdminSellerProducts = () => {
     }
   }
 
+  const handleProductClick = (product) => {
+    // Navigate to product detail page like in AmazonsChoice
+    const params = new URLSearchParams({
+      name: product.name,
+      img: product.images && product.images.length > 0 ? product.images[0] : '',
+      price: product.price,
+      rating: product.rating || 4.5,
+      reviews: product.reviews || 0,
+      category: product.category || 'General',
+      brand: product.brand || '',
+      discount: product.discount || 0
+    });
+    navigate(`/product/${product._id}?${params.toString()}`);
+  };
+
   if (loading) {
     return (
       <div className="container mt-5">
@@ -163,7 +178,18 @@ const AdminSellerProducts = () => {
                   )}
                 </div>
                 <div className="card-body d-flex flex-column">
-                  <h6 className="card-title">{product.name}</h6>
+                  <h6 
+                    className="card-title"
+                    onClick={() => handleProductClick(product)}
+                    style={{
+                      cursor: 'pointer',
+                      color: '#667eea',
+                      textDecoration: 'underline'
+                    }}
+                    title="Click to view product details"
+                  >
+                    {product.name}
+                  </h6>
                   <p className="card-text text-muted small">
                     {product.description?.substring(0, 100)}...
                   </p>

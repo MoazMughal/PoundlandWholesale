@@ -1,6 +1,7 @@
 import express from 'express';
 import xlsx from 'xlsx';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
@@ -9,6 +10,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
+
+
 
 // Cache for Amazon images to avoid repeated requests
 const imageCache = new Map();
@@ -485,8 +488,161 @@ router.get('/products-by-category', async (req, res) => {
   }
 });
 
-export default router;
+// ============================================
+// AMAZON 10 EXCEL IMPORT ROUTES
+// ============================================
 
+// Import Amazon 10 products from Amazon10.xlsx
+router.get('/amazon10-products', async (req, res) => {
+  try {
+    const excelPath = path.join(__dirname, '../../Amazon10.xlsx');
+    
+    // Check if file exists first
+    if (!fs.existsSync(excelPath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Amazon10.xlsx file not found',
+        filePath: excelPath,
+        details: 'Please ensure Amazon10.xlsx exists in the root directory'
+      });
+    }
+    
+    const workbook = xlsx.readFile(excelPath);
+    
+    const result = {
+      products: [],
+      totalCount: 0
+    };
+    
+    // Get the first sheet (assuming Amazon 10 data is in the first sheet)
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+    const data = xlsx.utils.sheet_to_json(worksheet);
+    
+    if (data.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No products found in Amazon 10 Excel file',
+        products: [],
+        totalCount: 0
+      });
+    }
+    
+    const allKeys = Object.keys(data[0]);
+    console.log('Amazon10 Excel columns:', allKeys);
+    console.log('Has marketplace column:', allKeys.includes('marketplace') || allKeys.includes('Marketplace'));
+    
+    // Process each row
+    const products = data.map((row, index) => {
+      // Extract ASIN
+      const asin = row.ASIN || row.asin || row['Product ASIN'] || row['ASIN Code'] || '';
+      
+      // Extract product name
+      const productName = row.Name || row.name || row.Title || row.title || row['Product Name'] || extractProductName(row, allKeys, index);
+      
+      // Get price
+      const basePrice = parseFloat(row.Price || row.price || row['Product Price'] || 0);
+      const originalPrice = parseFloat(row['Original Price'] || row.originalPrice || basePrice * 1.3);
+      const discount = row.Discount || row.discount || Math.round(((originalPrice - basePrice) / originalPrice) * 100);
+      
+      // Rating and reviews
+      const rating = parseFloat(row.Rating || row.rating || (Math.random() * 1.5 + 3.5).toFixed(1));
+      const reviews = parseInt(row.Reviews || row.reviews || Math.floor(Math.random() * 4950 + 50));
+      
+      // Get image URL
+      let finalImageUrl = '';
+      
+      // First, check if there's an image column
+      if (row.Image || row.image || row['Image URL']) {
+        finalImageUrl = row.Image || row.image || row['Image URL'];
+      }
+      // If ASIN exists, use it to load from public assets folder
+      else if (asin) {
+        // Frontend will load this from public/assets/amazon10/
+        finalImageUrl = `/assets/amazon10/${asin}.jpg`;
+      }
+      
+      // Fallback to placeholder if no image
+      if (!finalImageUrl) {
+        finalImageUrl = 'https://via.placeholder.com/400x400?text=Amazon10+Product';
+      }
+      
+      const productData = {
+        id: `amazon10-${index + 1}`,
+        name: productName,
+        asin: asin,
+        price: basePrice,
+        originalPrice: originalPrice,
+        category: row.Category || row.category || 'Amazon 10 Products',
+        brand: row.Brand || row.brand || '',
+        rating: rating,
+        reviews: reviews,
+        stock: parseInt(row.Stock || row.stock || 0),
+        description: row.Description || row.description || '',
+        image: finalImageUrl,
+        images: [finalImageUrl],
+        discount: discount,
+        currency: 'USD',
+        // Raw data for reference (but don't include marketplace from raw data)
+        rawData: row
+      };
+      
+      // Force marketplace to Amazon10 (this must be last to override any conflicts)
+      productData.marketplace = 'Amazon10';
+      
+      return productData;
+    });
+    
+    result.products = products;
+    result.totalCount = products.length;
+    
+    res.json({
+      success: true,
+      message: `Successfully loaded ${products.length} Amazon 10 products`,
+      ...result
+    });
+    
+  } catch (error) {
+    console.error('❌ Amazon 10 Excel Error:', error);
+    console.error('Error details:', error.message);
+    console.error('File path attempted:', path.join(__dirname, '../../Amazon10.xlsx'));
+    res.status(500).json({
+      success: false,
+      message: 'Error reading Amazon 10 Excel file',
+      error: error.message,
+      details: 'Make sure Amazon10.xlsx exists in the root directory'
+    });
+  }
+});
+
+
+
+// Get Amazon 10 Excel file info
+router.get('/amazon10-info', async (req, res) => {
+  try {
+    const excelPath = path.join(__dirname, '../../Amazon10.xlsx');
+    const workbook = xlsx.readFile(excelPath);
+    
+    const info = {
+      sheets: workbook.SheetNames,
+      sheetCount: workbook.SheetNames.length
+    };
+    
+    // Get column headers from first sheet
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = xlsx.utils.sheet_to_json(firstSheet, { header: 1 });
+    info.columns = data[0] || [];
+    info.rowCount = data.length - 1; // Exclude header
+    
+    res.json(info);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error reading Amazon 10 Excel file info',
+      error: error.message
+    });
+  }
+});
 
 // ============================================
 // UAE EXCEL IMPORT ROUTES
@@ -625,3 +781,5 @@ router.get('/uae-info', async (req, res) => {
   }
 });
 
+
+export default router;

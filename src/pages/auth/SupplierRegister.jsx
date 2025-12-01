@@ -109,7 +109,7 @@ const SupplierRegister = () => {
                         <h5 className="alert-heading mb-1">🎉 Welcome to Amazon Choice!</h5>
                         <p className="mb-1">Your supplier account has been created successfully!</p>
                         <small className="text-muted">
-                          Check your email for your $946 supplier success package. Redirecting to login...
+                          Redirecting to login...
                         </small>
                       </div>
                     </div>

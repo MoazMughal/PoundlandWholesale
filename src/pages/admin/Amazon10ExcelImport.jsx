@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '../../context/AdminContext';
 import { getApiUrl } from '../../utils/api';
 
-const UaeExcelImport = () => {
+const Amazon10ExcelImport = () => {
   const { isLoggedIn: isAdminLoggedIn, loading: adminLoading } = useAdmin();
-  const [uaeProducts, setUaeProducts] = useState([]);
+  const [amazon10Products, setAmazon10Products] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -16,25 +16,25 @@ const UaeExcelImport = () => {
   const [selectedSeller, setSelectedSeller] = useState('');
   const navigate = useNavigate();
 
-  // Helper function to get UAE image path
-  const getUaeImagePath = (asin) => {
+  // Helper function to get Amazon 10 image path
+  const getAmazon10ImagePath = (asin) => {
     if (!asin) return 'https://via.placeholder.com/50x50?text=No+Image';
     
     // Images are served from the public folder
     // Vite serves public folder assets at the root path
-    return `/assets/uae/${asin}.jpg`;
+    return `/assets/amazon10/${asin}.jpg`;
   };
 
-  // Load UAE products and sellers from server
+  // Load Amazon 10 products and sellers from server
   useEffect(() => {
     if (!adminLoading && isAdminLoggedIn) {
-      loadUaeProducts();
+      loadAmazon10Products();
       loadSellers();
     }
   }, [adminLoading, isAdminLoggedIn]);
 
   useEffect(() => {
-    let filtered = uaeProducts;
+    let filtered = amazon10Products;
     
     // Apply search filter
     if (searchQuery.trim()) {
@@ -51,16 +51,21 @@ const UaeExcelImport = () => {
     }
     
     setFilteredProducts(filtered);
-  }, [searchQuery, categoryFilter, uaeProducts]);
+  }, [searchQuery, categoryFilter, amazon10Products]);
 
-  const loadUaeProducts = async () => {
+  const loadAmazon10Products = async () => {
     try {
       setLoading(true);
-      const response = await fetch(getApiUrl('excel/uae-products'));
+      const response = await fetch(getApiUrl('excel/amazon10-products'));
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       
       if (data.success) {
-        setUaeProducts(data.products);
+        setAmazon10Products(data.products);
         setFilteredProducts(data.products);
         // Initialize edited data with default values
         const initialEdited = {};
@@ -72,10 +77,10 @@ const UaeExcelImport = () => {
         });
         setEditedData(initialEdited);
       } else {
-        alert('❌ ' + data.message);
+        alert('❌ ' + (data.message || 'Unknown error from server'));
       }
     } catch (error) {
-      alert('❌ Could not load UAE products from server');
+      alert(`❌ Could not load Amazon 10 products from server: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -151,10 +156,7 @@ const UaeExcelImport = () => {
     }
 
     const categoryNames = {
-      'amazons-choice': "Amazon's Choice",
-      'best-sellers': 'Best Sellers',
-      'latest-deals': 'Latest Deals',
-      'home': 'Home Page'
+      'amazons-choice': "Amazon's Choice"
     };
 
     if (!confirm(`Import ${selectedProducts.size} products to ${categoryNames[targetCategory]} for seller ${sellers.find(s => s._id === selectedSeller)?.username}?`)) {
@@ -166,7 +168,7 @@ const UaeExcelImport = () => {
       const edited = editedData[index] || {};
       
       // Use ASIN to construct image URL
-      const imageUrl = getUaeImagePath(product.asin);
+      const imageUrl = getAmazon10ImagePath(product.asin);
       
       return {
         name: product.name,
@@ -182,13 +184,13 @@ const UaeExcelImport = () => {
         image: imageUrl,
         images: [imageUrl],
         discount: product.discount,
-        marketplace: 'UAE',
-        currency: 'AED',
+        marketplace: 'Amazon10',
+        currency: 'USD',
         isAdminProduct: true,
         isAmazonsChoice: targetCategory === 'amazons-choice',
-        isBestSeller: targetCategory === 'best-sellers',
-        isLatestDeal: targetCategory === 'latest-deals',
-        showOnHome: targetCategory === 'home',
+        isBestSeller: false,
+        isLatestDeal: false,
+        showOnHome: false,
         status: 'active',
         approvalStatus: 'approved',
         seller: selectedSeller,
@@ -212,9 +214,9 @@ const UaeExcelImport = () => {
       const data = await response.json();
 
       if (response.ok) {
-        alert(`✅ Successfully imported ${data.imported} UAE products to ${categoryNames[targetCategory]}!`);
+        alert(`✅ Successfully imported ${data.imported} Amazon 10 products to ${categoryNames[targetCategory]}!`);
         setSelectedProducts(new Set());
-        loadUaeProducts(); // Reload to refresh
+        loadAmazon10Products(); // Reload to refresh
       } else {
         alert('❌ ' + (data.message || 'Failed to import products'));
       }
@@ -239,8 +241,8 @@ const UaeExcelImport = () => {
       <div className="d-flex justify-content-between align-items-center mb-2" style={{padding: '4px 0'}}>
         <div>
           <h6 className="mb-1" style={{fontSize: '0.9rem', fontWeight: '600'}}>
-            <i className="fas fa-file-excel text-success me-2"></i>
-            UAE Products ({uaeProducts.length}) | Selected: {selectedProducts.size}
+            <i className="fas fa-file-excel text-info me-2"></i>
+            Amazon 10 Products ({amazon10Products.length}) | Selected: {selectedProducts.size}
           </h6>
         </div>
         <div className="d-flex gap-2">
@@ -253,7 +255,7 @@ const UaeExcelImport = () => {
           </button>
           <button 
             className="btn btn-info btn-sm" 
-            onClick={loadUaeProducts}
+            onClick={loadAmazon10Products}
             disabled={loading}
             style={{fontSize: '0.7rem', padding: '4px 8px'}}
           >
@@ -332,7 +334,7 @@ const UaeExcelImport = () => {
           <div className="spinner-border text-primary" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
-          <p className="mt-3">Loading UAE products...</p>
+          <p className="mt-3">Loading Amazon 10 products...</p>
         </div>
       ) : (
         <div className="card">
@@ -351,7 +353,7 @@ const UaeExcelImport = () => {
                     <th style={{fontSize: '0.75rem', padding: '8px'}}>Image</th>
                     <th style={{fontSize: '0.75rem', padding: '8px'}}>Product Name</th>
                     <th style={{fontSize: '0.75rem', padding: '8px'}}>ASIN</th>
-                    <th style={{fontSize: '0.75rem', padding: '8px'}}>Price (AED)</th>
+                    <th style={{fontSize: '0.75rem', padding: '8px'}}>Price (USD)</th>
                     <th style={{fontSize: '0.75rem', padding: '8px'}}>Stock</th>
                     <th style={{fontSize: '0.75rem', padding: '8px'}}>Rating</th>
                     <th style={{fontSize: '0.75rem', padding: '8px'}}>Category</th>
@@ -369,7 +371,7 @@ const UaeExcelImport = () => {
                       </td>
                       <td style={{padding: '8px'}}>
                         <img 
-                          src={getUaeImagePath(product.asin)} 
+                          src={getAmazon10ImagePath(product.asin)} 
                           alt={product.name}
                           style={{width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px'}}
                           onError={(e) => {
@@ -388,7 +390,7 @@ const UaeExcelImport = () => {
                       </td>
                       <td style={{padding: '8px'}}>
                         <div className="input-group input-group-sm" style={{width: '120px'}}>
-                          <span className="input-group-text" style={{fontSize: '0.7rem'}}>د.إ</span>
+                          <span className="input-group-text" style={{fontSize: '0.7rem'}}>$</span>
                           <input
                             type="number"
                             className="form-control form-control-sm"
@@ -437,4 +439,4 @@ const UaeExcelImport = () => {
   );
 };
 
-export default UaeExcelImport;
+export default Amazon10ExcelImport;

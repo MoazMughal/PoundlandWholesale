@@ -14,6 +14,8 @@ const AdminProducts = () => {
   const [editValues, setEditValues] = useState({}); // Store temporary edit values
   const [currentPage, setCurrentPage] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [showProfitModal, setShowProfitModal] = useState(false);
+  const [profitEditProduct, setProfitEditProduct] = useState(null);
   const navigate = useNavigate();
   
   const productsPerPage = 50;
@@ -38,8 +40,7 @@ const AdminProducts = () => {
     PKR: 1,
     USD: 0.00353,   // 1 USD = 283.32 PKR
     GBP: 0.00272,   // 1 GBP = 367.74 PKR
-    AED: 0.01310,   // 1 AED = 76.37 PKR
-    GBP: 0.0028
+    AED: 0.01310    // 1 AED = 76.37 PKR
   };
 
   const currencySymbols = {
@@ -175,6 +176,88 @@ const AdminProducts = () => {
   };
 
   // Save edited value (on Enter or blur)
+  const startProfitEditing = (product) => {
+    // Calculate product cost automatically from product price (keep in PKR)
+    const productPricePKR = parseFloat(product.price) || 0;
+    
+    console.log('🔧 Starting profit editing for:', product.name);
+    console.log('💰 Product price (PKR):', productPricePKR);
+    console.log('📊 Existing platform comparison:', product.platformComparison);
+    console.log('📊 Existing profit calculations:', product.profitCalculations);
+    console.log('📊 Existing profit evaluation:', product.profitEvaluation);
+    
+    setProfitEditProduct({
+      _id: product._id,
+      name: product.name || '',
+      dealUnits: product.dealUnits || 1,
+      // Platform Comparison
+      platformComparison: product.platformComparison || [
+        { platform: 'RRP', rrpPerUnit: 0, profitFor200Units: 0, markup: '0%' },
+        { platform: 'Amazon', rrpPerUnit: 0, profitFor200Units: 0, markup: '0%' },
+        { platform: 'eBay', rrpPerUnit: 0, profitFor200Units: 0, markup: '0%' }
+      ],
+      // Profit Calculations
+      profitCalculations: product.profitCalculations || {
+        profitPerUnit: 0,
+        profitFor200Units: 0,
+        dealUnitsProfit: 0,
+        profitForDealUnits: 0
+      },
+      // Profit Evaluation - Always sync product cost with current product price
+      profitEvaluation: product.profitEvaluation ? {
+        ...product.profitEvaluation,
+        productCost: productPricePKR // Always use current product price in PKR
+      } : {
+        salesProceeds: 0,
+        commission: 0,
+        digitalServicesFee: 0,
+        fbaFulfilmentFee: 0,
+        balanceChange: 0,
+        productCost: productPricePKR, // Auto-populate from product price in PKR
+        netProfit: 0
+      }
+    });
+    setShowProfitModal(true);
+  };
+
+  const updateProfitData = async () => {
+    if (!profitEditProduct) return;
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const updateData = {
+        platformComparison: profitEditProduct.platformComparison,
+        profitCalculations: profitEditProduct.profitCalculations,
+        profitEvaluation: profitEditProduct.profitEvaluation
+      };
+
+      const response = await fetch(`http://localhost:5000/api/products/${profitEditProduct._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (response.ok) {
+        console.log('✅ Profit data updated successfully for:', profitEditProduct.name);
+        console.log('📊 Updated platform comparison:', profitEditProduct.platformComparison);
+        console.log('📊 Updated profit calculations:', profitEditProduct.profitCalculations);
+        console.log('📊 Updated profit evaluation:', profitEditProduct.profitEvaluation);
+        alert('✅ Profit data updated successfully!\n\n📋 This data will now appear on the product detail page like nose ring, fuse, etc.\n\n🔄 The product detail page will show:\n• Platform comparison with your configured platforms\n• Profit calculations with your values\n• Profit evaluation with fees and net profit\n\n💰 Product Cost will automatically update when you change the product price!');
+        setShowProfitModal(false);
+        setProfitEditProduct(null);
+        fetchProducts(); // Refresh the products list
+      } else {
+        throw new Error('Failed to update profit data');
+      }
+    } catch (error) {
+      console.error('Error updating profit data:', error);
+      alert('❌ Failed to update profit data');
+    }
+  };
+
   const handleSaveEdit = async (productId, field) => {
     const cellKey = `${productId}-${field}`;
     const newValue = editValues[cellKey];
@@ -225,6 +308,21 @@ const AdminProducts = () => {
       console.error('Error updating product:', error);
       alert('❌ Failed to update. Please try again.');
     }
+  };
+
+  const handleProductClick = (product) => {
+    // Navigate to product detail page like in AmazonsChoice
+    const params = new URLSearchParams({
+      name: product.name,
+      img: product.images && product.images.length > 0 ? product.images[0] : '',
+      price: product.price,
+      rating: product.rating || 4.5,
+      reviews: product.reviews || 0,
+      category: product.category || 'General',
+      brand: product.brand || '',
+      discount: product.discount || 0
+    });
+    navigate(`/product/${product._id}?${params.toString()}`);
   };
 
   // Handle Enter key press
@@ -470,7 +568,21 @@ const AdminProducts = () => {
                 {filteredProducts.slice((currentPage - 1) * productsPerPage, currentPage * productsPerPage).map(product => (
                   <tr key={product._id} style={{borderBottom: '1px solid #e5e7eb'}}>
                     <td className="product-info" style={{padding: '4px 8px'}}>
-                      <div className="product-name" style={{fontSize: '0.75rem', fontWeight: '500', marginBottom: '1px'}}>{product.name}</div>
+                      <div 
+                        className="product-name" 
+                        onClick={() => handleProductClick(product)}
+                        style={{
+                          fontSize: '0.75rem', 
+                          fontWeight: '500', 
+                          marginBottom: '1px',
+                          cursor: 'pointer',
+                          color: '#667eea',
+                          textDecoration: 'underline'
+                        }}
+                        title="Click to view product details"
+                      >
+                        {product.name}
+                      </div>
                       <div className="product-id" style={{fontSize: '0.6rem', color: '#6b7280'}}>ID: {product._id.slice(-6)}</div>
                     </td>
                     <td style={{padding: '4px 8px'}}>
@@ -566,6 +678,14 @@ const AdminProducts = () => {
                         style={{padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px'}}
                       >
                         ✏️
+                      </button>
+                      <button
+                        onClick={() => startProfitEditing(product)}
+                        className="profit-btn"
+                        title="Manage Profit Details"
+                        style={{padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px', background: '#ff9800', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer'}}
+                      >
+                        💰
                       </button>
                       <button
                         onClick={() => handleDelete(product._id)}
@@ -691,6 +811,418 @@ const AdminProducts = () => {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Profit Details Modal */}
+      {showProfitModal && profitEditProduct && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            width: '90%',
+            maxWidth: '1200px',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)'
+          }}>
+            <div style={{
+              padding: '25px',
+              borderBottom: '2px solid #f0f0f0',
+              background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+              color: 'white',
+              borderRadius: '12px 12px 0 0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <h2 style={{margin: 0, fontSize: '1.5rem', fontWeight: 'bold'}}>💰 Profit Details Management</h2>
+                <p style={{margin: '5px 0 0 0', opacity: 0.9}}>{profitEditProduct.name}</p>
+              </div>
+              <button 
+                onClick={() => setShowProfitModal(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  color: '#fff',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  fontSize: '20px',
+                  fontWeight: '700'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{padding: '25px'}}>
+              {/* Platform Comparison Section */}
+              <div style={{marginBottom: '30px', padding: '20px', backgroundColor: '#e8f5e9', borderRadius: '8px', border: '2px solid #28a745'}}>
+                <h3 style={{color: '#28a745', marginBottom: '20px', fontSize: '1.3rem'}}>📊 Platform Comparison ({profitEditProduct.dealUnits || 1} units)</h3>
+                {profitEditProduct.platformComparison.map((platform, index) => (
+                  <div key={index} style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #ddd'}}>
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '15px', alignItems: 'center'}}>
+                      <div>
+                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Platform</label>
+                        <select
+                          value={platform.platform}
+                          onChange={(e) => {
+                            const newPlatforms = [...profitEditProduct.platformComparison];
+                            newPlatforms[index].platform = e.target.value;
+                            setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                          }}
+                          style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                        >
+                          <option value="RRP">RRP</option>
+                          <option value="Amazon">Amazon</option>
+                          <option value="eBay">eBay</option>
+                          <option value="Walmart">Walmart</option>
+                          <option value="AliExpress">AliExpress</option>
+                          <option value="Shopify">Shopify</option>
+                          <option value="Etsy">Etsy</option>
+                          <option value="Facebook Marketplace">Facebook Marketplace</option>
+                          <option value="Mercari">Mercari</option>
+                          <option value="Poshmark">Poshmark</option>
+                          <option value="Depop">Depop</option>
+                          <option value="Vinted">Vinted</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>RRP/Unit (Rs)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={platform.rrpPerUnit}
+                          onChange={(e) => {
+                            const newPlatforms = [...profitEditProduct.platformComparison];
+                            newPlatforms[index].rrpPerUnit = parseFloat(e.target.value) || 0;
+                            setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                          }}
+                          style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                        />
+                      </div>
+                      <div>
+                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Profit ({profitEditProduct.dealUnits || 1} units)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={platform.profitFor200Units}
+                          onChange={(e) => {
+                            const newPlatforms = [...profitEditProduct.platformComparison];
+                            newPlatforms[index].profitFor200Units = parseFloat(e.target.value) || 0;
+                            setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                          }}
+                          style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                        />
+                      </div>
+                      <div>
+                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Markup</label>
+                        <input
+                          type="text"
+                          value={platform.markup}
+                          onChange={(e) => {
+                            const newPlatforms = [...profitEditProduct.platformComparison];
+                            newPlatforms[index].markup = e.target.value;
+                            setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                          }}
+                          style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                          placeholder="e.g., 1376.13%"
+                        />
+                      </div>
+                      <div style={{display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '25px'}}>
+                        <button
+                          onClick={() => {
+                            const newPlatforms = [...profitEditProduct.platformComparison];
+                            newPlatforms.splice(index, 1);
+                            setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                          }}
+                          style={{
+                            background: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            padding: '5px 8px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem'
+                          }}
+                          title="Remove Platform"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                <button
+                  onClick={() => {
+                    const newPlatforms = [...profitEditProduct.platformComparison, 
+                      { platform: 'Other', rrpPerUnit: 0, profitFor200Units: 0, markup: '0%' }
+                    ];
+                    setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                  }}
+                  style={{
+                    background: '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: 'bold',
+                    marginTop: '10px'
+                  }}
+                >
+                  ➕ Add Platform
+                </button>
+              </div>
+
+              {/* Profit Calculations Section */}
+              <div style={{marginBottom: '30px', padding: '20px', backgroundColor: '#e3f2fd', borderRadius: '8px', border: '2px solid #2196f3'}}>
+                <h3 style={{color: '#2196f3', marginBottom: '20px', fontSize: '1.3rem'}}>💰 Profit Calculations</h3>
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px'}}>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
+                      Profit per Unit (PKR) 
+                      <span style={{fontSize: '0.8rem', color: '#17a2b8', fontWeight: 'normal', marginLeft: '8px'}}>
+                        🧮 Auto-calculated (= Net Profit)
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={profitEditProduct.profitCalculations.profitPerUnit}
+                      readOnly
+                      style={{width: '100%', padding: '12px', border: '1px solid #17a2b8', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: '#e7f3ff', cursor: 'not-allowed'}}
+                      placeholder="Auto-calculated: = Net Profit"
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>If sold 200 units (Rs)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={profitEditProduct.profitCalculations.profitFor200Units}
+                      onChange={(e) => setProfitEditProduct({
+                        ...profitEditProduct, 
+                        profitCalculations: {
+                          ...profitEditProduct.profitCalculations,
+                          profitFor200Units: parseFloat(e.target.value) || 0
+                        }
+                      })}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Profit Evaluation Section */}
+              <div style={{marginBottom: '30px', padding: '20px', backgroundColor: '#fff3e0', borderRadius: '8px', border: '2px solid #ff9800'}}>
+                <h3 style={{color: '#ff9800', marginBottom: '20px', fontSize: '1.3rem'}}>📈 Profit Evaluation</h3>
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px'}}>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Sales Proceeds (Rs)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={profitEditProduct.profitEvaluation.salesProceeds}
+                      onChange={(e) => setProfitEditProduct({
+                        ...profitEditProduct, 
+                        profitEvaluation: {
+                          ...profitEditProduct.profitEvaluation,
+                          salesProceeds: parseFloat(e.target.value) || 0
+                        }
+                      })}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Commission (Rs)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={profitEditProduct.profitEvaluation.commission}
+                      onChange={(e) => setProfitEditProduct({
+                        ...profitEditProduct, 
+                        profitEvaluation: {
+                          ...profitEditProduct.profitEvaluation,
+                          commission: parseFloat(e.target.value) || 0
+                        }
+                      })}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Digital Services Fee (Rs)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={profitEditProduct.profitEvaluation.digitalServicesFee}
+                      onChange={(e) => setProfitEditProduct({
+                        ...profitEditProduct, 
+                        profitEvaluation: {
+                          ...profitEditProduct.profitEvaluation,
+                          digitalServicesFee: parseFloat(e.target.value) || 0
+                        }
+                      })}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>FBA Fulfilment Fee (Rs)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={profitEditProduct.profitEvaluation.fbaFulfilmentFee}
+                      onChange={(e) => setProfitEditProduct({
+                        ...profitEditProduct, 
+                        profitEvaluation: {
+                          ...profitEditProduct.profitEvaluation,
+                          fbaFulfilmentFee: parseFloat(e.target.value) || 0
+                        }
+                      })}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Balance Change (Rs)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={profitEditProduct.profitEvaluation.balanceChange}
+                      onChange={(e) => {
+                        const newBalanceChange = parseFloat(e.target.value) || 0;
+                        const productCost = profitEditProduct.profitEvaluation.productCost || 0;
+                        const calculatedNetProfit = productCost - newBalanceChange; // CORRECTED Formula: Net Profit = Product Cost - Balance Change
+                        
+                        setProfitEditProduct({
+                          ...profitEditProduct, 
+                          profitEvaluation: {
+                            ...profitEditProduct.profitEvaluation,
+                            balanceChange: newBalanceChange,
+                            netProfit: calculatedNetProfit // Auto-calculate Net Profit
+                          },
+                          profitCalculations: {
+                            ...profitEditProduct.profitCalculations,
+                            profitPerUnit: calculatedNetProfit // Auto-calculate Profit per Unit = Net Profit
+                          }
+                        });
+                      }}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
+                      Product Cost (PKR) 
+                      <span style={{fontSize: '0.8rem', color: '#28a745', fontWeight: 'normal', marginLeft: '8px'}}>
+                        🔄 Auto-syncs with product price
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={profitEditProduct.profitEvaluation.productCost}
+                      onChange={(e) => {
+                        const newProductCost = parseFloat(e.target.value) || 0;
+                        const balanceChange = profitEditProduct.profitEvaluation.balanceChange || 0;
+                        const calculatedNetProfit = newProductCost - balanceChange; // CORRECTED Formula: Net Profit = Product Cost - Balance Change
+                        
+                        setProfitEditProduct({
+                          ...profitEditProduct, 
+                          profitEvaluation: {
+                            ...profitEditProduct.profitEvaluation,
+                            productCost: newProductCost,
+                            netProfit: calculatedNetProfit // Auto-calculate Net Profit
+                          },
+                          profitCalculations: {
+                            ...profitEditProduct.profitCalculations,
+                            profitPerUnit: calculatedNetProfit // Auto-calculate Profit per Unit = Net Profit
+                          }
+                        });
+                      }}
+                      style={{width: '100%', padding: '12px', border: '1px solid #28a745', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: '#f8fff9'}}
+                      placeholder="Auto-syncs with current product price"
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
+                      Net Profit (PKR) 
+                      <span style={{fontSize: '0.8rem', color: '#17a2b8', fontWeight: 'normal', marginLeft: '8px'}}>
+                        🧮 Auto-calculated (Product Cost - Balance Change)
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={profitEditProduct.profitEvaluation.netProfit}
+                      readOnly
+                      style={{width: '100%', padding: '12px', border: '1px solid #17a2b8', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: '#e7f3ff', cursor: 'not-allowed'}}
+                      placeholder="Auto-calculated: Product Cost - Balance Change"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderTop: '2px solid #f0f0f0',
+                paddingTop: '25px'
+              }}>
+                <button
+                  onClick={() => setShowProfitModal(false)}
+                  style={{
+                    background: '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  ❌ Cancel
+                </button>
+
+                <button
+                  onClick={updateProfitData}
+                  style={{
+                    background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 15px rgba(255, 152, 0, 0.4)'
+                  }}
+                >
+                  ✅ Update Profit Data
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -40,8 +40,8 @@ export const AdminProvider = ({ children }) => {
           setAdmin(parsedAdmin)
           setIsLoggedIn(true)
           
-          // Only validate with server on admin routes to avoid unnecessary API calls
-          if (window.location.pathname.startsWith('/admin')) {
+          // Always validate with server to ensure admin state is maintained across all routes
+          if (true) {
             try {
               const response = await fetch('http://localhost:5000/api/auth/verify', {
                 headers: {
@@ -54,12 +54,37 @@ export const AdminProvider = ({ children }) => {
                 setAdmin(freshAdminData)
                 localStorage.setItem('adminData', JSON.stringify(freshAdminData))
               } else if (response.status === 401) {
-                // Only clear on 401 (unauthorized) - token is definitely invalid
-                console.log('Admin token is invalid (401), clearing localStorage')
-                localStorage.removeItem('adminToken')
-                localStorage.removeItem('adminData')
-                setAdmin(null)
-                setIsLoggedIn(false)
+                // Token is invalid or expired
+                console.log('Admin token is invalid (401), attempting refresh or clearing localStorage')
+                
+                // Try to refresh token if refresh endpoint exists
+                try {
+                  const refreshResponse = await fetch('http://localhost:5000/api/auth/refresh', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+                  
+                  if (refreshResponse.ok) {
+                    const refreshData = await refreshResponse.json();
+                    localStorage.setItem('adminToken', refreshData.token);
+                    localStorage.setItem('adminData', JSON.stringify(refreshData.admin));
+                    setAdmin(refreshData.admin);
+                    setIsLoggedIn(true);
+                    console.log('Admin token refreshed successfully');
+                  } else {
+                    throw new Error('Token refresh failed');
+                  }
+                } catch (refreshError) {
+                  // Refresh failed, clear everything
+                  console.log('Token refresh failed, clearing localStorage');
+                  localStorage.removeItem('adminToken');
+                  localStorage.removeItem('adminData');
+                  setAdmin(null);
+                  setIsLoggedIn(false);
+                }
               }
               // For other errors (500, network issues), keep existing auth state
             } catch (networkError) {
@@ -125,6 +150,10 @@ export const AdminProvider = ({ children }) => {
     localStorage.setItem('adminData', JSON.stringify(adminData))
     // Clear logout flag on successful login
     sessionStorage.removeItem('admin_logged_out')
+    // Clear any browser history of login page
+    if (window.history.length > 1) {
+      window.history.replaceState(null, '', '/admin/dashboard')
+    }
   }
 
   const logout = () => {
@@ -134,13 +163,58 @@ export const AdminProvider = ({ children }) => {
     localStorage.removeItem('adminData')
     // Set logout flag to prevent back button access
     sessionStorage.setItem('admin_logged_out', 'true')
-    // Force page reload to clear all state and redirect to admin login
-    window.location.href = '/admin/login'
+    // Use replace to avoid adding logout to history
+    window.location.replace('/admin/login')
   }
 
   const updateAdmin = (updatedData) => {
     setAdmin(updatedData)
     localStorage.setItem('adminData', JSON.stringify(updatedData))
+  }
+
+  const checkTokenValidity = async () => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) return false;
+
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/verify', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        return true;
+      } else if (response.status === 401) {
+        // Token expired, try to refresh
+        try {
+          const refreshResponse = await fetch('http://localhost:5000/api/auth/refresh', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (refreshResponse.ok) {
+            const refreshData = await refreshResponse.json();
+            localStorage.setItem('adminToken', refreshData.token);
+            localStorage.setItem('adminData', JSON.stringify(refreshData.admin));
+            setAdmin(refreshData.admin);
+            return true;
+          }
+        } catch (refreshError) {
+          console.log('Token refresh failed');
+        }
+        
+        // If we get here, token is invalid and refresh failed
+        logout();
+        return false;
+      }
+    } catch (error) {
+      console.log('Token validation error:', error);
+      return true; // Assume valid on network errors
+    }
+    
+    return false;
   }
 
   const value = {
@@ -149,7 +223,8 @@ export const AdminProvider = ({ children }) => {
     loading,
     login,
     logout,
-    updateAdmin
+    updateAdmin,
+    checkTokenValidity
   }
 
   return (

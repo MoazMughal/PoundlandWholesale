@@ -14,7 +14,7 @@ import {
   maskContact,
   identifyContactMethod 
 } from '../services/otp.js';
-import { sendPasswordResetEmail } from '../services/email.js';
+import { sendPasswordResetEmail, sendEmailOTP } from '../services/email.js';
 
 const router = express.Router();
 
@@ -99,61 +99,33 @@ router.post('/send-otp', async (req, res) => {
       });
     }
 
-    const cleanIdentifier = identifier.trim().toLowerCase();
-    const contactMethod = identifyContactMethod(cleanIdentifier);
+    const cleanEmail = identifier.trim().toLowerCase();
     
-    if (contactMethod === 'unknown') {
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
       return res.status(400).json({ 
         success: false,
-        message: 'Please enter a valid email address or WhatsApp number (with country code)' 
+        message: 'Please enter a valid email address' 
       });
     }
 
-    // Find user based on type
+    // Find user based on type and email
     let user;
     if (userType === 'buyer') {
-      user = await Buyer.findOne({
-        $or: [
-          { email: cleanIdentifier },
-          { whatsappNo: cleanIdentifier }
-        ]
-      });
+      user = await Buyer.findOne({ email: cleanEmail });
     } else {
-      user = await Seller.findOne({
-        $or: [
-          { username: cleanIdentifier },
-          { email: cleanIdentifier },
-          { whatsappNo: cleanIdentifier }
-        ]
-      });
+      user = await Seller.findOne({ email: cleanEmail });
     }
 
     if (!user) {
       return res.status(404).json({ 
         success: false,
-        message: `No ${userType} account found with this ${contactMethod === 'email' ? 'email' : 'WhatsApp number'}` 
+        message: `No ${userType} account found with this email address` 
       });
     }
 
-    // Determine contact method for sending OTP
-    let contactInfo;
-    if (contactMethod === 'email') {
-      contactInfo = user.email;
-    } else if (contactMethod === 'whatsapp') {
-      contactInfo = user.whatsappNo;
-    } else {
-      // If identifier is username, use email or WhatsApp from user record
-      contactInfo = user.email || user.whatsappNo;
-    }
-
-    if (!contactInfo) {
-      return res.status(400).json({ 
-        success: false,
-        message: `No ${contactMethod === 'email' ? 'email' : 'WhatsApp number'} associated with this account. Please contact support.` 
-      });
-    }
-
-    // Generate OTP and create record
+    // Generate truly random OTP and create record
     const otp = generateOTP();
     const otpRecord = createOTPRecord(otp);
 
@@ -170,38 +142,75 @@ router.post('/send-otp', async (req, res) => {
     
     await user.save();
 
-    // Send OTP
-    console.log(`🚀 Starting OTP send process for ${userType}: ${contactInfo}`);
+    // Send OTP to email with timeout handling
     const userName = userType === 'buyer' ? user.getFullName() : user.username;
-    console.log(`👤 User name: ${userName}`);
     
-    const sendResult = await sendOTP(contactInfo, otp, userName);
-    console.log(`📬 Send result:`, sendResult);
-
-    if (!sendResult.success) {
-      console.error(`❌ Failed to send OTP: ${sendResult.message}`);
-      return res.status(500).json({ 
-        success: false,
-        message: sendResult.message 
+    try {
+      const sendResult = await sendEmailOTP(cleanEmail, otp, userName);
+      
+      if (!sendResult.success) {
+        // If email fails, still save OTP but inform user
+        // In development, show OTP directly for testing
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`🔢 OTP for ${cleanEmail}: ${otp} (Email delivery failed)`);
+          return res.status(200).json({ 
+            success: true,
+            message: `Email delivery failed. Your OTP is: ${otp}`,
+            contactInfo: maskContact(cleanEmail),
+            method: 'email',
+            expiresIn: '5 minutes',
+            emailFailed: true,
+            developmentOTP: otp
+          });
+        }
+        
+        return res.status(200).json({ 
+          success: true,
+          message: 'OTP generated but email delivery failed. Please contact support with your email address to get the OTP.',
+          contactInfo: maskContact(cleanEmail),
+          method: 'email',
+          expiresIn: '5 minutes',
+          emailFailed: true
+        });
+      }
+    } catch (emailError) {
+      // If email service fails completely, still save OTP
+      // In development, show OTP directly for testing
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`🔢 OTP for ${cleanEmail}: ${otp} (Email service failed)`);
+        return res.status(200).json({ 
+          success: true,
+          message: `Email service failed. Your OTP is: ${otp}`,
+          contactInfo: maskContact(cleanEmail),
+          method: 'email',
+          expiresIn: '5 minutes',
+          emailFailed: true,
+          developmentOTP: otp
+        });
+      }
+      
+      return res.status(200).json({ 
+        success: true,
+        message: 'OTP generated but email service is temporarily unavailable. Please contact support.',
+        contactInfo: maskContact(cleanEmail),
+        method: 'email',
+        expiresIn: '5 minutes',
+        emailFailed: true
       });
     }
-
-    console.log(`✅ OTP sent successfully, sending response to client`);
+    
     res.json({
       success: true,
-      message: `OTP sent to your ${contactMethod === 'email' ? 'email' : 'WhatsApp'}`,
-      contactInfo: maskContact(contactInfo),
-      method: contactMethod,
+      message: 'OTP sent to your email',
+      contactInfo: maskContact(cleanEmail),
+      method: 'email',
       expiresIn: '5 minutes'
     });
 
   } catch (error) {
-    console.error('❌ Send OTP route error:', error);
-    console.error('Error stack:', error.stack);
     res.status(500).json({ 
       success: false,
-      message: 'Server error. Please try again later.',
-      error: process.env.NODE_ENV !== 'production' ? error.message : undefined
+      message: 'Server error. Please try again later.'
     });
   }
 });
@@ -659,5 +668,135 @@ router.get('/verify-reset-token/:token', async (req, res) => {
   }
 });
 
+
+// GET /auth/verify - Verify JWT token
+router.get('/verify', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'No token provided' 
+      });
+    }
+
+    // Verify JWT token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Find admin by ID
+    const admin = await Admin.findById(decoded.id).select('-password');
+    
+    if (!admin) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Admin not found' 
+      });
+    }
+
+    // Return admin data
+    res.json({
+      success: true,
+      admin: {
+        id: admin._id,
+        username: admin.username,
+        email: admin.email,
+        role: admin.role
+      }
+    });
+
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid token' 
+      });
+    }
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Token expired' 
+      });
+    }
+
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
+  }
+});
+
+// POST /auth/refresh - Refresh JWT token
+router.post('/refresh', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'No token provided' 
+      });
+    }
+
+    // Try to decode token even if expired
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        // Token is expired but we can still decode it
+        decoded = jwt.decode(token);
+      } else {
+        return res.status(401).json({ 
+          success: false,
+          message: 'Invalid token' 
+        });
+      }
+    }
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid token payload' 
+      });
+    }
+
+    // Find admin by ID
+    const admin = await Admin.findById(decoded.id).select('-password');
+    
+    if (!admin) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Admin not found' 
+      });
+    }
+
+    // Generate new token
+    const newToken = jwt.sign(
+      { id: admin._id, role: admin.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Return new token and admin data
+    res.json({
+      success: true,
+      token: newToken,
+      admin: {
+        id: admin._id,
+        username: admin.username,
+        email: admin.email,
+        role: admin.role
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
+  }
+});
 
 export default router;
