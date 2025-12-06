@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useSeller } from '../context/SellerContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
-import logo from '../assets/Generic wholesale logo.png';
+
 
 const MobileHeader = () => {
   const navigate = useNavigate();
@@ -391,8 +391,35 @@ const MobileHeader = () => {
             <i className="fas fa-bars"></i>
           </button>
 
-          <Link to="/" className="mobile-logo">
-            <img src={logo} alt="Generic Wholesale" style={{ background: 'transparent', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }} />
+          <Link to="/" className="mobile-logo" style={{overflow: 'visible', paddingRight: '25px'}}>
+            <div style={{
+              position: 'relative',
+              display: 'inline-block',
+              lineHeight: '1'
+            }}>
+              <span style={{
+                fontSize: '14px',
+                fontWeight: '700',
+                color: '#fff',
+                textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                letterSpacing: '-0.5px'
+              }}>
+                Generic Wholesale
+              </span>
+              <span style={{
+                position: 'absolute',
+                top: '11px',
+                right: '-20px',
+                fontSize: '8px',
+                fontWeight: '600',
+                color: '#fff',
+                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                letterSpacing: '0px',
+                whiteSpace: 'nowrap'
+              }}>
+                .co.uk
+              </span>
+            </div>
           </Link>
 
           <div className="mobile-header-icons">
@@ -473,10 +500,37 @@ const MobileHeader = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              marginRight: '10px',
-              overflow: 'hidden'
+              marginRight: '35px',
+              overflow: 'visible'
             }}>
-              <img src={logo} alt="Generic Wholesale" style={{ width: 'auto', objectFit: 'contain', background: 'transparent', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }} />
+              <div style={{
+                position: 'relative',
+                display: 'inline-block',
+                lineHeight: '1'
+              }}>
+                <span style={{
+                  fontSize: '15px',
+                  fontWeight: '700',
+                  color: '#fff',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                  letterSpacing: '-0.5px'
+                }}>
+                  Generic Wholesale
+                </span>
+                <span style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '-22px',
+                  fontSize: '9px',
+                  fontWeight: '600',
+                  color: '#fff',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                  letterSpacing: '0px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  .co.uk
+                </span>
+              </div>
             </Link>
 
             <form onSubmit={handleSearch} style={{
@@ -499,13 +553,22 @@ const MobileHeader = () => {
                 placeholder="Search products by name, category, or keywords..."
                 style={{
                   width: '100%',
-                  padding: '4px 8px 4px 32px',
+                  padding: '4px 32px 4px 32px',
                   border: '1px solid #fff',
                   borderRadius: '4px',
                   fontSize: '11px',
                   outline: 'none'
                 }}
               />
+              <i className="fas fa-search" style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#999',
+                fontSize: '11px',
+                pointerEvents: 'none'
+              }}></i>
             </form>
 
             <div style={{
@@ -729,8 +792,36 @@ const MobileHeader = () => {
 
         {/* Mobile Menu Sidebar */}
         <div className={`mobile-menu-sidebar ${showMobileMenu ? 'active' : ''}`}>
-          <div className="mobile-menu-header">
-            <img src={logo} alt="Generic Wholesale" style={{ height: '48px', width: 'auto', maxWidth: '260px', objectFit: 'contain', background: 'transparent' }} />
+          <div className="mobile-menu-header" style={{overflow: 'visible'}}>
+            <div style={{
+              position: 'relative',
+              display: 'inline-block',
+              lineHeight: '1',
+              paddingRight: '25px'
+            }}>
+              <span style={{
+                fontSize: '14px',
+                fontWeight: '700',
+                color: '#fff',
+                textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                letterSpacing: '-0.5px'
+              }}>
+                Generic Wholesale
+              </span>
+              <span style={{
+                position: 'absolute',
+                top: '11px',
+                right: '-20px',
+                fontSize: '8px',
+                fontWeight: '600',
+                color: '#fff',
+                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                letterSpacing: '0px',
+                whiteSpace: 'nowrap'
+              }}>
+                .co.uk
+              </span>
+            </div>
             <button className="mobile-menu-close" onClick={() => setShowMobileMenu(false)}>
               ×
             </button>

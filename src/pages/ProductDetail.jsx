@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, useSearchParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { completeProductsData, getProductById } from '../data/completeProducts'
 import { products } from '../data/allProducts'
 import { getImageUrl } from '../utils/imageImports'
@@ -14,6 +14,10 @@ const ProductDetail = () => {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  
+  // Get return category from URL params or location state
+  const returnCategory = location.state?.category || searchParams.get('returnCategory') || ''
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedImage, setSelectedImage] = useState(0)
@@ -465,13 +469,13 @@ const ProductDetail = () => {
               
               // Auto-calculate Net Profit and Profit per Unit based on corrected formulas
               const balanceChange = dbProduct.profitEvaluation.balanceChange || 0;
-              const calculatedNetProfit = productCost - balanceChange; // CORRECTED Formula: Net Profit = Product Cost - Balance Change
+              const calculatedNetProfit = balanceChange - productCost; // Formula: Net Profit = Balance Change - Product Cost
               const calculatedProfitPerUnit = calculatedNetProfit; // Formula: Profit per Unit = Net Profit
               
               console.log('🧮 AUTO-CALCULATING PROFITS (CORRECTED FORMULA):');
               console.log('- Product Cost:', productCost);
               console.log('- Balance Change:', balanceChange);
-              console.log('- Calculated Net Profit (Product Cost - Balance Change):', calculatedNetProfit);
+              console.log('- Calculated Net Profit (Balance Change - Product Cost):', calculatedNetProfit);
               console.log('- Calculated Profit per Unit (= Net Profit):', calculatedProfitPerUnit);
               
               // Admin panel values are in PKR, store them as PKR for conversion
@@ -2011,8 +2015,38 @@ const ProductDetail = () => {
       <div className="container mt-1 mb-0 animate__animated animate__fadeInDown">
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb bg-light p-2 rounded shadow-sm mb-0" style={{fontSize: '0.85rem'}}>
-            <li className="breadcrumb-item"><Link to="/" className="text-decoration-none"><i className="fas fa-home me-1"></i>Amazon's Choice</Link></li>
-            <li className="breadcrumb-item active fw-bold">{product.name}</li>
+            {(() => {
+              console.log('🍞 Breadcrumb check:', {
+                returnTo: location.state?.returnTo,
+                returnCategory: returnCategory,
+                locationState: location.state
+              });
+              return location.state?.returnTo === '/admin/products';
+            })() ? (
+              <>
+                <li className="breadcrumb-item">
+                  <span 
+                    onClick={() => {
+                      console.log('🔙 ProductDetail back clicked, returnCategory:', returnCategory);
+                      const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
+                      navigate(backUrl, {
+                        state: { category: returnCategory }
+                      });
+                    }}
+                    style={{cursor: 'pointer'}}
+                    className="text-decoration-none"
+                  >
+                    <i className="fas fa-arrow-left me-1"></i>Back to Products
+                  </span>
+                </li>
+                <li className="breadcrumb-item active fw-bold">{product.name}</li>
+              </>
+            ) : (
+              <>
+                <li className="breadcrumb-item"><Link to="/" className="text-decoration-none"><i className="fas fa-home me-1"></i>Amazon's Choice</Link></li>
+                <li className="breadcrumb-item active fw-bold">{product.name}</li>
+              </>
+            )}
           </ol>
         </nav>
       </div>

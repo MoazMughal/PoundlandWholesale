@@ -1,7 +1,7 @@
 // Import all extracted products from Amazon's Choice.html
 import extractedProducts from './extracted-products.json';
 import { processProductImages } from '../utils/imageImports';
-import { addProfitDataToProducts } from '../utils/addProfitData';
+
 
 // Remove duplicate products based on ID and keep only unique ones
 const removeDuplicates = (products) => {
@@ -21,8 +21,7 @@ let processedProducts = processProductImages(extractedProducts);
 // Remove duplicates to prevent category filter issues
 processedProducts = removeDuplicates(processedProducts);
 
-// Add profit data to specific product categories (nose rings, bulbs, fuses, lampshades)
-processedProducts = addProfitDataToProducts(processedProducts);
+// Products are ready for export
 
 // Export the products array
 export const allProducts = processedProducts;

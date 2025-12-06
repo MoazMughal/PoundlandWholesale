@@ -225,11 +225,7 @@ const AdminDashboard = () => {
     // Calculate product cost automatically from product price (keep in PKR)
     const productPricePKR = parseFloat(product.price) || 0;
     
-    console.log('🔧 Starting profit editing for:', product.name);
-    console.log('💰 Product price (PKR):', productPricePKR);
-    console.log('📊 Existing platform comparison:', product.platformComparison);
-    console.log('📊 Existing profit calculations:', product.profitCalculations);
-    console.log('📊 Existing profit evaluation:', product.profitEvaluation);
+
     
     setProfitEditProduct({
       _id: product._id,
@@ -344,19 +340,21 @@ const AdminDashboard = () => {
     if (!profitEditProduct) return;
 
     try {
+      // Calculate profitFor200Units based on profitPerUnit
+      const calculatedProfitFor200Units = (profitEditProduct.profitCalculations.profitPerUnit || 0) * 200;
+      
       const updateData = {
         platformComparison: profitEditProduct.platformComparison,
-        profitCalculations: profitEditProduct.profitCalculations,
+        profitCalculations: {
+          ...profitEditProduct.profitCalculations,
+          profitFor200Units: calculatedProfitFor200Units // Auto-calculated value
+        },
         profitEvaluation: profitEditProduct.profitEvaluation
       };
 
       await adminPut(`http://localhost:5000/api/products/${profitEditProduct._id}`, updateData);
       
-      console.log('✅ Profit data updated successfully for:', profitEditProduct.name);
-      console.log('📊 Updated platform comparison:', profitEditProduct.platformComparison);
-      console.log('📊 Updated profit calculations:', profitEditProduct.profitCalculations);
-      console.log('📊 Updated profit evaluation:', profitEditProduct.profitEvaluation);
-      alert('✅ Profit data updated successfully!\n\n📋 This data will now appear on the product detail page like nose ring, fuse, etc.\n\n🔄 The product detail page will show:\n• Platform comparison with your configured platforms\n• Profit calculations with your values\n• Profit evaluation with fees and net profit\n\n💰 Product Cost will automatically update when you change the product price!');
+      alert('✅ Profit data updated successfully!');
       setShowProfitModal(false);
       setProfitEditProduct(null);
       
@@ -379,6 +377,9 @@ const AdminDashboard = () => {
         .map(img => img.trim())
         .filter(img => img.length > 0);
 
+      // Calculate profitFor200Units based on profitPerUnit
+      const calculatedProfitFor200Units = (fullEditProduct.profitCalculations.profitPerUnit || 0) * 200;
+      
       const updateData = {
         name: fullEditProduct.name,
         price: isNaN(parseFloat(fullEditProduct.price)) ? 0 : parseFloat(fullEditProduct.price),
@@ -393,7 +394,10 @@ const AdminDashboard = () => {
         isAmazonsChoice: fullEditProduct.isAmazonsChoice,
         status: fullEditProduct.status,
         platformComparison: fullEditProduct.platformComparison,
-        profitCalculations: fullEditProduct.profitCalculations,
+        profitCalculations: {
+          ...fullEditProduct.profitCalculations,
+          profitFor200Units: calculatedProfitFor200Units // Auto-calculated value
+        },
         profitEvaluation: fullEditProduct.profitEvaluation
       };
 
@@ -402,7 +406,7 @@ const AdminDashboard = () => {
       // Clear cache to ensure updated product appears immediately in Amazon's Choice
       cacheManager.remove('amazons_choice_products');
       cacheManager.clearAll(); // Clear all cache entries
-      console.log('✅ Cache cleared - updated product will appear immediately in Amazon\'s Choice');
+
       
       alert('✅ Product updated successfully! Changes will appear immediately in Amazon\'s Choice products.');
       setShowFullEditModal(false);
@@ -1549,19 +1553,18 @@ const AdminDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>If sold 200 units (Rs)</label>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+                    If sold 200 units (Rs)
+                    <span style={{fontSize: '0.75rem', color: '#17a2b8', fontWeight: 'normal', marginLeft: '5px'}}>
+                      🧮 Auto (Profit/Unit × 200)
+                    </span>
+                  </label>
                   <input
                     type="number"
                     step="0.01"
-                    value={fullEditProduct.profitCalculations.profitFor200Units}
-                    onChange={(e) => setFullEditProduct({
-                      ...fullEditProduct, 
-                      profitCalculations: {
-                        ...fullEditProduct.profitCalculations,
-                        profitFor200Units: parseFloat(e.target.value) || 0
-                      }
-                    })}
-                    style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px'}}
+                    value={(fullEditProduct.profitCalculations.profitPerUnit || 0) * 200}
+                    readOnly
+                    style={{width: '100%', padding: '10px', border: '1px solid #17a2b8', borderRadius: '4px', backgroundColor: '#e7f3ff', cursor: 'not-allowed'}}
                   />
                 </div>
 
@@ -1590,7 +1593,7 @@ const AdminDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>Commission (Rs)</label>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>Commission + inc tax ({currencySymbols[currency]})</label>
                   <input
                     type="number"
                     step="0.01"
@@ -1606,7 +1609,7 @@ const AdminDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>Digital Services Fee (Rs)</label>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>Digital Services Fee + inc tax ({currencySymbols[currency]})</label>
                   <input
                     type="number"
                     step="0.01"
@@ -1622,7 +1625,7 @@ const AdminDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>FBA Fulfilment Fee (Rs)</label>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>FBA Fulfilment Fee + inc tax ({currencySymbols[currency]})</label>
                   <input
                     type="number"
                     step="0.01"
@@ -1933,19 +1936,19 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>If sold 200 units (Rs)</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
+                      If sold 200 units (Rs)
+                      <span style={{fontSize: '0.8rem', color: '#17a2b8', fontWeight: 'normal', marginLeft: '8px'}}>
+                        🧮 Auto-calculated (Profit per Unit × 200)
+                      </span>
+                    </label>
                     <input
                       type="number"
                       step="0.01"
-                      value={profitEditProduct.profitCalculations.profitFor200Units}
-                      onChange={(e) => setProfitEditProduct({
-                        ...profitEditProduct, 
-                        profitCalculations: {
-                          ...profitEditProduct.profitCalculations,
-                          profitFor200Units: parseFloat(e.target.value) || 0
-                        }
-                      })}
-                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                      value={(profitEditProduct.profitCalculations.profitPerUnit || 0) * 200}
+                      readOnly
+                      style={{width: '100%', padding: '12px', border: '1px solid #17a2b8', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: '#e7f3ff', cursor: 'not-allowed'}}
+                      placeholder="Auto-calculated: Profit per Unit × 200"
                     />
                   </div>
 
@@ -1974,7 +1977,7 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Commission (Rs)</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Commission + inc tax ({currencySymbols[currency]})</label>
                     <input
                       type="number"
                       step="0.01"
@@ -1990,7 +1993,7 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Digital Services Fee (Rs)</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Digital Services Fee + inc tax ({currencySymbols[currency]})</label>
                     <input
                       type="number"
                       step="0.01"
@@ -2006,7 +2009,7 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>FBA Fulfilment Fee (Rs)</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>FBA Fulfilment Fee + inc tax ({currencySymbols[currency]})</label>
                     <input
                       type="number"
                       step="0.01"
@@ -2030,7 +2033,7 @@ const AdminDashboard = () => {
                       onChange={(e) => {
                         const newBalanceChange = parseFloat(e.target.value) || 0;
                         const productCost = profitEditProduct.profitEvaluation.productCost || 0;
-                        const calculatedNetProfit = productCost - newBalanceChange; // CORRECTED Formula: Net Profit = Product Cost - Balance Change
+                        const calculatedNetProfit = newBalanceChange - productCost; // Formula: Net Profit = Balance Change - Product Cost
                         
                         setProfitEditProduct({
                           ...profitEditProduct, 
@@ -2062,7 +2065,7 @@ const AdminDashboard = () => {
                       onChange={(e) => {
                         const newProductCost = parseFloat(e.target.value) || 0;
                         const balanceChange = profitEditProduct.profitEvaluation.balanceChange || 0;
-                        const calculatedNetProfit = newProductCost - balanceChange; // CORRECTED Formula: Net Profit = Product Cost - Balance Change
+                        const calculatedNetProfit = balanceChange - newProductCost; // Formula: Net Profit = Balance Change - Product Cost
                         
                         setProfitEditProduct({
                           ...profitEditProduct, 
@@ -2085,7 +2088,7 @@ const AdminDashboard = () => {
                     <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
                       Net Profit (PKR) 
                       <span style={{fontSize: '0.8rem', color: '#17a2b8', fontWeight: 'normal', marginLeft: '8px'}}>
-                        🧮 Auto-calculated (Product Cost - Balance Change)
+                        🧮 Auto-calculated (Balance Change - Product Cost)
                       </span>
                     </label>
                     <input
@@ -2094,7 +2097,7 @@ const AdminDashboard = () => {
                       value={profitEditProduct.profitEvaluation.netProfit}
                       readOnly
                       style={{width: '100%', padding: '12px', border: '1px solid #17a2b8', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: '#e7f3ff', cursor: 'not-allowed'}}
-                      placeholder="Auto-calculated: Product Cost - Balance Change"
+                      placeholder="Auto-calculated: Balance Change - Product Cost"
                     />
                   </div>
                 </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { adminGet, adminPut, adminDelete } from '../../utils/adminApi';
 import { uploadMultipleImages, validateImageFile } from '../../utils/imageUpload';
 import cacheManager from '../../utils/cacheManager';
@@ -9,7 +9,12 @@ import '../../styles/AdminProductForm.css';
 const EditProduct = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { currency, currencySymbols } = useCurrency();
+  
+  // Get return category from URL params or location state
+  const urlParams = new URLSearchParams(location.search);
+  const returnCategory = location.state?.category || urlParams.get('returnCategory') || '';
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,6 +34,7 @@ const EditProduct = () => {
 
   const [imageFiles, setImageFiles] = useState([]);
   const [imageUrls, setImageUrls] = useState([]);
+  const [originalImages, setOriginalImages] = useState([]); // Store original images from database
   const [uploadingImages, setUploadingImages] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -80,11 +86,14 @@ const EditProduct = () => {
         status: product.status || 'active'
       });
 
-      // Set existing image URLs for display
+      // Set existing image URLs for display and store original images
       if (product.images && product.images.length > 0) {
         setImageUrls(product.images);
+        setOriginalImages(product.images); // Store original images as backup
         console.log('📸 Loaded existing images:', product.images);
       } else {
+        setImageUrls([]);
+        setOriginalImages([]);
         console.log('📸 No existing images found');
       }
     } catch (error) {
@@ -143,7 +152,7 @@ const EditProduct = () => {
 
     setImageFiles(prev => [...prev, ...validFiles]);
     
-    // Create preview URLs
+    // Create preview URLs for new images
     validFiles.forEach(file => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -151,11 +160,26 @@ const EditProduct = () => {
       };
       reader.readAsDataURL(file);
     });
+    
+    console.log('📸 Added new image files:', validFiles.length);
   };
 
   const removeImage = (index) => {
+    const imageUrl = imageUrls[index];
+    
+    // Remove from imageUrls
     setImageUrls(prev => prev.filter((_, i) => i !== index));
-    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    
+    // If it's a base64 data URL (new image preview), also remove from imageFiles
+    if (imageUrl && imageUrl.startsWith('data:')) {
+      // Find the corresponding file index (new images are added after original images)
+      const newImageIndex = index - originalImages.length;
+      if (newImageIndex >= 0) {
+        setImageFiles(prev => prev.filter((_, i) => i !== newImageIndex));
+      }
+    }
+    
+    console.log('📸 Removed image at index:', index, 'URL:', imageUrl);
   };
 
   const uploadImages = async () => {
@@ -212,25 +236,46 @@ const EditProduct = () => {
       // Combine existing images with new uploaded images
       let allImageUrls = [];
       
-      // Start with existing images (from database)
-      if (imageUrls.length > 0) {
-        // Filter out any base64 data URLs from previous uploads and keep only valid URLs
-        const validExistingUrls = imageUrls.filter(url => 
-          url && 
-          !url.startsWith('data:') && 
-          (url.startsWith('http') || url.startsWith('/assets') || url.startsWith('assets'))
-        );
-        allImageUrls = [...validExistingUrls];
+      // If no new images were uploaded, use original images from database
+      if (imageFiles.length === 0) {
+        // No new images, keep all original images
+        allImageUrls = [...originalImages];
+        console.log('📸 No new images uploaded, keeping original images:', originalImages);
+      } else {
+        // New images were uploaded, combine with existing non-preview images
+        if (imageUrls.length > 0) {
+          // Keep all existing URLs that are not base64 data URLs (preview URLs)
+          const validExistingUrls = imageUrls.filter(url => {
+            if (!url || typeof url !== 'string') return false;
+            
+            // Remove base64 data URLs (these are just previews)
+            if (url.startsWith('data:')) return false;
+            
+            // Keep all other URLs - be more permissive to avoid losing valid images
+            return true;
+          });
+          
+          allImageUrls = [...validExistingUrls];
+          console.log('📸 Keeping existing non-preview images:', validExistingUrls);
+        }
+        
+        // Add any new uploaded images
+        if (newImageUrls.length > 0) {
+          allImageUrls = [...allImageUrls, ...newImageUrls];
+          console.log('📸 Adding new uploaded images:', newImageUrls);
+        }
       }
       
-      // Add any new uploaded images
-      if (newImageUrls.length > 0) {
-        allImageUrls = [...allImageUrls, ...newImageUrls];
+      // Final safety check - if we somehow lost all images and had original images, restore them
+      if (allImageUrls.length === 0 && originalImages.length > 0) {
+        allImageUrls = [...originalImages];
+        console.log('📸 Safety fallback: Restored original images:', originalImages);
       }
       
-      console.log('📸 Final image URLs:', allImageUrls);
+      console.log('📸 Final image URLs to save:', allImageUrls);
       console.log('📸 Original imageUrls state:', imageUrls);
-      console.log('📸 New uploaded images:', newImageUrls);
+      console.log('📸 Original images from DB:', originalImages);
+      console.log('📸 Image files selected:', imageFiles.length);
 
       const productData = {
         name: formData.name.trim(),
@@ -265,7 +310,11 @@ const EditProduct = () => {
       console.log('✅ Cache cleared - updated product will appear immediately in Amazon\'s Choice');
       
       alert('✅ Product updated successfully! Changes will appear immediately in Amazon\'s Choice products.');
-      navigate('/admin/products');
+      // Navigate back with category filter preserved
+      const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
+      navigate(backUrl, {
+        state: { category: returnCategory }
+      });
     } catch (error) {
       console.error('Error updating product:', error);
       console.error('Product data that failed:', productData);
@@ -291,7 +340,11 @@ const EditProduct = () => {
     try {
       await adminDelete(`http://localhost:5000/api/products/${id}`);
       alert('✅ Product deleted successfully!');
-      navigate('/admin/products');
+      // Navigate back with category filter preserved
+      const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
+      navigate(backUrl, {
+        state: { category: returnCategory }
+      });
     } catch (error) {
       console.error('Error deleting product:', error);
       alert('❌ Failed to delete product: ' + error.message);
@@ -310,7 +363,13 @@ const EditProduct = () => {
           <button onClick={handleDelete} className="delete-btn">
             🗑️ Delete Product
           </button>
-          <button onClick={() => navigate('/admin/products')} className="back-btn">
+          <button onClick={() => {
+            console.log('🔙 Back button clicked, returnCategory:', returnCategory);
+            const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
+            navigate(backUrl, {
+              state: { category: returnCategory }
+            });
+          }} className="back-btn">
             ← Back to Products
           </button>
         </div>
@@ -600,7 +659,12 @@ const EditProduct = () => {
              saving ? '⏳ Saving Changes...' : 
              '✅ Save Changes'}
           </button>
-          <button type="button" onClick={() => navigate('/admin/products')} className="cancel-btn">
+          <button type="button" onClick={() => {
+            const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
+            navigate(backUrl, {
+              state: { category: returnCategory }
+            });
+          }} className="cancel-btn">
             Cancel
           </button>
         </div>

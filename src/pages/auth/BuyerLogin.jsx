@@ -61,81 +61,87 @@ const BuyerLogin = () => {
   }
 
   return (
-    <div className="min-vh-100 d-flex align-items-center bg-light">
+    <div className="min-vh-100 d-flex" style={{
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      padding: '10px 0',
+      alignItems: 'flex-start',
+      paddingTop: '4vh'
+    }}>
       <div className="container">
         <div className="row justify-content-center">
-          <div className="col-lg-5 col-md-7">
-            <div className="card shadow-lg border-0 rounded-4">
-              <div className="card-body p-5">
-                {/* Header */}
-                <div className="text-center mb-4">
-                  <div className="mb-3">
-                    <i className="fas fa-shopping-cart fa-3x text-primary"></i>
+          <div className="col-lg-5 col-md-7 col-sm-9">
+            <div className="card shadow-lg border-0" style={{
+              borderRadius: '20px',
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(10px)'
+            }}>
+              <div className="card-body p-3">
+                {/* Compact Header */}
+                <div className="text-center mb-2">
+                  <div className="d-inline-flex align-items-center justify-content-center mb-2" style={{
+                    width: '60px',
+                    height: '60px',
+                    background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+                    borderRadius: '50%',
+                    boxShadow: '0 8px 25px rgba(0, 123, 255, 0.3)'
+                  }}>
+                    <i className="fas fa-shopping-cart fa-2x text-white"></i>
                   </div>
-                  <h2 className="fw-bold text-dark mb-2">Buyer Login</h2>
-                  <p className="text-muted">Access wholesale prices and exclusive deals</p>
+                  <h3 className="fw-bold text-dark mb-1" style={{fontSize: '1.5rem'}}>Buyer Login</h3>
+                  <p className="text-muted small mb-0">Wholesale prices & exclusive deals</p>
                 </div>
 
-                {/* Error Message */}
+                {/* Compact Error Message */}
                 {error && (
-                  <div className="alert alert-danger alert-dismissible fade show mb-4" role="alert">
-                    <div className="d-flex align-items-center">
-                      <i className="fas fa-exclamation-triangle me-2"></i>
-                      {error}
-                    </div>
-                    <button 
-                      type="button" 
-                      className="btn-close" 
-                      onClick={() => setError('')}
-                    ></button>
+                  <div className="alert alert-danger py-2 mb-3" style={{borderRadius: '10px', fontSize: '0.85rem'}}>
+                    <i className="fas fa-exclamation-triangle me-2"></i>
+                    {error}
                   </div>
                 )}
 
-                {/* Login Form */}
+                {/* Compact Login Form */}
                 <form onSubmit={handleSubmit}>
-                  <div className="mb-3">
-                    <label htmlFor="email" className="form-label fw-semibold">
-                      Email or WhatsApp Number
-                    </label>
-                    <div className="input-group">
-                      <span className="input-group-text bg-light border-end-0">
-                        <i className="fas fa-envelope text-muted"></i>
+                  <div className="mb-2">
+                    <div className="input-group" style={{borderRadius: '12px', overflow: 'hidden'}}>
+                      <span className="input-group-text border-0" style={{
+                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)'
+                      }}>
+                        <i className="fas fa-envelope text-primary"></i>
                       </span>
                       <input
                         type="text"
-                        className="form-control border-start-0 ps-0"
-                        id="email"
+                        className="form-control border-0 py-2"
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        placeholder="Enter your email or WhatsApp number"
+                        placeholder="Email or WhatsApp number"
                         required
+                        style={{fontSize: '0.9rem'}}
                       />
                     </div>
                   </div>
 
-                  <div className="mb-3">
-                    <label htmlFor="password" className="form-label fw-semibold">
-                      Password
-                    </label>
-                    <div className="input-group">
-                      <span className="input-group-text bg-light border-end-0">
-                        <i className="fas fa-lock text-muted"></i>
+                  <div className="mb-2">
+                    <div className="input-group" style={{borderRadius: '12px', overflow: 'hidden'}}>
+                      <span className="input-group-text border-0" style={{
+                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)'
+                      }}>
+                        <i className="fas fa-lock text-primary"></i>
                       </span>
                       <input
                         type="password"
-                        className="form-control border-start-0 ps-0"
-                        id="password"
+                        className="form-control border-0 py-2"
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
-                        placeholder="Enter your password"
+                        placeholder="Password"
                         required
+                        style={{fontSize: '0.9rem'}}
                       />
                     </div>
                   </div>
 
-                  <div className="mb-4 d-flex justify-content-between align-items-center">
+                  <div className="mb-2 d-flex justify-content-between align-items-center">
                     <div className="form-check">
                       <input
                         className="form-check-input"
@@ -145,19 +151,27 @@ const BuyerLogin = () => {
                         checked={formData.rememberMe}
                         onChange={handleChange}
                       />
-                      <label className="form-check-label text-muted" htmlFor="rememberMe">
+                      <label className="form-check-label text-muted small" htmlFor="rememberMe">
                         Remember me
                       </label>
                     </div>
-                    <Link to="/forgot-password" className="text-decoration-none small">
+                    <Link to="/forgot-password" className="text-decoration-none small text-primary">
                       Forgot Password?
                     </Link>
                   </div>
 
                   <button 
                     type="submit" 
-                    className="btn btn-primary w-100 py-2 fw-semibold rounded-3" 
+                    className="btn w-100 py-2 fw-semibold mb-2" 
                     disabled={loading}
+                    style={{
+                      background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      color: 'white',
+                      fontSize: '0.9rem',
+                      boxShadow: '0 4px 15px rgba(0, 123, 255, 0.4)'
+                    }}
                   >
                     {loading ? (
                       <>
@@ -165,66 +179,62 @@ const BuyerLogin = () => {
                         Signing In...
                       </>
                     ) : (
-                      'Sign In as Buyer'
+                      <>
+                        <i className="fas fa-sign-in-alt me-2"></i>
+                        Sign In as Buyer
+                      </>
                     )}
                   </button>
                 </form>
 
-                {/* Divider */}
-                <div className="text-center my-4">
-                  <hr className="my-3" />
-                  <span className="text-muted small bg-white px-3">New to Amazon Choice?</span>
-                </div>
-
-                {/* Register Link */}
-                <div className="text-center">
+                {/* Compact Register Link */}
+                <div className="text-center mb-2">
                   <Link 
                     to="/register/buyer" 
-                    className="btn btn-outline-primary w-100 py-2 fw-semibold rounded-3"
+                    className="btn btn-outline-primary w-100 py-2"
+                    style={{borderRadius: '12px', fontSize: '0.9rem'}}
                   >
+                    <i className="fas fa-user-plus me-2"></i>
                     Create Buyer Account
                   </Link>
                 </div>
 
-                {/* Other Login Options */}
-                <div className="text-center mt-4">
-                  <p className="text-muted small mb-2">Looking for something else?</p>
-                  <div className="d-flex gap-2 justify-content-center">
-                    <Link to="/login/supplier" className="btn btn-outline-secondary btn-sm">
-                      Supplier Login
+                {/* Compact Navigation */}
+                <div className="row g-2 mb-2">
+                  <div className="col-6">
+                    <Link to="/login/supplier" className="btn btn-outline-secondary btn-sm w-100" style={{borderRadius: '8px', fontSize: '0.8rem'}}>
+                      <i className="fas fa-store me-1"></i>
+                      Supplier
                     </Link>
-                    <Link to="/admin/login" className="btn btn-outline-warning btn-sm">
-                      Admin Login
+                  </div>
+                  <div className="col-6">
+                    <Link to="/admin/login" className="btn btn-outline-warning btn-sm w-100" style={{borderRadius: '8px', fontSize: '0.8rem'}}>
+                      <i className="fas fa-crown me-1"></i>
+                      Admin
                     </Link>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Benefits Section */}
-            <div className="row mt-4">
-              <div className="col-12">
-                <h6 className="text-center mb-3 text-dark">Why Choose Amazon Choice for Buying?</h6>
-              </div>
-              <div className="col-md-4 text-center mb-2">
-                <div className="p-2">
-                  <i className="fas fa-tags fa-lg text-primary mb-1"></i>
-                  <div className="fw-semibold small">Wholesale Prices</div>
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>Best prices from suppliers</div>
-                </div>
-              </div>
-              <div className="col-md-4 text-center mb-2">
-                <div className="p-2">
-                  <i className="fas fa-shield-alt fa-lg text-success mb-1"></i>
-                  <div className="fw-semibold small">Verified Suppliers</div>
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>All suppliers verified</div>
-                </div>
-              </div>
-              <div className="col-md-4 text-center mb-2">
-                <div className="p-2">
-                  <i className="fas fa-shipping-fast fa-lg text-info mb-1"></i>
-                  <div className="fw-semibold small">Fast Delivery</div>
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>Quick shipping nationwide</div>
+                {/* Compact Benefits */}
+                <div className="row g-2 text-center">
+                  <div className="col-4">
+                    <div className="p-1">
+                      <i className="fas fa-tags text-primary mb-1"></i>
+                      <div className="fw-semibold" style={{fontSize: '0.75rem'}}>Wholesale</div>
+                    </div>
+                  </div>
+                  <div className="col-4">
+                    <div className="p-1">
+                      <i className="fas fa-shield-alt text-success mb-1"></i>
+                      <div className="fw-semibold" style={{fontSize: '0.75rem'}}>Verified</div>
+                    </div>
+                  </div>
+                  <div className="col-4">
+                    <div className="p-1">
+                      <i className="fas fa-shipping-fast text-info mb-1"></i>
+                      <div className="fw-semibold" style={{fontSize: '0.75rem'}}>Fast Ship</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

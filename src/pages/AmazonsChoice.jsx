@@ -433,12 +433,25 @@ const AmazonsChoice = () => {
                   isAmazonsChoice: p.isAmazonsChoice,
                   isBestSeller: p.isBestSeller,
                   monthlyProfit: p.monthlyProfit,
-                  sellerInfo: p.sellerInfo
+                  sellerInfo: p.sellerInfo,
+                  // Add statuses for badges
+                  statuses: [
+                    `${Math.floor(Math.random() * 1000) + 100} in basket`,
+                    ['Amazon\'s Choice', 'Selling Fast', 'Best Seller'][Math.floor(Math.random() * 3)]
+                  ]
                 }
               })
               
+              // Shuffle products for random display
+              for (let i = allProducts.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allProducts[i], allProducts[j]] = [allProducts[j], allProducts[i]];
+              }
+              
               setProducts(allProducts)
               setFilteredProducts(allProducts)
+              // Reset badge initialization flag so badges get initialized for reloaded products
+              badgeInitializedRef.current = false
               console.log('🔄 Reloaded all Amazon\'s Choice products:', allProducts.length)
             }
           }
@@ -487,13 +500,26 @@ const AmazonsChoice = () => {
                 isAmazonsChoice: p.isAmazonsChoice,
                 isBestSeller: p.isBestSeller,
                 monthlyProfit: p.monthlyProfit,
-                sellerInfo: p.sellerInfo
+                sellerInfo: p.sellerInfo,
+                // Add statuses for badges
+                statuses: [
+                  `${Math.floor(Math.random() * 1000) + 100} in basket`,
+                  ['Amazon\'s Choice', 'Selling Fast', 'Best Seller'][Math.floor(Math.random() * 3)]
+                ]
               }
             })
+            
+            // Shuffle search results for random display
+            for (let i = searchResults.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [searchResults[i], searchResults[j]] = [searchResults[j], searchResults[i]];
+            }
             
             // Update products with search results
             setProducts(searchResults)
             setFilteredProducts(searchResults)
+            // Reset badge initialization flag so badges get initialized for search results
+            badgeInitializedRef.current = false
             
             console.log(`🔍 Search results for "${searchQuery}":`, searchResults.length, 'products')
           } else {
@@ -521,23 +547,23 @@ const AmazonsChoice = () => {
 
   // Use ref to keep track of current products without causing re-renders
   const currentProductsRef = useRef(currentProducts)
+  const badgeInitializedRef = useRef(false)
   
   // Update ref when products change
   useEffect(() => {
     currentProductsRef.current = currentProducts
   }, [currentProducts])
 
-  // Initialize random starting index for each product - only when products change
+  // Initialize random starting index for each product - ONLY ONCE on first load
   useEffect(() => {
-    if (currentProducts.length > 0) {
-      setCurrentStatusIndex(prev => {
-        const initialIndex = {}
-        currentProducts.forEach((product, idx) => {
-          // Keep existing index if it exists, otherwise set random
-          initialIndex[idx] = prev[idx] !== undefined ? prev[idx] : Math.floor(Math.random() * (product.statuses?.length || 1))
-        })
-        return initialIndex
+    if (currentProducts.length > 0 && !badgeInitializedRef.current) {
+      console.log('🎯 Initializing badges for', currentProducts.length, 'products')
+      const initialIndex = {}
+      currentProducts.forEach((product, idx) => {
+        initialIndex[idx] = Math.floor(Math.random() * (product.statuses?.length || 1))
       })
+      setCurrentStatusIndex(initialIndex)
+      badgeInitializedRef.current = true
     }
   }, [currentProducts.length])
 
@@ -926,8 +952,8 @@ const AmazonsChoice = () => {
                   {product.statuses && product.statuses.length > 0 && (
                     <div style={{position: 'absolute', top: '4px', right: '4px', zIndex: 2}}>
                       {(() => {
-                        const currentBadgeIndex = currentStatusIndex[index] || 0;
-                        const status = product.statuses[currentBadgeIndex];
+                        const currentBadgeIndex = currentStatusIndex[index] !== undefined ? currentStatusIndex[index] : 0;
+                        const status = product.statuses[currentBadgeIndex] || product.statuses[0] || "Amazon's Choice";
                         let bgColor = '#667eea';
                         let textColor = 'white';
                         

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useSeller } from '../context/SellerContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
-import logo from '../assets/Generic wholesale logo.png';
+
 import '../styles/mobile-header.css';
 
 const CompactHeader = () => {
@@ -155,16 +155,37 @@ const CompactHeader = () => {
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          marginRight: '10px',
-          overflow: 'hidden'
+          marginRight: '35px',
+          overflow: 'visible'
         }}>
-          <img src={logo} alt="Generic Wholesale" style={{ 
-            width: 'auto',
-            height: '55px',
-            objectFit: 'contain',
-            background: 'transparent',
-            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
-          }} />
+          <div style={{
+            position: 'relative',
+            display: 'inline-block',
+            lineHeight: '1'
+          }}>
+            <span style={{
+              fontSize: '15px',
+              fontWeight: '700',
+              color: '#fff',
+              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              letterSpacing: '-0.5px'
+            }}>
+              Generic Wholesale
+            </span>
+            <span style={{
+              position: 'absolute',
+              top: '12px',
+              right: '-22px',
+              fontSize: '9px',
+              fontWeight: '600',
+              color: '#fff',
+              textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+              letterSpacing: '0px',
+              whiteSpace: 'nowrap'
+            }}>
+              .co.uk
+            </span>
+          </div>
         </Link>
 
         {/* Search Bar */}
@@ -174,20 +195,34 @@ const CompactHeader = () => {
           display: 'flex',
           gap: '6px'
         }}>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search products..."
-            style={{
-              flex: 1,
-              padding: '6px 10px',
-              border: '1px solid #fff',
-              borderRadius: '4px',
+          <div style={{
+            position: 'relative',
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search products..."
+              style={{
+                width: '100%',
+                padding: '6px 35px 6px 10px',
+                border: '1px solid #fff',
+                borderRadius: '4px',
+                fontSize: '12px',
+                outline: 'none'
+              }}
+            />
+            <i className="fas fa-search" style={{
+              position: 'absolute',
+              right: '10px',
+              color: '#999',
               fontSize: '12px',
-              outline: 'none'
-            }}
-          />
+              pointerEvents: 'none'
+            }}></i>
+          </div>
           <button type="submit" style={{
             padding: '6px 15px',
             background: '#232f3e',

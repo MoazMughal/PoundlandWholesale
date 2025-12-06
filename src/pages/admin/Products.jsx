@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import '../../styles/AdminProducts.css';
 import '../../styles/AdminLayout.css';
 
 const AdminProducts = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +19,8 @@ const AdminProducts = () => {
   const [totalProducts, setTotalProducts] = useState(0);
   const [showProfitModal, setShowProfitModal] = useState(false);
   const [profitEditProduct, setProfitEditProduct] = useState(null);
-  const navigate = useNavigate();
+  const [selectedProducts, setSelectedProducts] = useState(new Set()); // Track selected product IDs
+  const [modalCurrency, setModalCurrency] = useState('PKR'); // Separate currency state for modal
   
   const productsPerPage = 50;
 
@@ -46,7 +50,8 @@ const AdminProducts = () => {
   const currencySymbols = {
     PKR: 'Rs',
     USD: '$',
-    GBP: '£'
+    GBP: '£',
+    AED: 'د.إ'
   };
 
   const convertPrice = (price) => {
@@ -57,6 +62,36 @@ const AdminProducts = () => {
   const formatPrice = (price) => {
     return `${currencySymbols[currency]}${convertPrice(price)}`;
   };
+
+  // Convert PKR value to selected currency for display (for modal)
+  const convertFromPKRModal = (pkrValue) => {
+    if (!pkrValue || isNaN(pkrValue)) return 0;
+    return parseFloat((pkrValue * currencyRates[modalCurrency]).toFixed(2));
+  };
+
+  // Convert selected currency value back to PKR for storage (for modal)
+  const convertToPKRModal = (currencyValue) => {
+    if (!currencyValue || isNaN(currencyValue)) return 0;
+    return currencyValue / currencyRates[modalCurrency];
+  };
+
+  // Initialize and restore category filter from location state or URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const categoryFromState = location.state?.category;
+    const categoryFromUrl = urlParams.get('category');
+    const categoryToRestore = categoryFromState || categoryFromUrl || '';
+    
+
+    
+    // Always set the category from navigation
+    setFilters(prev => {
+      if (prev.category !== categoryToRestore) {
+        return { ...prev, category: categoryToRestore };
+      }
+      return prev;
+    });
+  }, [location.pathname, location.search, location.state?.category]); // React to navigation changes
 
   useEffect(() => {
     fetchProducts();
@@ -99,8 +134,6 @@ const AdminProducts = () => {
       });
 
       const url = `http://localhost:5000/api/products?${params}`;
-      console.log('🔍 Fetching:', url);
-      console.log('📋 Filters:', filters);
 
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -113,8 +146,6 @@ const AdminProducts = () => {
       }
       
       const data = await response.json();
-      console.log('✅ Received:', data.products.length, 'products');
-      console.log('📊 Total in database:', data.total || data.products.length);
       setProducts(data.products);
       setTotalProducts(data.total || data.products.length);
       setFilteredProducts(data.products);
@@ -138,9 +169,94 @@ const AdminProducts = () => {
 
       if (response.ok) {
         fetchProducts();
+        // Remove from selected if it was selected
+        setSelectedProducts(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(id);
+          return newSet;
+        });
       }
     } catch (error) {
       console.error('Error:', error);
+    }
+  };
+
+  // Handle selecting/deselecting a single product
+  const handleSelectProduct = (productId) => {
+    setSelectedProducts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(productId)) {
+        newSet.delete(productId);
+      } else {
+        newSet.add(productId);
+      }
+      return newSet;
+    });
+  };
+
+  // Handle select all / deselect all
+  const handleSelectAll = () => {
+    if (selectedProducts.size === filteredProducts.length) {
+      // Deselect all
+      setSelectedProducts(new Set());
+    } else {
+      // Select all on current page
+      const currentPageProducts = filteredProducts.slice(
+        (currentPage - 1) * productsPerPage,
+        currentPage * productsPerPage
+      );
+      setSelectedProducts(new Set(currentPageProducts.map(p => p._id)));
+    }
+  };
+
+  // Bulk delete selected products
+  const handleBulkDelete = async () => {
+    if (selectedProducts.size === 0) {
+      alert('⚠️ Please select at least one product to delete');
+      return;
+    }
+
+    if (!confirm(`⚠️ Are you sure you want to delete ${selectedProducts.size} selected product(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      let successCount = 0;
+      let failCount = 0;
+
+      // Delete each selected product
+      for (const productId of selectedProducts) {
+        try {
+          const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (response.ok) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (error) {
+          console.error('Error deleting product:', productId, error);
+          failCount++;
+        }
+      }
+
+      // Clear selection and refresh
+      setSelectedProducts(new Set());
+      fetchProducts();
+
+      // Show result
+      if (failCount === 0) {
+        alert(`✅ Successfully deleted ${successCount} product(s)`);
+      } else {
+        alert(`⚠️ Deleted ${successCount} product(s), failed to delete ${failCount} product(s)`);
+      }
+    } catch (error) {
+      console.error('Error in bulk delete:', error);
+      alert('❌ Failed to delete products');
     }
   };
 
@@ -180,11 +296,7 @@ const AdminProducts = () => {
     // Calculate product cost automatically from product price (keep in PKR)
     const productPricePKR = parseFloat(product.price) || 0;
     
-    console.log('🔧 Starting profit editing for:', product.name);
-    console.log('💰 Product price (PKR):', productPricePKR);
-    console.log('📊 Existing platform comparison:', product.platformComparison);
-    console.log('📊 Existing profit calculations:', product.profitCalculations);
-    console.log('📊 Existing profit evaluation:', product.profitEvaluation);
+
     
     setProfitEditProduct({
       _id: product._id,
@@ -217,6 +329,8 @@ const AdminProducts = () => {
         netProfit: 0
       }
     });
+    // Initialize modal currency to current page currency
+    setModalCurrency(currency);
     setShowProfitModal(true);
   };
 
@@ -225,9 +339,16 @@ const AdminProducts = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
+      
+      // Calculate profitFor200Units based on profitPerUnit
+      const calculatedProfitFor200Units = (profitEditProduct.profitCalculations.profitPerUnit || 0) * 200;
+      
       const updateData = {
         platformComparison: profitEditProduct.platformComparison,
-        profitCalculations: profitEditProduct.profitCalculations,
+        profitCalculations: {
+          ...profitEditProduct.profitCalculations,
+          profitFor200Units: calculatedProfitFor200Units // Auto-calculated value
+        },
         profitEvaluation: profitEditProduct.profitEvaluation
       };
 
@@ -241,11 +362,7 @@ const AdminProducts = () => {
       });
 
       if (response.ok) {
-        console.log('✅ Profit data updated successfully for:', profitEditProduct.name);
-        console.log('📊 Updated platform comparison:', profitEditProduct.platformComparison);
-        console.log('📊 Updated profit calculations:', profitEditProduct.profitCalculations);
-        console.log('📊 Updated profit evaluation:', profitEditProduct.profitEvaluation);
-        alert('✅ Profit data updated successfully!\n\n📋 This data will now appear on the product detail page like nose ring, fuse, etc.\n\n🔄 The product detail page will show:\n• Platform comparison with your configured platforms\n• Profit calculations with your values\n• Profit evaluation with fees and net profit\n\n💰 Product Cost will automatically update when you change the product price!');
+        alert('✅ Profit data updated successfully!');
         setShowProfitModal(false);
         setProfitEditProduct(null);
         fetchProducts(); // Refresh the products list
@@ -268,7 +385,14 @@ const AdminProducts = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const parsedValue = field === 'price' || field === 'stock' ? parseFloat(newValue) : newValue;
+      let parsedValue = field === 'price' || field === 'stock' ? parseFloat(newValue) : newValue;
+      
+      // If editing price and currency is not PKR, convert back to PKR for storage
+      if (field === 'price' && currency !== 'PKR') {
+        const priceInPKR = parsedValue / currencyRates[currency];
+        parsedValue = priceInPKR;
+      }
+      
       const updateData = { [field]: parsedValue };
       
       const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
@@ -298,7 +422,7 @@ const AdminProducts = () => {
           setTimeout(() => { cell.style.background = ''; }, 1000);
         }
         
-        console.log(`✅ Updated ${field} to ${parsedValue} for product ${productId}`);
+
       } else {
         const errorData = await response.json();
         console.error('Update failed:', errorData);
@@ -311,18 +435,20 @@ const AdminProducts = () => {
   };
 
   const handleProductClick = (product) => {
-    // Navigate to product detail page like in AmazonsChoice
-    const params = new URLSearchParams({
-      name: product.name,
-      img: product.images && product.images.length > 0 ? product.images[0] : '',
-      price: product.price,
-      rating: product.rating || 4.5,
-      reviews: product.reviews || 0,
-      category: product.category || 'General',
-      brand: product.brand || '',
-      discount: product.discount || 0
+    // Navigate to product detail page - product ID is enough, page will fetch full data
+    // Pass minimal data in state to avoid 431 error (Request Header Fields Too Large)
+    navigate(`/product/${product._id}`, {
+      state: { 
+        returnTo: '/admin/products', 
+        category: filters.category,
+        // Pass basic product info for immediate display while loading
+        productPreview: {
+          name: product.name,
+          price: product.price,
+          category: product.category
+        }
+      }
     });
-    navigate(`/product/${product._id}?${params.toString()}`);
   };
 
   // Handle Enter key press
@@ -339,9 +465,7 @@ const AdminProducts = () => {
 
   // Handle category filter
   const handleCategoryFilter = (categoryValue) => {
-    console.log('🔘 Category clicked:', categoryValue);
     const newCategory = categoryValue === 'all' ? '' : categoryValue;
-    console.log('📝 Setting category filter to:', newCategory);
     setFilters({ ...filters, category: newCategory });
   };
 
@@ -399,6 +523,26 @@ const AdminProducts = () => {
           >
             📊 Import
           </button>
+          <select
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            style={{
+              padding: '6px 10px',
+              fontSize: '0.7rem',
+              border: '1px solid #e5e7eb',
+              borderRadius: '4px',
+              outline: 'none',
+              fontWeight: '600',
+              cursor: 'pointer',
+              background: 'white'
+            }}
+            title="Select currency for price display and editing"
+          >
+            <option value="PKR">💰 PKR (Rs)</option>
+            <option value="USD">💵 USD ($)</option>
+            <option value="GBP">💷 GBP (£)</option>
+            <option value="AED">💴 AED</option>
+          </select>
         </div>
         
         {/* Category Quick Filter Buttons - Compact */}
@@ -518,7 +662,7 @@ const AdminProducts = () => {
           {filters.category && (
             <div style={{
               padding: '6px 10px',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
               borderRadius: '6px',
               marginBottom: '6px',
               color: 'white',
@@ -541,11 +685,46 @@ const AdminProducts = () => {
           )}
           
           <div className="table-info" style={{padding: '4px 8px', fontSize: '0.7rem', color: '#374151', background: '#f9fafb', borderRadius: '4px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-            <span style={{fontWeight: '600'}}>
-              {filters.category 
-                ? `📂 ${categories.find(c => c.value === filters.category)?.label}: ${filteredProducts.length}` 
-                : `📦 Showing: ${filteredProducts.length}`}
-            </span>
+            <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+              <span style={{fontWeight: '600'}}>
+                {filters.category 
+                  ? `📂 ${categories.find(c => c.value === filters.category)?.label}: ${filteredProducts.length}` 
+                  : `📦 Showing: ${filteredProducts.length}`}
+              </span>
+              {selectedProducts.size > 0 && (
+                <>
+                  <span style={{
+                    background: '#3b82f6',
+                    color: 'white',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '0.65rem',
+                    fontWeight: '700'
+                  }}>
+                    {selectedProducts.size} selected
+                  </span>
+                  <button
+                    onClick={handleBulkDelete}
+                    style={{
+                      padding: '3px 10px',
+                      fontSize: '0.65rem',
+                      background: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title={`Delete ${selectedProducts.size} selected product(s)`}
+                  >
+                    🗑️ Delete Selected
+                  </button>
+                </>
+              )}
+            </div>
             <span style={{fontSize: '0.65rem', color: '#6b7280'}}>
               Page {currentPage}/{Math.ceil(filteredProducts.length / productsPerPage)}
             </span>
@@ -554,19 +733,37 @@ const AdminProducts = () => {
           <div className="products-table" style={{fontSize: '0.8rem'}}>
             <table style={{width: '100%'}}>
               <thead>
-                <tr style={{background: '#f8f9fa'}}>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Product</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Category</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Price</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Stock</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Status</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Seller</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600'}}>Actions</th>
+                <tr style={{background: '#ff9800'}}>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', width: '40px', color: 'white'}}>
+                    <input
+                      type="checkbox"
+                      checked={selectedProducts.size > 0 && selectedProducts.size === filteredProducts.slice((currentPage - 1) * productsPerPage, currentPage * productsPerPage).length}
+                      onChange={handleSelectAll}
+                      style={{cursor: 'pointer'}}
+                      title="Select all on this page"
+                    />
+                  </th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Product</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Category</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Price</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Stock</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Status</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Seller</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredProducts.slice((currentPage - 1) * productsPerPage, currentPage * productsPerPage).map(product => (
-                  <tr key={product._id} style={{borderBottom: '1px solid #e5e7eb'}}>
+                  <tr key={product._id} style={{borderBottom: '1px solid #e5e7eb', background: selectedProducts.has(product._id) ? '#f0f9ff' : 'transparent'}}>
+                    <td style={{padding: '4px 8px', textAlign: 'center'}}>
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.has(product._id)}
+                        onChange={() => handleSelectProduct(product._id)}
+                        style={{cursor: 'pointer'}}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </td>
                     <td className="product-info" style={{padding: '4px 8px'}}>
                       <div 
                         className="product-name" 
@@ -672,7 +869,12 @@ const AdminProducts = () => {
                     </td>
                     <td className="actions" style={{padding: '4px 8px'}}>
                       <button
-                        onClick={() => navigate(`/admin/products/edit/${product._id}`)}
+                        onClick={() => {
+                          const editUrl = `/admin/products/edit/${product._id}${filters.category ? `?returnCategory=${filters.category}` : ''}`;
+                          navigate(editUrl, {
+                            state: { category: filters.category }
+                          });
+                        }}
                         className="edit-btn"
                         title="Edit Product"
                         style={{padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px'}}
@@ -848,26 +1050,51 @@ const AdminProducts = () => {
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
-              <div>
+              <div style={{flex: 1}}>
                 <h2 style={{margin: 0, fontSize: '1.5rem', fontWeight: 'bold'}}>💰 Profit Details Management</h2>
                 <p style={{margin: '5px 0 0 0', opacity: 0.9}}>{profitEditProduct.name}</p>
               </div>
-              <button 
-                onClick={() => setShowProfitModal(false)}
-                style={{
-                  background: 'rgba(255,255,255,0.2)',
-                  border: 'none',
-                  color: '#fff',
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  cursor: 'pointer',
-                  fontSize: '20px',
-                  fontWeight: '700'
-                }}
-              >
-                ×
-              </button>
+              <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end'}}>
+                  <label style={{fontSize: '0.75rem', marginBottom: '4px', opacity: 0.9}}>Currency</label>
+                  <select
+                    value={modalCurrency}
+                    onChange={(e) => setModalCurrency(e.target.value)}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '0.9rem',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      borderRadius: '6px',
+                      outline: 'none',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.2)',
+                      color: 'white'
+                    }}
+                  >
+                    <option value="PKR" style={{color: '#333'}}>PKR (Rs)</option>
+                    <option value="USD" style={{color: '#333'}}>USD ($)</option>
+                    <option value="GBP" style={{color: '#333'}}>GBP (£)</option>
+                    <option value="AED" style={{color: '#333'}}>AED (د.إ)</option>
+                  </select>
+                </div>
+                <button 
+                  onClick={() => setShowProfitModal(false)}
+                  style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    border: 'none',
+                    color: '#fff',
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    fontSize: '20px',
+                    fontWeight: '700'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
             <div style={{padding: '25px'}}>
@@ -904,28 +1131,28 @@ const AdminProducts = () => {
                         </select>
                       </div>
                       <div>
-                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>RRP/Unit (Rs)</label>
+                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>RRP/Unit ({currencySymbols[modalCurrency]})</label>
                         <input
                           type="number"
                           step="0.01"
-                          value={platform.rrpPerUnit}
+                          value={convertFromPKRModal(platform.rrpPerUnit)}
                           onChange={(e) => {
                             const newPlatforms = [...profitEditProduct.platformComparison];
-                            newPlatforms[index].rrpPerUnit = parseFloat(e.target.value) || 0;
+                            newPlatforms[index].rrpPerUnit = convertToPKRModal(parseFloat(e.target.value) || 0);
                             setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
                           }}
                           style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
                         />
                       </div>
                       <div>
-                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Profit ({profitEditProduct.dealUnits || 1} units)</label>
+                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Profit ({profitEditProduct.dealUnits || 1} units) ({currencySymbols[modalCurrency]})</label>
                         <input
                           type="number"
                           step="0.01"
-                          value={platform.profitFor200Units}
+                          value={convertFromPKRModal(platform.profitFor200Units)}
                           onChange={(e) => {
                             const newPlatforms = [...profitEditProduct.platformComparison];
-                            newPlatforms[index].profitFor200Units = parseFloat(e.target.value) || 0;
+                            newPlatforms[index].profitFor200Units = convertToPKRModal(parseFloat(e.target.value) || 0);
                             setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
                           }}
                           style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
@@ -999,7 +1226,7 @@ const AdminProducts = () => {
                 <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px'}}>
                   <div>
                     <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
-                      Profit per Unit (PKR) 
+                      Profit per Unit ({currencySymbols[modalCurrency]}) 
                       <span style={{fontSize: '0.8rem', color: '#17a2b8', fontWeight: 'normal', marginLeft: '8px'}}>
                         🧮 Auto-calculated (= Net Profit)
                       </span>
@@ -1007,26 +1234,26 @@ const AdminProducts = () => {
                     <input
                       type="number"
                       step="0.01"
-                      value={profitEditProduct.profitCalculations.profitPerUnit}
+                      value={convertFromPKRModal(profitEditProduct.profitCalculations.profitPerUnit)}
                       readOnly
                       style={{width: '100%', padding: '12px', border: '1px solid #17a2b8', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: '#e7f3ff', cursor: 'not-allowed'}}
                       placeholder="Auto-calculated: = Net Profit"
                     />
                   </div>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>If sold 200 units (Rs)</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
+                      If sold 200 units ({currencySymbols[modalCurrency]})
+                      <span style={{fontSize: '0.8rem', color: '#17a2b8', fontWeight: 'normal', marginLeft: '8px'}}>
+                        🧮 Auto-calculated (Profit per Unit × 200)
+                      </span>
+                    </label>
                     <input
                       type="number"
                       step="0.01"
-                      value={profitEditProduct.profitCalculations.profitFor200Units}
-                      onChange={(e) => setProfitEditProduct({
-                        ...profitEditProduct, 
-                        profitCalculations: {
-                          ...profitEditProduct.profitCalculations,
-                          profitFor200Units: parseFloat(e.target.value) || 0
-                        }
-                      })}
-                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                      value={convertFromPKRModal((profitEditProduct.profitCalculations.profitPerUnit || 0) * 200)}
+                      readOnly
+                      style={{width: '100%', padding: '12px', border: '1px solid #17a2b8', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: '#e7f3ff', cursor: 'not-allowed'}}
+                      placeholder="Auto-calculated: Profit per Unit × 200"
                     />
                   </div>
 
@@ -1038,90 +1265,102 @@ const AdminProducts = () => {
                 <h3 style={{color: '#ff9800', marginBottom: '20px', fontSize: '1.3rem'}}>📈 Profit Evaluation</h3>
                 <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px'}}>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Sales Proceeds (Rs)</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Sales Proceeds ({currencySymbols[modalCurrency]})</label>
                     <input
                       type="number"
                       step="0.01"
-                      value={profitEditProduct.profitEvaluation.salesProceeds}
-                      onChange={(e) => setProfitEditProduct({
-                        ...profitEditProduct, 
-                        profitEvaluation: {
-                          ...profitEditProduct.profitEvaluation,
-                          salesProceeds: parseFloat(e.target.value) || 0
-                        }
-                      })}
-                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                    />
-                  </div>
-                  <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Commission (Rs)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={profitEditProduct.profitEvaluation.commission}
-                      onChange={(e) => setProfitEditProduct({
-                        ...profitEditProduct, 
-                        profitEvaluation: {
-                          ...profitEditProduct.profitEvaluation,
-                          commission: parseFloat(e.target.value) || 0
-                        }
-                      })}
-                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                    />
-                  </div>
-                  <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Digital Services Fee (Rs)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={profitEditProduct.profitEvaluation.digitalServicesFee}
-                      onChange={(e) => setProfitEditProduct({
-                        ...profitEditProduct, 
-                        profitEvaluation: {
-                          ...profitEditProduct.profitEvaluation,
-                          digitalServicesFee: parseFloat(e.target.value) || 0
-                        }
-                      })}
-                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                    />
-                  </div>
-                  <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>FBA Fulfilment Fee (Rs)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={profitEditProduct.profitEvaluation.fbaFulfilmentFee}
-                      onChange={(e) => setProfitEditProduct({
-                        ...profitEditProduct, 
-                        profitEvaluation: {
-                          ...profitEditProduct.profitEvaluation,
-                          fbaFulfilmentFee: parseFloat(e.target.value) || 0
-                        }
-                      })}
-                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                    />
-                  </div>
-                  <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Balance Change (Rs)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={profitEditProduct.profitEvaluation.balanceChange}
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.salesProceeds)}
                       onChange={(e) => {
-                        const newBalanceChange = parseFloat(e.target.value) || 0;
-                        const productCost = profitEditProduct.profitEvaluation.productCost || 0;
-                        const calculatedNetProfit = productCost - newBalanceChange; // CORRECTED Formula: Net Profit = Product Cost - Balance Change
+                        const pkrValue = convertToPKRModal(parseFloat(e.target.value) || 0);
+                        setProfitEditProduct({
+                          ...profitEditProduct, 
+                          profitEvaluation: {
+                            ...profitEditProduct.profitEvaluation,
+                            salesProceeds: pkrValue
+                          }
+                        });
+                      }}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Commission + inc tax ({currencySymbols[modalCurrency]})</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.commission)}
+                      onChange={(e) => {
+                        const pkrValue = convertToPKRModal(parseFloat(e.target.value) || 0);
+                        setProfitEditProduct({
+                          ...profitEditProduct, 
+                          profitEvaluation: {
+                            ...profitEditProduct.profitEvaluation,
+                            commission: pkrValue
+                          }
+                        });
+                      }}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Digital Services Fee + inc tax ({currencySymbols[modalCurrency]})</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.digitalServicesFee)}
+                      onChange={(e) => {
+                        const pkrValue = convertToPKRModal(parseFloat(e.target.value) || 0);
+                        setProfitEditProduct({
+                          ...profitEditProduct, 
+                          profitEvaluation: {
+                            ...profitEditProduct.profitEvaluation,
+                            digitalServicesFee: pkrValue
+                          }
+                        });
+                      }}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>FBA Fulfilment Fee + inc tax ({currencySymbols[modalCurrency]})</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.fbaFulfilmentFee)}
+                      onChange={(e) => {
+                        const pkrValue = convertToPKRModal(parseFloat(e.target.value) || 0);
+                        setProfitEditProduct({
+                          ...profitEditProduct, 
+                          profitEvaluation: {
+                            ...profitEditProduct.profitEvaluation,
+                            fbaFulfilmentFee: pkrValue
+                          }
+                        });
+                      }}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Balance Change ({currencySymbols[modalCurrency]})</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.balanceChange)}
+                      onChange={(e) => {
+                        const newBalanceChangePKR = convertToPKRModal(parseFloat(e.target.value) || 0);
+                        const productCostPKR = profitEditProduct.profitEvaluation.productCost || 0;
+                        const calculatedNetProfitPKR = newBalanceChangePKR - productCostPKR; // Formula: Net Profit = Balance Change - Product Cost
                         
                         setProfitEditProduct({
                           ...profitEditProduct, 
                           profitEvaluation: {
                             ...profitEditProduct.profitEvaluation,
-                            balanceChange: newBalanceChange,
-                            netProfit: calculatedNetProfit // Auto-calculate Net Profit
+                            balanceChange: newBalanceChangePKR,
+                            netProfit: calculatedNetProfitPKR // Auto-calculate Net Profit
                           },
                           profitCalculations: {
                             ...profitEditProduct.profitCalculations,
-                            profitPerUnit: calculatedNetProfit // Auto-calculate Profit per Unit = Net Profit
+                            profitPerUnit: calculatedNetProfitPKR // Auto-calculate Profit per Unit = Net Profit
                           }
                         });
                       }}
@@ -1130,7 +1369,7 @@ const AdminProducts = () => {
                   </div>
                   <div>
                     <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
-                      Product Cost (PKR) 
+                      Product Cost ({currencySymbols[modalCurrency]}) 
                       <span style={{fontSize: '0.8rem', color: '#28a745', fontWeight: 'normal', marginLeft: '8px'}}>
                         🔄 Auto-syncs with product price
                       </span>
@@ -1138,22 +1377,22 @@ const AdminProducts = () => {
                     <input
                       type="number"
                       step="0.01"
-                      value={profitEditProduct.profitEvaluation.productCost}
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.productCost)}
                       onChange={(e) => {
-                        const newProductCost = parseFloat(e.target.value) || 0;
-                        const balanceChange = profitEditProduct.profitEvaluation.balanceChange || 0;
-                        const calculatedNetProfit = newProductCost - balanceChange; // CORRECTED Formula: Net Profit = Product Cost - Balance Change
+                        const newProductCostPKR = convertToPKRModal(parseFloat(e.target.value) || 0);
+                        const balanceChangePKR = profitEditProduct.profitEvaluation.balanceChange || 0;
+                        const calculatedNetProfitPKR = balanceChangePKR - newProductCostPKR; // Formula: Net Profit = Balance Change - Product Cost
                         
                         setProfitEditProduct({
                           ...profitEditProduct, 
                           profitEvaluation: {
                             ...profitEditProduct.profitEvaluation,
-                            productCost: newProductCost,
-                            netProfit: calculatedNetProfit // Auto-calculate Net Profit
+                            productCost: newProductCostPKR,
+                            netProfit: calculatedNetProfitPKR // Auto-calculate Net Profit
                           },
                           profitCalculations: {
                             ...profitEditProduct.profitCalculations,
-                            profitPerUnit: calculatedNetProfit // Auto-calculate Profit per Unit = Net Profit
+                            profitPerUnit: calculatedNetProfitPKR // Auto-calculate Profit per Unit = Net Profit
                           }
                         });
                       }}
@@ -1163,18 +1402,18 @@ const AdminProducts = () => {
                   </div>
                   <div>
                     <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
-                      Net Profit (PKR) 
+                      Net Profit ({currencySymbols[modalCurrency]}) 
                       <span style={{fontSize: '0.8rem', color: '#17a2b8', fontWeight: 'normal', marginLeft: '8px'}}>
-                        🧮 Auto-calculated (Product Cost - Balance Change)
+                        🧮 Auto-calculated (Balance Change - Product Cost)
                       </span>
                     </label>
                     <input
                       type="number"
                       step="0.01"
-                      value={profitEditProduct.profitEvaluation.netProfit}
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.netProfit)}
                       readOnly
                       style={{width: '100%', padding: '12px', border: '1px solid #17a2b8', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: '#e7f3ff', cursor: 'not-allowed'}}
-                      placeholder="Auto-calculated: Product Cost - Balance Change"
+                      placeholder="Auto-calculated: Balance Change - Product Cost"
                     />
                   </div>
                 </div>
