@@ -8,6 +8,9 @@ import '../../styles/AdminDashboard.css';
 import '../../styles/AdminDashboardEnhanced.css';
 import '../../styles/AdminLayout.css';
 
+// Force set currency to GBP for admin dashboard at module level
+localStorage.setItem('selectedCurrency', 'GBP');
+
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [recentProducts, setRecentProducts] = useState([]);
@@ -24,6 +27,7 @@ const AdminDashboard = () => {
   const [fullEditProduct, setFullEditProduct] = useState(null);
   const [showProfitModal, setShowProfitModal] = useState(false);
   const [profitEditProduct, setProfitEditProduct] = useState(null);
+  const [profitModalCurrency, setProfitModalCurrency] = useState('GBP');
   const [expandedSections, setExpandedSections] = useState({
     search: true,
     amazonsChoice: false,
@@ -33,6 +37,8 @@ const AdminDashboard = () => {
   const { currency, setCurrency, formatPrice, currencySymbols } = useCurrency();
   const { logout: adminLogout } = useAdmin();
 
+
+
   useEffect(() => {
     fetchStats();
     fetchRecentProducts();
@@ -41,6 +47,21 @@ const AdminDashboard = () => {
     fetchSellers();
   }, []);
 
+  // Ensure currency is set to GBP for admin dashboard
+  useEffect(() => {
+    if (currency !== 'GBP') {
+      setCurrency('GBP');
+    }
+  }, [currency]); // Removed setCurrency from dependencies to prevent loop
+
+  // Ensure currency is set to GBP when profit modal is shown
+  useEffect(() => {
+    if (showProfitModal) {
+      setCurrency('GBP');
+      setProfitModalCurrency('GBP');
+    }
+  }, [showProfitModal]); // Removed setCurrency from dependencies to prevent loop
+
   const fetchStats = async () => {
     try {
       const response = await adminGet('http://localhost:5000/api/dashboard/stats');
@@ -48,7 +69,13 @@ const AdminDashboard = () => {
       setStats(data);
     } catch (error) {
       console.error('Error fetching stats:', error);
-      // Error handling is done by adminGet, including auth redirects
+      // Set default stats if API fails to prevent blank dashboard
+      setStats({
+        products: { total: 0, active: 0, inactive: 0 },
+        sellers: { total: 0, verified: 0, pending: 0 },
+        verifications: { pending: 0 },
+        sellerListings: { total: 0 }
+      });
     } finally {
       setLoading(false);
     }
@@ -227,10 +254,15 @@ const AdminDashboard = () => {
     
 
     
+    // Set default currency to Pound when opening profit modal
+    setCurrency('GBP');
+    setProfitModalCurrency('GBP');
+    
     setProfitEditProduct({
       _id: product._id,
       name: product.name || '',
       dealUnits: product.dealUnits || 1,
+      platformUnits: product.platformUnits || 200, // Default to 200 units
       // Platform Comparison
       platformComparison: product.platformComparison || [
         { platform: 'RRP', rrpPerUnit: 0, profitFor200Units: 0, markup: '0%' },
@@ -273,6 +305,7 @@ const AdminDashboard = () => {
       reviews: product.reviews || 0,
       stock: product.stock || 0,
       dealUnits: product.dealUnits !== undefined && product.dealUnits !== null ? product.dealUnits : 1,
+      platformUnits: product.platformUnits || 200, // Default to 200 units
       costPrice: product.costPrice !== undefined && product.costPrice !== null ? product.costPrice : 0,
       isAmazonsChoice: product.isAmazonsChoice || false,
       status: product.status || 'active',
@@ -345,6 +378,8 @@ const AdminDashboard = () => {
       
       const updateData = {
         platformComparison: profitEditProduct.platformComparison,
+        platformUnits: profitEditProduct.platformUnits, // Save the selected unit quantity
+        dealUnits: profitEditProduct.platformUnits, // Also update dealUnits for backward compatibility
         profitCalculations: {
           ...profitEditProduct.profitCalculations,
           profitFor200Units: calculatedProfitFor200Units // Auto-calculated value
@@ -390,6 +425,7 @@ const AdminDashboard = () => {
         reviews: parseInt(fullEditProduct.reviews),
         stock: parseInt(fullEditProduct.stock),
         dealUnits: isNaN(parseInt(fullEditProduct.dealUnits)) ? 1 : parseInt(fullEditProduct.dealUnits),
+        platformUnits: fullEditProduct.platformUnits || 200, // Save the platform units
         costPrice: parseFloat(fullEditProduct.costPrice) || 0,
         isAmazonsChoice: fullEditProduct.isAmazonsChoice,
         status: fullEditProduct.status,
@@ -475,6 +511,26 @@ const AdminDashboard = () => {
           </p>
         </div>
         <div className="header-actions" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+          {/* Currency Converter */}
+          <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
+            <span style={{fontSize: '0.8rem', color: '#666'}}>💱</span>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '0.8rem',
+                backgroundColor: 'white'
+              }}
+            >
+              <option value="PKR">PKR (₨)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+            </select>
+          </div>
           <button onClick={() => navigate('/')} className="view-site-btn">🌐 Site</button>
           <button onClick={() => navigate('/admin/excel-import')} className="add-btn-header">➕ Add</button>
           <button onClick={handleLogout} className="logout-btn">Logout</button>
@@ -568,7 +624,7 @@ const AdminDashboard = () => {
                                     value={editingProduct.price}
                                     onChange={(e) => setEditingProduct({...editingProduct, price: e.target.value})}
                                     style={{width: '80px', padding: '4px', border: '2px solid #667eea', borderRadius: '4px'}}
-                                    placeholder="PKR"
+                                    placeholder={currencySymbols[currency]}
                                   />
                                 </div>
                               ) : (
@@ -855,7 +911,7 @@ const AdminDashboard = () => {
                             value={editingProduct.price}
                             onChange={(e) => setEditingProduct({...editingProduct, price: e.target.value})}
                             style={{width: '80px', padding: '4px', border: '2px solid #667eea', borderRadius: '4px'}}
-                            placeholder="PKR"
+                            placeholder={currencySymbols[currency]}
                           />
                         </div>
                       ) : (
@@ -1068,16 +1124,7 @@ const AdminDashboard = () => {
               <h2 style={{margin: 0, color: '#333', fontSize: '1.5rem'}}>
                 📝 Edit Product - Full Control
               </h2>
-              <div style={{
-                background: '#fff3cd',
-                border: '1px solid #ffeaa7',
-                borderRadius: '4px',
-                padding: '8px 12px',
-                marginTop: '10px',
-                fontSize: '0.85rem'
-              }}>
-                <strong>💡 Currency:</strong> Prices in {currency} ({currencySymbols[currency]})
-              </div>
+
               <button 
                 onClick={() => setShowFullEditModal(false)}
                 style={{
@@ -1410,9 +1457,48 @@ const AdminDashboard = () => {
               </label>
             </div>
 
+            {/* Unit Quantity Selector */}
+            <div style={{marginBottom: '15px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #ddd'}}>
+              <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '1rem', color: '#495057'}}>
+                📦 Select Unit Quantity for Profit Calculations
+              </label>
+              <select
+                value={fullEditProduct.platformUnits || 200}
+                onChange={(e) => {
+                  const units = parseInt(e.target.value);
+                  setFullEditProduct({
+                    ...fullEditProduct, 
+                    platformUnits: units,
+                    dealUnits: units // Also update dealUnits for backward compatibility
+                  });
+                }}
+                style={{
+                  width: '200px', 
+                  padding: '10px', 
+                  border: '1px solid #ddd', 
+                  borderRadius: '6px', 
+                  fontSize: '0.9rem',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="200">200 units</option>
+                <option value="300">300 units</option>
+                <option value="400">400 units</option>
+                <option value="500">500 units</option>
+                <option value="600">600 units</option>
+                <option value="700">700 units</option>
+                <option value="800">800 units</option>
+                <option value="900">900 units</option>
+                <option value="1000">1000 units</option>
+              </select>
+              <small style={{display: 'block', marginTop: '5px', color: '#6c757d'}}>
+                This will be used for profit calculations in the Platform Comparison table
+              </small>
+            </div>
+
             {/* Platform Comparison Section */}
             <div style={{marginBottom: '25px', padding: '20px', backgroundColor: '#e8f5e9', borderRadius: '8px', border: '2px solid #28a745'}}>
-              <h3 style={{color: '#28a745', marginBottom: '15px', fontSize: '1.2rem'}}>📊 Platform Comparison ({fullEditProduct.dealUnits || 1} units)</h3>
+              <h3 style={{color: '#28a745', marginBottom: '15px', fontSize: '1.2rem'}}>📊 Platform Comparison ({fullEditProduct.platformUnits || fullEditProduct.dealUnits || 200} units)</h3>
               {fullEditProduct.platformComparison.map((platform, index) => (
                 <div key={index} style={{marginBottom: '15px', padding: '15px', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #ddd'}}>
                   <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '10px', alignItems: 'center'}}>
@@ -1443,7 +1529,7 @@ const AdminDashboard = () => {
                       </select>
                     </div>
                     <div>
-                      <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem'}}>RRP/Unit (Rs)</label>
+                      <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem'}}>RRP/Unit (£)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -1457,7 +1543,7 @@ const AdminDashboard = () => {
                       />
                     </div>
                     <div>
-                      <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem'}}>Profit ({fullEditProduct.dealUnits || 1} units)</label>
+                      <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem'}}>Profit ({fullEditProduct.platformUnits || fullEditProduct.dealUnits || 200} units)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -1793,9 +1879,48 @@ const AdminDashboard = () => {
             </div>
 
             <div style={{padding: '25px'}}>
+              {/* Unit Quantity Selector */}
+              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #ddd'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '1rem', color: '#495057'}}>
+                  📦 Select Unit Quantity for Profit Calculations
+                </label>
+                <select
+                  value={profitEditProduct.platformUnits || 200}
+                  onChange={(e) => {
+                    const units = parseInt(e.target.value);
+                    setProfitEditProduct({
+                      ...profitEditProduct, 
+                      platformUnits: units,
+                      dealUnits: units // Also update dealUnits for backward compatibility
+                    });
+                  }}
+                  style={{
+                    width: '200px', 
+                    padding: '10px', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '6px', 
+                    fontSize: '0.9rem',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <option value="200">200 units</option>
+                  <option value="300">300 units</option>
+                  <option value="400">400 units</option>
+                  <option value="500">500 units</option>
+                  <option value="600">600 units</option>
+                  <option value="700">700 units</option>
+                  <option value="800">800 units</option>
+                  <option value="900">900 units</option>
+                  <option value="1000">1000 units</option>
+                </select>
+                <small style={{display: 'block', marginTop: '5px', color: '#6c757d'}}>
+                  This will be used for profit calculations in the Platform Comparison table
+                </small>
+              </div>
+
               {/* Platform Comparison Section */}
               <div style={{marginBottom: '30px', padding: '20px', backgroundColor: '#e8f5e9', borderRadius: '8px', border: '2px solid #28a745'}}>
-                <h3 style={{color: '#28a745', marginBottom: '20px', fontSize: '1.3rem'}}>📊 Platform Comparison ({profitEditProduct.dealUnits || 1} units)</h3>
+                <h3 style={{color: '#28a745', marginBottom: '20px', fontSize: '1.3rem'}}>📊 Platform Comparison ({profitEditProduct.platformUnits || profitEditProduct.dealUnits || 200} units)</h3>
                 {profitEditProduct.platformComparison.map((platform, index) => (
                   <div key={index} style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #ddd'}}>
                     <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '15px', alignItems: 'center'}}>
@@ -1826,7 +1951,7 @@ const AdminDashboard = () => {
                         </select>
                       </div>
                       <div>
-                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>RRP/Unit (Rs)</label>
+                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>RRP/Unit (£)</label>
                         <input
                           type="number"
                           step="0.01"
@@ -1840,7 +1965,7 @@ const AdminDashboard = () => {
                         />
                       </div>
                       <div>
-                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Profit ({profitEditProduct.dealUnits || 1} units)</label>
+                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Profit ({profitEditProduct.platformUnits || profitEditProduct.dealUnits || 200} units)</label>
                         <input
                           type="number"
                           step="0.01"
@@ -1921,7 +2046,7 @@ const AdminDashboard = () => {
                 <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px'}}>
                   <div>
                     <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
-                      Profit per Unit (PKR) 
+                      Profit per Unit (£) 
                       <span style={{fontSize: '0.8rem', color: '#17a2b8', fontWeight: 'normal', marginLeft: '8px'}}>
                         🧮 Auto-calculated (= Net Profit)
                       </span>
@@ -1977,7 +2102,7 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Commission + inc tax ({currencySymbols[currency]})</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Commission + inc tax (£)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -1993,7 +2118,7 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Digital Services Fee + inc tax ({currencySymbols[currency]})</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Digital Services Fee + inc tax (£)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -2009,7 +2134,7 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>FBA Fulfilment Fee + inc tax ({currencySymbols[currency]})</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>FBA Fulfilment Fee + inc tax (£)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -2053,7 +2178,7 @@ const AdminDashboard = () => {
                   </div>
                   <div>
                     <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
-                      Product Cost (PKR) 
+                      Product Cost (£) 
                       <span style={{fontSize: '0.8rem', color: '#28a745', fontWeight: 'normal', marginLeft: '8px'}}>
                         🔄 Auto-syncs with product price
                       </span>
@@ -2086,7 +2211,7 @@ const AdminDashboard = () => {
                   </div>
                   <div>
                     <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
-                      Net Profit (PKR) 
+                      Net Profit (£) 
                       <span style={{fontSize: '0.8rem', color: '#17a2b8', fontWeight: 'normal', marginLeft: '8px'}}>
                         🧮 Auto-calculated (Balance Change - Product Cost)
                       </span>

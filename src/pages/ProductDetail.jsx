@@ -42,6 +42,7 @@ const ProductDetail = () => {
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [isSellerLoggedIn, setIsSellerLoggedIn] = useState(false)
   const [currentSeller, setCurrentSeller] = useState(null)
+  const [savingUnits, setSavingUnits] = useState(false) // Loading state for saving units
 
   // Function to get proper image path
   const getImageSrc = (imagePath) => {
@@ -283,6 +284,8 @@ const ProductDetail = () => {
     }
   }, [product]);
 
+
+
   useEffect(() => {
     const fetchProduct = async () => {
       setLoading(true)
@@ -325,7 +328,7 @@ const ProductDetail = () => {
                            dbProduct.name.toLowerCase().includes('lamp') ||
                            (dbProduct.profitCalculations || dbProduct.profitEvaluation), // Show if admin panel data exists
             description: dbProduct.description || `High-quality ${dbProduct.name} available at wholesale prices.`,
-            features: [
+            features: dbProduct.features && dbProduct.features.length > 0 ? dbProduct.features : [
               'Amazon\'s Choice Product',
               'Fast Shipping Available',
               'Quality Guaranteed',
@@ -418,25 +421,45 @@ const ProductDetail = () => {
           // Use profit data from admin panel if available
           if (dbProduct.platformComparison && dbProduct.platformComparison.length > 0) {
             console.log('Using platform comparison from admin panel:', dbProduct.platformComparison)
+            
+            // Extract RRP from platform comparison data
+            const rrpPlatform = dbProduct.platformComparison.find(platform => 
+              platform.platform.toLowerCase() === 'rrp'
+            );
+            
+            if (rrpPlatform && rrpPlatform.rrpPerUnit) {
+              // Update the product RRP with the value from admin panel
+              productData.rrp = `₨${rrpPlatform.rrpPerUnit}`;
+              console.log('✅ Updated product RRP from admin panel:', productData.rrp);
+              console.log('✅ RRP Platform data:', rrpPlatform);
+            }
+            
             productData.platforms = dbProduct.platformComparison.map(platform => {
               const perUnitPrice = platform.rrpPerUnit;
-              const totalPrice = perUnitPrice * 200;
-              const totalRevenue = perUnitPrice * 200;
+              const units = platform.units || 200; // Use platform-specific units
+              const totalPrice = perUnitPrice * units;
+              const totalProfit = platform.profitFor200Units || 0; // Use stored total profit
               
               console.log(`Platform ${platform.platform}:`, {
                 originalPerUnit: perUnitPrice,
+                units: units,
                 calculatedTotal: totalPrice,
-                calculatedRevenue: totalRevenue
+                storedProfit: totalProfit
               });
               
               return {
                 name: platform.platform,
-                price: totalPrice, // Total price for 200 units
-                grossProfit: totalRevenue, // Total revenue (RRP × 200)
+                price: totalPrice, // Total price for specified units
+                grossProfit: totalProfit, // Use stored profit calculation
                 markup: platform.markup,
+                units: units, // Store the unit quantity
+                perUnitPrice: perUnitPrice, // Store per unit price
                 isPKR: true // Mark as PKR data for proper conversion
               };
             })
+            
+            // Store the unit quantity for display
+            productData.platformUnits = dbProduct.platformUnits || 200;
             console.log('Final converted platforms:', productData.platforms)
           }
           
@@ -482,12 +505,12 @@ const ProductDetail = () => {
               productData.evaluation = {
                 salesProceeds: dbProduct.profitEvaluation.salesProceeds || 0, // PKR
                 commissionBase: -(Math.abs(dbProduct.profitEvaluation.commission || 0)), // Negative because it's a fee, PKR
-                commissionTax: 0,
+                commissionTax: -(Math.abs(dbProduct.profitEvaluation.commissionTax || 0)), // Negative because it's a fee, PKR
                 digitalServiceBase: -(Math.abs(dbProduct.profitEvaluation.digitalServicesFee || 0)), // Negative because it's a fee, PKR
-                digitalServiceTax: 0,
+                digitalServiceTax: -(Math.abs(dbProduct.profitEvaluation.digitalServicesTax || 0)), // Negative because it's a fee, PKR
                 fbaFeeBase: -(Math.abs(dbProduct.profitEvaluation.fbaFulfilmentFee || 0)), // Negative because it's a fee, PKR
-                fbaFeeTax: 0,
-                totalFees: -((Math.abs(dbProduct.profitEvaluation.commission || 0)) + (Math.abs(dbProduct.profitEvaluation.digitalServicesFee || 0)) + (Math.abs(dbProduct.profitEvaluation.fbaFulfilmentFee || 0))),
+                fbaFeeTax: -(Math.abs(dbProduct.profitEvaluation.fbaFulfilmentTax || 0)), // Negative because it's a fee, PKR
+                totalFees: -((Math.abs(dbProduct.profitEvaluation.commission || 0)) + (Math.abs(dbProduct.profitEvaluation.commissionTax || 0)) + (Math.abs(dbProduct.profitEvaluation.digitalServicesFee || 0)) + (Math.abs(dbProduct.profitEvaluation.digitalServicesTax || 0)) + (Math.abs(dbProduct.profitEvaluation.fbaFulfilmentFee || 0)) + (Math.abs(dbProduct.profitEvaluation.fbaFulfilmentTax || 0))),
                 productCost: productCost, // Use current product price
                 netProfit: calculatedNetProfit, // Auto-calculated: Balance Change - Product Cost
                 changeToBalance: balanceChange, // PKR
@@ -566,13 +589,34 @@ const ProductDetail = () => {
               // Force display for debugging if data exists but flags are wrong
               if (dbProduct.platformComparison && dbProduct.platformComparison.length > 0 && !productData.platforms) {
                 console.log('🔧 FORCING platform display - data exists but not showing')
-                productData.platforms = dbProduct.platformComparison.map(platform => ({
-                  name: platform.platform,
-                  price: platform.rrpPerUnit,
-                  grossProfit: platform.profitFor200Units,
-                  markup: platform.markup,
-                  isPKR: true
-                }))
+                
+                // Extract RRP from platform comparison data
+                const rrpPlatform = dbProduct.platformComparison.find(platform => 
+                  platform.platform.toLowerCase() === 'rrp'
+                );
+                
+                if (rrpPlatform && rrpPlatform.rrpPerUnit) {
+                  // Update the product RRP with the value from admin panel
+                  productData.rrp = `₨${rrpPlatform.rrpPerUnit}`;
+                  console.log('🔧 FORCING RRP update from admin panel:', productData.rrp);
+                }
+                
+                productData.platforms = dbProduct.platformComparison.map(platform => {
+                  const units = platform.units || 200; // Use platform-specific units
+                  const totalProfit = platform.profitFor200Units || 0;
+                  return {
+                    name: platform.platform,
+                    price: platform.rrpPerUnit,
+                    grossProfit: totalProfit,
+                    markup: platform.markup,
+                    units: units,
+                    perUnitPrice: platform.rrpPerUnit,
+                    isPKR: true
+                  };
+                })
+                
+                // Store the unit quantity for display
+                productData.platformUnits = dbProduct.platformUnits || 200;
               }
               
               if ((dbProduct.profitCalculations || dbProduct.profitEvaluation) && !productData.hasProfit) {
@@ -1246,7 +1290,7 @@ const ProductDetail = () => {
                 'Origin': 'Pakistan'
               },
               description: foundProduct.description || `High-quality ${foundProduct.name} available at wholesale prices. Perfect for Amazon FBA sellers and retailers. This product has excellent reviews and consistent sales performance. Sourced from verified Pakistani suppliers with quality assurance.`,
-              features: [
+              features: foundProduct.features && foundProduct.features.length > 0 ? foundProduct.features : [
                 'Amazon\'s Choice Product',
                 'Fast Shipping Available',
                 'Quality Guaranteed',
@@ -1582,7 +1626,7 @@ const ProductDetail = () => {
                   'Origin': 'Pakistan'
                 },
                 description: foundProduct.description || `High-quality ${foundProduct.name} available at wholesale prices.`,
-                features: [
+                features: foundProduct.features && foundProduct.features.length > 0 ? foundProduct.features : [
                   'Amazon\'s Choice Product',
                   'Fast Shipping Available',
                   'Quality Guaranteed',
@@ -1833,14 +1877,29 @@ const ProductDetail = () => {
       console.log('- product?.platforms:', product?.platforms);
       console.log('- product?.platforms length:', product?.platforms?.length);
       console.log('- product name:', product?.name);
+      console.log('- selectedUnits:', selectedUnits);
     }
     
-    // If we have admin panel platform data, use it
+    // If we have admin panel platform data, use it with selected units
     if (product?.platforms && product.platforms.length > 0) {
       if (isTargetProduct) {
-        console.log('✅ Using admin panel platform data:', product.platforms);
+        console.log('✅ Using admin panel platform data with selected units:', product.platforms);
       }
-      return product.platforms;
+      // Use stored platform data with individual units
+      return product.platforms.map(platform => {
+        const perUnitPrice = platform.perUnitPrice || parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) / (platform.units || 200);
+        const platformUnits = platform.units || 200; // Use platform-specific units
+        const totalPrice = perUnitPrice * platformUnits;
+        const totalProfit = platform.grossProfit || 0; // Use stored profit
+        
+        return {
+          ...platform,
+          price: totalPrice,
+          grossProfit: totalProfit,
+          units: platformUnits,
+          description: `Total Profit: ${totalProfit} for ${platformUnits} units`
+        };
+      });
     }
     
     if (isTargetProduct) {
@@ -1858,12 +1917,12 @@ const ProductDetail = () => {
     const rrpValue = parseFloat(product.rrp.replace(/[£₨$€]/g, ''));
     if (isNaN(rrpValue)) return [];
     
-    // Calculate prices and profits for 200 units
-    const rrpTotal = rrpValue * 200;
+    // Calculate prices and profits for selected units
+    const rrpTotal = rrpValue * selectedUnits;
     const amazonPrice = rrpValue * 0.70; // 30% less than RRP
-    const amazonTotal = amazonPrice * 200;
+    const amazonTotal = amazonPrice * selectedUnits;
     const ebayPrice = rrpValue * 0.75; // 25% less than RRP
-    const ebayTotal = ebayPrice * 200;
+    const ebayTotal = ebayPrice * selectedUnits;
     
     // Get cost price and convert to GBP if needed
     const costPriceRaw = parseFloat(product.price.replace(/[£₨$€]/g, ''));
@@ -1882,12 +1941,12 @@ const ProductDetail = () => {
       costPriceGBP = costPriceRaw * 0.00272;
     }
     
-    const costTotal = costPriceGBP * 200;
+    const costTotal = costPriceGBP * selectedUnits;
     
-    // Calculate profits as total revenue (RRP * 200 units)
-    const rrpProfit = rrpTotal; // RRP * 200 (total revenue)
-    const amazonProfit = amazonTotal; // Amazon price * 200 (total revenue)
-    const ebayProfit = ebayTotal; // eBay price * 200 (total revenue)
+    // Calculate profits as total revenue (RRP * selected units)
+    const rrpProfit = rrpTotal; // RRP * selected units (total revenue)
+    const amazonProfit = amazonTotal; // Amazon price * selected units (total revenue)
+    const ebayProfit = ebayTotal; // eBay price * selected units (total revenue)
     
     // Calculate markup percentages (Revenue vs Cost)
     const rrpMarkup = (((rrpTotal - costTotal) / costTotal) * 100).toFixed(2);
@@ -1900,21 +1959,21 @@ const ProductDetail = () => {
         price: `£${rrpTotal.toFixed(2)}`, 
         grossProfit: `£${rrpProfit.toFixed(2)}`, 
         markup: `${rrpMarkup}%`,
-        description: 'Total Revenue: RRP × 200 units'
+        description: `Total Revenue: RRP × ${selectedUnits} units`
       },
       { 
         name: 'Amazon', 
         price: `£${amazonTotal.toFixed(2)}`, 
         grossProfit: `£${amazonProfit.toFixed(2)}`, 
         markup: `${amazonMarkup}%`,
-        description: 'Total Revenue: Amazon Price × 200 units'
+        description: `Total Revenue: Amazon Price × ${selectedUnits} units`
       },
       { 
         name: 'eBay', 
         price: `£${ebayTotal.toFixed(2)}`, 
         grossProfit: `£${ebayProfit.toFixed(2)}`, 
         markup: `${ebayMarkup}%`,
-        description: 'Total Revenue: eBay Price × 200 units'
+        description: `Total Revenue: eBay Price × ${selectedUnits} units`
       }
     ];
   };
@@ -2152,12 +2211,7 @@ const ProductDetail = () => {
                       {product.markup}
                     </span>
                   )}
-                  {hasValidProfitData() && safeNumber(product.profitCalculations.profitPerUnit) > 0 && (
-                    <span className="badge bg-primary px-2 py-1" style={{fontSize: '0.65rem'}}>
-                      <i className="fas fa-coins me-1"></i>
-                      Profit: {convertFromGBP(product.profitCalculations.profitPerUnit)}/unit
-                    </span>
-                  )}
+
                 </div>
 
                 <hr className="my-2" />
@@ -2169,27 +2223,30 @@ const ProductDetail = () => {
                       {convertPrice(product.price)}
                     </span>
                     <span className="text-muted" style={{fontSize: '0.75rem'}}>/Unit ex. VAT</span>
+
                     
-                    {/* Monthly Profit Badge */}
-                    {hasValidProfitData() && product.profitCalculations.monthlyProfit && (
+                    {/* Profit Information */}
+                    {hasValidProfitData() && product.profitCalculations.profitPerUnit && (
                       <span 
-                        className="badge ms-2" 
                         style={{
-                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                          color: '#fff',
+                          color: '#2d3748',
                           fontSize: '0.75rem',
-                          padding: '4px 10px',
-                          fontWeight: '600'
+                          fontWeight: '700',
+                          marginLeft: '8px'
                         }}
                       >
-                        💰 Profit if sold 200 units: {convertFromGBP(product.profitCalculations.monthlyProfit)}
+                        | Profit: 💰 {convertProfitValue(product.profitCalculations.profitPerUnit)}/unit | 📈 {(() => {
+                          const profitPerUnit = safeNumber(product.profitCalculations.profitPerUnit);
+                          const monthlyProfit = profitPerUnit * 30; // 30 units per month
+                          return convertProfitValue(monthlyProfit);
+                        })()}/month
                       </span>
                     )}
                   </div>
                   
                   <div className="d-flex gap-2 mb-1">
                     <div>
-                      <smal className="text-muted" style={{fontSize: '0.7rem'}}>RRP: </smal>
+                      <small className="text-muted" style={{fontSize: '0.7rem'}}>RRP: </small>
                       <span className="fw-semibold" style={{fontSize: '0.8rem'}}>{convertPrice(product.rrp)}</span>
                     </div>
                     <div>
@@ -2711,7 +2768,7 @@ const ProductDetail = () => {
                   <div className={hasValidEvaluationData() ? "col-lg-6" : "col-12"}>
                     <div className="mb-3">
                       <div className="fw-bold mb-2" style={{fontSize: '0.9rem', color: '#2d3748'}}>
-                        <i className="fas fa-chart-line me-2"></i>Platform Comparison (200 units)
+                        <i className="fas fa-chart-line me-2"></i>Platform Comparison
                       </div>
                       <div className="table-responsive" style={{overflowX: 'auto', overflowY: 'hidden'}}>
                         <table className="table table-sm table-bordered shadow-sm mb-0" style={{fontSize: '0.75rem'}}>
@@ -2719,7 +2776,7 @@ const ProductDetail = () => {
                             <tr>
                               <th className="fw-bold py-2 px-2" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Platform</th>
                               <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>RRP/Total</th>
-                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Profit (200 units)</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Profit (per platform units)</th>
                               <th className="fw-bold py-2 px-2 text-center">Markup</th>
                             </tr>
                           </thead>
@@ -2734,7 +2791,10 @@ const ProductDetail = () => {
                                   {platform.isPKR ? convertFromPKR(platform.price) : convertPrice(platform.price)}
                                 </td>
                                 <td className="fw-bold text-success py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
-                                  {platform.isPKR ? convertFromPKR(platform.grossProfit) : convertPrice(platform.grossProfit)}
+                                  <div>{platform.isPKR ? convertFromPKR(platform.grossProfit) : convertPrice(platform.grossProfit)}</div>
+                                  <div style={{fontSize: '0.6rem', color: '#6c757d', fontWeight: 'normal'}}>
+                                    ({platform.units || 200} units)
+                                  </div>
                                 </td>
                                 <td className="py-2 px-2 text-center">
                                   <span className="badge bg-info" style={{fontSize: '0.65rem', padding: '3px 6px'}}>
@@ -2757,7 +2817,7 @@ const ProductDetail = () => {
                               <i className="fas fa-calculator me-2"></i>Profit Calculations
                             </div>
                             <div className="row g-1 mb-2">
-                              <div className="col-md-6">
+                              <div className="col-md-4">
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Profit per Unit</div>
                                   <div className="fw-bold text-success" style={{fontSize: '0.9rem'}}>
@@ -2765,14 +2825,31 @@ const ProductDetail = () => {
                                   </div>
                                 </div>
                               </div>
-                              <div className="col-md-6">
+                              <div className="col-md-4">
                                 <div className="bg-white rounded p-2">
-                                  <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>if sold 200 units</div>
+                                  <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Monthly Profit</div>
                                   <div className="fw-bold text-primary" style={{fontSize: '0.9rem'}}>
-                                    {convertProfitValue(product.profitCalculations.monthlyProfit)}
+                                    {(() => {
+                                      const profitPerUnit = safeNumber(product.profitCalculations.profitPerUnit);
+                                      const monthlyProfit = profitPerUnit * 30; // 30 units per month
+                                      return convertProfitValue(monthlyProfit);
+                                    })()}
                                   </div>
                                 </div>
                               </div>
+                              <div className="col-md-4">
+                                <div className="bg-white rounded p-2">
+                                  <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Yearly Profit</div>
+                                  <div className="fw-bold text-warning" style={{fontSize: '0.9rem'}}>
+                                    {(() => {
+                                      const profitPerUnit = safeNumber(product.profitCalculations.profitPerUnit);
+                                      const yearlyProfit = profitPerUnit * 365; // 365 units per year
+                                      return convertProfitValue(yearlyProfit);
+                                    })()}
+                                  </div>
+                                </div>
+                              </div>
+
                             </div>
                           </div>
                         </div>
@@ -2786,7 +2863,7 @@ const ProductDetail = () => {
                   <div className="col-lg-6">
                     <div className="mb-3">
                       <div className="fw-bold mb-2" style={{fontSize: '0.9rem', color: '#2d3748'}}>
-                        <i className="fas fa-calculator me-2"></i>Profit Evaluation
+                        <i className="fas fa-calculator me-2"></i>Amazon FBA Revenue Calculator
                       </div>
                       <div className="table-responsive">
                         <table className="table table-sm table-bordered shadow-sm mb-0" style={{fontSize: '0.75rem'}}>
@@ -2803,15 +2880,27 @@ const ProductDetail = () => {
                             </tr>
                             <tr>
                               <td className="py-2 px-2 ps-3" style={{fontSize: '0.7rem'}}>Commission</td>
-                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertProfitValue(product.evaluation.commissionBase + product.evaluation.commissionTax)}</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertProfitValue(product.evaluation.commissionBase)}</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 px-2 ps-4" style={{fontSize: '0.65rem', color: '#666'}}>Commission Tax</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.65rem', color: '#666'}}>{convertProfitValue(product.evaluation.commissionTax)}</td>
                             </tr>
                             <tr>
                               <td className="py-2 px-2 ps-3" style={{fontSize: '0.7rem'}}>Digital Services Fee</td>
-                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertProfitValue(product.evaluation.digitalServiceBase + product.evaluation.digitalServiceTax)}</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertProfitValue(product.evaluation.digitalServiceBase)}</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 px-2 ps-4" style={{fontSize: '0.65rem', color: '#666'}}>Digital Services Tax</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.65rem', color: '#666'}}>{convertProfitValue(product.evaluation.digitalServiceTax)}</td>
                             </tr>
                             <tr>
                               <td className="py-2 px-2 ps-3" style={{fontSize: '0.7rem'}}>FBA Fulfilment Fee</td>
-                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertProfitValue(product.evaluation.fbaFeeBase + product.evaluation.fbaFeeTax)}</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertProfitValue(product.evaluation.fbaFeeBase)}</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 px-2 ps-4" style={{fontSize: '0.65rem', color: '#666'}}>FBA Fulfilment Tax</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.65rem', color: '#666'}}>{convertProfitValue(product.evaluation.fbaFeeTax)}</td>
                             </tr>
                             <tr style={{background: '#fff3cd'}}>
                               <td className="fw-semibold py-2 px-2">Balance Change</td>

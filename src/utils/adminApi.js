@@ -15,8 +15,7 @@ export const adminApiCall = async (url, options = {}) => {
   const token = localStorage.getItem('adminToken');
   
   if (!token) {
-    // No token available, redirect to login
-    window.location.href = '/admin/login';
+    // No token available, let AdminContext handle the redirect
     throw new AdminApiError('No admin token available', 401);
   }
 
@@ -35,16 +34,50 @@ export const adminApiCall = async (url, options = {}) => {
 
     // Handle authentication errors
     if (response.status === 401) {
-      console.log('Admin token expired or invalid, redirecting to login');
+      console.log('Admin token expired or invalid, attempting refresh');
       
-      // Clear admin data
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminData');
-      sessionStorage.setItem('admin_logged_out', 'true');
-      
-      // Redirect to login
-      window.location.href = '/admin/login';
-      throw new AdminApiError('Authentication failed', 401, response);
+      try {
+        // Try to refresh token
+        const refreshResponse = await fetch('http://localhost:5000/api/auth/refresh', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (refreshResponse.ok) {
+          const refreshData = await refreshResponse.json();
+          localStorage.setItem('adminToken', refreshData.token);
+          localStorage.setItem('adminData', JSON.stringify(refreshData.admin));
+          console.log('Admin token refreshed successfully, retrying original request');
+          
+          // Retry the original request with new token
+          const retryResponse = await fetch(url, {
+            ...options,
+            headers: {
+              ...headers,
+              'Authorization': `Bearer ${refreshData.token}`
+            }
+          });
+          
+          if (retryResponse.ok) {
+            return retryResponse;
+          } else if (retryResponse.status === 401) {
+            throw new Error('Still unauthorized after token refresh');
+          } else {
+            return retryResponse; // Return the response even if not ok, let caller handle
+          }
+        } else {
+          throw new Error('Token refresh failed');
+        }
+      } catch (refreshError) {
+        console.log('Token refresh failed, letting AdminContext handle logout');
+        
+        // Don't clear data here, let AdminContext handle it
+        // Just throw the error and let the context handle the logout
+        throw new AdminApiError('Authentication failed', 401, response);
+      }
     }
 
     // Handle other HTTP errors

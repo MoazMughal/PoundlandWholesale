@@ -12,7 +12,7 @@ const AdminProducts = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ category: '', status: '' });
-  const [currency, setCurrency] = useState('PKR');
+  const [currency, setCurrency] = useState('GBP'); // Changed default from 'PKR' to 'GBP'
   const [editingCell, setEditingCell] = useState(null); // Track which cell is being edited
   const [editValues, setEditValues] = useState({}); // Store temporary edit values
   const [currentPage, setCurrentPage] = useState(1);
@@ -20,7 +20,8 @@ const AdminProducts = () => {
   const [showProfitModal, setShowProfitModal] = useState(false);
   const [profitEditProduct, setProfitEditProduct] = useState(null);
   const [selectedProducts, setSelectedProducts] = useState(new Set()); // Track selected product IDs
-  const [modalCurrency, setModalCurrency] = useState('PKR'); // Separate currency state for modal
+  const [modalCurrency, setModalCurrency] = useState('GBP'); // Changed default from 'PKR' to 'GBP'
+  const [selectedUnits, setSelectedUnits] = useState(200); // Default to 200 units for platform comparison
   
   const productsPerPage = 50;
 
@@ -50,7 +51,7 @@ const AdminProducts = () => {
   const currencySymbols = {
     PKR: 'Rs',
     USD: '$',
-    GBP: '£',
+    GBP: '£',       // Pound symbol
     AED: 'د.إ'
   };
 
@@ -296,17 +297,22 @@ const AdminProducts = () => {
     // Calculate product cost automatically from product price (keep in PKR)
     const productPricePKR = parseFloat(product.price) || 0;
     
-
+    // Initialize selectedUnits from product's platformUnits or default to 200
+    const initialUnits = product.platformUnits || 200;
+    setSelectedUnits(initialUnits);
     
     setProfitEditProduct({
       _id: product._id,
       name: product.name || '',
       dealUnits: product.dealUnits || 1,
+      // About This Item
+      description: product.description || '',
+      features: product.features || [],
       // Platform Comparison
       platformComparison: product.platformComparison || [
-        { platform: 'RRP', rrpPerUnit: 0, profitFor200Units: 0, markup: '0%' },
-        { platform: 'Amazon', rrpPerUnit: 0, profitFor200Units: 0, markup: '0%' },
-        { platform: 'eBay', rrpPerUnit: 0, profitFor200Units: 0, markup: '0%' }
+        { platform: 'RRP', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: '0%' },
+        { platform: 'Amazon', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: '0%' },
+        { platform: 'eBay', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: '0%' }
       ],
       // Profit Calculations
       profitCalculations: product.profitCalculations || {
@@ -317,21 +323,59 @@ const AdminProducts = () => {
       },
       // Profit Evaluation - Always sync product cost with current product price
       profitEvaluation: product.profitEvaluation ? {
-        ...product.profitEvaluation,
-        productCost: productPricePKR // Always use current product price in PKR
+        salesProceeds: product.profitEvaluation.salesProceeds || 0,
+        commission: product.profitEvaluation.commission || 0,
+        commissionTax: product.profitEvaluation.commissionTax || 0,
+        digitalServicesFee: product.profitEvaluation.digitalServicesFee || 0,
+        digitalServicesTax: product.profitEvaluation.digitalServicesTax || 0,
+        fbaFulfilmentFee: product.profitEvaluation.fbaFulfilmentFee || 0,
+        fbaFulfilmentTax: product.profitEvaluation.fbaFulfilmentTax || 0,
+        balanceChange: product.profitEvaluation.balanceChange || 0, // Preserve existing balance change
+        productCost: productPricePKR, // Always use current product price in PKR
+        netProfit: (product.profitEvaluation.balanceChange || 0) - productPricePKR // Auto-calculate: Balance Change - Product Cost
       } : {
         salesProceeds: 0,
         commission: 0,
+        commissionTax: 0,
         digitalServicesFee: 0,
+        digitalServicesTax: 0,
         fbaFulfilmentFee: 0,
+        fbaFulfilmentTax: 0,
         balanceChange: 0,
         productCost: productPricePKR, // Auto-populate from product price in PKR
-        netProfit: 0
+        netProfit: 0 - productPricePKR // Auto-calculate: Balance Change - Product Cost
       }
     });
     // Initialize modal currency to current page currency
     setModalCurrency(currency);
     setShowProfitModal(true);
+    
+    // Debug: Log initial balance change value
+    console.log('🔍 Modal Opened - Initial Balance Change:', {
+      productName: product.name,
+      hasExistingProfitEvaluation: !!product.profitEvaluation,
+      existingBalanceChange: product.profitEvaluation?.balanceChange,
+      modalCurrency: currency
+    });
+  };
+
+  // Function to recalculate all platform profits when profit evaluation changes
+  const recalculateAllPlatformProfits = () => {
+    if (!profitEditProduct) return;
+    
+    const profitPerUnit = profitEditProduct.profitEvaluation?.netProfit || 0;
+    const updatedPlatforms = profitEditProduct.platformComparison.map(platform => {
+      const units = platform.units || 200;
+      return {
+        ...platform,
+        profitFor200Units: profitPerUnit * units
+      };
+    });
+    
+    setProfitEditProduct({
+      ...profitEditProduct,
+      platformComparison: updatedPlatforms
+    });
   };
 
   const updateProfitData = async () => {
@@ -345,6 +389,7 @@ const AdminProducts = () => {
       
       const updateData = {
         platformComparison: profitEditProduct.platformComparison,
+        platformUnits: selectedUnits, // Save the selected units
         profitCalculations: {
           ...profitEditProduct.profitCalculations,
           profitFor200Units: calculatedProfitFor200Units // Auto-calculated value
@@ -472,6 +517,56 @@ const AdminProducts = () => {
   return (
     <div className="admin-products" style={{fontSize: '0.85rem'}}>
 
+      {/* Header Section */}
+      <div style={{
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        padding: '12px 16px', 
+        marginBottom: '12px', 
+        background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)', 
+        borderRadius: '8px',
+        color: 'white'
+      }}>
+        <div>
+          <h1 style={{margin: 0, fontSize: '1.4rem', fontWeight: 'bold'}}>
+            📦 Products Management
+          </h1>
+          <p style={{margin: '4px 0 0 0', fontSize: '0.9rem', opacity: 0.9}}>
+            Manage your product catalog
+          </p>
+        </div>
+        <button
+          onClick={() => navigate('/admin/products/add')}
+          style={{
+            background: 'rgba(255, 255, 255, 0.2)',
+            border: '2px solid rgba(255, 255, 255, 0.3)',
+            color: 'white',
+            padding: '10px 20px',
+            borderRadius: '8px',
+            fontSize: '0.9rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.3s ease',
+            backdropFilter: 'blur(10px)'
+          }}
+          onMouseOver={(e) => {
+            e.target.style.background = 'rgba(255, 255, 255, 0.3)';
+            e.target.style.transform = 'translateY(-2px)';
+          }}
+          onMouseOut={(e) => {
+            e.target.style.background = 'rgba(255, 255, 255, 0.2)';
+            e.target.style.transform = 'translateY(0)';
+          }}
+        >
+          <span style={{fontSize: '1.1rem'}}>➕</span>
+          Add New Product
+        </button>
+      </div>
+
       <div className="filters-section" style={{padding: '6px 8px', marginBottom: '6px', background: 'white', borderRadius: '6px'}}>
         <div style={{display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center'}}>
           <input
@@ -538,9 +633,9 @@ const AdminProducts = () => {
             }}
             title="Select currency for price display and editing"
           >
+            <option value="GBP">💷 GBP (£)</option> {/* Moved GBP to top */}
             <option value="PKR">💰 PKR (Rs)</option>
             <option value="USD">💵 USD ($)</option>
-            <option value="GBP">💷 GBP (£)</option>
             <option value="AED">💴 AED</option>
           </select>
         </div>
@@ -745,7 +840,7 @@ const AdminProducts = () => {
                   </th>
                   <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Product</th>
                   <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Category</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Price</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Price</th> {/* Added (£) */}
                   <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Stock</th>
                   <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Status</th>
                   <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Seller</th>
@@ -1053,13 +1148,19 @@ const AdminProducts = () => {
               <div style={{flex: 1}}>
                 <h2 style={{margin: 0, fontSize: '1.5rem', fontWeight: 'bold'}}>💰 Profit Details Management</h2>
                 <p style={{margin: '5px 0 0 0', opacity: 0.9}}>{profitEditProduct.name}</p>
+                <p style={{margin: '5px 0 0 0', fontSize: '0.8rem', opacity: 0.7, fontStyle: 'italic'}}>
+                  💡 To edit product details (name, description, features), use the "Edit Product" button instead
+                </p>
               </div>
               <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end'}}>
                   <label style={{fontSize: '0.75rem', marginBottom: '4px', opacity: 0.9}}>Currency</label>
                   <select
                     value={modalCurrency}
-                    onChange={(e) => setModalCurrency(e.target.value)}
+                    onChange={(e) => {
+                      console.log('🔄 Currency Changed:', e.target.value);
+                      setModalCurrency(e.target.value);
+                    }}
                     style={{
                       padding: '6px 12px',
                       fontSize: '0.9rem',
@@ -1072,9 +1173,9 @@ const AdminProducts = () => {
                       color: 'white'
                     }}
                   >
+                    <option value="GBP" style={{color: '#333'}}>GBP (£)</option> {/* Moved GBP to top */}
                     <option value="PKR" style={{color: '#333'}}>PKR (Rs)</option>
                     <option value="USD" style={{color: '#333'}}>USD ($)</option>
-                    <option value="GBP" style={{color: '#333'}}>GBP (£)</option>
                     <option value="AED" style={{color: '#333'}}>AED (د.إ)</option>
                   </select>
                 </div>
@@ -1100,10 +1201,10 @@ const AdminProducts = () => {
             <div style={{padding: '25px'}}>
               {/* Platform Comparison Section */}
               <div style={{marginBottom: '30px', padding: '20px', backgroundColor: '#e8f5e9', borderRadius: '8px', border: '2px solid #28a745'}}>
-                <h3 style={{color: '#28a745', marginBottom: '20px', fontSize: '1.3rem'}}>📊 Platform Comparison ({profitEditProduct.dealUnits || 1} units)</h3>
+                <h3 style={{color: '#28a745', marginBottom: '20px', fontSize: '1.3rem'}}>📊 Platform Comparison</h3>
                 {profitEditProduct.platformComparison.map((platform, index) => (
                   <div key={index} style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #ddd'}}>
-                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '15px', alignItems: 'center'}}>
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr auto', gap: '15px', alignItems: 'center'}}>
                       <div>
                         <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Platform</label>
                         <select
@@ -1123,10 +1224,7 @@ const AdminProducts = () => {
                           <option value="Shopify">Shopify</option>
                           <option value="Etsy">Etsy</option>
                           <option value="Facebook Marketplace">Facebook Marketplace</option>
-                          <option value="Mercari">Mercari</option>
-                          <option value="Poshmark">Poshmark</option>
-                          <option value="Depop">Depop</option>
-                          <option value="Vinted">Vinted</option>
+                          
                           <option value="Other">Other</option>
                         </select>
                       </div>
@@ -1145,17 +1243,56 @@ const AdminProducts = () => {
                         />
                       </div>
                       <div>
-                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Profit ({profitEditProduct.dealUnits || 1} units) ({currencySymbols[modalCurrency]})</label>
+                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Units</label>
+                        <select
+                          value={platform.units || 200}
+                          onChange={(e) => {
+                            const newPlatforms = [...profitEditProduct.platformComparison];
+                            const newUnits = parseInt(e.target.value);
+                            newPlatforms[index].units = newUnits;
+                            // Auto-calculate total profit using profit per unit from evaluation
+                            const profitPerUnit = profitEditProduct.profitEvaluation?.netProfit || 0;
+                            newPlatforms[index].profitFor200Units = profitPerUnit * newUnits;
+                            setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                          }}
+                          style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                        >
+                          <option value={100}>100</option>
+                          <option value={150}>150</option>
+                          <option value={200}>200</option>
+                          <option value={250}>250</option>
+                          <option value={300}>300</option>
+                          <option value={400}>400</option>
+                          <option value={500}>500</option>
+                          <option value={600}>600</option>
+                          <option value={700}>700</option>
+                          <option value={800}>800</option>
+                          <option value={900}>900</option>
+                          <option value={1000}>1000</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                          Total Profit ({platform.units || 200} units) ({currencySymbols[modalCurrency]})
+                          <span style={{fontSize: '0.7rem', fontWeight: 'normal', color: '#666', marginLeft: '5px'}}>
+                            (Auto-calculated: Net Profit × {platform.units || 200})
+                          </span>
+                        </label>
                         <input
                           type="number"
                           step="0.01"
                           value={convertFromPKRModal(platform.profitFor200Units)}
-                          onChange={(e) => {
-                            const newPlatforms = [...profitEditProduct.platformComparison];
-                            newPlatforms[index].profitFor200Units = convertToPKRModal(parseFloat(e.target.value) || 0);
-                            setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                          readOnly
+                          style={{
+                            width: '100%', 
+                            padding: '10px', 
+                            border: '1px solid #ddd', 
+                            borderRadius: '6px', 
+                            fontSize: '0.9rem',
+                            backgroundColor: '#f8f9fa', // Light background to indicate auto-calculation
+                            cursor: 'not-allowed'
                           }}
-                          style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                          title="This value is automatically calculated based on Net Profit from evaluation × platform units"
                         />
                       </div>
                       <div>
@@ -1200,7 +1337,7 @@ const AdminProducts = () => {
                 <button
                   onClick={() => {
                     const newPlatforms = [...profitEditProduct.platformComparison, 
-                      { platform: 'Other', rrpPerUnit: 0, profitFor200Units: 0, markup: '0%' }
+                      { platform: 'Other', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: '0%' }
                     ];
                     setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
                   }}
@@ -1218,6 +1355,20 @@ const AdminProducts = () => {
                 >
                   ➕ Add Platform
                 </button>
+                
+                <div style={{
+                  marginTop: '15px',
+                  padding: '10px',
+                  backgroundColor: '#fff3cd',
+                  border: '1px solid #ffeaa7',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  color: '#856404'
+                }}>
+                  <strong>💡 How it works:</strong> Enter the RRP per unit and select units for each platform. 
+                  The total profit values will be automatically calculated using the Net Profit from the Profit Evaluation section below × platform units. 
+                  These settings will be saved and displayed in the product detail page.
+                </div>
               </div>
 
               {/* Profit Calculations Section */}
@@ -1263,7 +1414,7 @@ const AdminProducts = () => {
               {/* Profit Evaluation Section */}
               <div style={{marginBottom: '30px', padding: '20px', backgroundColor: '#fff3e0', borderRadius: '8px', border: '2px solid #ff9800'}}>
                 <h3 style={{color: '#ff9800', marginBottom: '20px', fontSize: '1.3rem'}}>📈 Profit Evaluation</h3>
-                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px'}}>
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px'}}>
                   <div>
                     <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Sales Proceeds ({currencySymbols[modalCurrency]})</label>
                     <input
@@ -1284,7 +1435,7 @@ const AdminProducts = () => {
                     />
                   </div>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Commission + inc tax ({currencySymbols[modalCurrency]})</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Commission ({currencySymbols[modalCurrency]})</label>
                     <input
                       type="number"
                       step="0.01"
@@ -1303,7 +1454,26 @@ const AdminProducts = () => {
                     />
                   </div>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Digital Services Fee + inc tax ({currencySymbols[modalCurrency]})</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Commission Tax ({currencySymbols[modalCurrency]})</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.commissionTax)}
+                      onChange={(e) => {
+                        const pkrValue = convertToPKRModal(parseFloat(e.target.value) || 0);
+                        setProfitEditProduct({
+                          ...profitEditProduct, 
+                          profitEvaluation: {
+                            ...profitEditProduct.profitEvaluation,
+                            commissionTax: pkrValue
+                          }
+                        });
+                      }}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Digital Services Fee ({currencySymbols[modalCurrency]})</label>
                     <input
                       type="number"
                       step="0.01"
@@ -1322,7 +1492,26 @@ const AdminProducts = () => {
                     />
                   </div>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>FBA Fulfilment Fee + inc tax ({currencySymbols[modalCurrency]})</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Digital Services Tax ({currencySymbols[modalCurrency]})</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.digitalServicesTax)}
+                      onChange={(e) => {
+                        const pkrValue = convertToPKRModal(parseFloat(e.target.value) || 0);
+                        setProfitEditProduct({
+                          ...profitEditProduct, 
+                          profitEvaluation: {
+                            ...profitEditProduct.profitEvaluation,
+                            digitalServicesTax: pkrValue
+                          }
+                        });
+                      }}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>FBA Fulfilment Fee ({currencySymbols[modalCurrency]})</label>
                     <input
                       type="number"
                       step="0.01"
@@ -1341,27 +1530,75 @@ const AdminProducts = () => {
                     />
                   </div>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Balance Change ({currencySymbols[modalCurrency]})</label>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>FBA Fulfilment Tax ({currencySymbols[modalCurrency]})</label>
                     <input
                       type="number"
                       step="0.01"
-                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.balanceChange)}
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.fbaFulfilmentTax)}
                       onChange={(e) => {
-                        const newBalanceChangePKR = convertToPKRModal(parseFloat(e.target.value) || 0);
-                        const productCostPKR = profitEditProduct.profitEvaluation.productCost || 0;
-                        const calculatedNetProfitPKR = newBalanceChangePKR - productCostPKR; // Formula: Net Profit = Balance Change - Product Cost
-                        
+                        const pkrValue = convertToPKRModal(parseFloat(e.target.value) || 0);
                         setProfitEditProduct({
                           ...profitEditProduct, 
                           profitEvaluation: {
                             ...profitEditProduct.profitEvaluation,
-                            balanceChange: newBalanceChangePKR,
-                            netProfit: calculatedNetProfitPKR // Auto-calculate Net Profit
-                          },
-                          profitCalculations: {
-                            ...profitEditProduct.profitCalculations,
-                            profitPerUnit: calculatedNetProfitPKR // Auto-calculate Profit per Unit = Net Profit
+                            fbaFulfilmentTax: pkrValue
                           }
+                        });
+                      }}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>Balance Change ({currencySymbols[modalCurrency]})</label>
+                    <input
+                      key={`balance-change-${profitEditProduct._id}`}
+                      type="number"
+                      step="0.01"
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation?.balanceChange || 0)}
+                      onChange={(e) => {
+                        const inputValue = e.target.value;
+                        const parsedValue = parseFloat(inputValue) || 0;
+                        const newBalanceChangePKR = convertToPKRModal(parsedValue);
+                        const productCostPKR = profitEditProduct.profitEvaluation.productCost || 0;
+                        const calculatedNetProfitPKR = newBalanceChangePKR - productCostPKR; // Formula: Net Profit = Balance Change - Product Cost
+                        
+                        console.log('🔍 Balance Change Debug:', {
+                          inputValue,
+                          parsedValue,
+                          modalCurrency,
+                          currencyRate: currencyRates[modalCurrency],
+                          newBalanceChangePKR,
+                          productCostPKR,
+                          calculatedNetProfitPKR
+                        });
+                        
+                        setProfitEditProduct(prevState => {
+                          // Update platform profits with new net profit using latest state
+                          const updatedPlatforms = prevState.platformComparison.map(platform => ({
+                            ...platform,
+                            profitFor200Units: calculatedNetProfitPKR * (platform.units || 200)
+                          }));
+                          
+                          return {
+                            ...prevState, 
+                            profitEvaluation: {
+                              ...prevState.profitEvaluation,
+                              balanceChange: newBalanceChangePKR,
+                              netProfit: calculatedNetProfitPKR // Auto-calculate Net Profit
+                            },
+                            profitCalculations: {
+                              ...prevState.profitCalculations,
+                              profitPerUnit: calculatedNetProfitPKR, // Auto-calculate Profit per Unit = Net Profit
+                              profitFor200Units: calculatedNetProfitPKR * 200 // Auto-calculate profit for 200 units
+                            },
+                            platformComparison: updatedPlatforms // Update all platform profits
+                          };
+                        });
+                        
+                        console.log('✅ Balance Change Updated:', {
+                          newBalanceChangePKR,
+                          calculatedNetProfitPKR,
+                          updatedState: 'setProfitEditProduct called'
                         });
                       }}
                       style={{width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
@@ -1392,9 +1629,13 @@ const AdminProducts = () => {
                           },
                           profitCalculations: {
                             ...profitEditProduct.profitCalculations,
-                            profitPerUnit: calculatedNetProfitPKR // Auto-calculate Profit per Unit = Net Profit
+                            profitPerUnit: calculatedNetProfitPKR, // Auto-calculate Profit per Unit = Net Profit
+                            profitFor200Units: calculatedNetProfitPKR * 200 // Auto-calculate profit for 200 units
                           }
                         });
+                        
+                        // Recalculate platform profits with new net profit
+                        setTimeout(() => recalculateAllPlatformProfits(), 100);
                       }}
                       style={{width: '100%', padding: '12px', border: '1px solid #28a745', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: '#f8fff9'}}
                       placeholder="Auto-syncs with current product price"
@@ -1418,6 +1659,8 @@ const AdminProducts = () => {
                   </div>
                 </div>
               </div>
+
+
 
               {/* Action Buttons */}
               <div style={{

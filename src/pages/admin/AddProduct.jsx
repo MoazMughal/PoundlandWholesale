@@ -1,29 +1,75 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { adminPost } from '../../utils/adminApi';
+import { uploadMultipleImages, validateImageFile } from '../../utils/imageUpload';
+import cacheManager from '../../utils/cacheManager';
+import { useCurrency } from '../../context/CurrencyContext';
 import '../../styles/AdminProductForm.css';
 
 const AddProduct = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { currency, currencySymbols } = useCurrency();
+  
+  // Get return category from URL params or location state
+  const urlParams = new URLSearchParams(location.search);
+  const returnCategory = location.state?.category || urlParams.get('returnCategory') || '';
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
-    price: '',
-    originalPrice: '',
-    discount: '',
+    price: 0,
     category: '',
-    subcategory: '',
     brand: '',
-    images: '',
     rating: 4.5,
     reviews: 0,
     stock: 0,
+    dealUnits: 1,
     seller: '',
     isAmazonsChoice: false,
-    isBestSeller: false,
-    status: 'active'
+    status: 'active',
+    description: '',
+    features: []
   });
+
+  const [imageFiles, setImageFiles] = useState([]);
+  const [imageUrls, setImageUrls] = useState([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const fileInputRef = useRef(null);
+  const additionalFileInputRefs = useRef([null, null, null, null]); // Refs for 4 additional image inputs
+
+  // Currency conversion rates (base: PKR) - Manual rates
+  const currencyRates = {
+    PKR: 1,
+    USD: 0.00353,   // 1 USD = 283.32 PKR
+    GBP: 0.00272,   // 1 GBP = 367.74 PKR
+    AED: 0.01310    // 1 AED = 76.37 PKR
+  };
+
+  // Categories that match Amazon's Choice page
+  const categories = [
+    { value: 'remote', label: 'Remote Controls' },
+    { value: 'electronics', label: 'Electronics' },
+    { value: 'strap', label: 'Watch Straps' },
+    { value: 'jewelry', label: 'Jewelry' },
+    { value: 'party', label: 'Party Supplies' },
+    { value: 'home', label: 'Home & Decor' },
+    { value: 'kitchen', label: 'Kitchen' },
+    { value: 'automotive', label: 'Automotive' },
+    { value: 'tape', label: 'Tape' },
+    { value: 'lampshade', label: 'Lampshades' },
+    { value: 'clothing', label: 'Clothing' },
+    { value: 'food', label: 'Food' },
+    { value: 'beauty', label: 'Beauty' },
+    { value: 'sports', label: 'Sports' },
+    { value: 'toys', label: 'Toys' },
+    { value: 'books', label: 'Books' },
+    { value: 'health', label: 'Health' },
+    { value: 'UAE Products', label: 'UAE Products' },
+    { value: 'UK Products', label: 'UK Products' },
+    { value: 'Amazon10', label: 'Amazon 10' }
+  ];
 
   useEffect(() => {
     fetchSellers();
@@ -52,45 +98,158 @@ const AddProduct = () => {
     }));
   };
 
+  // Image handling functions
+  const handleImageSelect = async (e, index = 0) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      alert(`❌ ${validation.error}`);
+      return;
+    }
+
+    const newImageFiles = [...imageFiles];
+    const newImageUrls = [...imageUrls];
+    
+    newImageFiles[index] = file;
+    newImageUrls[index] = URL.createObjectURL(file);
+    
+    setImageFiles(newImageFiles);
+    setImageUrls(newImageUrls);
+  };
+
+  const removeImage = (index) => {
+    const newImageFiles = [...imageFiles];
+    const newImageUrls = [...imageUrls];
+    
+    if (newImageUrls[index]) {
+      URL.revokeObjectURL(newImageUrls[index]);
+    }
+    
+    newImageFiles[index] = null;
+    newImageUrls[index] = '';
+    
+    setImageFiles(newImageFiles);
+    setImageUrls(newImageUrls);
+    
+    // Reset the file input
+    if (index === 0 && fileInputRef.current) {
+      fileInputRef.current.value = '';
+    } else if (additionalFileInputRefs.current[index - 1]) {
+      additionalFileInputRefs.current[index - 1].value = '';
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
 
     try {
-      const token = localStorage.getItem('adminToken');
-      
-      const productData = {
-        ...formData,
-        price: parseFloat(formData.price),
-        originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
-        discount: formData.discount ? parseFloat(formData.discount) : undefined,
-        rating: parseFloat(formData.rating),
-        reviews: parseInt(formData.reviews),
-        stock: parseInt(formData.stock),
-        images: formData.images.split(',').map(img => img.trim()).filter(img => img)
-      };
+      let finalImageUrls = [];
 
-      const response = await fetch('http://localhost:5000/api/products', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(productData)
+      // Upload new images if any
+      const filesToUpload = imageFiles.filter(file => file !== null);
+      console.log('📤 Files to upload:', filesToUpload.length);
+      
+      if (filesToUpload.length > 0) {
+        setUploadingImages(true);
+        try {
+          console.log('📤 Starting image upload...');
+          const uploadResult = await uploadMultipleImages(filesToUpload);
+          console.log('📤 Upload result:', uploadResult);
+          
+          if (!uploadResult.success) {
+            throw new Error(uploadResult.error);
+          }
+          
+          const uploadedUrls = uploadResult.urls;
+          
+          // Map uploaded URLs to correct positions
+          let uploadIndex = 0;
+          for (let i = 0; i < imageFiles.length; i++) {
+            if (imageFiles[i] !== null) {
+              finalImageUrls[i] = uploadedUrls[uploadIndex];
+              uploadIndex++;
+            }
+          }
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          alert(`❌ Failed to upload images: ${uploadError.message}`);
+          return;
+        } finally {
+          setUploadingImages(false);
+        }
+      }
+
+      // Filter out empty slots
+      finalImageUrls = finalImageUrls.filter(url => url && url.trim() !== '');
+      
+      console.log('📝 Final processed image URLs:', finalImageUrls);
+
+      // Convert entered GBP price to PKR for database storage
+      const enteredPriceGBP = parseFloat(formData.price) || 0;
+      const priceInPKR = enteredPriceGBP / currencyRates.GBP; // Always convert from GBP to PKR
+      
+      console.log('💰 Price conversion (GBP → PKR):', {
+        enteredPriceGBP,
+        gbpRate: currencyRates.GBP,
+        priceInPKR: priceInPKR.toFixed(2)
       });
 
+      const productData = {
+        name: formData.name.trim(),
+        description: formData.description || '',
+        features: formData.features || [],
+        price: priceInPKR,
+        category: formData.category,
+        brand: formData.brand || '',
+        rating: parseFloat(formData.rating) || 4.5,
+        reviews: parseInt(formData.reviews) || 0,
+        stock: parseInt(formData.stock) || 0,
+        dealUnits: parseInt(formData.dealUnits) || 1,
+        seller: formData.seller || null,
+        isAmazonsChoice: formData.isAmazonsChoice || false,
+        isBestSeller: false,
+        isLatestDeal: false,
+        showOnHome: false,
+        status: formData.status || 'active',
+        approvalStatus: 'approved',
+        isAdminProduct: true,
+        listedBy: 'admin',
+        images: finalImageUrls
+      };
+
+      console.log('📝 Creating product with data:', productData);
+      console.log('📝 Final image URLs:', finalImageUrls);
+
+      const response = await adminPost('http://localhost:5000/api/products', productData);
+      
       if (response.ok) {
-        alert('✅ Product added successfully!');
-        navigate('/admin/products');
+        const createdProduct = await response.json();
+        console.log('✅ Product created successfully:', createdProduct);
+        alert('✅ Product created successfully!');
+        
+        // Clear cache
+        cacheManager.clearAll();
+        
+        // Navigate back to products list
+        const returnUrl = returnCategory 
+          ? `/admin/products?category=${returnCategory}`
+          : '/admin/products';
+        navigate(returnUrl, {
+          state: { category: returnCategory }
+        });
       } else {
-        const error = await response.json();
-        alert(`❌ Error: ${error.message}`);
+        const errorData = await response.json();
+        console.error('❌ Server error:', errorData);
+        alert(`❌ Error creating product: ${errorData.message || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error:', error);
-      alert('❌ Failed to add product');
+      console.error('❌ Error creating product:', error);
+      alert('❌ Failed to create product. Please try again.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -98,7 +257,17 @@ const AddProduct = () => {
     <div className="admin-product-form">
       <header className="form-header">
         <h1>➕ Add New Product</h1>
-        <button onClick={() => navigate('/admin/products')} className="back-btn">
+        <button 
+          onClick={() => {
+            const returnUrl = returnCategory 
+              ? `/admin/products?category=${returnCategory}`
+              : '/admin/products';
+            navigate(returnUrl, {
+              state: { category: returnCategory }
+            });
+          }} 
+          className="back-btn"
+        >
           ← Back to Products
         </button>
       </header>
@@ -119,42 +288,15 @@ const AddProduct = () => {
             />
           </div>
 
-          <div className="form-group">
-            <label>Description</label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows="4"
-              placeholder="Enter product description"
-            />
-          </div>
-
           <div className="form-row">
             <div className="form-group">
               <label>Category *</label>
               <select name="category" value={formData.category} onChange={handleChange} required>
                 <option value="">Select Category</option>
-                <option value="Electronics">Electronics</option>
-                <option value="Clothing">Clothing</option>
-                <option value="Home & Garden">Home & Garden</option>
-                <option value="Sports">Sports</option>
-                <option value="Books">Books</option>
-                <option value="Toys">Toys</option>
-                <option value="Beauty">Beauty</option>
-                <option value="Food">Food</option>
+                {categories.map(cat => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
               </select>
-            </div>
-
-            <div className="form-group">
-              <label>Subcategory</label>
-              <input
-                type="text"
-                name="subcategory"
-                value={formData.subcategory}
-                onChange={handleChange}
-                placeholder="e.g., Smartphones, T-Shirts"
-              />
             </div>
 
             <div className="form-group">
@@ -168,14 +310,10 @@ const AddProduct = () => {
               />
             </div>
           </div>
-        </div>
 
-        <div className="form-section">
-          <h2>💰 Pricing & Stock</h2>
-          
           <div className="form-row">
             <div className="form-group">
-              <label>Price (₹) *</label>
+              <label>Price (£) *</label>
               <input
                 type="number"
                 name="price"
@@ -186,53 +324,9 @@ const AddProduct = () => {
                 step="0.01"
                 placeholder="0.00"
               />
+              <small>Enter price in GBP (£). It will be converted and displayed according to selected currency.</small>
             </div>
 
-            <div className="form-group">
-              <label>Original Price (₹)</label>
-              <input
-                type="number"
-                name="originalPrice"
-                value={formData.originalPrice}
-                onChange={handleChange}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Discount (%)</label>
-              <input
-                type="number"
-                name="discount"
-                value={formData.discount}
-                onChange={handleChange}
-                min="0"
-                max="100"
-                placeholder="0"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Stock Quantity *</label>
-              <input
-                type="number"
-                name="stock"
-                value={formData.stock}
-                onChange={handleChange}
-                required
-                min="0"
-                placeholder="0"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h2>⭐ Rating & Reviews</h2>
-          
-          <div className="form-row">
             <div className="form-group">
               <label>Rating (0-5)</label>
               <input
@@ -248,7 +342,7 @@ const AddProduct = () => {
             </div>
 
             <div className="form-group">
-              <label>Number of Reviews</label>
+              <label>Reviews</label>
               <input
                 type="number"
                 name="reviews"
@@ -259,21 +353,253 @@ const AddProduct = () => {
               />
             </div>
           </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Stock Quantity *</label>
+              <input
+                type="number"
+                name="stock"
+                value={formData.stock}
+                onChange={handleChange}
+                required
+                min="0"
+                placeholder="0"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Deal Units</label>
+              <input
+                type="number"
+                name="dealUnits"
+                value={formData.dealUnits}
+                onChange={handleChange}
+                min="1"
+                placeholder="1"
+              />
+              <small>Minimum units for bulk deals</small>
+            </div>
+          </div>
         </div>
 
         <div className="form-section">
-          <h2>🖼️ Images</h2>
+          <h2>📝 About This Item</h2>
           
           <div className="form-group">
-            <label>Image URLs (comma-separated)</label>
+            <label>Description</label>
             <textarea
-              name="images"
-              value={formData.images}
+              name="description"
+              value={formData.description}
               onChange={handleChange}
-              rows="3"
-              placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+              rows="4"
+              placeholder="Enter product description that will appear in the 'About this item' section..."
+              style={{
+                width: '100%',
+                minHeight: '100px',
+                padding: '12px',
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                fontSize: '0.9rem',
+                fontFamily: 'inherit',
+                resize: 'vertical'
+              }}
             />
-            <small>Enter multiple image URLs separated by commas</small>
+            <small>This description will appear at the top of the "About this item" section on the product detail page.</small>
+          </div>
+
+          <div className="form-group">
+            <label>Features (one per line)</label>
+            <textarea
+              value={(formData.features || []).join('\n')}
+              onChange={(e) => {
+                const featuresArray = e.target.value.split('\n').filter(line => line.trim() !== '');
+                setFormData(prev => ({
+                  ...prev,
+                  features: featuresArray
+                }));
+              }}
+              rows="6"
+              placeholder="Enter features, one per line:&#10;• Amazon's Choice Product&#10;• Fast Shipping Available&#10;• Quality Guaranteed"
+              style={{
+                width: '100%',
+                minHeight: '120px',
+                padding: '12px',
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                fontSize: '0.9rem',
+                fontFamily: 'inherit',
+                resize: 'vertical'
+              }}
+            />
+            <small>Enter each feature on a new line. They will appear as bullet points in the "About this item" section.</small>
+          </div>
+        </div>
+
+        <div className="form-section">
+          <h2>🖼️ Product Images</h2>
+          
+          {/* Main Image */}
+          <div className="form-group">
+            <label>Main Product Image *</label>
+            <div style={{
+              border: '2px dashed #ddd',
+              borderRadius: '8px',
+              padding: '10px',
+              textAlign: 'center',
+              backgroundColor: '#fafafa'
+            }}>
+              {imageUrls[0] ? (
+                <div style={{
+                  position: 'relative',
+                  display: 'inline-block',
+                  maxWidth: '200px',
+                  width: '100%'
+                }}>
+                  <img 
+                    src={imageUrls[0]} 
+                    alt="Main product" 
+                    style={{
+                      width: '100%',
+                      height: '200px',
+                      objectFit: 'cover',
+                      borderRadius: '6px',
+                      border: '1px solid #ddd'
+                    }}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => removeImage(0)} 
+                    style={{
+                      position: 'absolute',
+                      top: '5px',
+                      right: '5px',
+                      background: 'rgba(255, 0, 0, 0.8)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '25px',
+                      height: '25px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    padding: '40px 20px',
+                    cursor: 'pointer',
+                    color: '#666',
+                    fontSize: '14px'
+                  }}
+                >
+                  <i className="fas fa-camera" style={{fontSize: '24px', marginBottom: '10px', display: 'block'}}></i>
+                  <span>Click to upload main image</span>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImageSelect(e, 0)}
+                style={{ display: 'none' }}
+              />
+            </div>
+          </div>
+
+          {/* Additional Images */}
+          <div className="form-group">
+            <label>Additional Images (Optional)</label>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: '15px',
+              marginTop: '10px'
+            }}>
+              {[1, 2, 3, 4].map((index) => (
+                <div key={index} style={{
+                  border: '2px dashed #ddd',
+                  borderRadius: '8px',
+                  padding: '10px',
+                  textAlign: 'center',
+                  backgroundColor: '#fafafa',
+                  minHeight: '150px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {imageUrls[index] ? (
+                    <div style={{
+                      position: 'relative',
+                      width: '100%',
+                      height: '130px'
+                    }}>
+                      <img 
+                        src={imageUrls[index]} 
+                        alt={`Product image ${index + 1}`} 
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          borderRadius: '6px',
+                          border: '1px solid #ddd'
+                        }}
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeImage(index)} 
+                        style={{
+                          position: 'absolute',
+                          top: '5px',
+                          right: '5px',
+                          background: 'rgba(255, 0, 0, 0.8)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '22px',
+                          height: '22px',
+                          cursor: 'pointer',
+                          fontSize: '11px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div 
+                      onClick={() => additionalFileInputRefs.current[index - 1]?.click()}
+                      style={{
+                        cursor: 'pointer',
+                        color: '#666',
+                        fontSize: '12px',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <i className="fas fa-plus" style={{fontSize: '18px', marginBottom: '8px', display: 'block'}}></i>
+                      <span>Image {index + 1}</span>
+                    </div>
+                  )}
+                  <input
+                    ref={el => additionalFileInputRefs.current[index - 1] = el}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleImageSelect(e, index)}
+                    style={{ display: 'none' }}
+                  />
+                </div>
+              ))}
+            </div>
+            <small>Upload up to 4 additional product images. Recommended size: 800x800px or larger.</small>
           </div>
         </div>
 
@@ -316,26 +642,25 @@ const AddProduct = () => {
                 <span>🏆 Amazon's Choice</span>
               </label>
             </div>
-
-            <div className="form-group checkbox-group">
-              <label>
-                <input
-                  type="checkbox"
-                  name="isBestSeller"
-                  checked={formData.isBestSeller}
-                  onChange={handleChange}
-                />
-                <span>🔥 Best Seller</span>
-              </label>
-            </div>
           </div>
         </div>
 
         <div className="form-actions">
-          <button type="submit" className="submit-btn" disabled={loading}>
-            {loading ? '⏳ Adding Product...' : '✅ Add Product'}
+          <button type="submit" className="submit-btn" disabled={saving || uploadingImages}>
+            {uploadingImages ? '📤 Uploading Images...' : saving ? '⏳ Creating Product...' : '✅ Create Product'}
           </button>
-          <button type="button" onClick={() => navigate('/admin/products')} className="cancel-btn">
+          <button 
+            type="button" 
+            onClick={() => {
+              const returnUrl = returnCategory 
+                ? `/admin/products?category=${returnCategory}`
+                : '/admin/products';
+              navigate(returnUrl, {
+                state: { category: returnCategory }
+              });
+            }} 
+            className="cancel-btn"
+          >
             Cancel
           </button>
         </div>

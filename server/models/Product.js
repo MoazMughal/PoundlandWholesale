@@ -8,6 +8,7 @@ const productSchema = new mongoose.Schema({
     index: true // Index for faster search
   },
   description: String,
+  features: [String], // Array of feature strings for "About this item" section
   price: {
     type: Number,
     required: true
@@ -88,6 +89,10 @@ const productSchema = new mongoose.Schema({
     type: Number,
     default: 1
   },
+  platformUnits: {
+    type: Number,
+    default: 200
+  },
   costPrice: {
     type: Number,
     default: 0
@@ -130,6 +135,10 @@ const productSchema = new mongoose.Schema({
       type: Number,
       required: true
     },
+    units: {
+      type: Number,
+      default: 200
+    },
     profitFor200Units: {
       type: Number,
       required: true
@@ -168,11 +177,23 @@ const productSchema = new mongoose.Schema({
       type: Number,
       default: 0
     },
+    commissionTax: {
+      type: Number,
+      default: 0
+    },
     digitalServicesFee: {
       type: Number,
       default: 0
     },
+    digitalServicesTax: {
+      type: Number,
+      default: 0
+    },
     fbaFulfilmentFee: {
+      type: Number,
+      default: 0
+    },
+    fbaFulfilmentTax: {
       type: Number,
       default: 0
     },

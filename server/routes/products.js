@@ -408,6 +408,8 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
   try {
     console.log('📝 Updating product:', req.params.id);
     console.log('📝 Update data:', req.body);
+    console.log('📝 Features in request:', req.body.features);
+    console.log('📝 Features type:', typeof req.body.features, 'isArray:', Array.isArray(req.body.features));
     
     const product = await Product.findByIdAndUpdate(
       req.params.id,
@@ -421,11 +423,45 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     }
 
     console.log('✅ Product updated successfully:', product.name);
+    console.log('📝 Updated product features:', product.features);
     res.json(product);
   } catch (error) {
     console.error('❌ Error updating product:', error);
     console.error('❌ Update data that failed:', req.body);
     res.status(400).json({ message: 'Error updating product', error: error.message });
+  }
+});
+
+// Update platform units for a product (admin only)
+router.patch('/:id/platform-units', authenticateAdmin, async (req, res) => {
+  try {
+    const { platformUnits } = req.body;
+    
+    if (!platformUnits || isNaN(platformUnits) || platformUnits < 1) {
+      return res.status(400).json({ message: 'Invalid platform units value' });
+    }
+    
+    console.log('📝 Updating platform units for product:', req.params.id, 'to:', platformUnits);
+    
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { platformUnits: parseInt(platformUnits) },
+      { new: true, runValidators: true }
+    );
+
+    if (!product) {
+      console.log('❌ Product not found:', req.params.id);
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    console.log('✅ Platform units updated successfully:', product.name, 'units:', product.platformUnits);
+    res.json({ 
+      message: 'Platform units updated successfully', 
+      platformUnits: product.platformUnits 
+    });
+  } catch (error) {
+    console.error('❌ Error updating platform units:', error);
+    res.status(400).json({ message: 'Error updating platform units', error: error.message });
   }
 });
 

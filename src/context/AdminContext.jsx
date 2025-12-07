@@ -14,6 +14,7 @@ export const AdminProvider = ({ children }) => {
   const [admin, setAdmin] = useState(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [isAuthenticating, setIsAuthenticating] = useState(false) // Prevent multiple auth attempts
   const [currentPath, setCurrentPath] = useState(window.location.pathname)
 
   useEffect(() => {
@@ -40,8 +41,12 @@ export const AdminProvider = ({ children }) => {
           setAdmin(parsedAdmin)
           setIsLoggedIn(true)
           
-          // Always validate with server to ensure admin state is maintained across all routes
-          if (true) {
+          // Only validate with server if we haven't validated recently
+          const lastValidation = localStorage.getItem('admin_last_validation');
+          const now = Date.now();
+          const shouldValidate = !lastValidation || (now - parseInt(lastValidation)) > 300000; // 5 minutes
+          
+          if (shouldValidate) {
             try {
               const response = await fetch('http://localhost:5000/api/auth/verify', {
                 headers: {
@@ -53,6 +58,7 @@ export const AdminProvider = ({ children }) => {
                 const freshAdminData = await response.json()
                 setAdmin(freshAdminData)
                 localStorage.setItem('adminData', JSON.stringify(freshAdminData))
+                localStorage.setItem('admin_last_validation', now.toString())
               } else if (response.status === 401) {
                 // Token is invalid or expired
                 console.log('Admin token is invalid (401), attempting refresh or clearing localStorage')
@@ -161,6 +167,7 @@ export const AdminProvider = ({ children }) => {
     setIsLoggedIn(false)
     localStorage.removeItem('adminToken')
     localStorage.removeItem('adminData')
+    localStorage.removeItem('admin_last_validation')
     // Set logout flag to prevent back button access
     sessionStorage.setItem('admin_logged_out', 'true')
     // Use replace to avoid adding logout to history
@@ -175,6 +182,14 @@ export const AdminProvider = ({ children }) => {
   const checkTokenValidity = async () => {
     const token = localStorage.getItem('adminToken');
     if (!token) return false;
+    
+    // Prevent multiple simultaneous authentication attempts
+    if (isAuthenticating) {
+      console.log('Authentication already in progress, skipping');
+      return false;
+    }
+    
+    setIsAuthenticating(true);
 
     try {
       const response = await fetch('http://localhost:5000/api/auth/verify', {
@@ -212,6 +227,8 @@ export const AdminProvider = ({ children }) => {
     } catch (error) {
       console.log('Token validation error:', error);
       return true; // Assume valid on network errors
+    } finally {
+      setIsAuthenticating(false);
     }
     
     return false;

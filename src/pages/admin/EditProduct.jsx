@@ -29,14 +29,18 @@ const EditProduct = () => {
     dealUnits: 1,
     seller: '',
     isAmazonsChoice: false,
-    status: 'active'
+    status: 'active',
+    description: '',
+    features: []
   });
 
   const [imageFiles, setImageFiles] = useState([]);
   const [imageUrls, setImageUrls] = useState([]);
   const [originalImages, setOriginalImages] = useState([]); // Store original images from database
+  const [removedImages, setRemovedImages] = useState(new Set()); // Track which image slots were explicitly removed
   const [uploadingImages, setUploadingImages] = useState(false);
   const fileInputRef = useRef(null);
+  const additionalFileInputRefs = useRef([null, null, null, null]); // Refs for 4 additional image inputs
 
   // Categories that match Amazon's Choice page
   const categories = [
@@ -83,17 +87,37 @@ const EditProduct = () => {
         dealUnits: product.dealUnits !== undefined && product.dealUnits !== null ? product.dealUnits : 1,
         seller: product.seller?._id || '',
         isAmazonsChoice: product.isAmazonsChoice || false,
-        status: product.status || 'active'
+        status: product.status || 'active',
+        description: product.description || '',
+        features: product.features || []
       });
+
+      console.log('📝 Loaded product features:', product.features);
+      console.log('📝 Features type:', typeof product.features, 'isArray:', Array.isArray(product.features));
 
       // Set existing image URLs for display and store original images
       if (product.images && product.images.length > 0) {
-        setImageUrls(product.images);
+        // Initialize arrays with proper structure (up to 5 slots)
+        const imageUrlsArray = new Array(5).fill(undefined);
+        const imageFilesArray = new Array(5).fill(undefined);
+        
+        // Fill with existing images
+        product.images.forEach((url, index) => {
+          if (index < 5) {
+            imageUrlsArray[index] = url;
+          }
+        });
+        
+        setImageUrls(imageUrlsArray);
+        setImageFiles(imageFilesArray);
         setOriginalImages(product.images); // Store original images as backup
+        setRemovedImages(new Set()); // Reset removed images when loading product
         console.log('📸 Loaded existing images:', product.images);
       } else {
-        setImageUrls([]);
+        setImageUrls(new Array(5).fill(undefined));
+        setImageFiles(new Array(5).fill(undefined));
         setOriginalImages([]);
+        setRemovedImages(new Set()); // Reset removed images
         console.log('📸 No existing images found');
       }
     } catch (error) {
@@ -127,7 +151,7 @@ const EditProduct = () => {
     setFormData(newFormData);
   };
 
-  const handleImageFileSelect = (e) => {
+  const handleImageFileSelect = (e, imageIndex = null) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
@@ -150,45 +174,125 @@ const EditProduct = () => {
 
     if (validFiles.length === 0) return;
 
-    setImageFiles(prev => [...prev, ...validFiles]);
-    
-    // Create preview URLs for new images
-    validFiles.forEach(file => {
+    // If imageIndex is specified, replace that specific image
+    if (imageIndex !== null) {
+      const file = validFiles[0]; // Take only the first file for specific position
+      
+      // Update imageFiles array at specific index
+      setImageFiles(prev => {
+        const newFiles = [...prev];
+        newFiles[imageIndex] = file;
+        return newFiles;
+      });
+      
+      // Clear the removed flag for this slot since user is adding a new image
+      setRemovedImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(imageIndex);
+        return newSet;
+      });
+      
+      // Create preview URL for the specific position
       const reader = new FileReader();
       reader.onload = (e) => {
-        setImageUrls(prev => [...prev, e.target.result]);
+        setImageUrls(prev => {
+          const newUrls = [...prev];
+          newUrls[imageIndex] = e.target.result;
+          return newUrls;
+        });
       };
       reader.readAsDataURL(file);
-    });
-    
-    console.log('📸 Added new image files:', validFiles.length);
+      
+      console.log(`📸 Replaced image at position ${imageIndex}`);
+    } else {
+      // Bulk upload - fill available slots starting from main image
+      let fileIndex = 0;
+      const slotsToUpdate = [];
+      
+      setImageFiles(prev => {
+        const newFiles = [...prev];
+        
+        // Fill empty slots with new files
+        for (let i = 0; i < 5 && fileIndex < validFiles.length; i++) {
+          if (!newFiles[i]) {
+            newFiles[i] = validFiles[fileIndex];
+            slotsToUpdate.push(i);
+            fileIndex++;
+          }
+        }
+        
+        return newFiles;
+      });
+      
+      // Clear removed flags for slots that are being filled
+      if (slotsToUpdate.length > 0) {
+        setRemovedImages(prev => {
+          const newSet = new Set(prev);
+          slotsToUpdate.forEach(slot => newSet.delete(slot));
+          return newSet;
+        });
+      }
+      
+      // Create preview URLs for the added files
+      fileIndex = 0;
+      for (let i = 0; i < 5 && fileIndex < validFiles.length; i++) {
+        // Only add preview if slot is empty
+        if (!imageUrls[i] || imageUrls[i] === undefined) {
+          const reader = new FileReader();
+          const currentFileIndex = fileIndex; // Capture current index for closure
+          reader.onload = (e) => {
+            setImageUrls(current => {
+              const updated = [...current];
+              updated[i] = e.target.result;
+              return updated;
+            });
+          };
+          reader.readAsDataURL(validFiles[fileIndex]);
+          fileIndex++;
+        }
+      }
+      
+      if (fileIndex < validFiles.length) {
+        alert(`📸 Only ${fileIndex} images were added. Maximum 5 images allowed (1 main + 4 additional).`);
+      }
+      
+      console.log('📸 Bulk added image files:', fileIndex);
+    }
   };
 
   const removeImage = (index) => {
     const imageUrl = imageUrls[index];
     
-    // Remove from imageUrls
-    setImageUrls(prev => prev.filter((_, i) => i !== index));
+    // Remove from imageUrls at specific index (set to undefined to maintain array structure)
+    setImageUrls(prev => {
+      const newUrls = [...prev];
+      newUrls[index] = undefined;
+      return newUrls;
+    });
     
-    // If it's a base64 data URL (new image preview), also remove from imageFiles
-    if (imageUrl && imageUrl.startsWith('data:')) {
-      // Find the corresponding file index (new images are added after original images)
-      const newImageIndex = index - originalImages.length;
-      if (newImageIndex >= 0) {
-        setImageFiles(prev => prev.filter((_, i) => i !== newImageIndex));
-      }
-    }
+    // Remove from imageFiles at the same index
+    setImageFiles(prev => {
+      const newFiles = [...prev];
+      newFiles[index] = undefined;
+      return newFiles;
+    });
+    
+    // Mark this slot as explicitly removed by the user
+    setRemovedImages(prev => new Set([...prev, index]));
     
     console.log('📸 Removed image at index:', index, 'URL:', imageUrl);
+    console.log('📸 Removed images set:', [...removedImages, index]);
   };
 
   const uploadImages = async () => {
-    if (imageFiles.length === 0) return [];
+    // Filter out undefined/null files
+    const validFiles = imageFiles.filter(file => file && file instanceof File);
+    if (validFiles.length === 0) return [];
 
     setUploadingImages(true);
 
     try {
-      const result = await uploadMultipleImages(imageFiles);
+      const result = await uploadMultipleImages(validFiles);
       
       if (result.success) {
         return result.urls;
@@ -206,7 +310,10 @@ const EditProduct = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('🚀 Save button clicked - starting handleSubmit');
     setSaving(true);
+
+    let productData = null; // Declare outside try block for error handling
 
     try {
       // Validate required fields
@@ -227,57 +334,67 @@ const EditProduct = () => {
         setSaving(false);
         return;
       }
-      // Upload new images if any
-      let newImageUrls = [];
-      if (imageFiles.length > 0) {
-        newImageUrls = await uploadImages();
-      }
-
-      // Combine existing images with new uploaded images
+      
+      // Process images - maintain order and handle uploads
       let allImageUrls = [];
       
-      // If no new images were uploaded, use original images from database
-      if (imageFiles.length === 0) {
-        // No new images, keep all original images
-        allImageUrls = [...originalImages];
-        console.log('📸 No new images uploaded, keeping original images:', originalImages);
-      } else {
-        // New images were uploaded, combine with existing non-preview images
-        if (imageUrls.length > 0) {
-          // Keep all existing URLs that are not base64 data URLs (preview URLs)
-          const validExistingUrls = imageUrls.filter(url => {
-            if (!url || typeof url !== 'string') return false;
-            
-            // Remove base64 data URLs (these are just previews)
-            if (url.startsWith('data:')) return false;
-            
-            // Keep all other URLs - be more permissive to avoid losing valid images
-            return true;
-          });
-          
-          allImageUrls = [...validExistingUrls];
-          console.log('📸 Keeping existing non-preview images:', validExistingUrls);
-        }
+      // Check if we have any new files to upload
+      const validFiles = imageFiles.filter(file => file && file instanceof File);
+      let newImageUrls = [];
+      
+      if (validFiles.length > 0) {
+        newImageUrls = await uploadImages();
+      }
+      
+      // Build final image array maintaining the 5-slot structure (main + 4 additional)
+      let uploadIndex = 0;
+      
+      for (let i = 0; i < 5; i++) {
+        const currentUrl = imageUrls[i];
+        const currentFile = imageFiles[i];
+        const wasExplicitlyRemoved = removedImages.has(i);
         
-        // Add any new uploaded images
-        if (newImageUrls.length > 0) {
-          allImageUrls = [...allImageUrls, ...newImageUrls];
-          console.log('📸 Adding new uploaded images:', newImageUrls);
+        if (currentFile && currentFile instanceof File) {
+          // New file uploaded for this position
+          if (uploadIndex < newImageUrls.length) {
+            allImageUrls[i] = newImageUrls[uploadIndex];
+            uploadIndex++;
+          }
+        } else if (currentUrl && !currentUrl.startsWith('data:')) {
+          // Existing image URL (not a preview) - preserve it
+          allImageUrls[i] = currentUrl;
+        } else if (!wasExplicitlyRemoved && i < originalImages.length && originalImages[i]) {
+          // Only fallback to original image if it wasn't explicitly removed by the user
+          allImageUrls[i] = originalImages[i];
+        }
+        // If none of the above conditions are met, this slot remains empty (undefined)
+      }
+      
+      // Filter out undefined values and keep only valid URLs, maintaining order
+      const finalImageUrls = [];
+      for (let i = 0; i < allImageUrls.length; i++) {
+        if (allImageUrls[i] && typeof allImageUrls[i] === 'string' && allImageUrls[i].trim() !== '') {
+          finalImageUrls.push(allImageUrls[i]);
         }
       }
       
       // Final safety check - if we somehow lost all images and had original images, restore them
-      if (allImageUrls.length === 0 && originalImages.length > 0) {
-        allImageUrls = [...originalImages];
+      if (finalImageUrls.length === 0 && originalImages.length > 0) {
+        finalImageUrls.push(...originalImages);
         console.log('📸 Safety fallback: Restored original images:', originalImages);
       }
       
-      console.log('📸 Final image URLs to save:', allImageUrls);
-      console.log('📸 Original imageUrls state:', imageUrls);
-      console.log('📸 Original images from DB:', originalImages);
-      console.log('📸 Image files selected:', imageFiles.length);
+      console.log('📸 Final image URLs to save:', finalImageUrls);
+      console.log('📸 Image processing details:');
+      console.log('  - imageUrls state:', imageUrls);
+      console.log('  - imageFiles state:', imageFiles);
+      console.log('  - originalImages from DB:', originalImages);
+      console.log('  - removedImages (user deleted):', Array.from(removedImages));
+      console.log('  - validFiles to upload:', validFiles.length);
+      console.log('  - newImageUrls uploaded:', newImageUrls);
+      console.log('  - allImageUrls (before filter):', allImageUrls);
 
-      const productData = {
+      productData = {
         name: formData.name.trim(),
         price: isNaN(parseFloat(formData.price)) ? 0 : parseFloat(formData.price),
         category: formData.category,
@@ -286,9 +403,11 @@ const EditProduct = () => {
         reviews: parseInt(formData.reviews) || 0,
         stock: parseInt(formData.stock) || 0,
         dealUnits: isNaN(parseInt(formData.dealUnits)) ? 1 : parseInt(formData.dealUnits),
-        images: allImageUrls,
+        images: finalImageUrls,
         isAmazonsChoice: formData.isAmazonsChoice || false,
-        status: formData.status || 'active'
+        status: formData.status || 'active',
+        description: formData.description || '',
+        features: Array.isArray(formData.features) ? formData.features : []
       };
       
       // Only include seller if it's not empty
@@ -297,10 +416,15 @@ const EditProduct = () => {
       }
 
       console.log('📤 Sending product data:', productData);
-      console.log('📸 Image URLs being sent:', allImageUrls);
+      console.log('📝 Features being sent:', productData.features);
+      console.log('📝 Features type:', typeof productData.features, 'isArray:', Array.isArray(productData.features));
+      console.log('📝 Form data features:', formData.features);
+      console.log('📸 Image URLs being sent:', finalImageUrls);
       console.log('📸 Original imageUrls state:', imageUrls);
       
-      await adminPut(`http://localhost:5000/api/products/${id}`, productData);
+      console.log('🌐 Making API call to update product...');
+      const response = await adminPut(`http://localhost:5000/api/products/${id}`, productData);
+      console.log('✅ API call successful:', response);
       
       // Clear cache to ensure updated product appears immediately in Amazon's Choice
       cacheManager.remove('amazons_choice_products');
@@ -317,7 +441,9 @@ const EditProduct = () => {
       });
     } catch (error) {
       console.error('Error updating product:', error);
-      console.error('Product data that failed:', productData);
+      if (productData) {
+        console.error('Product data that failed:', productData);
+      }
       console.error('Form data:', formData);
       
       // More specific error message
@@ -511,104 +637,330 @@ const EditProduct = () => {
         </div>
 
         <div className="form-section">
-          <h2>🖼️ Images</h2>
+          <h2>🖼️ Product Images</h2>
           
+          {/* Main Image */}
           <div className="form-group">
-            <label>Upload Images from Computer *</label>
+            <label>Main Product Image * <small>(This will be the primary image shown)</small></label>
             <div style={{ marginBottom: '15px' }}>
               <input
                 type="file"
                 ref={fileInputRef}
+                onChange={(e) => handleImageFileSelect(e, 0)}
+                accept="image/*"
+                style={{ display: 'none' }}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="upload-btn"
+                  style={{
+                    background: '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📁 {imageUrls[0] ? 'Replace Main Image' : 'Select Main Image'}
+                </button>
+                <small>JPEG, PNG, GIF, WebP (max 5MB)</small>
+              </div>
+            </div>
+
+            {/* Main Image Preview */}
+            {imageUrls[0] && (
+              <div style={{
+                position: 'relative',
+                border: '3px solid #28a745',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                width: '200px',
+                marginTop: '10px'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '5px',
+                  left: '5px',
+                  background: '#28a745',
+                  color: 'white',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  zIndex: 1
+                }}>
+                  MAIN
+                </div>
+                <img
+                  src={imageUrls[0]}
+                  alt="Main Product Image"
+                  style={{
+                    width: '100%',
+                    height: '200px',
+                    objectFit: 'cover'
+                  }}
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+                <div style={{
+                  display: 'none',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '200px',
+                  background: '#f5f5f5',
+                  color: '#666',
+                  fontSize: '12px'
+                }}>
+                  Invalid Image
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeImage(0)}
+                  style={{
+                    position: 'absolute',
+                    top: '5px',
+                    right: '5px',
+                    background: 'rgba(255, 0, 0, 0.8)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '24px',
+                    height: '24px',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Additional Images */}
+          <div className="form-group">
+            <label>Additional Images <small>(Up to 4 more images)</small></label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px', marginTop: '10px' }}>
+              {[1, 2, 3, 4].map((imageIndex) => (
+                <div key={imageIndex} style={{ textAlign: 'center' }}>
+                  <input
+                    type="file"
+                    ref={el => additionalFileInputRefs.current[imageIndex - 1] = el}
+                    onChange={(e) => handleImageFileSelect(e, imageIndex)}
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                  />
+                  
+                  {imageUrls[imageIndex] ? (
+                    <div style={{
+                      position: 'relative',
+                      border: '2px solid #667eea',
+                      borderRadius: '8px',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        position: 'absolute',
+                        top: '5px',
+                        left: '5px',
+                        background: '#667eea',
+                        color: 'white',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        zIndex: 1
+                      }}>
+                        #{imageIndex}
+                      </div>
+                      <img
+                        src={imageUrls[imageIndex]}
+                        alt={`Product Image ${imageIndex}`}
+                        style={{
+                          width: '100%',
+                          height: '120px',
+                          objectFit: 'cover'
+                        }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                      <div style={{
+                        display: 'none',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '120px',
+                        background: '#f5f5f5',
+                        color: '#666',
+                        fontSize: '12px'
+                      }}>
+                        Invalid Image
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeImage(imageIndex)}
+                        style={{
+                          position: 'absolute',
+                          top: '5px',
+                          right: '5px',
+                          background: 'rgba(255, 0, 0, 0.8)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '20px',
+                          height: '20px',
+                          cursor: 'pointer',
+                          fontSize: '10px'
+                        }}
+                      >
+                        ✕
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => additionalFileInputRefs.current[imageIndex - 1]?.click()}
+                        style={{
+                          position: 'absolute',
+                          bottom: '5px',
+                          right: '5px',
+                          background: 'rgba(102, 126, 234, 0.8)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '2px 6px',
+                          cursor: 'pointer',
+                          fontSize: '10px'
+                        }}
+                      >
+                        Replace
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => additionalFileInputRefs.current[imageIndex - 1]?.click()}
+                      style={{
+                        border: '2px dashed #ccc',
+                        borderRadius: '8px',
+                        height: '120px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        background: '#f9f9f9',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.borderColor = '#667eea';
+                        e.target.style.background = '#f0f4ff';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.borderColor = '#ccc';
+                        e.target.style.background = '#f9f9f9';
+                      }}
+                    >
+                      <div style={{ fontSize: '24px', marginBottom: '5px' }}>📷</div>
+                      <div style={{ fontSize: '12px', color: '#666' }}>Add Image #{imageIndex}</div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <small style={{ display: 'block', marginTop: '10px', color: '#666' }}>
+              Click on empty slots to add images, or use Replace button to change existing images.
+            </small>
+          </div>
+
+          {/* Bulk Upload Option */}
+          <div className="form-group" style={{ marginTop: '20px', padding: '15px', background: '#f8f9fa', borderRadius: '8px' }}>
+            <label>Quick Bulk Upload <small>(Add multiple images at once)</small></label>
+            <div style={{ marginTop: '10px' }}>
+              <input
+                type="file"
                 onChange={handleImageFileSelect}
                 multiple
                 accept="image/*"
                 style={{ display: 'none' }}
+                id="bulk-upload"
               />
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => document.getElementById('bulk-upload')?.click()}
                 className="upload-btn"
                 style={{
-                  background: '#667eea',
+                  background: '#6c757d',
                   color: 'white',
                   border: 'none',
-                  padding: '10px 20px',
+                  padding: '8px 16px',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  marginRight: '10px'
+                  fontSize: '14px'
                 }}
               >
-                📁 Select Images from Computer
+                📁 Select Multiple Images
               </button>
-              <small>Select multiple images (JPEG, PNG, GIF, WebP, max 5MB each). New images will be added to existing ones.</small>
+              <small style={{ display: 'block', marginTop: '5px' }}>
+                This will add images to available slots. First image goes to main slot if empty, others fill additional slots.
+              </small>
             </div>
           </div>
+        </div>
 
-          {/* Image Preview */}
-          {imageUrls.length > 0 && (
-            <div className="form-group">
-              <label>Current Images</label>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-                gap: '10px',
-                marginTop: '10px'
-              }}>
-                {imageUrls.map((url, index) => (
-                  <div key={index} style={{
-                    position: 'relative',
-                    border: '2px solid #e0e0e0',
-                    borderRadius: '8px',
-                    overflow: 'hidden'
-                  }}>
-                    <img
-                      src={url}
-                      alt={`Product ${index + 1}`}
-                      style={{
-                        width: '100%',
-                        height: '120px',
-                        objectFit: 'cover'
-                      }}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                    <div style={{
-                      display: 'none',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      height: '120px',
-                      background: '#f5f5f5',
-                      color: '#666',
-                      fontSize: '12px'
-                    }}>
-                      Invalid Image
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      style={{
-                        position: 'absolute',
-                        top: '5px',
-                        right: '5px',
-                        background: 'rgba(255, 0, 0, 0.8)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '50%',
-                        width: '24px',
-                        height: '24px',
-                        cursor: 'pointer',
-                        fontSize: '12px'
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="form-section">
+          <h2>📝 About This Item</h2>
+          
+          <div className="form-group">
+            <label>Description</label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows="4"
+              placeholder="Enter product description that will appear in the 'About this item' section..."
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                resize: 'vertical'
+              }}
+            />
+            <small>This description will appear at the top of the "About this item" section on the product detail page.</small>
+          </div>
+
+          <div className="form-group">
+            <label>Features (one per line)</label>
+            <textarea
+              name="features"
+              value={Array.isArray(formData.features) ? formData.features.join('\n') : ''}
+              onChange={(e) => {
+                const featuresArray = e.target.value.split('\n').filter(line => line.trim() !== '');
+                console.log('📝 Features onChange - raw value:', e.target.value);
+                console.log('📝 Features onChange - parsed array:', featuresArray);
+                setFormData({
+                  ...formData,
+                  features: featuresArray
+                });
+              }}
+              rows="6"
+              placeholder="Enter features, one per line:&#10;Amazon's Choice Product&#10;Fast Shipping Available&#10;Quality Guaranteed&#10;Verified Supplier&#10;Bulk Orders Welcome"
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                resize: 'vertical'
+              }}
+            />
+            <small>Enter each feature on a new line. They will appear as bullet points in the "About this item" section.</small>
+          </div>
         </div>
 
         <div className="form-section">
@@ -654,7 +1006,15 @@ const EditProduct = () => {
         </div>
 
         <div className="form-actions">
-          <button type="submit" className="submit-btn" disabled={saving || uploadingImages}>
+          <button 
+            type="submit" 
+            className="submit-btn" 
+            disabled={saving || uploadingImages}
+            onClick={(e) => {
+              console.log('🔘 Submit button clicked!');
+              // Let the form's onSubmit handle it
+            }}
+          >
             {uploadingImages ? '📤 Uploading Images...' : 
              saving ? '⏳ Saving Changes...' : 
              '✅ Save Changes'}

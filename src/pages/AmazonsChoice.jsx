@@ -198,6 +198,7 @@ const AmazonsChoice = () => {
               costPrice: p.costPrice || 0,
               monthlyOrders: Math.floor(Math.random() * 500) + 100,
               monthlyProfit: monthlyProfit,
+              profitCalculations: p.profitCalculations || null, // Include profit calculations from database
               statuses: [
                 `${Math.floor(Math.random() * 1000) + 100} in basket`,
                 ['Amazon\'s Choice', 'Selling Fast', 'Best Seller'][Math.floor(Math.random() * 3)]
@@ -434,6 +435,7 @@ const AmazonsChoice = () => {
                   isBestSeller: p.isBestSeller,
                   monthlyProfit: p.monthlyProfit,
                   sellerInfo: p.sellerInfo,
+                  profitCalculations: p.profitCalculations || null, // Include profit calculations from database
                   // Add statuses for badges
                   statuses: [
                     `${Math.floor(Math.random() * 1000) + 100} in basket`,
@@ -501,6 +503,7 @@ const AmazonsChoice = () => {
                 isBestSeller: p.isBestSeller,
                 monthlyProfit: p.monthlyProfit,
                 sellerInfo: p.sellerInfo,
+                profitCalculations: p.profitCalculations || null, // Include profit calculations from database
                 // Add statuses for badges
                 statuses: [
                   `${Math.floor(Math.random() * 1000) + 100} in basket`,
@@ -1108,8 +1111,32 @@ const AmazonsChoice = () => {
                     )}
                   </div>
                   
-                  <div className="price" style={{fontWeight: '800', fontSize: '12px', color: '#0b3b2e'}}>
-                    {formatPrice(product.price)}/unit
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px'}}>
+                    <div className="price" style={{fontWeight: '800', fontSize: '12px', color: '#0b3b2e'}}>
+                      {formatPrice(product.price)}/unit
+                    </div>
+                    
+                    {/* Profit Information - Right side */}
+                    {product.profitCalculations && product.profitCalculations.profitPerUnit && (
+                      <div style={{
+                        fontSize: '8px',
+                        fontWeight: '700',
+                        color: '#2d3748',
+                        textAlign: 'right',
+                        lineHeight: '1.1'
+                      }}>
+                        💰 {(() => {
+                          const profitPerUnit = parseFloat(product.profitCalculations.profitPerUnit) || 0;
+                          return formatPrice(`£${profitPerUnit.toFixed(2)}`);
+                        })()}/unit
+                        <br />
+                        📈 {(() => {
+                          const profitPerUnit = parseFloat(product.profitCalculations.profitPerUnit) || 0;
+                          const monthlyProfit = profitPerUnit * 30; // 30 units per month
+                          return formatPrice(`£${monthlyProfit.toFixed(2)}`);
+                        })()}/month
+                      </div>
+                    )}
                   </div>
                   
                   {/* Seller Info for verified sellers */}
