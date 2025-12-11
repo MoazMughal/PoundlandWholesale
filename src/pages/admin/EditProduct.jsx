@@ -10,7 +10,7 @@ const EditProduct = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { currency, currencySymbols } = useCurrency();
+  const { currency, currencySymbols, setCurrency, currencyRates } = useCurrency();
   
   // Get return category from URL params or location state
   const urlParams = new URLSearchParams(location.search);
@@ -39,6 +39,8 @@ const EditProduct = () => {
   const [originalImages, setOriginalImages] = useState([]); // Store original images from database
   const [removedImages, setRemovedImages] = useState(new Set()); // Track which image slots were explicitly removed
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [originalPrice, setOriginalPrice] = useState(0); // Store original price in PKR
+  const [originalCurrency, setOriginalCurrency] = useState('PKR'); // Track original currency
   const fileInputRef = useRef(null);
   const additionalFileInputRefs = useRef([null, null, null, null]); // Refs for 4 additional image inputs
 
@@ -71,14 +73,44 @@ const EditProduct = () => {
     fetchSellers();
   }, [id]);
 
+  // Convert price when currency changes
+  useEffect(() => {
+    if (originalPrice > 0 && originalCurrency) {
+      // Convert from original currency (PKR) to selected currency
+      const convertedPrice = convertCurrency(originalPrice, originalCurrency, currency);
+      setFormData(prev => ({
+        ...prev,
+        price: convertedPrice
+      }));
+    }
+  }, [currency, originalPrice, originalCurrency]);
+
+  // Function to convert between currencies
+  const convertCurrency = (amount, fromCurrency, toCurrency) => {
+    if (fromCurrency === toCurrency) return amount;
+    
+    // Convert to PKR first (base currency)
+    const amountInPKR = amount / currencyRates[fromCurrency];
+    
+    // Then convert to target currency
+    const convertedAmount = amountInPKR * currencyRates[toCurrency];
+    
+    return parseFloat(convertedAmount.toFixed(2));
+  };
+
   const fetchProduct = async () => {
     try {
       const response = await adminGet(`http://localhost:5000/api/products/${id}`);
       const product = await response.json();
       
+      // Store original price (assuming it's in PKR from database)
+      const productPrice = product.price !== undefined && product.price !== null ? product.price : 0;
+      setOriginalPrice(productPrice);
+      setOriginalCurrency('PKR'); // Assuming database stores prices in PKR
+      
       setFormData({
         name: product.name || '',
-        price: product.price !== undefined && product.price !== null ? product.price : 0,
+        price: productPrice,
         category: product.category || '',
         brand: product.brand || '',
         rating: product.rating || 4.5,
@@ -146,7 +178,15 @@ const EditProduct = () => {
       [name]: type === 'checkbox' ? checked : value
     };
 
-    // Note: Price is now manually editable - no automatic calculation
+    // If price is manually changed, update the original price reference
+    if (name === 'price' && value !== '') {
+      const numericPrice = parseFloat(value);
+      if (!isNaN(numericPrice)) {
+        // Update original price to current value in current currency
+        setOriginalPrice(numericPrice);
+        setOriginalCurrency(currency);
+      }
+    }
 
     setFormData(newFormData);
   };
@@ -394,9 +434,20 @@ const EditProduct = () => {
       console.log('  - newImageUrls uploaded:', newImageUrls);
       console.log('  - allImageUrls (before filter):', allImageUrls);
 
+      // Convert price back to PKR before saving to database
+      const currentPrice = isNaN(parseFloat(formData.price)) ? 0 : parseFloat(formData.price);
+      const priceInPKR = convertCurrency(currentPrice, currency, 'PKR');
+      
+      console.log('💰 Price conversion for saving:', {
+        currentPrice,
+        currentCurrency: currency,
+        priceInPKR,
+        conversionRate: currencyRates[currency]
+      });
+      
       productData = {
         name: formData.name.trim(),
-        price: isNaN(parseFloat(formData.price)) ? 0 : parseFloat(formData.price),
+        price: priceInPKR, // Save price in PKR (base currency)
         category: formData.category,
         brand: formData.brand || '',
         rating: Math.min(Math.max(parseFloat(formData.rating) || 4.5, 0), 5), // Clamp between 0-5
@@ -555,6 +606,29 @@ const EditProduct = () => {
           }}>
             <strong>💡 Currency Note:</strong> Prices are saved in {currency} ({currencySymbols[currency]}). 
             Make sure all admins use the same currency for consistency.
+          </div>
+
+          {/* Currency Selector */}
+          <div className="form-group" style={{ marginBottom: '20px' }}>
+            <label>Currency *</label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              style={{
+                width: '200px',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '14px',
+                backgroundColor: '#f8f9fa'
+              }}
+            >
+              <option value="PKR">🇵🇰 Pakistani Rupee (Rs)</option>
+              <option value="GBP">🇬🇧 British Pound (£)</option>
+              <option value="USD">🇺🇸 US Dollar ($)</option>
+              <option value="AED">🇦🇪 UAE Dirham (د.إ)</option>
+            </select>
+            <small>Select currency for price display and calculations</small>
           </div>
           
           <div className="form-row">

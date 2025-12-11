@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import cacheManager from '../../utils/cacheManager';
 import '../../styles/AdminProducts.css';
 import '../../styles/AdminLayout.css';
 
@@ -301,6 +302,11 @@ const AdminProducts = () => {
     const initialUnits = product.platformUnits || 200;
     setSelectedUnits(initialUnits);
     
+    // Calculate default monthly and yearly profits based on profit per unit
+    const profitPerUnit = product.profitCalculations?.profitPerUnit || 0;
+    const defaultMonthlyProfit = profitPerUnit * 30; // 30 units per month
+    const defaultYearlyProfit = profitPerUnit * 365; // 365 units per year
+    
     setProfitEditProduct({
       _id: product._id,
       name: product.name || '',
@@ -332,7 +338,9 @@ const AdminProducts = () => {
         fbaFulfilmentTax: product.profitEvaluation.fbaFulfilmentTax || 0,
         balanceChange: product.profitEvaluation.balanceChange || 0, // Preserve existing balance change
         productCost: productPricePKR, // Always use current product price in PKR
-        netProfit: (product.profitEvaluation.balanceChange || 0) - productPricePKR // Auto-calculate: Balance Change - Product Cost
+        netProfit: (product.profitEvaluation.balanceChange || 0) - productPricePKR, // Auto-calculate: Balance Change - Product Cost
+        monthlyProfit: product.profitEvaluation.monthlyProfit || defaultMonthlyProfit, // Use saved or calculated
+        yearlyProfit: product.profitEvaluation.yearlyProfit || defaultYearlyProfit // Use saved or calculated
       } : {
         salesProceeds: 0,
         commission: 0,
@@ -343,7 +351,9 @@ const AdminProducts = () => {
         fbaFulfilmentTax: 0,
         balanceChange: 0,
         productCost: productPricePKR, // Auto-populate from product price in PKR
-        netProfit: 0 - productPricePKR // Auto-calculate: Balance Change - Product Cost
+        netProfit: 0 - productPricePKR, // Auto-calculate: Balance Change - Product Cost
+        monthlyProfit: defaultMonthlyProfit, // Calculated monthly profit
+        yearlyProfit: defaultYearlyProfit // Calculated yearly profit
       }
     });
     // Initialize modal currency to current page currency
@@ -355,6 +365,11 @@ const AdminProducts = () => {
       productName: product.name,
       hasExistingProfitEvaluation: !!product.profitEvaluation,
       existingBalanceChange: product.profitEvaluation?.balanceChange,
+      existingMonthlyProfit: product.profitEvaluation?.monthlyProfit,
+      existingYearlyProfit: product.profitEvaluation?.yearlyProfit,
+      profitPerUnit: product.profitCalculations?.profitPerUnit,
+      calculatedMonthlyProfit: (product.profitCalculations?.profitPerUnit || 0) * 30,
+      calculatedYearlyProfit: (product.profitCalculations?.profitPerUnit || 0) * 365,
       modalCurrency: currency
     });
   };
@@ -397,6 +412,13 @@ const AdminProducts = () => {
         profitEvaluation: profitEditProduct.profitEvaluation
       };
 
+      console.log('💾 Saving profit data:', {
+        productId: profitEditProduct._id,
+        monthlyProfit: profitEditProduct.profitEvaluation.monthlyProfit,
+        yearlyProfit: profitEditProduct.profitEvaluation.yearlyProfit,
+        fullUpdateData: updateData
+      });
+
       const response = await fetch(`http://localhost:5000/api/products/${profitEditProduct._id}`, {
         method: 'PUT',
         headers: {
@@ -407,11 +429,20 @@ const AdminProducts = () => {
       });
 
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('✅ Profit data saved successfully:', responseData);
+        
+        // Clear any cached product data to ensure fresh data is loaded
+        cacheManager.clearAll();
+        console.log('🗑️ Cache cleared after profit update');
+        
         alert('✅ Profit data updated successfully!');
         setShowProfitModal(false);
         setProfitEditProduct(null);
         fetchProducts(); // Refresh the products list
       } else {
+        const errorData = await response.text();
+        console.error('❌ Save failed:', errorData);
         throw new Error('Failed to update profit data');
       }
     } catch (error) {
@@ -571,7 +602,7 @@ const AdminProducts = () => {
         <div style={{display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center'}}>
           <input
             type="text"
-            placeholder="🔍 Search products..."
+            placeholder="🔍 Search by name, ID, category, brand..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="search-input"
@@ -586,6 +617,16 @@ const AdminProducts = () => {
             onFocus={(e) => e.target.style.borderColor = '#667eea'}
             onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
           />
+          {search && search.length >= 3 && /^[a-fA-F0-9]+$/.test(search) && (
+            <small style={{
+              fontSize: '0.65rem', 
+              color: '#667eea', 
+              fontWeight: '500',
+              whiteSpace: 'nowrap'
+            }}>
+              🔍 ID Search
+            </small>
+          )}
           <button 
             onClick={() => navigate('/admin/dashboard')} 
             style={{
@@ -1655,6 +1696,56 @@ const AdminProducts = () => {
                       readOnly
                       style={{width: '100%', padding: '12px', border: '1px solid #17a2b8', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: '#e7f3ff', cursor: 'not-allowed'}}
                       placeholder="Auto-calculated: Balance Change - Product Cost"
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
+                      Monthly Profit ({currencySymbols[modalCurrency]})
+                      <span style={{fontSize: '0.8rem', color: '#28a745', fontWeight: 'normal', marginLeft: '8px'}}>
+                        📅 Custom monthly profit amount
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.monthlyProfit || 0)}
+                      onChange={(e) => {
+                        const pkrValue = convertToPKRModal(parseFloat(e.target.value) || 0);
+                        setProfitEditProduct({
+                          ...profitEditProduct, 
+                          profitEvaluation: {
+                            ...profitEditProduct.profitEvaluation,
+                            monthlyProfit: pkrValue
+                          }
+                        });
+                      }}
+                      style={{width: '100%', padding: '12px', border: '1px solid #28a745', borderRadius: '6px', fontSize: '0.9rem'}}
+                      placeholder="Enter monthly profit amount"
+                    />
+                  </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
+                      Yearly Profit ({currencySymbols[modalCurrency]})
+                      <span style={{fontSize: '0.8rem', color: '#ffc107', fontWeight: 'normal', marginLeft: '8px'}}>
+                        📊 Custom yearly profit amount
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={convertFromPKRModal(profitEditProduct.profitEvaluation.yearlyProfit || 0)}
+                      onChange={(e) => {
+                        const pkrValue = convertToPKRModal(parseFloat(e.target.value) || 0);
+                        setProfitEditProduct({
+                          ...profitEditProduct, 
+                          profitEvaluation: {
+                            ...profitEditProduct.profitEvaluation,
+                            yearlyProfit: pkrValue
+                          }
+                        });
+                      }}
+                      style={{width: '100%', padding: '12px', border: '1px solid #ffc107', borderRadius: '6px', fontSize: '0.9rem'}}
+                      placeholder="Enter yearly profit amount"
                     />
                   </div>
                 </div>

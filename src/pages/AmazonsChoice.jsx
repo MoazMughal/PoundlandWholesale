@@ -189,7 +189,7 @@ const AmazonsChoice = () => {
               category: p.category,
               subcategory: p.subcategory || '',
               brand: p.brand || '',
-              image: imageUrl, // Store raw path, process later
+              image: imageUrl ? getImageUrl(imageUrl) : '', // Process image URL properly
               images: p.images || [],
               rating: p.rating || 4.0,
               reviews: p.reviews || 0,
@@ -1123,18 +1123,20 @@ const AmazonsChoice = () => {
                         fontWeight: '700',
                         color: '#2d3748',
                         textAlign: 'right',
-                        lineHeight: '1.1'
+                        lineHeight: '1.1',
+                        marginTop: '-4px'
                       }}>
-                        💰 {(() => {
+                        💰 Profit/unit: {(() => {
                           const profitPerUnit = parseFloat(product.profitCalculations.profitPerUnit) || 0;
                           return formatPrice(`£${profitPerUnit.toFixed(2)}`);
-                        })()}/unit
+                        })()}
                         <br />
-                        📈 {(() => {
+                        📈 Profit/{product.dealUnits || 1} unit: {(() => {
                           const profitPerUnit = parseFloat(product.profitCalculations.profitPerUnit) || 0;
-                          const monthlyProfit = profitPerUnit * 30; // 30 units per month
-                          return formatPrice(`£${monthlyProfit.toFixed(2)}`);
-                        })()}/month
+                          const dealUnits = product.dealUnits || 1;
+                          const totalProfit = profitPerUnit * dealUnits;
+                          return formatPrice(`£${totalProfit.toFixed(2)}`);
+                        })()}
                       </div>
                     )}
                   </div>
@@ -1178,7 +1180,7 @@ const AmazonsChoice = () => {
                     {product.monthlyProfit && (
                       <div style={{background: '#e0f2fe', padding: '3px 5px', borderRadius: '3px', border: '1px solid #81d4fa', flex: 1}}>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{fontSize: '8px', color: '#0277bd', fontWeight: '600'}}>💰 Profit of {product.dealUnits || 1} units</span>
+                          <span style={{fontSize: '8px', color: '#0277bd', fontWeight: '600'}}>💰 Profit/{product.dealUnits || 1} unit</span>
                           <span style={{fontSize: '9px', fontWeight: '800', color: '#01579b'}}>
                             {(() => {
                               try {

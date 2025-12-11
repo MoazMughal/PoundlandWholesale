@@ -43,6 +43,7 @@ const ProductDetail = () => {
   const [isSellerLoggedIn, setIsSellerLoggedIn] = useState(false)
   const [currentSeller, setCurrentSeller] = useState(null)
   const [savingUnits, setSavingUnits] = useState(false) // Loading state for saving units
+  const [quantity, setQuantity] = useState(100) // Minimum quantity is 100
 
   // Function to get proper image path
   const getImageSrc = (imagePath) => {
@@ -2218,62 +2219,160 @@ const ProductDetail = () => {
                   
                 {/* Price Section */}
                 <div className="price-section mb-2">
-                  <div className="d-flex align-items-baseline gap-2 mb-1 flex-wrap">
-                    <span className="fw-bold" style={{fontSize: '1.4rem', color: '#B12704'}}>
-                      {convertPrice(product.price)}
-                    </span>
-                    <span className="text-muted" style={{fontSize: '0.75rem'}}>/Unit ex. VAT</span>
+                  <div className="d-flex justify-content-between align-items-start gap-3 mb-1">
+                    {/* Left side - Price and RRP */}
+                    <div>
+                      <div className="d-flex align-items-baseline gap-2 flex-wrap">
+                        <span className="fw-bold" style={{fontSize: '1.4rem', color: '#B12704'}}>
+                          {convertPrice(product.price)}
+                        </span>
+                        <span className="text-muted" style={{fontSize: '0.75rem'}}>/Unit ex. VAT</span>
+                      </div>
+                      {/* RRP and Save - Right below price */}
+                      <div className="d-flex gap-3 mt-1">
+                        <div>
+                          <small className="text-muted" style={{fontSize: '0.7rem'}}>RRP: </small>
+                          <span className="fw-semibold" style={{fontSize: '0.8rem'}}>{convertPrice(product.rrp)}</span>
+                        </div>
+                        <div>
+                          <small className="text-muted" style={{fontSize: '0.7rem'}}>Save: </small>
+                          <span className="fw-semibold text-danger" style={{fontSize: '0.8rem'}}>
+                            {(() => {
+                              const wholesale = parseFloat(product.price.replace(/[₨£$€Rs]/g, ''))
+                              const rrp = parseFloat(product.rrp.replace(/[₨£$€Rs]/g, ''))
+                              
+                              // If we can't parse prices, calculate based on product type
+                              if (isNaN(wholesale) || isNaN(rrp) || rrp === 0) {
+                                // Default savings by product type
+                                const productName = product.name.toLowerCase()
+                                if (productName.includes('nose ring')) return '65%'
+                                if (productName.includes('bulb')) return '70%'
+                                if (productName.includes('fuse')) return '60%'
+                                if (productName.includes('lampshade')) return '55%'
+                                if (productName.includes('leather') && productName.includes('watch strap')) return '50%'
+                                return '50%' // Default
+                              }
+                              
+                              const savings = ((rrp - wholesale) / rrp * 100).toFixed(0)
+                              return `${savings}%`
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
-                    
-                    {/* Profit Information */}
+                    {/* Right side - Profit Information */}
                     {hasValidProfitData() && product.profitCalculations.profitPerUnit && (
-                      <span 
+                      <div 
                         style={{
-                          color: '#2d3748',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '6px',
+                          padding: '8px 12px',
+                          background: '#f9fafb',
                           fontSize: '0.75rem',
-                          fontWeight: '700',
-                          marginLeft: '8px'
+                          fontWeight: '600',
+                          color: '#2d3748',
+                          minWidth: '320px'
                         }}
                       >
-                        | Profit: 💰 {convertProfitValue(product.profitCalculations.profitPerUnit)}/unit | 📈 {(() => {
-                          const profitPerUnit = safeNumber(product.profitCalculations.profitPerUnit);
-                          const monthlyProfit = profitPerUnit * 30; // 30 units per month
-                          return convertProfitValue(monthlyProfit);
-                        })()}/month
-                      </span>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '8px',
+                          paddingBottom: '6px',
+                          borderBottom: '1px solid #e5e7eb'
+                        }}>
+                          <span style={{fontSize: '0.8rem', fontWeight: '700', color: '#111'}}>
+                            Amazon Profit Calculation
+                          </span>
+                          <button
+                            onClick={() => {
+                              // Scroll to existing Platform Comparison section
+                              setTimeout(() => {
+                                const platformSection = document.querySelector('.table-responsive');
+                                if (platformSection) {
+                                  platformSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                }
+                              }, 100);
+                            }}
+                            style={{
+                              background: '#ff9900',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: '4px',
+                              padding: '4px 10px',
+                              fontSize: '0.7rem',
+                              fontWeight: '600',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Verify
+                          </button>
+                        </div>
+                        <div style={{marginBottom: '4px'}}>
+                          💰 Profit/unit: <span style={{color: '#059669'}}>{(() => {
+                            // Use the same profit logic as AmazonsChoice for consistency
+                            const productName = product.name.toLowerCase();
+                            let profitPerUnit = product.profitCalculations.profitPerUnit;
+                            
+                            // Apply hardcoded profits for specific products (same as AmazonsChoice)
+                            if (productName.includes('nose ring')) {
+                              profitPerUnit = 40.14; // £40.14 converted to number
+                            } else if (productName.includes('bulb')) {
+                              profitPerUnit = 251.10; // £251.10 converted to number
+                            } else if (productName.includes('fuse')) {
+                              profitPerUnit = 455.80; // £455.80 converted to number
+                            } else if (productName.includes('lampshade')) {
+                              profitPerUnit = 227.80; // £227.80 converted to number
+                            } else if (productName.includes('leather') && productName.includes('watch')) {
+                              profitPerUnit = 586.00; // £586.00 converted to number
+                            }
+                            
+                            console.log('🔍 ProductDetail Profit Debug:', {
+                              productName: product.name,
+                              originalProfitPerUnit: product.profitCalculations.profitPerUnit,
+                              adjustedProfitPerUnit: profitPerUnit,
+                              usedHardcoded: profitPerUnit !== product.profitCalculations.profitPerUnit
+                            });
+                            
+                            return convertProfitValue(profitPerUnit);
+                          })()}</span>
+                        </div>
+                        <div style={{marginBottom: '4px'}}>
+                          📈 Profit/{quantity || 100} unit: <span style={{color: '#059669'}}>{(() => {
+                            // Use the same profit logic as AmazonsChoice for consistency
+                            const productName = product.name.toLowerCase();
+                            let profitPerUnit = safeNumber(product.profitCalculations.profitPerUnit);
+                            
+                            // Apply hardcoded profits for specific products (same as AmazonsChoice)
+                            if (productName.includes('nose ring')) {
+                              profitPerUnit = 40.14;
+                            } else if (productName.includes('bulb')) {
+                              profitPerUnit = 251.10;
+                            } else if (productName.includes('fuse')) {
+                              profitPerUnit = 455.80;
+                            } else if (productName.includes('lampshade')) {
+                              profitPerUnit = 227.80;
+                            } else if (productName.includes('leather') && productName.includes('watch')) {
+                              profitPerUnit = 586.00;
+                            }
+                            
+                            const totalProfit = profitPerUnit * (quantity || 100);
+                            return convertProfitValue(totalProfit);
+                          })()}</span>
+                        </div>
+                        <div>
+                          💰 Cost of {quantity || 100} units: <span style={{color: '#059669'}}>{(() => {
+                            const unitPrice = parseFloat(product.price.replace(/[₨£$€Rs]/g, '')) || 0;
+                            const totalPrice = unitPrice * (quantity || 100);
+                            return convertPrice(`₨${totalPrice.toFixed(2)}`);
+                          })()}</span>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  
-                  <div className="d-flex gap-2 mb-1">
-                    <div>
-                      <small className="text-muted" style={{fontSize: '0.7rem'}}>RRP: </small>
-                      <span className="fw-semibold" style={{fontSize: '0.8rem'}}>{convertPrice(product.rrp)}</span>
-                    </div>
-                    <div>
-                      <small className="text-muted" style={{fontSize: '0.7rem'}}>Save: </small>
-                      <span className="fw-semibold text-danger" style={{fontSize: '0.8rem'}}>
-                        {(() => {
-                          const wholesale = parseFloat(product.price.replace(/[₨£$€Rs]/g, ''))
-                          const rrp = parseFloat(product.rrp.replace(/[₨£$€Rs]/g, ''))
-                          
-                          // If we can't parse prices, calculate based on product type
-                          if (isNaN(wholesale) || isNaN(rrp) || rrp === 0) {
-                            // Default savings by product type
-                            const productName = product.name.toLowerCase()
-                            if (productName.includes('nose ring')) return '65%'
-                            if (productName.includes('bulb')) return '70%'
-                            if (productName.includes('fuse')) return '60%'
-                            if (productName.includes('lampshade')) return '55%'
-                            if (productName.includes('leather') && productName.includes('watch strap')) return '50%'
-                            return '50%' // Default
-                          }
-                          
-                          const savings = ((rrp - wholesale) / rrp * 100).toFixed(0)
-                          return `${savings}%`
-                        })()}
-                      </span>
-                    </div>
-                  </div>
+
                 </div>
 
                 <hr className="my-2" />
@@ -2470,15 +2569,34 @@ const ProductDetail = () => {
                   {/* Quantity Selector */}
                   <div className="mb-2">
                     <label className="form-label fw-bold mb-1" style={{fontSize: '0.75rem'}}>Quantity:</label>
-                    <select className="form-select form-select-sm" style={{fontSize: '0.8rem'}}>
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="5">5</option>
-                      <option value="10">10</option>
-                      <option value="20">20</option>
-                      <option value="50">50</option>
-                      <option value="100">100</option>
-                    </select>
+                    <input 
+                      type="number" 
+                      className="form-control form-control-sm" 
+                      style={{fontSize: '0.8rem'}}
+                      value={quantity}
+                      min="100"
+                      step="1"
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Allow user to type freely, including clearing the field
+                        if (value === '' || value === '0') {
+                          setQuantity('');
+                        } else {
+                          setQuantity(parseInt(value));
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Ensure value is at least 100 when user leaves the field
+                        const value = parseInt(e.target.value);
+                        if (isNaN(value) || value < 100) {
+                          setQuantity(100);
+                        }
+                      }}
+                      placeholder="Minimum 100 units"
+                    />
+                    <small className="text-muted" style={{fontSize: '0.65rem'}}>
+                      Minimum order: 100 units
+                    </small>
                   </div>
 
 
@@ -2821,7 +2939,26 @@ const ProductDetail = () => {
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Profit per Unit</div>
                                   <div className="fw-bold text-success" style={{fontSize: '0.9rem'}}>
-                                    {convertProfitValue(product.profitCalculations.profitPerUnit)}
+                                    {(() => {
+                                      // Use the same profit logic as AmazonsChoice for consistency
+                                      const productName = product.name.toLowerCase();
+                                      let profitPerUnit = product.profitCalculations.profitPerUnit;
+                                      
+                                      // Apply hardcoded profits for specific products (same as AmazonsChoice)
+                                      if (productName.includes('nose ring')) {
+                                        profitPerUnit = 40.14;
+                                      } else if (productName.includes('bulb')) {
+                                        profitPerUnit = 251.10;
+                                      } else if (productName.includes('fuse')) {
+                                        profitPerUnit = 455.80;
+                                      } else if (productName.includes('lampshade')) {
+                                        profitPerUnit = 227.80;
+                                      } else if (productName.includes('leather') && productName.includes('watch')) {
+                                        profitPerUnit = 586.00;
+                                      }
+                                      
+                                      return convertProfitValue(profitPerUnit);
+                                    })()}
                                   </div>
                                 </div>
                               </div>
@@ -2830,9 +2967,41 @@ const ProductDetail = () => {
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Monthly Profit</div>
                                   <div className="fw-bold text-primary" style={{fontSize: '0.9rem'}}>
                                     {(() => {
-                                      const profitPerUnit = safeNumber(product.profitCalculations.profitPerUnit);
-                                      const monthlyProfit = profitPerUnit * 30; // 30 units per month
-                                      return convertProfitValue(monthlyProfit);
+                                      // Use saved monthly profit if available, otherwise calculate
+                                      console.log('🔍 Monthly Profit Debug:', {
+                                        hasEvaluation: !!product.evaluation,
+                                        evaluationMonthlyProfit: product.evaluation?.monthlyProfit,
+                                        hasProfitEvaluation: !!product.profitEvaluation,
+                                        profitEvaluationMonthlyProfit: product.profitEvaluation?.monthlyProfit,
+                                        productStructure: Object.keys(product)
+                                      });
+                                      
+                                      if ((product.evaluation && product.evaluation.monthlyProfit) || (product.profitEvaluation && product.profitEvaluation.monthlyProfit)) {
+                                        const savedMonthlyProfit = product.evaluation?.monthlyProfit || product.profitEvaluation?.monthlyProfit;
+                                        console.log('✅ Using saved monthly profit:', savedMonthlyProfit);
+                                        return convertProfitValue(savedMonthlyProfit);
+                                      } else {
+                                        // Use the same profit logic as AmazonsChoice for consistency
+                                        const productName = product.name.toLowerCase();
+                                        let profitPerUnit = safeNumber(product.profitCalculations.profitPerUnit);
+                                        
+                                        // Apply hardcoded profits for specific products (same as AmazonsChoice)
+                                        if (productName.includes('nose ring')) {
+                                          profitPerUnit = 40.14;
+                                        } else if (productName.includes('bulb')) {
+                                          profitPerUnit = 251.10;
+                                        } else if (productName.includes('fuse')) {
+                                          profitPerUnit = 455.80;
+                                        } else if (productName.includes('lampshade')) {
+                                          profitPerUnit = 227.80;
+                                        } else if (productName.includes('leather') && productName.includes('watch')) {
+                                          profitPerUnit = 586.00;
+                                        }
+                                        
+                                        const monthlyProfit = profitPerUnit * 30; // 30 units per month (fallback)
+                                        console.log('⚠️ Calculating monthly profit (no saved value):', monthlyProfit, 'from profit per unit:', profitPerUnit);
+                                        return convertProfitValue(monthlyProfit);
+                                      }
                                     })()}
                                   </div>
                                 </div>
@@ -2842,9 +3011,40 @@ const ProductDetail = () => {
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Yearly Profit</div>
                                   <div className="fw-bold text-warning" style={{fontSize: '0.9rem'}}>
                                     {(() => {
-                                      const profitPerUnit = safeNumber(product.profitCalculations.profitPerUnit);
-                                      const yearlyProfit = profitPerUnit * 365; // 365 units per year
-                                      return convertProfitValue(yearlyProfit);
+                                      // Use saved yearly profit if available, otherwise calculate
+                                      console.log('🔍 Yearly Profit Debug:', {
+                                        hasEvaluation: !!product.evaluation,
+                                        evaluationYearlyProfit: product.evaluation?.yearlyProfit,
+                                        hasProfitEvaluation: !!product.profitEvaluation,
+                                        profitEvaluationYearlyProfit: product.profitEvaluation?.yearlyProfit
+                                      });
+                                      
+                                      if ((product.evaluation && product.evaluation.yearlyProfit) || (product.profitEvaluation && product.profitEvaluation.yearlyProfit)) {
+                                        const savedYearlyProfit = product.evaluation?.yearlyProfit || product.profitEvaluation?.yearlyProfit;
+                                        console.log('✅ Using saved yearly profit:', savedYearlyProfit);
+                                        return convertProfitValue(savedYearlyProfit);
+                                      } else {
+                                        // Use the same profit logic as AmazonsChoice for consistency
+                                        const productName = product.name.toLowerCase();
+                                        let profitPerUnit = safeNumber(product.profitCalculations.profitPerUnit);
+                                        
+                                        // Apply hardcoded profits for specific products (same as AmazonsChoice)
+                                        if (productName.includes('nose ring')) {
+                                          profitPerUnit = 40.14;
+                                        } else if (productName.includes('bulb')) {
+                                          profitPerUnit = 251.10;
+                                        } else if (productName.includes('fuse')) {
+                                          profitPerUnit = 455.80;
+                                        } else if (productName.includes('lampshade')) {
+                                          profitPerUnit = 227.80;
+                                        } else if (productName.includes('leather') && productName.includes('watch')) {
+                                          profitPerUnit = 586.00;
+                                        }
+                                        
+                                        const yearlyProfit = profitPerUnit * 365; // 365 units per year (fallback)
+                                        console.log('⚠️ Calculating yearly profit (no saved value):', yearlyProfit, 'from profit per unit:', profitPerUnit);
+                                        return convertProfitValue(yearlyProfit);
+                                      }
                                     })()}
                                   </div>
                                 </div>
@@ -2987,6 +3187,8 @@ const ProductDetail = () => {
               </div>
             </div>
           </div>
+
+
 
           {/* Additional Sections Below */}
           <div className="row mt-4">
@@ -3412,7 +3614,7 @@ const ProductDetail = () => {
                   <button
                     onClick={() => {
                       setShowLoginModal(false);
-                      navigate('/signup/buyer');
+                      navigate('/register/buyer');
                     }}
                     style={{
                       flex: 1,

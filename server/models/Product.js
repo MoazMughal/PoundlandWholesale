@@ -208,6 +208,14 @@ const productSchema = new mongoose.Schema({
     netProfit: {
       type: Number,
       default: 0
+    },
+    monthlyProfit: {
+      type: Number,
+      default: 0
+    },
+    yearlyProfit: {
+      type: Number,
+      default: 0
     }
   },
   // Keep existing field

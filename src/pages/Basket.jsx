@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useBasket } from '../context/BasketContext'
 import { useCurrency } from '../context/CurrencyContext'
+import { getImageUrl } from '../utils/imageImports'
 import ScrollToTop from '../components/ScrollToTop'
 
 const Basket = () => {
@@ -122,15 +123,27 @@ const Basket = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  background: '#fff',
+                  background: '#f8f9fa',
                   cursor: 'pointer'
                 }}
               >
-                <img 
-                  src={item.image} 
-                  alt={item.name}
-                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                />
+                {item.image ? (
+                  <img 
+                    src={getImageUrl(item.image)} 
+                    alt={item.name}
+                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                    onError={(e) => {
+                      console.error('Image failed to load:', item.image)
+                      e.target.src = 'https://via.placeholder.com/100x100?text=No+Image'
+                    }}
+                  />
+                ) : (
+                  <img 
+                    src="https://via.placeholder.com/100x100?text=No+Image"
+                    alt="No image available"
+                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                  />
+                )}
               </div>
 
               {/* Product Details */}

@@ -12,14 +12,14 @@ export const useCurrency = () => {
 
 export const CurrencyProvider = ({ children }) => {
   const [currency, setCurrency] = useState(() => {
-    // Check if we're on admin route and default to GBP
-    const isAdminRoute = window.location.pathname.includes('/admin');
-    if (isAdminRoute) {
-      localStorage.setItem('selectedCurrency', 'GBP');
-      return 'GBP';
+    // Load from localStorage or default to GBP for admin routes, PKR for others
+    const savedCurrency = localStorage.getItem('selectedCurrency');
+    if (savedCurrency) {
+      return savedCurrency;
     }
-    // Load from localStorage or default to PKR for other routes
-    return localStorage.getItem('selectedCurrency') || 'PKR';
+    // Default currency based on route
+    const isAdminRoute = window.location.pathname.includes('/admin');
+    return isAdminRoute ? 'GBP' : 'PKR';
   });
 
   // Currency conversion rates (base: PKR) - Manual rates
@@ -37,13 +37,7 @@ export const CurrencyProvider = ({ children }) => {
     AED: 'د.إ'
   };
 
-  // Monitor route changes and set currency for admin routes
-  useEffect(() => {
-    const isAdminRoute = window.location.pathname.includes('/admin');
-    if (isAdminRoute && currency !== 'GBP') {
-      setCurrency('GBP');
-    }
-  }, [currency]);
+  // Allow currency changes on admin routes - removed automatic GBP forcing
 
   // Save to localStorage whenever currency changes
   useEffect(() => {

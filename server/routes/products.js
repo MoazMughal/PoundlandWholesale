@@ -50,10 +50,26 @@ router.get('/public', async (req, res) => {
       const searchTerms = search.toLowerCase().split(' ').filter(term => term.length > 2);
       const escapedTerms = searchTerms.map(term => escapeRegex(term));
       
+      // Check if search looks like a MongoDB ObjectId (24 hex characters)
+      const mongoose = await import('mongoose');
+      const isValidObjectId = mongoose.default.Types.ObjectId.isValid(search);
+      
       // Create comprehensive search query with escaped regex
       const searchQuery = {
         $or: [
-          // Exact name match (highest priority)
+          // Product ID search (highest priority if valid ObjectId)
+          ...(isValidObjectId ? [{ _id: search }] : []),
+          // Partial ID search (for shorter ID searches like "0ff613") - convert ObjectId to string
+          ...(search.length >= 3 && /^[a-fA-F0-9]+$/.test(search) ? [{ 
+            $expr: { 
+              $regexMatch: { 
+                input: { $toString: "$_id" }, 
+                regex: search, 
+                options: "i" 
+              } 
+            } 
+          }] : []),
+          // Exact name match (high priority)
           { name: { $regex: `^${escapedSearch}`, $options: 'i' } },
           // Contains search term
           { name: { $regex: escapedSearch, $options: 'i' } },
@@ -69,6 +85,15 @@ router.get('/public', async (req, res) => {
           ...escapedTerms.map(term => ({ description: { $regex: term, $options: 'i' } }))
         ]
       };
+      
+      // Debug logging for ID searches (public route)
+      if (search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
+        console.log('🔍 Public ID Search Debug:', {
+          searchTerm: search,
+          isValidObjectId,
+          route: 'public'
+        });
+      }
       
       // Combine with existing query
       query = { ...query, ...searchQuery };
@@ -292,10 +317,26 @@ router.get('/', authenticateAdmin, async (req, res) => {
       const searchTerms = search.toLowerCase().split(' ').filter(term => term.length > 2);
       const escapedTerms = searchTerms.map(term => escapeRegex(term));
       
+      // Check if search looks like a MongoDB ObjectId (24 hex characters)
+      const mongoose = await import('mongoose');
+      const isValidObjectId = mongoose.default.Types.ObjectId.isValid(search);
+      
       // Create comprehensive search query with escaped regex
       const searchQuery = {
         $or: [
-          // Exact name match (highest priority)
+          // Product ID search (highest priority if valid ObjectId)
+          ...(isValidObjectId ? [{ _id: search }] : []),
+          // Partial ID search (for shorter ID searches like "0ff613") - convert ObjectId to string
+          ...(search.length >= 3 && /^[a-fA-F0-9]+$/.test(search) ? [{ 
+            $expr: { 
+              $regexMatch: { 
+                input: { $toString: "$_id" }, 
+                regex: search, 
+                options: "i" 
+              } 
+            } 
+          }] : []),
+          // Exact name match (high priority)
           { name: { $regex: `^${escapedSearch}`, $options: 'i' } },
           // Contains search term
           { name: { $regex: escapedSearch, $options: 'i' } },
@@ -312,6 +353,15 @@ router.get('/', authenticateAdmin, async (req, res) => {
         ]
       };
       
+      // Debug logging for ID searches
+      if (search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
+        console.log('🔍 ID Search Debug:', {
+          searchTerm: search,
+          isValidObjectId,
+          queryStructure: JSON.stringify(searchQuery, null, 2)
+        });
+      }
+      
       // Combine with existing query
       query = { ...query, ...searchQuery };
     }
@@ -319,11 +369,19 @@ router.get('/', authenticateAdmin, async (req, res) => {
     if (category) query.category = category;
     if (status) query.status = status;
 
-    let products = await Product.find(query)
-      .populate('seller', 'businessName email')
-      .sort(sortOptions)
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+    console.log('🔍 Final Query:', JSON.stringify(query, null, 2));
+
+    let products;
+    try {
+      products = await Product.find(query)
+        .populate('seller', 'businessName email')
+        .sort(sortOptions)
+        .limit(limit * 1)
+        .skip((page - 1) * limit);
+    } catch (queryError) {
+      console.error('❌ MongoDB Query Error:', queryError);
+      throw new Error(`Database query failed: ${queryError.message}`);
+    }
 
     // Custom sorting for search results (relevance-based) - Admin
     if (search) {
