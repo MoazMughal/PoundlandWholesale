@@ -2150,7 +2150,7 @@ const ProductDetail = () => {
             <div className="col-12 col-lg-4 order-1 order-lg-1">
               <div className="sticky-top" style={{top: '100px', zIndex: 10}}>
                 {/* Main Image */}
-                <div className="position-relative mb-2" style={{background: '#fff', border: '1px solid #ddd', borderRadius: '6px', padding: '15px'}}>
+                <div className="position-relative mb-2" style={{background: '#ffffff', border: '2px solid #e5e7eb', borderRadius: '8px', padding: '15px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'}}>
                   <img 
                     src={product.images && product.images[selectedImage] ? product.images[selectedImage] : product.image} 
                     alt={product.name} 
@@ -2601,39 +2601,39 @@ const ProductDetail = () => {
 
             {/* RIGHT COLUMN - Buy Box, Supplier Details */}
             <div className="col-12 col-lg-3 order-2 order-lg-3">
-              <div className="d-none d-lg-block sticky-top" style={{top: '100px', zIndex: 10}}>
-                <div className="border rounded p-3" style={{background: '#f7f7f7'}}>
+              <div className="sticky-top" style={{top: '100px', zIndex: 10}}>
+                <div className="border rounded p-3 mobile-buy-box" style={{background: '#ffffff', border: '2px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', color: '#1f2937'}}>
                   
-                  {/* Desktop Buy Box Content */}
+                  {/* Buy Box Content */}
                   
                   {/* Price in Buy Box */}
                   <div className="mb-2">
                     <div className="d-flex align-items-baseline gap-1">
-                      <span className="fw-bold" style={{fontSize: '1.2rem', color: '#B12704'}}>
+                      <span className="fw-bold" style={{fontSize: '1.2rem', color: '#dc2626'}}>
                         {convertPrice(product.price)}
                       </span>
-                      <span className="text-muted" style={{fontSize: '0.7rem'}}>/Unit</span>
+                      <span style={{fontSize: '0.7rem', color: '#6b7280'}}>/Unit</span>
                     </div>
-                    <small className="text-muted" style={{fontSize: '0.7rem'}}>ex. VAT</small>
+                    <small style={{fontSize: '0.7rem', color: '#6b7280'}}>ex. VAT</small>
                   </div>
 
                   {/* In Stock */}
                   <div className="mb-2">
-                    <div className="text-success fw-bold" style={{fontSize: '0.85rem'}}>
+                    <div className="fw-bold" style={{fontSize: '0.85rem', color: '#059669'}}>
                       <i className="fas fa-check-circle me-1"></i>In Stock
                     </div>
-                    <small className="text-muted" style={{fontSize: '0.7rem'}}>
+                    <small style={{fontSize: '0.7rem', color: '#6b7280'}}>
                       Ships from {product.dealInfo?.location || 'Pakistan'}
                     </small>
                   </div>
 
                   {/* Quantity Selector */}
                   <div className="mb-2">
-                    <label className="form-label fw-bold mb-1" style={{fontSize: '0.75rem'}}>Quantity:</label>
+                    <label className="form-label fw-bold mb-1" style={{fontSize: '0.75rem', color: '#1f2937'}}>Quantity:</label>
                     <input 
                       type="number" 
                       className="form-control form-control-sm" 
-                      style={{fontSize: '0.8rem'}}
+                      style={{fontSize: '0.8rem', color: '#1f2937', backgroundColor: '#ffffff', border: '1px solid #d1d5db'}}
                       value={quantity}
                       min="100"
                       step="1"
@@ -2655,7 +2655,7 @@ const ProductDetail = () => {
                       }}
                       placeholder="Minimum 100 units"
                     />
-                    <small className="text-muted" style={{fontSize: '0.65rem'}}>
+                    <small style={{fontSize: '0.65rem', color: '#6b7280'}}>
                       Minimum order: 100 units
                     </small>
                   </div>
@@ -2685,7 +2685,7 @@ const ProductDetail = () => {
 
                   {/* Supplier Details */}
                   <div className="mb-2">
-                    <h3 className="fw-bold mb-2" style={{fontSize: '0.85rem'}}>Supplier Information</h3>
+                    <h3 className="fw-bold mb-2" style={{fontSize: '0.85rem', color: '#1f2937'}}>Supplier Information</h3>
                     
 
                     
@@ -2887,50 +2887,82 @@ const ProductDetail = () => {
 
                   {/* Total Sales */}
                   <div className="text-center">
-                    <div className="fw-bold mb-1" style={{fontSize: '0.8rem'}}>Total Sales</div>
-                    <div className="text-primary fw-bold" style={{fontSize: '1.1rem'}}>
+                    <div className="fw-bold mb-1" style={{fontSize: '0.8rem', color: '#1f2937'}}>Total Sales</div>
+                    <div className="fw-bold" style={{fontSize: '1.1rem', color: '#2563eb'}}>
                       {product.monthlyOrders}
                     </div>
-                    <small className="text-muted" style={{fontSize: '0.7rem'}}>units sold this month</small>
+                    <small style={{fontSize: '0.7rem', color: '#6b7280'}}>units sold this month</small>
                   </div>
 
                 </div>
               </div>
               
-              {/* Mobile Buy Box - Fixed Bottom */}
-              <div className="d-block d-lg-none">
-                <div className="fixed-bottom bg-white border-top p-3 shadow-lg">
-                  <div className="container">
-                    <div className="row align-items-center">
-                      <div className="col-6">
-                        <div className="fw-bold text-danger" style={{fontSize: '1.1rem'}}>
-                          {convertPrice(product.price)}
-                        </div>
-                        <small className="text-muted">ex. VAT</small>
+              {/* Mobile Buy Box - Show as regular content on mobile, keep fixed on very small screens */}
+              <div className="d-block d-lg-none mt-3">
+                <div className="d-none d-sm-block">
+                  {/* Regular mobile layout for tablets and larger phones */}
+                  <div className="border rounded p-3 mb-3" style={{background: '#ffffff', border: '2px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', color: '#1f2937'}}>
+                    <div className="text-center">
+                      <div className="fw-bold mb-2" style={{fontSize: '1.2rem', color: '#dc2626'}}>
+                        {convertPrice(product.price)}
                       </div>
-                      <div className="col-6">
-                        <div className="d-grid gap-1">
-                          <button 
-                            className="btn btn-danger btn-sm"
-                            onClick={() => {
-                              const buyerToken = localStorage.getItem('buyerToken');
-                              if (!buyerToken) {
-                                setShowLoginModal(true);
-                              } else {
-                                // Handle buy logic for logged in users
-                                alert('Buy functionality will be implemented soon!');
-                              }
-                            }}
-                          >
-                            <i className="fas fa-bolt me-1"></i>Buy Now
-                          </button>
-                        </div>
+                      <small className="d-block mb-3" style={{color: '#6b7280'}}>ex. VAT</small>
+                      <div className="d-grid">
+                        <button 
+                          className="btn btn-danger"
+                          style={{backgroundColor: '#dc2626', borderColor: '#dc2626', color: '#ffffff'}}
+                          onClick={() => {
+                            const buyerToken = localStorage.getItem('buyerToken');
+                            if (!buyerToken) {
+                              setShowLoginModal(true);
+                            } else {
+                              // Handle buy logic for logged in users
+                              alert('Buy functionality will be implemented soon!');
+                            }
+                          }}
+                        >
+                          <i className="fas fa-bolt me-1"></i>Buy Now
+                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
-                {/* Add padding to prevent content being hidden behind fixed bottom */}
-                <div style={{height: '120px'}}></div>
+                
+                {/* Fixed bottom bar only for very small screens */}
+                <div className="d-block d-sm-none">
+                  <div className="fixed-bottom bg-white border-top p-3 shadow-lg">
+                    <div className="container">
+                      <div className="row align-items-center">
+                        <div className="col-6">
+                          <div className="fw-bold text-danger" style={{fontSize: '1.1rem'}}>
+                            {convertPrice(product.price)}
+                          </div>
+                          <small className="text-muted">ex. VAT</small>
+                        </div>
+                        <div className="col-6">
+                          <div className="d-grid gap-1">
+                            <button 
+                              className="btn btn-danger btn-sm"
+                              onClick={() => {
+                                const buyerToken = localStorage.getItem('buyerToken');
+                                if (!buyerToken) {
+                                  setShowLoginModal(true);
+                                } else {
+                                  // Handle buy logic for logged in users
+                                  alert('Buy functionality will be implemented soon!');
+                                }
+                              }}
+                            >
+                              <i className="fas fa-bolt me-1"></i>Buy Now
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Add padding to prevent content being hidden behind fixed bottom */}
+                  <div style={{height: '120px'}}></div>
+                </div>
               </div>
             </div>
 
