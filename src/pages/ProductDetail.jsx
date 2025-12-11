@@ -1867,6 +1867,36 @@ const ProductDetail = () => {
     );
   };
 
+  // Helper function to get RRP markup from Platform Comparison data
+  const getRRPMarkupFromPlatforms = () => {
+    try {
+      const platformData = calculatePlatformData();
+      if (platformData && platformData.length > 0) {
+        const rrpPlatform = platformData.find(platform => 
+          platform.name && platform.name.toLowerCase().includes('rrp')
+        );
+        if (rrpPlatform && rrpPlatform.markup) {
+          console.log('✅ Found RRP markup from platforms:', rrpPlatform.markup);
+          return rrpPlatform.markup;
+        }
+      }
+      
+      // Backup: try direct platform data
+      if (product.platforms && product.platforms.length > 0) {
+        const rrpPlatform = product.platforms.find(platform => 
+          platform.name && platform.name.toLowerCase().includes('rrp')
+        );
+        if (rrpPlatform && rrpPlatform.markup) {
+          console.log('✅ Found RRP markup from direct platforms:', rrpPlatform.markup);
+          return rrpPlatform.markup;
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error getting RRP markup:', error);
+    }
+    return null;
+  };
+
   // Calculate platform comparison data dynamically
   const calculatePlatformData = () => {
     // Debug logging for platform data
@@ -2207,11 +2237,21 @@ const ProductDetail = () => {
                   <Link to="#reviews" className="text-primary me-2" style={{fontSize: '0.75rem', textDecoration: 'none'}}>
                     {product.reviews} ratings
                   </Link>
-                  {product.markup && (
-                    <span className="badge bg-success px-2 py-1 me-2" style={{fontSize: '0.65rem'}}>
-                      {product.markup}
-                    </span>
-                  )}
+                  {(() => {
+                    // Use admin-set RRP markup from Platform Comparison, fallback to product.markup
+                    const adminRRPMarkup = getRRPMarkupFromPlatforms();
+                    const displayMarkup = adminRRPMarkup || product.markup;
+                    
+                    if (displayMarkup) {
+                      console.log('🏷️ Badge markup - Admin RRP:', adminRRPMarkup, 'Product markup:', product.markup, 'Using:', displayMarkup);
+                      return (
+                        <span className="badge bg-success px-2 py-1 me-2" style={{fontSize: '0.65rem'}}>
+                          {displayMarkup}
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
 
                 </div>
 
@@ -2238,23 +2278,44 @@ const ProductDetail = () => {
                           <small className="text-muted" style={{fontSize: '0.7rem'}}>Save: </small>
                           <span className="fw-semibold text-danger" style={{fontSize: '0.8rem'}}>
                             {(() => {
+                              // Use the helper function to get admin-set RRP markup
+                              const adminRRPMarkup = getRRPMarkupFromPlatforms();
+                              if (adminRRPMarkup) {
+                                console.log('✅ Save% using admin-set RRP markup:', adminRRPMarkup);
+                                return adminRRPMarkup;
+                              }
+                              
+                              // Fallback: Calculate markup the same way Platform Comparison does
                               const wholesale = parseFloat(product.price.replace(/[₨£$€Rs]/g, ''))
                               const rrp = parseFloat(product.rrp.replace(/[₨£$€Rs]/g, ''))
                               
-                              // If we can't parse prices, calculate based on product type
-                              if (isNaN(wholesale) || isNaN(rrp) || rrp === 0) {
-                                // Default savings by product type
-                                const productName = product.name.toLowerCase()
-                                if (productName.includes('nose ring')) return '65%'
-                                if (productName.includes('bulb')) return '70%'
-                                if (productName.includes('fuse')) return '60%'
-                                if (productName.includes('lampshade')) return '55%'
-                                if (productName.includes('leather') && productName.includes('watch strap')) return '50%'
-                                return '50%' // Default
+                              console.log('🔍 Fallback calculation - wholesale:', wholesale, 'rrp:', rrp);
+                              
+                              // If we can parse both prices, calculate markup percentage
+                              if (!isNaN(wholesale) && !isNaN(rrp) && rrp > 0 && wholesale > 0) {
+                                // Calculate markup: ((RRP - Wholesale) / Wholesale) * 100
+                                const markup = ((rrp - wholesale) / wholesale * 100).toFixed(0);
+                                console.log('🔍 Calculated markup percentage (RRP method):', `${markup}%`);
+                                return `${markup}%`;
                               }
                               
-                              const savings = ((rrp - wholesale) / rrp * 100).toFixed(0)
-                              return `${savings}%`
+                              // If we can't parse prices, calculate savings instead
+                              if (!isNaN(wholesale) && !isNaN(rrp) && rrp > 0) {
+                                const savings = ((rrp - wholesale) / rrp * 100).toFixed(0)
+                                console.log('🔍 Calculated savings percentage (fallback):', `${savings}%`);
+                                return `${savings}%`;
+                              }
+                              
+                              // Last resort: Default savings by product type
+                              const productName = product.name.toLowerCase()
+                              if (productName.includes('nose ring')) return '65%'
+                              if (productName.includes('bulb')) return '70%'
+                              if (productName.includes('fuse')) return '60%'
+                              if (productName.includes('lampshade')) return '55%'
+                              if (productName.includes('leather') && productName.includes('watch strap')) return '50%'
+                              
+                              console.log('🔍 Using default percentage: 50%');
+                              return '50%' // Default
                             })()}
                           </span>
                         </div>
