@@ -56,13 +56,34 @@ const AdminProducts = () => {
     AED: 'د.إ'
   };
 
-  const convertPrice = (price) => {
-    const converted = price * currencyRates[currency];
+  const convertPrice = (price, fromCurrency = 'PKR') => {
+    if (fromCurrency === currency) {
+      // No conversion needed
+      return parseFloat(price).toFixed(2);
+    }
+    
+    // Convert from source currency to PKR first, then to target currency
+    let priceInPKR;
+    if (fromCurrency === 'PKR') {
+      priceInPKR = price;
+    } else {
+      priceInPKR = price / currencyRates[fromCurrency];
+    }
+    
+    const converted = priceInPKR * currencyRates[currency];
     return converted.toFixed(2);
   };
 
-  const formatPrice = (price) => {
-    return `${currencySymbols[currency]}${convertPrice(price)}`;
+  const formatPrice = (price, productCurrency = 'GBP') => {
+    // Always show price in the selected display currency
+    if (productCurrency && productCurrency === currency) {
+      // Same currency - show as is
+      return `${currencySymbols[currency]}${parseFloat(price).toFixed(2)}`;
+    } else {
+      // Different currency - convert for display only
+      const convertedPrice = convertPrice(price, productCurrency);
+      return `${currencySymbols[currency]}${convertedPrice}`;
+    }
   };
 
   // Convert PKR value to selected currency for display (for modal)
@@ -132,10 +153,15 @@ const AdminProducts = () => {
         ...(filters.category && { category: filters.category }),
         ...(filters.status && { status: filters.status }),
         excludeSellerCopies: 'true', // Exclude seller copies to avoid duplicates
-        limit: '10000' // Get all products
+        limit: '50' // Reduced from 10000 to 50 for better performance
       });
 
-      const url = `http://localhost:5000/api/products?${params}`;
+      // Use fast endpoint by default, but allow full view if needed
+      const useFastEndpoint = !search && !filters.category && !filters.status; // Use fast only for default view
+      
+      const url = useFastEndpoint 
+        ? `http://localhost:5000/api/products/admin/fast`
+        : `http://localhost:5000/api/products?${params}`;
 
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -294,9 +320,47 @@ const AdminProducts = () => {
   };
 
   // Save edited value (on Enter or blur)
-  const startProfitEditing = (product) => {
-    // Calculate product cost automatically from product price (keep in PKR)
-    const productPricePKR = parseFloat(product.price) || 0;
+  const startProfitEditing = async (product) => {
+    // Fetch the latest product data to ensure we have current price and currency
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`http://localhost:5000/api/products/${product._id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const latestProduct = await response.json();
+        console.log('📊 Fetched latest product data for profit modal:', {
+          name: latestProduct.name,
+          price: latestProduct.price,
+          currency: latestProduct.currency
+        });
+        product = latestProduct; // Use the latest data
+      }
+    } catch (error) {
+      console.error('Error fetching latest product data:', error);
+      // Continue with the passed product data if fetch fails
+    }
+    
+    // Calculate product cost automatically from product price (convert to PKR for internal calculations)
+    const productPrice = parseFloat(product.price) || 0;
+    const productCurrency = product.currency || 'GBP';
+    
+    // Convert product price to PKR for internal profit calculations
+    let productPricePKR;
+    if (productCurrency === 'PKR') {
+      productPricePKR = productPrice;
+    } else {
+      // Convert from product currency to PKR
+      productPricePKR = productPrice / currencyRates[productCurrency];
+    }
+    
+    console.log('💰 Profit Modal - Product Cost Calculation:', {
+      originalPrice: productPrice,
+      originalCurrency: productCurrency,
+      convertedToPKR: productPricePKR,
+      currencyRate: currencyRates[productCurrency]
+    });
     
     // Initialize selectedUnits from product's platformUnits or default to 200
     const initialUnits = product.platformUnits || 200;
@@ -337,7 +401,7 @@ const AdminProducts = () => {
         fbaFulfilmentFee: product.profitEvaluation.fbaFulfilmentFee || 0,
         fbaFulfilmentTax: product.profitEvaluation.fbaFulfilmentTax || 0,
         balanceChange: product.profitEvaluation.balanceChange || 0, // Preserve existing balance change
-        productCost: productPricePKR, // Always use current product price in PKR
+        productCost: productPricePKR, // Always use current product price converted to PKR
         netProfit: (product.profitEvaluation.balanceChange || 0) - productPricePKR, // Auto-calculate: Balance Change - Product Cost
         monthlyProfit: product.profitEvaluation.monthlyProfit || defaultMonthlyProfit, // Use saved or calculated
         yearlyProfit: product.profitEvaluation.yearlyProfit || defaultYearlyProfit // Use saved or calculated
@@ -350,7 +414,7 @@ const AdminProducts = () => {
         fbaFulfilmentFee: 0,
         fbaFulfilmentTax: 0,
         balanceChange: 0,
-        productCost: productPricePKR, // Auto-populate from product price in PKR
+        productCost: productPricePKR, // Auto-populate from product price converted to PKR
         netProfit: 0 - productPricePKR, // Auto-calculate: Balance Change - Product Cost
         monthlyProfit: defaultMonthlyProfit, // Calculated monthly profit
         yearlyProfit: defaultYearlyProfit // Calculated yearly profit
@@ -360,17 +424,17 @@ const AdminProducts = () => {
     setModalCurrency(currency);
     setShowProfitModal(true);
     
-    // Debug: Log initial balance change value
-    console.log('🔍 Modal Opened - Initial Balance Change:', {
+    // Debug: Log initial values
+    console.log('🔍 Modal Opened - Profit Evaluation Data:', {
       productName: product.name,
+      productPrice: productPrice,
+      productCurrency: productCurrency,
+      productCostPKR: productPricePKR,
       hasExistingProfitEvaluation: !!product.profitEvaluation,
+      existingProductCost: product.profitEvaluation?.productCost,
       existingBalanceChange: product.profitEvaluation?.balanceChange,
-      existingMonthlyProfit: product.profitEvaluation?.monthlyProfit,
-      existingYearlyProfit: product.profitEvaluation?.yearlyProfit,
-      profitPerUnit: product.profitCalculations?.profitPerUnit,
-      calculatedMonthlyProfit: (product.profitCalculations?.profitPerUnit || 0) * 30,
-      calculatedYearlyProfit: (product.profitCalculations?.profitPerUnit || 0) * 365,
-      modalCurrency: currency
+      modalCurrency: currency,
+      displayedProductCost: convertFromPKRModal(productPricePKR)
     });
   };
 
@@ -463,13 +527,16 @@ const AdminProducts = () => {
       const token = localStorage.getItem('adminToken');
       let parsedValue = field === 'price' || field === 'stock' ? parseFloat(newValue) : newValue;
       
-      // If editing price and currency is not PKR, convert back to PKR for storage
-      if (field === 'price' && currency !== 'PKR') {
-        const priceInPKR = parsedValue / currencyRates[currency];
-        parsedValue = priceInPKR;
+      // For price updates, save the price in the selected currency
+      const updateData = { [field]: parsedValue };
+      if (field === 'price') {
+        updateData.currency = currency; // Save the currency along with the price
+        console.log('💰 Saving price in currency:', currency, 'Value:', parsedValue);
+      console.log('📤 Full update data being sent:', updateData);
       }
       
-      const updateData = { [field]: parsedValue };
+      console.log('🌐 Making PUT request to:', `http://localhost:5000/api/products/${productId}`);
+      console.log('📦 Request body:', JSON.stringify(updateData));
       
       const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
         method: 'PUT',
@@ -479,17 +546,32 @@ const AdminProducts = () => {
         },
         body: JSON.stringify(updateData)
       });
+      
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response ok:', response.ok);
 
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('✅ Price update successful');
+        console.log('📊 Updated product data from server:', responseData);
         // Update both products and filteredProducts state
+        const updateObject = { [field]: parsedValue };
+        if (field === 'price') {
+          updateObject.currency = currency; // Update currency in state too
+        }
+        
         const updatedProducts = products.map(p => 
-          p._id === productId ? { ...p, [field]: parsedValue } : p
+          p._id === productId ? { ...p, ...updateObject } : p
         );
+        
         setProducts(updatedProducts);
         setFilteredProducts(filteredProducts.map(p => 
-          p._id === productId ? { ...p, [field]: parsedValue } : p
+          p._id === productId ? { ...p, ...updateObject } : p
         ));
         setEditingCell(null);
+        
+        // Clear cache to ensure changes appear everywhere
+        cacheManager.clearAll();
         
         // Show success indicator with green flash
         const cell = document.querySelector(`[data-cell="${cellKey}"]`);
@@ -498,6 +580,9 @@ const AdminProducts = () => {
           setTimeout(() => { cell.style.background = ''; }, 1000);
         }
         
+        if (field === 'price') {
+          alert(`✅ Price updated successfully! Saved ${currencySymbols[currency]}${parsedValue} in ${currency}`);
+        }
 
       } else {
         const errorData = await response.json();
@@ -597,6 +682,21 @@ const AdminProducts = () => {
           Add New Product
         </button>
       </div>
+
+      {/* Performance Notice */}
+      {!search && !filters.category && !filters.status && (
+        <div style={{
+          padding: '8px 12px',
+          marginBottom: '12px',
+          background: '#e3f2fd',
+          border: '1px solid #2196f3',
+          borderRadius: '6px',
+          fontSize: '0.8rem',
+          color: '#1976d2'
+        }}>
+          ⚡ Fast Mode: Showing 50 most recent products for optimal performance. Use search or filters to find specific products.
+        </div>
+      )}
 
       <div className="filters-section" style={{padding: '6px 8px', marginBottom: '6px', background: 'white', borderRadius: '6px'}}>
         <div style={{display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center'}}>
@@ -1657,9 +1757,18 @@ const AdminProducts = () => {
                       step="0.01"
                       value={convertFromPKRModal(profitEditProduct.profitEvaluation.productCost)}
                       onChange={(e) => {
-                        const newProductCostPKR = convertToPKRModal(parseFloat(e.target.value) || 0);
+                        const inputValue = parseFloat(e.target.value) || 0;
+                        const newProductCostPKR = convertToPKRModal(inputValue);
                         const balanceChangePKR = profitEditProduct.profitEvaluation.balanceChange || 0;
                         const calculatedNetProfitPKR = balanceChangePKR - newProductCostPKR; // Formula: Net Profit = Balance Change - Product Cost
+                        
+                        console.log('💰 Product Cost Updated:', {
+                          inputValue,
+                          modalCurrency,
+                          newProductCostPKR,
+                          balanceChangePKR,
+                          calculatedNetProfitPKR
+                        });
                         
                         setProfitEditProduct({
                           ...profitEditProduct, 

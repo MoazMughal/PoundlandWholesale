@@ -26,9 +26,18 @@ class AuthSessionManager {
     const lastActivity = localStorage.getItem('lastActivity');
     
     if (!sessionId) {
-      // New browser session - clear all auth data
-      console.log('🔄 New browser session detected - clearing auth data');
-      this.clearAllAuth();
+      // New browser session - but don't clear auth data immediately
+      // Only clear if there's no valid token or if session is truly expired
+      const hasValidTokens = localStorage.getItem('adminToken') || 
+                            localStorage.getItem('sellerToken') || 
+                            localStorage.getItem('buyerToken');
+      
+      if (!hasValidTokens) {
+        console.log('🔄 New browser session with no tokens - clearing auth data');
+        this.clearAllAuth();
+      } else {
+        console.log('🔄 New browser session but tokens exist - keeping auth data');
+      }
       
       // Create new session ID
       const newSessionId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);

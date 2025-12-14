@@ -36,7 +36,18 @@ export const adminApiCall = async (url, options = {}) => {
     if (response.status === 401) {
       console.log('Admin token expired or invalid, attempting refresh');
       
+      // Check if we've already tried refreshing recently to prevent loops
+      const lastRefreshAttempt = localStorage.getItem('admin_last_refresh_attempt');
+      const now = Date.now();
+      
+      if (lastRefreshAttempt && (now - parseInt(lastRefreshAttempt)) < 30000) {
+        console.log('Recent refresh attempt failed, not retrying');
+        throw new AdminApiError('Authentication failed - recent refresh attempt failed', 401, response);
+      }
+      
       try {
+        localStorage.setItem('admin_last_refresh_attempt', now.toString());
+        
         // Try to refresh token
         const refreshResponse = await fetch('http://localhost:5000/api/auth/refresh', {
           method: 'POST',
@@ -50,6 +61,7 @@ export const adminApiCall = async (url, options = {}) => {
           const refreshData = await refreshResponse.json();
           localStorage.setItem('adminToken', refreshData.token);
           localStorage.setItem('adminData', JSON.stringify(refreshData.admin));
+          localStorage.removeItem('admin_last_refresh_attempt'); // Clear on success
           console.log('Admin token refreshed successfully, retrying original request');
           
           // Retry the original request with new token
@@ -61,21 +73,20 @@ export const adminApiCall = async (url, options = {}) => {
             }
           });
           
-          if (retryResponse.ok) {
-            return retryResponse;
-          } else if (retryResponse.status === 401) {
-            throw new Error('Still unauthorized after token refresh');
-          } else {
-            return retryResponse; // Return the response even if not ok, let caller handle
-          }
+          return retryResponse; // Return response regardless of status, let caller handle
         } else {
           throw new Error('Token refresh failed');
         }
       } catch (refreshError) {
-        console.log('Token refresh failed, letting AdminContext handle logout');
+        console.log('Token refresh failed:', refreshError.message);
         
-        // Don't clear data here, let AdminContext handle it
-        // Just throw the error and let the context handle the logout
+        // Only throw auth error if it's a real auth failure, not network issues
+        if (refreshError.message.includes('fetch')) {
+          // Network error - return original response and let caller handle
+          console.log('Network error during refresh, returning original 401 response');
+          return response;
+        }
+        
         throw new AdminApiError('Authentication failed', 401, response);
       }
     }

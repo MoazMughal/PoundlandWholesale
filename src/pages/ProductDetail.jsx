@@ -179,7 +179,10 @@ const ProductDetail = () => {
         .map(p => ({
           id: p._id,
           name: p.name,
-          price: `₨${p.price}`,
+          price: p.currency === 'GBP' ? `£${p.price}` : 
+                 p.currency === 'USD' ? `$${p.price}` :
+                 p.currency === 'AED' ? `د.إ${p.price}` :
+                 `₨${p.price}`,
           image: p.images && p.images.length > 0 ? getImageUrl(p.images[0]) : '',
           rating: p.rating || 4.0,
           reviews: p.reviews || 0,
@@ -211,7 +214,10 @@ const ProductDetail = () => {
         .map(p => ({
           id: p._id,
           name: p.name,
-          price: `₨${p.price}`,
+          price: p.currency === 'GBP' ? `£${p.price}` : 
+                 p.currency === 'USD' ? `$${p.price}` :
+                 p.currency === 'AED' ? `د.إ${p.price}` :
+                 `₨${p.price}`,
           image: p.images && p.images.length > 0 ? getImageUrl(p.images[0]) : '',
           rating: p.rating || 4.0,
           reviews: p.reviews || 0,
@@ -310,7 +316,10 @@ const ProductDetail = () => {
           const productData = {
             id: dbProduct._id,
             name: dbProduct.name,
-            price: `₨${dbProduct.price}`, // Store as PKR
+            price: (dbProduct.currency || 'GBP') === 'GBP' ? `£${dbProduct.price}` : 
+                   dbProduct.currency === 'USD' ? `$${dbProduct.price}` :
+                   dbProduct.currency === 'AED' ? `د.إ${dbProduct.price}` :
+                   `₨${dbProduct.price}`, // Default to GBP if currency not set
             rrp: dbProduct.name.toLowerCase().includes('nose ring') ? '£3.49' : (dbProduct.originalPrice ? `₨${dbProduct.originalPrice}` : `₨${(dbProduct.price * 1.5).toFixed(2)}`),
             rating: dbProduct.rating || 4.5,
             reviews: dbProduct.reviews || 100,
@@ -479,28 +488,48 @@ const ProductDetail = () => {
             
             // Use admin panel profit evaluation
             if (dbProduct.profitEvaluation) {
-              const costPricePKR = parseFloat(productData.price.replace(/[₨£$€]/g, '').trim())
+              // Get the actual price and currency from the database
+              const actualPrice = parseFloat(dbProduct.price) || 0;
+              const actualCurrency = dbProduct.currency || 'GBP';
               
-              console.log('🔍 PRODUCT COST LOGIC DEBUG:');
-              console.log('- Current product price (PKR):', costPricePKR);
+              // Convert to PKR for internal calculations
+              let productCostPKR;
+              if (actualCurrency === 'PKR') {
+                productCostPKR = actualPrice;
+              } else {
+                // Convert from actual currency to PKR using the same rates as admin
+                const currencyRates = {
+                  PKR: 1,
+                  USD: 0.00353,   // 1 USD = 283.32 PKR
+                  GBP: 0.00272,   // 1 GBP = 367.74 PKR
+                  AED: 0.01310    // 1 AED = 76.37 PKR
+                };
+                productCostPKR = actualPrice / currencyRates[actualCurrency];
+              }
+              
+              console.log('🔍 PRODUCT COST LOGIC DEBUG (FIXED):');
+              console.log('- Actual product price:', actualPrice, actualCurrency);
+              console.log('- Converted to PKR:', productCostPKR);
               console.log('- Saved product cost (PKR):', dbProduct.profitEvaluation.productCost);
-              console.log('- Difference:', Math.abs((dbProduct.profitEvaluation.productCost || 0) - costPricePKR));
               
-              // For now, ALWAYS use current product price to fix the sync issue
-              // TODO: Add manual override detection later
-              let productCost = costPricePKR; // Always use current product price
-              console.log('💰 FORCING current product price as product cost:', costPricePKR);
+              // Use the converted PKR value as product cost
+              let productCost = productCostPKR;
+              console.log('💰 Using converted product cost:', productCost, 'PKR');
               
-              // Auto-calculate Net Profit and Profit per Unit based on corrected formulas
+              // Use saved profit calculations if available, otherwise auto-calculate
               const balanceChange = dbProduct.profitEvaluation.balanceChange || 0;
               const calculatedNetProfit = balanceChange - productCost; // Formula: Net Profit = Balance Change - Product Cost
-              const calculatedProfitPerUnit = calculatedNetProfit; // Formula: Profit per Unit = Net Profit
               
-              console.log('🧮 AUTO-CALCULATING PROFITS (CORRECTED FORMULA):');
-              console.log('- Product Cost:', productCost);
-              console.log('- Balance Change:', balanceChange);
-              console.log('- Calculated Net Profit (Balance Change - Product Cost):', calculatedNetProfit);
-              console.log('- Calculated Profit per Unit (= Net Profit):', calculatedProfitPerUnit);
+              // Always use the formula: Balance Change - Product Cost = Net Profit = Profit per Unit
+              // This ensures consistency across all displays
+              const netProfitAndProfitPerUnit = calculatedNetProfit; // Both Net Profit and Profit per Unit are the same
+              
+              console.log('🧮 PROFIT CALCULATIONS (FORMULA: Balance Change - Product Cost):');
+              console.log('- Product Cost:', productCost, 'PKR');
+              console.log('- Balance Change:', balanceChange, 'PKR');
+              console.log('- Net Profit = Balance Change - Product Cost:', calculatedNetProfit, 'PKR');
+              console.log('- Profit per Unit = Net Profit:', netProfitAndProfitPerUnit, 'PKR');
+              console.log('- Formula applied consistently: ✅');
               
               // Admin panel values are in PKR, store them as PKR for conversion
               productData.evaluation = {
@@ -513,20 +542,26 @@ const ProductDetail = () => {
                 fbaFeeTax: -(Math.abs(dbProduct.profitEvaluation.fbaFulfilmentTax || 0)), // Negative because it's a fee, PKR
                 totalFees: -((Math.abs(dbProduct.profitEvaluation.commission || 0)) + (Math.abs(dbProduct.profitEvaluation.commissionTax || 0)) + (Math.abs(dbProduct.profitEvaluation.digitalServicesFee || 0)) + (Math.abs(dbProduct.profitEvaluation.digitalServicesTax || 0)) + (Math.abs(dbProduct.profitEvaluation.fbaFulfilmentFee || 0)) + (Math.abs(dbProduct.profitEvaluation.fbaFulfilmentTax || 0))),
                 productCost: productCost, // Use current product price
-                netProfit: calculatedNetProfit, // Auto-calculated: Balance Change - Product Cost
+                netProfit: netProfitAndProfitPerUnit, // Formula: Balance Change - Product Cost
                 changeToBalance: balanceChange, // PKR
                 isPKR: true // Mark as PKR data for proper conversion
               }
               
-              // Set profit calculations with auto-calculated values
+              // Set profit calculations using the consistent formula
               productData.profitCalculations = {
                 costPrice: costPricePKR, // Keep in PKR
                 sellingPrice: dbProduct.profitEvaluation?.salesProceeds || 0, // PKR
-                profitPerUnit: calculatedProfitPerUnit, // Auto-calculated: = Net Profit
-                monthlyProfit: dbProduct.profitCalculations?.profitFor200Units || (calculatedProfitPerUnit * (productData.dealUnits || 200)), // PKR - use stored value or calculate
+                profitPerUnit: netProfitAndProfitPerUnit, // Formula: Balance Change - Product Cost
+                monthlyProfit: dbProduct.profitCalculations?.profitFor200Units || (netProfitAndProfitPerUnit * (productData.dealUnits || 200)), // PKR - use stored value or calculate
                 monthlyProfitPKR: dbProduct.profitCalculations?.profitFor200Units || 0,
                 isPKR: true // Mark as PKR data for proper conversion
               }
+              
+              console.log('✅ CONSISTENT PROFIT VALUES APPLIED:');
+              console.log('- Amazon FBA Calculator Net Profit:', netProfitAndProfitPerUnit, 'PKR');
+              console.log('- Profit Calculations Profit per Unit:', netProfitAndProfitPerUnit, 'PKR');
+              console.log('- Values are identical: ✅');
+              console.log('- Formula: Balance Change (' + balanceChange + ') - Product Cost (' + productCost + ') = ' + netProfitAndProfitPerUnit);
               
               console.log('✅ Admin profit calculations applied (PKR) with auto-calculated values:', productData.profitCalculations)
               
@@ -1261,7 +1296,10 @@ const ProductDetail = () => {
             const productData = {
               id: foundProduct._id,
               name: foundProduct.name,
-              price: `₨${foundProduct.price}`,
+              price: (foundProduct.currency || 'GBP') === 'GBP' ? `£${foundProduct.price}` : 
+                     foundProduct.currency === 'USD' ? `$${foundProduct.price}` :
+                     foundProduct.currency === 'AED' ? `د.إ${foundProduct.price}` :
+                     `₨${foundProduct.price}`,
               rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
               rating: foundProduct.rating || 4.5,
               dealUnits: foundProduct.dealUnits || 1,
@@ -1550,7 +1588,10 @@ const ProductDetail = () => {
               .map(p => ({
                 ...p,
                 id: p._id,
-                price: `₨${p.price}`,
+                price: (p.currency || 'GBP') === 'GBP' ? `£${p.price}` : 
+                       p.currency === 'USD' ? `$${p.price}` :
+                       p.currency === 'AED' ? `د.إ${p.price}` :
+                       `₨${p.price}`,
                 image: p.images && p.images.length > 0 ? getImageUrl(p.images[0]) : ''
               }))
             setRelatedProducts(related)
@@ -1597,7 +1638,10 @@ const ProductDetail = () => {
               const productData = {
                 id: foundProduct._id,
                 name: foundProduct.name,
-                price: `₨${foundProduct.price}`,
+                price: foundProduct.currency === 'GBP' ? `£${foundProduct.price}` : 
+                       foundProduct.currency === 'USD' ? `$${foundProduct.price}` :
+                       foundProduct.currency === 'AED' ? `د.إ${foundProduct.price}` :
+                       `₨${foundProduct.price}`, // Use the actual currency from database
                 rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
                 rating: foundProduct.rating || 4.5,
                 dealUnits: foundProduct.dealUnits || 1,
@@ -2425,9 +2469,19 @@ const ProductDetail = () => {
                         </div>
                         <div>
                           💰 Cost of {quantity || 100} units: <span style={{color: '#059669'}}>{(() => {
-                            const unitPrice = parseFloat(product.price.replace(/[₨£$€Rs]/g, '')) || 0;
-                            const totalPrice = unitPrice * (quantity || 100);
-                            return convertPrice(`₨${totalPrice.toFixed(2)}`);
+                            // Use the actual product cost from evaluation, not the display price
+                            const productCostPerUnit = product.evaluation?.productCost || 0;
+                            const units = quantity || 100;
+                            const totalCost = productCostPerUnit * units;
+                            
+                            console.log('💰 Cost Calculation Debug:', {
+                              productCostPerUnit: productCostPerUnit,
+                              units: units,
+                              totalCost: totalCost,
+                              formula: `${productCostPerUnit} × ${units} = ${totalCost}`
+                            });
+                            
+                            return convertPrice(`₨${totalCost.toFixed(2)}`);
                           })()}</span>
                         </div>
                       </div>

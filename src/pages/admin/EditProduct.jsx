@@ -89,11 +89,24 @@ const EditProduct = () => {
   const convertCurrency = (amount, fromCurrency, toCurrency) => {
     if (fromCurrency === toCurrency) return amount;
     
-    // Convert to PKR first (base currency)
-    const amountInPKR = amount / currencyRates[fromCurrency];
+    // PKR is the base currency (rate = 1)
+    // All other currencies have rates relative to PKR
     
-    // Then convert to target currency
-    const convertedAmount = amountInPKR * currencyRates[toCurrency];
+    let amountInPKR;
+    if (fromCurrency === 'PKR') {
+      amountInPKR = amount;
+    } else {
+      // Convert from other currency to PKR
+      amountInPKR = amount / currencyRates[fromCurrency];
+    }
+    
+    let convertedAmount;
+    if (toCurrency === 'PKR') {
+      convertedAmount = amountInPKR;
+    } else {
+      // Convert from PKR to target currency
+      convertedAmount = amountInPKR * currencyRates[toCurrency];
+    }
     
     return parseFloat(convertedAmount.toFixed(2));
   };
@@ -103,10 +116,11 @@ const EditProduct = () => {
       const response = await adminGet(`http://localhost:5000/api/products/${id}`);
       const product = await response.json();
       
-      // Store original price (assuming it's in PKR from database)
+      // Store original price with its currency from database
       const productPrice = product.price !== undefined && product.price !== null ? product.price : 0;
+      const productCurrency = product.currency || 'GBP'; // Default to GBP as per model
       setOriginalPrice(productPrice);
-      setOriginalCurrency('PKR'); // Assuming database stores prices in PKR
+      setOriginalCurrency(productCurrency);
       
       setFormData({
         name: product.name || '',
@@ -434,20 +448,18 @@ const EditProduct = () => {
       console.log('  - newImageUrls uploaded:', newImageUrls);
       console.log('  - allImageUrls (before filter):', allImageUrls);
 
-      // Convert price back to PKR before saving to database
+      // Save price in the selected currency
       const currentPrice = isNaN(parseFloat(formData.price)) ? 0 : parseFloat(formData.price);
-      const priceInPKR = convertCurrency(currentPrice, currency, 'PKR');
       
-      console.log('💰 Price conversion for saving:', {
+      console.log('💰 Price saving:', {
         currentPrice,
-        currentCurrency: currency,
-        priceInPKR,
-        conversionRate: currencyRates[currency]
+        currentCurrency: currency
       });
       
       productData = {
         name: formData.name.trim(),
-        price: priceInPKR, // Save price in PKR (base currency)
+        price: currentPrice, // Save price as entered
+        currency: currency, // Save the currency used
         category: formData.category,
         brand: formData.brand || '',
         rating: Math.min(Math.max(parseFloat(formData.rating) || 4.5, 0), 5), // Clamp between 0-5

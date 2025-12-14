@@ -42,8 +42,8 @@ const AdminLogin = () => {
       localStorage.removeItem('buyerToken');
       localStorage.removeItem('buyerData');
       
-      // Use the AdminContext login function
-      login(data.admin, data.token);
+      // Use the AdminContext login function (now async)
+      await login(data.admin, data.token);
       navigate('/admin/dashboard', { replace: true });
     } catch (err) {
       setError(err.message);

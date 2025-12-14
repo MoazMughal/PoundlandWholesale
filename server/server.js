@@ -22,6 +22,7 @@ app.use(compression());
 const corsOptions = {
   origin: [
     'http://localhost:3000',
+    'http://localhost:3001',
     'http://localhost:5173', 
     'https://www.genericwholesale.pk',
     'https://generic-wholesale-frontend.onrender.com',
@@ -35,36 +36,93 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// MongoDB connection with optimizations
+// Enhanced MongoDB connection with comprehensive error handling and fallbacks
 console.log('🔄 Attempting to connect to MongoDB...');
 console.log('📍 MongoDB URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
 
-mongoose.connect(process.env.MONGODB_URI, {
-  maxPoolSize: 10, // Maximum number of connections in the pool
-  minPoolSize: 2,  // Minimum number of connections
-  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-  serverSelectionTimeoutMS: 10000, // Increased timeout for server selection
-  family: 4 // Use IPv4, skip trying IPv6
-})
-  .then(() => {
+// Connection options optimized for Atlas free tier
+const mongoOptions = {
+  maxPoolSize: 10,
+  minPoolSize: 2,
+  maxIdleTimeMS: 30000,
+  serverSelectionTimeoutMS: 15000,
+  socketTimeoutMS: 45000,
+  connectTimeoutMS: 15000,
+  heartbeatFrequencyMS: 10000,
+  family: 4 // Use IPv4
+};
+
+// Connection retry mechanism
+let connectionAttempts = 0;
+const maxRetries = 3;
+
+async function connectWithRetry() {
+  try {
+    connectionAttempts++;
+    console.log(`🔄 Connection attempt ${connectionAttempts}/${maxRetries}`);
+    
+    await mongoose.connect(process.env.MONGODB_URI, mongoOptions);
+    
     console.log('✅ MongoDB connected successfully with connection pooling');
     console.log('🏪 Database:', mongoose.connection.db.databaseName);
-  })
-  .catch(err => {
-    console.error('❌ MongoDB connection error:', err.message);
+    console.log('🔗 Connection state:', mongoose.connection.readyState);
+    
+    // Test the connection with a simple query
+    const testResult = await mongoose.connection.db.admin().ping();
+    console.log('🏓 Database ping successful:', testResult);
+    
+  } catch (err) {
+    console.error(`❌ MongoDB connection attempt ${connectionAttempts} failed:`, err.message);
     console.error('🔍 Error details:', {
       name: err.name,
       code: err.code,
-      reason: err.reason?.type
+      reason: err.reason?.type,
+      codeName: err.codeName
     });
     
-    // Provide helpful suggestions
-    console.log('\n💡 Troubleshooting suggestions:');
-    console.log('1. Check your internet connection');
-    console.log('2. Verify MongoDB Atlas IP whitelist');
-    console.log('3. Ensure cluster is not paused');
-    console.log('4. Check if connection string is correct');
-  });
+    if (connectionAttempts < maxRetries) {
+      const delay = connectionAttempts * 2000; // Exponential backoff
+      console.log(`⏳ Retrying in ${delay/1000} seconds...`);
+      setTimeout(connectWithRetry, delay);
+    } else {
+      console.error('💥 All connection attempts failed. Server will continue with fallback data.');
+      console.log('\n💡 Troubleshooting suggestions:');
+      console.log('1. Check MongoDB Atlas cluster status');
+      console.log('2. Verify network connectivity');
+      console.log('3. Check IP whitelist (0.0.0.0/0)');
+      console.log('4. Ensure cluster is not paused');
+      console.log('5. Try creating a new database user');
+    }
+  }
+}
+
+// Handle connection events
+mongoose.connection.on('connected', () => {
+  console.log('🟢 Mongoose connected to MongoDB');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('🔴 Mongoose connection error:', err.message);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('🟡 Mongoose disconnected from MongoDB');
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  try {
+    await mongoose.connection.close();
+    console.log('🔒 MongoDB connection closed through app termination');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error closing MongoDB connection:', err);
+    process.exit(1);
+  }
+});
+
+// Start connection
+connectWithRetry();
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
@@ -74,14 +132,46 @@ app.use('/api/excel', excelRoutes);
 app.use('/api/buyer', buyerRoutes);
 app.use('/api/easypaisa', easypaisaRoutes);
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+// Server startup time for restart detection
+const serverStartTime = Date.now();
+
+// Enhanced health check endpoint with database status and startup time
+app.get('/api/health', async (req, res) => {
+  const health = {
+    status: 'ok',
     message: 'Server is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
-  });
+    serverStartTime: serverStartTime, // Add server start time for restart detection
+    environment: process.env.NODE_ENV,
+    database: {
+      connected: mongoose.connection.readyState === 1,
+      state: mongoose.connection.readyState,
+      stateDescription: {
+        0: 'disconnected',
+        1: 'connected',
+        2: 'connecting',
+        3: 'disconnecting'
+      }[mongoose.connection.readyState]
+    }
+  };
+
+  // Test database connection if connected
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const pingResult = await mongoose.connection.db.admin().ping();
+      health.database.ping = pingResult;
+      health.database.lastPing = new Date().toISOString();
+    } catch (error) {
+      health.database.pingError = error.message;
+      health.status = 'degraded';
+    }
+  } else {
+    health.status = 'degraded';
+    health.message = 'Database not connected';
+  }
+
+  const statusCode = health.status === 'ok' ? 200 : 503;
+  res.status(statusCode).json(health);
 });
 
 // Test endpoint for email service
@@ -127,8 +217,52 @@ app.post('/api/test-email', async (req, res) => {
   }
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Server is running' });
+// Database connection test endpoint
+app.get('/api/test-db', async (req, res) => {
+  try {
+    const startTime = Date.now();
+    
+    // Test connection state
+    const connectionState = mongoose.connection.readyState;
+    const stateNames = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+    
+    if (connectionState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: `Database ${stateNames[connectionState]}`,
+        connectionState,
+        suggestion: 'Database is not connected. Check MongoDB Atlas status.'
+      });
+    }
+    
+    // Test ping
+    const pingResult = await mongoose.connection.db.admin().ping();
+    const pingTime = Date.now() - startTime;
+    
+    // Test simple query
+    const queryStart = Date.now();
+    const productCount = await mongoose.connection.db.collection('products').countDocuments({ status: 'active' });
+    const queryTime = Date.now() - queryStart;
+    
+    res.json({
+      success: true,
+      message: 'Database connection healthy',
+      tests: {
+        ping: { success: true, time: pingTime, result: pingResult },
+        query: { success: true, time: queryTime, productCount },
+        connection: { state: stateNames[connectionState], readyState: connectionState }
+      },
+      totalTime: Date.now() - startTime
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Database connection test failed',
+      error: error.message,
+      suggestion: 'Check MongoDB Atlas connection string and network access'
+    });
+  }
 });
 
 const PORT = process.env.PORT || 5000;

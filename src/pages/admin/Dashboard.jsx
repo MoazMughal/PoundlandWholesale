@@ -20,6 +20,7 @@ const AdminDashboard = () => {
   const [categories, setCategories] = useState({});
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -47,20 +48,20 @@ const AdminDashboard = () => {
     fetchSellers();
   }, []);
 
-  // Ensure currency is set to GBP for admin dashboard
+  // Set currency to GBP for admin dashboard (only once on mount)
   useEffect(() => {
     if (currency !== 'GBP') {
       setCurrency('GBP');
     }
-  }, [currency]); // Removed setCurrency from dependencies to prevent loop
+  }, []); // Empty dependency array - only run once on mount
 
-  // Ensure currency is set to GBP when profit modal is shown
+  // Set currency to GBP when profit modal is shown (only when modal opens)
   useEffect(() => {
-    if (showProfitModal) {
+    if (showProfitModal && currency !== 'GBP') {
       setCurrency('GBP');
       setProfitModalCurrency('GBP');
     }
-  }, [showProfitModal]); // Removed setCurrency from dependencies to prevent loop
+  }, [showProfitModal]); // Only depend on showProfitModal
 
   const fetchStats = async () => {
     try {
@@ -93,7 +94,7 @@ const AdminDashboard = () => {
 
   const fetchAllProducts = async () => {
     try {
-      const response = await adminGet('http://localhost:5000/api/products?limit=1000');
+      const response = await adminGet('http://localhost:5000/api/products/admin/fast'); // Use fast endpoint
       const data = await response.json();
       setAllProducts(data.products);
       
@@ -111,7 +112,7 @@ const AdminDashboard = () => {
 
   const fetchAmazonsChoice = async () => {
     try {
-      const response = await adminGet('http://localhost:5000/api/products?limit=1000');
+      const response = await adminGet('http://localhost:5000/api/products/admin/fast'); // Use fast endpoint
       const data = await response.json();
       const amazonProducts = data.products.filter(p => p.isAmazonsChoice);
       setAmazonsChoice(amazonProducts);
@@ -227,15 +228,25 @@ const AdminDashboard = () => {
     
     if (!query.trim()) {
       setSearchResults([]);
+      setSearchLoading(false);
       return;
     }
 
     try {
+      setSearchLoading(true);
+      console.log('🔍 Admin searching for:', query);
       const response = await adminGet(`http://localhost:5000/api/products?search=${encodeURIComponent(query)}&limit=100`);
       const data = await response.json();
-      setSearchResults(data.products);
+      console.log('✅ Admin search results:', data.products?.length || 0, 'products found');
+      setSearchResults(data.products || []);
     } catch (error) {
-      console.error('Error searching products:', error);
+      console.error('❌ Error searching products:', error);
+      // Don't clear results on error, keep previous results
+      if (error.status !== 401) {
+        alert('Search failed. Please try again.');
+      }
+    } finally {
+      setSearchLoading(false);
     }
   };
 
