@@ -159,7 +159,12 @@ const AdminDashboard = () => {
   };
 
   const viewAllInNewTab = (path) => {
-    window.open(path, '_blank');
+    if (path === '/amazons-choice') {
+      // Navigate to admin products with Amazon's Choice filter
+      window.open('/admin/products?amazonsChoice=true', '_blank');
+    } else {
+      window.open(path, '_blank');
+    }
   };
 
   const quickDeleteProduct = async (id) => {
