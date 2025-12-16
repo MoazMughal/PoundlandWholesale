@@ -118,10 +118,10 @@ async function getProductsWithFallback(query = {}, options = {}) {
   }
 }
 
-// Cache for fast endpoint
+// Cache for fast endpoint - Clear cache to force refresh
 let fastProductsCache = null;
 let cacheTimestamp = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes (shorter cache for testing)
 
 // Cache version endpoint for client-side cache validation (public)
 router.get('/public/cache-version', async (req, res) => {
@@ -129,6 +129,72 @@ router.get('/public/cache-version', async (req, res) => {
     version: cacheTimestamp || Date.now(),
     cacheActive: !!fastProductsCache 
   });
+});
+
+// Get unique categories from database (public)
+router.get('/public/categories', async (req, res) => {
+  try {
+    console.log('🔍 Fetching categories from database...');
+    
+    // Get unique categories from active products
+    const categories = await Product.distinct('category', { 
+      status: 'active',
+      category: { $exists: true, $ne: null, $ne: '' }
+    }).maxTimeMS(5000);
+    
+    console.log('✅ Categories fetched:', categories);
+    
+    // Format categories for frontend
+    const formattedCategories = [
+      { value: 'all', label: 'All' },
+      ...categories.map(cat => ({
+        value: cat.toLowerCase().replace(/\s+/g, '-'),
+        label: cat
+      }))
+    ];
+    
+    res.json({
+      categories: formattedCategories,
+      success: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching categories:', error);
+    
+    // Fallback categories
+    const fallbackCategories = [
+      { value: 'all', label: 'All' },
+      { value: 'electronics', label: 'Electronics' },
+      { value: 'clothing', label: 'Clothing' },
+      { value: 'home-garden', label: 'Home & Garden' },
+      { value: 'books', label: 'Books' },
+      { value: 'sports', label: 'Sports' }
+    ];
+    
+    res.json({
+      categories: fallbackCategories,
+      source: 'fallback',
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Admin endpoint to clear cache manually
+router.post('/admin/clear-cache', authenticateAdmin, async (req, res) => {
+  try {
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+    console.log('🗑️ Cache manually cleared by admin, new timestamp:', cacheTimestamp);
+    
+    res.json({ 
+      message: 'Cache cleared successfully',
+      newTimestamp: cacheTimestamp
+    });
+  } catch (error) {
+    console.error('❌ Error clearing cache:', error);
+    res.status(500).json({ message: 'Error clearing cache', error: error.message });
+  }
 });
 
 // Fast endpoint for 50 products (optimized)
@@ -153,40 +219,70 @@ router.get('/public/fast', async (req, res) => {
       });
     }
 
-    // Get products with real images but limit to 20 for performance
+    // Get diverse products from different categories
     let products;
     try {
-      products = await Product.find({})
-        .limit(20) // Reduced to 20 for better performance with images
-        .select('name price category images dealUnits currency') // Include images, dealUnits and currency for 20 products
-        .maxTimeMS(10000) // 10 second timeout for images
-        .lean();
+      // Use aggregation for better diversity like the category endpoints
+      products = await Product.aggregate([
+        // Match active products
+        { $match: { 
+          $or: [
+            { status: 'active' },
+            { status: { $exists: false } }
+          ]
+        }},
+        
+        // Sample random products for diversity
+        { $sample: { size: 50 } },
+        
+        // Project essential fields
+        { $project: {
+          name: 1,
+          price: 1,
+          originalPrice: 1,
+          discount: 1,
+          category: 1,
+          brand: 1,
+          images: 1,
+          dealUnits: 1,
+          currency: 1,
+          rating: 1,
+          reviews: 1,
+          stock: 1,
+          isAmazonsChoice: 1,
+          isBestSeller: 1
+        }}
+      ]).maxTimeMS(5000);
       
-      console.log(`✅ Fast query successful: ${products.length} products in ${Date.now() - startTime}ms`);
+      console.log(`✅ Fast aggregation successful: ${products.length} products in ${Date.now() - startTime}ms`);
+      console.log('📂 Categories in results:', [...new Set(products.map(p => p.category))]);
       
       // Cache the results
       fastProductsCache = products;
       cacheTimestamp = Date.now();
       
     } catch (error) {
-      console.log('❌ Fast query failed, using fallback');
+      console.error('❌ Fast aggregation failed:', error);
       
-      // Quick fallback - 50 sample products
-      products = Array.from({ length: 50 }, (_, i) => ({
-        _id: `fast${i.toString().padStart(2, '0')}`,
-        name: `Product ${i + 1}`,
-        description: `Quality product with great features.`,
-        price: Math.floor(Math.random() * 3000) + 500,
-        originalPrice: Math.floor(Math.random() * 4000) + 1000,
-        discount: Math.floor(Math.random() * 40) + 10,
-        category: ['electronics', 'clothing', 'home', 'books'][i % 4],
-        brand: ['BrandA', 'BrandB', 'BrandC'][i % 3],
-        images: [`https://via.placeholder.com/300x300?text=Product+${i + 1}`],
-        rating: 4.0 + Math.random(),
-        reviews: Math.floor(Math.random() * 150) + 25,
-        stock: Math.floor(Math.random() * 80) + 5,
-        isAmazonsChoice: Math.random() > 0.7
-      }));
+      // Try simple query as fallback
+      try {
+        products = await Product.find({ 
+          $or: [
+            { status: 'active' },
+            { status: { $exists: false } }
+          ]
+        })
+        .limit(50)
+        .select('name price category brand images dealUnits currency rating reviews')
+        .lean()
+        .maxTimeMS(3000);
+        
+        console.log(`✅ Simple fallback query successful: ${products.length} products`);
+        
+      } catch (fallbackError) {
+        console.error('❌ All queries failed, no products available');
+        products = []; // Return empty array instead of fake products
+      }
     }
 
     const responseTime = Date.now() - startTime;
@@ -258,7 +354,10 @@ router.get('/public', async (req, res) => {
 
     // Simplified query structure for better performance
     let query = { 
-      status: 'active'
+      $or: [
+        { status: 'active' },
+        { status: { $exists: false } } // Include products without status field for backward compatibility
+      ]
     };
     
     // Only add complex filters if really needed
@@ -884,13 +983,20 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
 
 router.post('/', authenticateAdmin, async (req, res) => {
   try {
-    const product = new Product(req.body);
+    // Ensure currency is always GBP for new products
+    const productData = {
+      ...req.body,
+      currency: 'GBP'
+    };
+    
+    const product = new Product(productData);
     await product.save();
     
     // Clear cache when new product is created
     fastProductsCache = null;
-    cacheTimestamp = 0;
-    console.log('🗑️ Cache cleared after product creation');
+    cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
+    console.log('🗑️ Cache cleared after product creation, new timestamp:', cacheTimestamp);
+    console.log('💰 New product created with currency:', product.currency);
     
     res.status(201).json(product);
   } catch (error) {
@@ -901,13 +1007,28 @@ router.post('/', authenticateAdmin, async (req, res) => {
 router.put('/:id', authenticateAdmin, async (req, res) => {
   try {
     console.log('📝 Updating product:', req.params.id);
-    console.log('📝 Update data:', req.body);
-    console.log('📝 Features in request:', req.body.features);
-    console.log('📝 Features type:', typeof req.body.features, 'isArray:', Array.isArray(req.body.features));
+    console.log('📝 Update data keys:', Object.keys(req.body));
+    console.log('📝 Platform comparison:', req.body.platformComparison);
+    console.log('📝 Profit calculations:', req.body.profitCalculations);
+    console.log('📝 Profit evaluation:', req.body.profitEvaluation);
+    
+    // Validate product ID format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      console.log('❌ Invalid product ID format:', req.params.id);
+      return res.status(400).json({ message: 'Invalid product ID format' });
+    }
+    
+    // Ensure currency is always GBP
+    const updateData = {
+      ...req.body,
+      currency: 'GBP'
+    };
+    
+    console.log('🔍 Searching for product with ID:', req.params.id);
     
     const product = await Product.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
 
@@ -918,16 +1039,43 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
 
     // Clear cache when product is updated to ensure Amazon Choice page shows latest prices
     fastProductsCache = null;
-    cacheTimestamp = 0;
-    console.log('🗑️ Cache cleared after product update');
+    cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
+    console.log('🗑️ Cache cleared after product update, new timestamp:', cacheTimestamp);
 
     console.log('✅ Product updated successfully:', product.name);
-    console.log('📝 Updated product features:', product.features);
+    console.log('💰 Updated profit data:', {
+      platformComparison: product.platformComparison?.length || 0,
+      profitCalculations: !!product.profitCalculations,
+      profitEvaluation: !!product.profitEvaluation
+    });
     res.json(product);
   } catch (error) {
     console.error('❌ Error updating product:', error);
+    console.error('❌ Error name:', error.name);
+    console.error('❌ Error message:', error.message);
     console.error('❌ Update data that failed:', req.body);
-    res.status(400).json({ message: 'Error updating product', error: error.message });
+    
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ 
+        message: 'Validation error', 
+        errors: validationErrors,
+        error: error.message 
+      });
+    }
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({ 
+        message: 'Invalid data format', 
+        error: error.message 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: 'Internal server error', 
+      error: error.message,
+      errorType: error.name 
+    });
   }
 });
 
@@ -955,8 +1103,8 @@ router.patch('/:id/platform-units', authenticateAdmin, async (req, res) => {
 
     // Clear cache when platform units are updated
     fastProductsCache = null;
-    cacheTimestamp = 0;
-    console.log('🗑️ Cache cleared after platform units update');
+    cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
+    console.log('🗑️ Cache cleared after platform units update, new timestamp:', cacheTimestamp);
 
     console.log('✅ Platform units updated successfully:', product.name, 'units:', product.platformUnits);
     res.json({ 
@@ -979,8 +1127,8 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
 
     // Clear cache when product is deleted
     fastProductsCache = null;
-    cacheTimestamp = 0;
-    console.log('🗑️ Cache cleared after product deletion');
+    cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
+    console.log('🗑️ Cache cleared after product deletion, new timestamp:', cacheTimestamp);
 
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
@@ -1323,8 +1471,8 @@ router.put('/admin/approve/:id', authenticateAdmin, async (req, res) => {
 
     // Clear cache when product approval status changes
     fastProductsCache = null;
-    cacheTimestamp = 0;
-    console.log('🗑️ Cache cleared after product approval');
+    cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
+    console.log('🗑️ Cache cleared after product approval, new timestamp:', cacheTimestamp);
 
     res.json({ message: 'Product approved successfully', product });
   } catch (error) {
@@ -1598,8 +1746,8 @@ router.put('/admin/reject/:id', authenticateAdmin, async (req, res) => {
 
     // Clear cache when product is rejected
     fastProductsCache = null;
-    cacheTimestamp = 0;
-    console.log('🗑️ Cache cleared after product rejection');
+    cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
+    console.log('🗑️ Cache cleared after product rejection, new timestamp:', cacheTimestamp);
 
     res.json({ message: 'Product rejected', product });
   } catch (error) {

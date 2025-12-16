@@ -109,7 +109,7 @@ const productSchema = new mongoose.Schema({
   },
   currency: {
     type: String,
-    enum: ['GBP', 'AED', 'USD', 'PKR'],
+    enum: ['GBP'],
     default: 'GBP'
   },
   listedBy: {

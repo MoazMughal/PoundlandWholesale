@@ -301,6 +301,32 @@ export const AdminProvider = ({ children }) => {
     localStorage.setItem('adminData', JSON.stringify(updatedData))
   }
 
+  const clearProductCache = async () => {
+    try {
+      // Clear server-side cache
+      const token = localStorage.getItem('adminToken')
+      if (token) {
+        await fetch('http://localhost:5000/api/products/admin/clear-cache', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+      }
+      
+      // Clear client-side cache
+      const { default: cacheManager } = await import('../utils/cacheManager.js')
+      cacheManager.remove('amazons_choice_products')
+      
+      console.log('✅ Product cache cleared successfully')
+      return true
+    } catch (error) {
+      console.error('❌ Error clearing product cache:', error)
+      return false
+    }
+  }
+
   const checkTokenValidity = async () => {
     const token = localStorage.getItem('adminToken');
     if (!token) return false;
@@ -363,7 +389,8 @@ export const AdminProvider = ({ children }) => {
     login,
     logout,
     updateAdmin,
-    checkTokenValidity
+    checkTokenValidity,
+    clearProductCache
   }
 
   return (

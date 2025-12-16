@@ -13,6 +13,7 @@
     "test:api": "node server/test-email-simple.js"
   },
   "dependencies": {
+    "node-fetch": "^3.3.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.5",

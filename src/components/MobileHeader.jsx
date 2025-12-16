@@ -435,14 +435,14 @@ const MobileHeader = () => {
                 borderRadius: '4px'
               }}>
                 <img 
-                  src={`https://flagcdn.com/w40/${currency === 'PKR' ? 'pk' : currency === 'USD' ? 'us' : currency === 'GBP' ? 'gb' : 'ae'}.png`}
-                  alt={currency}
+                  src="https://flagcdn.com/w40/gb.png"
+                  alt="GBP"
                   style={{ width: '24px', height: '18px', objectFit: 'cover', borderRadius: '2px' }}
                 />
                 <i className="fas fa-chevron-down" style={{ fontSize: '8px', color: '#fff' }}></i>
               </div>
               <select 
-                value={currency}
+                value="GBP"
                 onChange={(e) => setCurrency(e.target.value)}
                 style={{
                   position: 'absolute',
@@ -454,10 +454,7 @@ const MobileHeader = () => {
                   cursor: 'pointer'
                 }}
               >
-                <option value="PKR" style={{color: '#000'}}>PKR</option>
-                <option value="USD" style={{color: '#000'}}>USD</option>
                 <option value="GBP" style={{color: '#000'}}>GBP</option>
-                <option value="AED" style={{color: '#000'}}>AED</option>
               </select>
             </div>
 
@@ -588,14 +585,14 @@ const MobileHeader = () => {
                   borderRadius: '4px'
                 }}>
                   <img 
-                    src={`https://flagcdn.com/w40/${currency === 'PKR' ? 'pk' : currency === 'USD' ? 'us' : currency === 'GBP' ? 'gb' : 'ae'}.png`}
-                    alt={currency}
+                    src="https://flagcdn.com/w40/gb.png"
+                    alt="GBP"
                     style={{ width: '28px', height: '20px', objectFit: 'cover', borderRadius: '2px' }}
                   />
                   <i className="fas fa-chevron-down" style={{ fontSize: '9px', color: '#fff' }}></i>
                 </div>
                 <select 
-                  value={currency}
+                  value="GBP"
                   onChange={(e) => setCurrency(e.target.value)}
                   style={{
                     position: 'absolute',
@@ -607,10 +604,7 @@ const MobileHeader = () => {
                     cursor: 'pointer'
                   }}
                 >
-                  <option value="PKR">PKR</option>
-                  <option value="USD">USD</option>
                   <option value="GBP">GBP</option>
-                  <option value="AED">AED</option>
                 </select>
               </div>
 

@@ -3,13 +3,15 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { adminPost } from '../../utils/adminApi';
 import { uploadMultipleImages, validateImageFile } from '../../utils/imageUpload';
 import cacheManager from '../../utils/cacheManager';
-import { useCurrency } from '../../context/CurrencyContext';
 import '../../styles/AdminProductForm.css';
 
 const AddProduct = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currency, currencySymbols } = useCurrency();
+  
+  // Only GBP currency used - no conversion needed
+  const currency = 'GBP';
+  const currencySymbol = '£';
   
   // Get return category from URL params or location state
   const urlParams = new URLSearchParams(location.search);
@@ -39,13 +41,7 @@ const AddProduct = () => {
   const fileInputRef = useRef(null);
   const additionalFileInputRefs = useRef([null, null, null, null]); // Refs for 4 additional image inputs
 
-  // Currency conversion rates (base: PKR) - Manual rates
-  const currencyRates = {
-    PKR: 1,
-    USD: 0.00353,   // 1 USD = 283.32 PKR
-    GBP: 0.00272,   // 1 GBP = 367.74 PKR
-    AED: 0.01310    // 1 AED = 76.37 PKR
-  };
+  // No currency conversion needed - all prices in GBP
 
   // Categories that match Amazon's Choice page
   const categories = [
@@ -187,21 +183,19 @@ const AddProduct = () => {
       
       console.log('📝 Final processed image URLs:', finalImageUrls);
 
-      // Convert entered GBP price to PKR for database storage
-      const enteredPriceGBP = parseFloat(formData.price) || 0;
-      const priceInPKR = enteredPriceGBP / currencyRates.GBP; // Always convert from GBP to PKR
+      // Save price in GBP - no conversion needed
+      const priceInGBP = parseFloat(formData.price) || 0;
       
-      console.log('💰 Price conversion (GBP → PKR):', {
-        enteredPriceGBP,
-        gbpRate: currencyRates.GBP,
-        priceInPKR: priceInPKR.toFixed(2)
+      console.log('💰 Price saving in GBP:', {
+        priceInGBP: priceInGBP.toFixed(2)
       });
 
       const productData = {
         name: formData.name.trim(),
         description: formData.description || '',
         features: formData.features || [],
-        price: priceInPKR,
+        price: priceInGBP,
+        currency: 'GBP',
         category: formData.category,
         brand: formData.brand || '',
         rating: parseFloat(formData.rating) || 4.5,
@@ -324,7 +318,7 @@ const AddProduct = () => {
                 step="0.01"
                 placeholder="0.00"
               />
-              <small>Enter price in GBP (£). It will be converted and displayed according to selected currency.</small>
+              <small>Enter price in GBP (£). All products use GBP currency for consistency.</small>
             </div>
 
             <div className="form-group">

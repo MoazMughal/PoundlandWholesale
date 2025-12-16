@@ -112,19 +112,55 @@ export const adminApiCall = async (url, options = {}) => {
 // Convenience methods for common HTTP methods
 export const adminGet = (url) => adminApiCall(url);
 
-export const adminPost = (url, data) => adminApiCall(url, {
-  method: 'POST',
-  body: JSON.stringify(data)
-});
+export const adminPost = async (url, data) => {
+  const response = await adminApiCall(url, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+  
+  // If this is a product creation, invalidate cache
+  if (url.includes('/products') && !url.includes('/seller/')) {
+    console.log('🗑️ Product created via admin API, invalidating cache');
+    // Import cache manager dynamically to avoid circular imports
+    const { default: cacheManager } = await import('./cacheManager.js');
+    cacheManager.remove('amazons_choice_products');
+  }
+  
+  return response;
+};
 
-export const adminPut = (url, data) => adminApiCall(url, {
-  method: 'PUT',
-  body: JSON.stringify(data)
-});
+export const adminPut = async (url, data) => {
+  const response = await adminApiCall(url, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+  
+  // If this is a product update, invalidate cache
+  if (url.includes('/products/') && !url.includes('/seller/')) {
+    console.log('🗑️ Product updated via admin API, invalidating cache');
+    // Import cache manager dynamically to avoid circular imports
+    const { default: cacheManager } = await import('./cacheManager.js');
+    cacheManager.remove('amazons_choice_products');
+  }
+  
+  return response;
+};
 
-export const adminDelete = (url) => adminApiCall(url, {
-  method: 'DELETE'
-});
+export const adminDelete = async (url) => {
+  const response = await adminApiCall(url, {
+    method: 'DELETE'
+  });
+  
+  // If this is a product deletion, invalidate cache
+  if (url.includes('/products/') && !url.includes('/seller/')) {
+    console.log('🗑️ Product deleted via admin API, invalidating cache');
+    // Import cache manager dynamically to avoid circular imports
+    const { default: cacheManager } = await import('./cacheManager.js');
+    cacheManager.remove('amazons_choice_products');
+  }
+  
+  return response;
+};
 
 // Hook for handling admin API errors in components
 export const useAdminApi = () => {

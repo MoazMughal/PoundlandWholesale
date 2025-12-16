@@ -43,7 +43,7 @@ const ProductDetail = () => {
   const [isSellerLoggedIn, setIsSellerLoggedIn] = useState(false)
   const [currentSeller, setCurrentSeller] = useState(null)
   const [savingUnits, setSavingUnits] = useState(false) // Loading state for saving units
-  const [quantity, setQuantity] = useState(100) // Minimum quantity is 100
+  const [quantity, setQuantity] = useState(200) // Minimum quantity is 200
 
   // Function to get proper image path
   const getImageSrc = (imagePath) => {
@@ -348,7 +348,7 @@ const ProductDetail = () => {
             dealInfo: {
               location: 'Pakistan',
               flag: '????',
-              minOrder: '100 Unit',
+              minOrder: '200 Unit',
               condition: 'New'
             },
             specifications: {
@@ -438,33 +438,34 @@ const ProductDetail = () => {
             );
             
             if (rrpPlatform && rrpPlatform.rrpPerUnit) {
-              // Update the product RRP with the value from admin panel
-              productData.rrp = `₨${rrpPlatform.rrpPerUnit}`;
+              // Update the product RRP with the value from admin panel (already in GBP)
+              const rrpInGBP = parseFloat(rrpPlatform.rrpPerUnit);
+              productData.rrp = `£${rrpInGBP.toFixed(2)}`;
               console.log('✅ Updated product RRP from admin panel:', productData.rrp);
               console.log('✅ RRP Platform data:', rrpPlatform);
             }
             
             productData.platforms = dbProduct.platformComparison.map(platform => {
-              const perUnitPrice = platform.rrpPerUnit;
-              const units = platform.units || 200; // Use platform-specific units
-              const totalPrice = perUnitPrice * units;
-              const totalProfit = platform.profitFor200Units || 0; // Use stored total profit
+              const perUnitPriceGBP = parseFloat(platform.rrpPerUnit) || 0; // Already in GBP from admin panel
+              const units = parseInt(platform.units) || 200; // Use platform-specific units
+              const totalPriceGBP = perUnitPriceGBP * units;
+              const totalProfitGBP = parseFloat(platform.profitFor200Units) || 0; // Already in GBP from admin panel
               
               console.log(`Platform ${platform.platform}:`, {
-                originalPerUnit: perUnitPrice,
+                perUnitPriceGBP: perUnitPriceGBP,
                 units: units,
-                calculatedTotal: totalPrice,
-                storedProfit: totalProfit
+                totalPriceGBP: totalPriceGBP.toFixed(2),
+                totalProfitGBP: totalProfitGBP.toFixed(2)
               });
               
               return {
                 name: platform.platform,
-                price: totalPrice, // Total price for specified units
-                grossProfit: totalProfit, // Use stored profit calculation
+                price: parseFloat(totalPriceGBP.toFixed(2)), // Total price for specified units in GBP
+                grossProfit: parseFloat(totalProfitGBP.toFixed(2)), // Use stored profit calculation in GBP
                 markup: platform.markup,
                 units: units, // Store the unit quantity
-                perUnitPrice: perUnitPrice, // Store per unit price
-                isPKR: true // Mark as PKR data for proper conversion
+                perUnitPrice: parseFloat(perUnitPriceGBP.toFixed(2)), // Store per unit price in GBP
+                isPKR: false // Mark as GBP data for proper display
               };
             })
             
@@ -474,9 +475,13 @@ const ProductDetail = () => {
           }
           
           if (dbProduct.profitCalculations || dbProduct.profitEvaluation) {
-            console.log('Using profit calculations from admin panel')
-            console.log('Profit calculations:', dbProduct.profitCalculations)
-            console.log('Profit evaluation:', dbProduct.profitEvaluation)
+            console.log('🎯 PROFIT DATA DETECTED IN DATABASE:')
+            console.log('- Has profitCalculations:', !!dbProduct.profitCalculations)
+            console.log('- Has profitEvaluation:', !!dbProduct.profitEvaluation)
+            console.log('- Has platformComparison:', !!dbProduct.platformComparison)
+            console.log('- Profit calculations:', dbProduct.profitCalculations)
+            console.log('- Profit evaluation:', dbProduct.profitEvaluation)
+            console.log('- Platform comparison:', dbProduct.platformComparison)
             productData.hasProfit = true
             productData.showEvaluation = true
             
@@ -512,17 +517,17 @@ const ProductDetail = () => {
               console.log('- Converted to PKR:', productCostPKR);
               console.log('- Saved product cost (PKR):', dbProduct.profitEvaluation.productCost);
               
-              // Use the converted PKR value as product cost
-              let productCost = productCostPKR;
-              console.log('💰 Using converted product cost:', productCost, 'PKR');
+              // Use the saved product cost from admin panel (already in correct currency)
+              let productCost = parseFloat(dbProduct.profitEvaluation.productCost) || 0;
+              console.log('💰 Using saved product cost from admin panel:', productCost, 'GBP');
               
               // Use saved profit calculations if available, otherwise auto-calculate
-              const balanceChange = dbProduct.profitEvaluation.balanceChange || 0;
+              const balanceChange = parseFloat(dbProduct.profitEvaluation.balanceChange) || 0;
               const calculatedNetProfit = balanceChange - productCost; // Formula: Net Profit = Balance Change - Product Cost
               
               // Always use the formula: Balance Change - Product Cost = Net Profit = Profit per Unit
               // This ensures consistency across all displays
-              const netProfitAndProfitPerUnit = calculatedNetProfit; // Both Net Profit and Profit per Unit are the same
+              const netProfitAndProfitPerUnit = parseFloat(calculatedNetProfit.toFixed(2)); // Both Net Profit and Profit per Unit are the same, rounded to 2 decimals
               
               console.log('🧮 PROFIT CALCULATIONS (FORMULA: Balance Change - Product Cost):');
               console.log('- Product Cost:', productCost, 'PKR');
@@ -531,30 +536,33 @@ const ProductDetail = () => {
               console.log('- Profit per Unit = Net Profit:', netProfitAndProfitPerUnit, 'PKR');
               console.log('- Formula applied consistently: ✅');
               
-              // Admin panel values are in PKR, store them as PKR for conversion
+              // Admin panel values are in GBP, store them as GBP for display
               productData.evaluation = {
-                salesProceeds: dbProduct.profitEvaluation.salesProceeds || 0, // PKR
-                commissionBase: -(Math.abs(dbProduct.profitEvaluation.commission || 0)), // Negative because it's a fee, PKR
-                commissionTax: -(Math.abs(dbProduct.profitEvaluation.commissionTax || 0)), // Negative because it's a fee, PKR
-                digitalServiceBase: -(Math.abs(dbProduct.profitEvaluation.digitalServicesFee || 0)), // Negative because it's a fee, PKR
-                digitalServiceTax: -(Math.abs(dbProduct.profitEvaluation.digitalServicesTax || 0)), // Negative because it's a fee, PKR
-                fbaFeeBase: -(Math.abs(dbProduct.profitEvaluation.fbaFulfilmentFee || 0)), // Negative because it's a fee, PKR
-                fbaFeeTax: -(Math.abs(dbProduct.profitEvaluation.fbaFulfilmentTax || 0)), // Negative because it's a fee, PKR
-                totalFees: -((Math.abs(dbProduct.profitEvaluation.commission || 0)) + (Math.abs(dbProduct.profitEvaluation.commissionTax || 0)) + (Math.abs(dbProduct.profitEvaluation.digitalServicesFee || 0)) + (Math.abs(dbProduct.profitEvaluation.digitalServicesTax || 0)) + (Math.abs(dbProduct.profitEvaluation.fbaFulfilmentFee || 0)) + (Math.abs(dbProduct.profitEvaluation.fbaFulfilmentTax || 0))),
-                productCost: productCost, // Use current product price
+                salesProceeds: parseFloat((dbProduct.profitEvaluation.salesProceeds || 0).toFixed(2)), // GBP
+                commissionBase: -(Math.abs(parseFloat((dbProduct.profitEvaluation.commission || 0).toFixed(2)))), // Negative because it's a fee, GBP
+                commissionTax: -(Math.abs(parseFloat((dbProduct.profitEvaluation.commissionTax || 0).toFixed(2)))), // Negative because it's a fee, GBP
+                digitalServiceBase: -(Math.abs(parseFloat((dbProduct.profitEvaluation.digitalServicesFee || 0).toFixed(2)))), // Negative because it's a fee, GBP
+                digitalServiceTax: -(Math.abs(parseFloat((dbProduct.profitEvaluation.digitalServicesTax || 0).toFixed(2)))), // Negative because it's a fee, GBP
+                fbaFeeBase: -(Math.abs(parseFloat((dbProduct.profitEvaluation.fbaFulfilmentFee || 0).toFixed(2)))), // Negative because it's a fee, GBP
+                fbaFeeTax: -(Math.abs(parseFloat((dbProduct.profitEvaluation.fbaFulfilmentTax || 0).toFixed(2)))), // Negative because it's a fee, GBP
+                totalFees: -((Math.abs(parseFloat((dbProduct.profitEvaluation.commission || 0).toFixed(2)))) + (Math.abs(parseFloat((dbProduct.profitEvaluation.commissionTax || 0).toFixed(2)))) + (Math.abs(parseFloat((dbProduct.profitEvaluation.digitalServicesFee || 0).toFixed(2)))) + (Math.abs(parseFloat((dbProduct.profitEvaluation.digitalServicesTax || 0).toFixed(2)))) + (Math.abs(parseFloat((dbProduct.profitEvaluation.fbaFulfilmentFee || 0).toFixed(2)))) + (Math.abs(parseFloat((dbProduct.profitEvaluation.fbaFulfilmentTax || 0).toFixed(2))))),
+                productCost: parseFloat(productCost.toFixed(2)), // Use saved product cost from admin panel
                 netProfit: netProfitAndProfitPerUnit, // Formula: Balance Change - Product Cost
-                changeToBalance: balanceChange, // PKR
-                isPKR: true // Mark as PKR data for proper conversion
+                changeToBalance: parseFloat(balanceChange.toFixed(2)), // GBP
+                monthlyProfit: parseFloat((dbProduct.profitEvaluation.monthlyProfit || 0).toFixed(2)), // GBP
+                yearlyProfit: parseFloat((dbProduct.profitEvaluation.yearlyProfit || 0).toFixed(2)), // GBP
+                isPKR: false // Mark as GBP data for proper display
               }
               
               // Set profit calculations using the consistent formula
               productData.profitCalculations = {
-                costPrice: costPricePKR, // Keep in PKR
-                sellingPrice: dbProduct.profitEvaluation?.salesProceeds || 0, // PKR
+                costPrice: parseFloat(productCost.toFixed(2)), // Use saved product cost from admin panel (GBP)
+                sellingPrice: parseFloat((dbProduct.profitEvaluation?.salesProceeds || 0).toFixed(2)), // GBP
                 profitPerUnit: netProfitAndProfitPerUnit, // Formula: Balance Change - Product Cost
-                monthlyProfit: dbProduct.profitCalculations?.profitFor200Units || (netProfitAndProfitPerUnit * (productData.dealUnits || 200)), // PKR - use stored value or calculate
-                monthlyProfitPKR: dbProduct.profitCalculations?.profitFor200Units || 0,
-                isPKR: true // Mark as PKR data for proper conversion
+                monthlyProfit: parseFloat((dbProduct.profitEvaluation?.monthlyProfit || 0).toFixed(2)), // Use saved monthly profit from admin panel
+                yearlyProfit: parseFloat((dbProduct.profitEvaluation?.yearlyProfit || 0).toFixed(2)), // Use saved yearly profit from admin panel
+                monthlyProfitPKR: 0, // Not needed anymore
+                isPKR: false // Mark as GBP data for proper display
               }
               
               console.log('✅ CONSISTENT PROFIT VALUES APPLIED:');
@@ -632,22 +640,24 @@ const ProductDetail = () => {
                 );
                 
                 if (rrpPlatform && rrpPlatform.rrpPerUnit) {
-                  // Update the product RRP with the value from admin panel
-                  productData.rrp = `₨${rrpPlatform.rrpPerUnit}`;
+                  // Update the product RRP with the value from admin panel (already in GBP)
+                  productData.rrp = `£${parseFloat(rrpPlatform.rrpPerUnit).toFixed(2)}`;
                   console.log('🔧 FORCING RRP update from admin panel:', productData.rrp);
                 }
                 
                 productData.platforms = dbProduct.platformComparison.map(platform => {
                   const units = platform.units || 200; // Use platform-specific units
-                  const totalProfit = platform.profitFor200Units || 0;
+                  const perUnitPriceGBP = parseFloat(platform.rrpPerUnit) || 0; // Already in GBP
+                  const totalPriceGBP = perUnitPriceGBP * units;
+                  const totalProfitGBP = parseFloat(platform.profitFor200Units) || 0; // Already in GBP
                   return {
                     name: platform.platform,
-                    price: platform.rrpPerUnit,
-                    grossProfit: totalProfit,
+                    price: parseFloat(totalPriceGBP.toFixed(2)),
+                    grossProfit: parseFloat(totalProfitGBP.toFixed(2)),
                     markup: platform.markup,
                     units: units,
-                    perUnitPrice: platform.rrpPerUnit,
-                    isPKR: true
+                    perUnitPrice: parseFloat(perUnitPriceGBP.toFixed(2)),
+                    isPKR: false // Already in GBP
                   };
                 })
                 
@@ -920,8 +930,11 @@ const ProductDetail = () => {
       const brandParam = searchParams.get('brand')
       const discountParam = searchParams.get('discount')
       const badgeParam = searchParams.get('badge')
+      const badgeTextParam = searchParams.get('badgeText')
+      const badgeColorParam = searchParams.get('badgeColor')
+      const badgeIconParam = searchParams.get('badgeIcon')
       
-      console.log('URL params:', { nameParam, imgParam, priceParam, badgeParam })
+      console.log('URL params:', { nameParam, imgParam, priceParam, badgeParam, badgeTextParam, badgeColorParam })
       
       if (nameParam && imgParam) {
         try {
@@ -966,7 +979,7 @@ const ProductDetail = () => {
           dealInfo: {
             location: 'Pakistan',
             flag: '????',
-            minOrder: '100 Unit',
+            minOrder: '200 Unit',
             condition: 'New'
           },
           specifications: {
@@ -1228,7 +1241,41 @@ const ProductDetail = () => {
           console.log('Fuse profit calculations added:', productData.hasProfit, productData.profitCalculations)
         }
         
-          console.log('Setting product data:', productData)
+          console.log('🚀 FINAL PRODUCT DATA BEING SET:')
+          console.log('- Product ID:', productData.id)
+          console.log('- Product Name:', productData.name)
+          console.log('- Has platforms:', !!productData.platforms)
+          console.log('- Platforms length:', productData.platforms?.length)
+          console.log('- Platforms data:', productData.platforms)
+          console.log('- Has profitCalculations:', !!productData.profitCalculations)
+          console.log('- ProfitCalculations data:', productData.profitCalculations)
+          console.log('- Has evaluation:', !!productData.evaluation)
+          console.log('- Evaluation data:', productData.evaluation)
+          console.log('- hasProfit flag:', productData.hasProfit)
+          console.log('- showEvaluation flag:', productData.showEvaluation)
+          console.log('- isAdminProfitData flag:', productData.isAdminProfitData)
+          
+          // Test validation functions immediately
+          console.log('🧪 TESTING VALIDATION FUNCTIONS:')
+          const testProduct = productData;
+          console.log('- hasValidPlatformData result:', !!(testProduct?.platforms && testProduct.platforms.length > 0))
+          console.log('- hasValidProfitData result:', !!(testProduct?.profitCalculations))
+          console.log('- hasValidEvaluationData result:', !!(testProduct?.evaluation))
+          
+          // Force show profit sections if data exists (for debugging)
+          if (testProduct?.platforms && testProduct.platforms.length > 0) {
+            console.log('🔧 FORCING platform display - data exists');
+            productData.forceShowPlatforms = true;
+          }
+          if (testProduct?.profitCalculations) {
+            console.log('🔧 FORCING profit calculations display - data exists');
+            productData.forceShowProfitCalculations = true;
+          }
+          if (testProduct?.evaluation) {
+            console.log('🔧 FORCING evaluation display - data exists');
+            productData.forceShowEvaluation = true;
+          }
+          
           setProduct(productData)
           setLoading(false)
           console.log('Product set, loading false')
@@ -1320,7 +1367,7 @@ const ProductDetail = () => {
               dealInfo: {
                 location: 'Pakistan',
                 flag: '????',
-                minOrder: '100 Unit',
+                minOrder: '200 Unit',
                 condition: 'New'
               },
               specifications: {
@@ -1662,7 +1709,7 @@ const ProductDetail = () => {
                 dealInfo: {
                   location: 'Pakistan',
                   flag: '????',
-                  minOrder: '100 Unit',
+                  minOrder: '200 Unit',
                   condition: 'New'
                 },
                 specifications: {
@@ -1840,7 +1887,7 @@ const ProductDetail = () => {
   // Helper function to safely format numbers and filter NaN
   const safeNumber = (value) => {
     const num = parseFloat(value);
-    return isNaN(num) || !isFinite(num) ? 0 : num;
+    return isNaN(num) || !isFinite(num) ? 0 : parseFloat(num.toFixed(2));
   };
 
   // Helper function to convert GBP values to selected currency
@@ -1855,60 +1902,105 @@ const ProductDetail = () => {
   // Helper function to convert PKR values to selected currency
   const convertFromPKR = (pkrValue) => {
     const value = safeNumber(pkrValue);
-    // Convert PKR to target currency
-    const converted = value * currencyRates[currency];
-    return `${currencySymbols[currency]}${converted.toFixed(2)}`;
+    // Since data is saved in GBP, just format it as GBP
+    return `£${value.toFixed(2)}`;
   };
 
   // Helper function to convert profit values based on data source
   const convertProfitValue = (value) => {
-    if (product?.isAdminProfitData) {
-      return convertFromPKR(value); // Admin data is in PKR
-    } else {
-      return convertFromGBP(value); // Hardcoded data is in GBP
-    }
+    // Since you're saving data in GBP, always format as GBP with proper decimal precision
+    const numValue = safeNumber(value);
+    return `£${numValue.toFixed(2)}`;
   };
 
   // Check if platform data has actual values (not dummy/empty data)
   const hasValidPlatformData = () => {
+    console.log('🔍 Checking platform data validity:', {
+      hasPlatforms: !!product?.platforms,
+      platformsLength: product?.platforms?.length,
+      platforms: product?.platforms,
+      hasRRP: !!product?.rrp,
+      rrp: product?.rrp
+    });
+    
     if (product?.platforms && product.platforms.length > 0) {
       // Check if any platform has non-zero values
-      return product.platforms.some(platform => 
-        (platform.price && parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) > 0) ||
-        (platform.grossProfit && parseFloat(String(platform.grossProfit).replace(/[£₨$€]/g, '')) > 0)
-      );
+      const isValid = product.platforms.some(platform => {
+        const priceValue = parseFloat(String(platform.price || 0).replace(/[£₨$€]/g, ''));
+        const profitValue = parseFloat(String(platform.grossProfit || 0).replace(/[£₨$€]/g, ''));
+        const perUnitValue = parseFloat(String(platform.perUnitPrice || 0));
+        
+        console.log(`Platform ${platform.name} validation:`, {
+          price: platform.price,
+          priceValue,
+          grossProfit: platform.grossProfit,
+          profitValue,
+          perUnitPrice: platform.perUnitPrice,
+          perUnitValue,
+          isValid: priceValue > 0 || profitValue > 0 || perUnitValue > 0
+        });
+        
+        return priceValue > 0 || profitValue > 0 || perUnitValue > 0;
+      });
+      console.log('✅ Platform data validity result (from platforms):', isValid);
+      return isValid;
     }
     
     // For calculated data, check if we have valid RRP
     if (product?.rrp) {
       const rrpValue = parseFloat(product.rrp.replace(/[£₨$€]/g, ''));
-      return !isNaN(rrpValue) && rrpValue > 0;
+      const isValid = !isNaN(rrpValue) && rrpValue > 0;
+      console.log('✅ Platform data validity result (from RRP):', isValid);
+      return isValid;
     }
     
+    console.log('❌ No valid platform data found');
     return false;
   };
 
   // Check if profit calculations have actual values (not dummy/empty data)
   const hasValidProfitData = () => {
+    console.log('🔍 Checking profit data validity:', {
+      hasProfitCalculations: !!product?.profitCalculations,
+      profitCalculations: product?.profitCalculations,
+      profitPerUnit: product?.profitCalculations?.profitPerUnit,
+      monthlyProfit: product?.profitCalculations?.monthlyProfit
+    });
+    
     if (!product?.profitCalculations) return false;
     
     // Check if any profit calculation has non-zero values
-    return (
+    const isValid = (
       (product.profitCalculations.profitPerUnit && parseFloat(String(product.profitCalculations.profitPerUnit).replace(/[£₨$€]/g, '')) > 0) ||
+      (product.profitCalculations.profitFor200Units && parseFloat(String(product.profitCalculations.profitFor200Units).replace(/[£₨$€]/g, '')) > 0) ||
       (product.profitCalculations.monthlyProfit && parseFloat(String(product.profitCalculations.monthlyProfit).replace(/[£₨$€]/g, '')) > 0)
     );
+    
+    console.log('✅ Profit data validity result:', isValid);
+    return isValid;
   };
 
   // Check if profit evaluation has actual values (not dummy/empty data)
   const hasValidEvaluationData = () => {
+    console.log('🔍 Checking evaluation data validity:', {
+      hasEvaluation: !!product?.evaluation,
+      evaluation: product?.evaluation,
+      salesProceeds: product?.evaluation?.salesProceeds,
+      netProfit: product?.evaluation?.netProfit,
+      productCost: product?.evaluation?.productCost
+    });
+    
     if (!product?.evaluation) return false;
     
     // Check if any evaluation field has non-zero values
-    return (
+    const isValid = (
       (product.evaluation.salesProceeds && parseFloat(String(product.evaluation.salesProceeds).replace(/[£₨$€]/g, '')) > 0) ||
       (product.evaluation.netProfit && parseFloat(String(product.evaluation.netProfit).replace(/[£₨$€]/g, '')) !== 0) ||
       (product.evaluation.productCost && parseFloat(String(product.evaluation.productCost).replace(/[£₨$€]/g, '')) > 0)
     );
+    
+    console.log('✅ Evaluation data validity result:', isValid);
+    return isValid;
   };
 
   // Helper function to get RRP markup from Platform Comparison data
@@ -2053,8 +2145,23 @@ const ProductDetail = () => {
     ];
   };
 
-  // Get badge styling based on badge text
+  // Get badge styling based on badge text or URL parameters
   const getBadgeStyle = (badgeText) => {
+    // Check if we have unique badge info from URL parameters
+    const badgeTextParam = searchParams.get('badgeText')
+    const badgeColorParam = searchParams.get('badgeColor')
+    const badgeIconParam = searchParams.get('badgeIcon')
+    
+    if (badgeTextParam && badgeColorParam) {
+      // Use the unique badge passed from AmazonsChoice page
+      return { 
+        bgColor: badgeColorParam, 
+        textColor: '#fff', 
+        icon: 'fa-star', // Use a generic icon for FontAwesome compatibility
+        text: badgeTextParam 
+      }
+    }
+    
     if (!badgeText) {
       return { bgColor: '#dc3545', icon: 'fa-fire', text: 'Hot Deal' }
     }
@@ -2416,72 +2523,34 @@ const ProductDetail = () => {
                           </button>
                         </div>
                         <div style={{marginBottom: '4px'}}>
-                          💰 Profit/unit: <span style={{color: '#059669'}}>{(() => {
-                            // Use the same profit logic as AmazonsChoice for consistency
-                            const productName = product.name.toLowerCase();
-                            let profitPerUnit = product.profitCalculations.profitPerUnit;
-                            
-                            // Apply hardcoded profits for specific products (same as AmazonsChoice)
-                            if (productName.includes('nose ring')) {
-                              profitPerUnit = 40.14; // £40.14 converted to number
-                            } else if (productName.includes('bulb')) {
-                              profitPerUnit = 251.10; // £251.10 converted to number
-                            } else if (productName.includes('fuse')) {
-                              profitPerUnit = 455.80; // £455.80 converted to number
-                            } else if (productName.includes('lampshade')) {
-                              profitPerUnit = 227.80; // £227.80 converted to number
-                            } else if (productName.includes('leather') && productName.includes('watch')) {
-                              profitPerUnit = 586.00; // £586.00 converted to number
-                            }
-                            
-                            console.log('🔍 ProductDetail Profit Debug:', {
-                              productName: product.name,
-                              originalProfitPerUnit: product.profitCalculations.profitPerUnit,
-                              adjustedProfitPerUnit: profitPerUnit,
-                              usedHardcoded: profitPerUnit !== product.profitCalculations.profitPerUnit
-                            });
-                            
-                            return convertProfitValue(profitPerUnit);
-                          })()}</span>
+                          💰 Profit/unit: <span style={{color: '#059669'}}>
+                            £{safeNumber(product.profitCalculations.profitPerUnit).toFixed(2)}
+                          </span>
                         </div>
                         <div style={{marginBottom: '4px'}}>
-                          📈 Profit/{quantity || 100} unit: <span style={{color: '#059669'}}>{(() => {
-                            // Use the same profit logic as AmazonsChoice for consistency
-                            const productName = product.name.toLowerCase();
-                            let profitPerUnit = safeNumber(product.profitCalculations.profitPerUnit);
-                            
-                            // Apply hardcoded profits for specific products (same as AmazonsChoice)
-                            if (productName.includes('nose ring')) {
-                              profitPerUnit = 40.14;
-                            } else if (productName.includes('bulb')) {
-                              profitPerUnit = 251.10;
-                            } else if (productName.includes('fuse')) {
-                              profitPerUnit = 455.80;
-                            } else if (productName.includes('lampshade')) {
-                              profitPerUnit = 227.80;
-                            } else if (productName.includes('leather') && productName.includes('watch')) {
-                              profitPerUnit = 586.00;
-                            }
-                            
-                            const totalProfit = profitPerUnit * (quantity || 100);
-                            return convertProfitValue(totalProfit);
-                          })()}</span>
+                          📈 Profit/{quantity || 200} unit: <span style={{color: '#059669'}}>
+                            £{(safeNumber(product.profitCalculations.profitPerUnit) * (quantity || 200)).toFixed(2)}
+                          </span>
                         </div>
                         <div>
-                          💰 Cost of {quantity || 100} units: <span style={{color: '#059669'}}>{(() => {
-                            // Use the actual product cost from evaluation, not the display price
-                            const productCostPerUnit = product.evaluation?.productCost || 0;
-                            const units = quantity || 100;
-                            const totalCost = productCostPerUnit * units;
+                          💰 Cost of {quantity || 200} units: <span style={{color: '#059669'}}>{(() => {
+                            // Calculate total cost: quantity × unit price
+                            // Extract the numeric price from the product price string
+                            const priceString = product.price || '£0';
+                            const unitPrice = parseFloat(priceString.replace(/[₨£$€]/g, '').trim()) || 0;
+                            const units = quantity || 200;
+                            const totalCost = unitPrice * units;
                             
-                            console.log('💰 Cost Calculation Debug:', {
-                              productCostPerUnit: productCostPerUnit,
+                            console.log('💰 Cost Calculation:', {
+                              originalPrice: product.price,
+                              unitPrice: unitPrice,
                               units: units,
                               totalCost: totalCost,
-                              formula: `${productCostPerUnit} × ${units} = ${totalCost}`
+                              formula: `${units} × ${unitPrice} = ${totalCost}`
                             });
                             
-                            return convertPrice(`₨${totalCost.toFixed(2)}`);
+                            // Return formatted price in GBP (like the image example)
+                            return `£${totalCost.toFixed(2)}`;
                           })()}</span>
                         </div>
                       </div>
@@ -2703,14 +2772,14 @@ const ProductDetail = () => {
                       onBlur={(e) => {
                         // Ensure value is at least 100 when user leaves the field
                         const value = parseInt(e.target.value);
-                        if (isNaN(value) || value < 100) {
-                          setQuantity(100);
+                        if (isNaN(value) || value < 200) {
+                          setQuantity(200);
                         }
                       }}
-                      placeholder="Minimum 100 units"
+                      placeholder="Minimum 200 units"
                     />
                     <small style={{fontSize: '0.65rem', color: '#6b7280'}}>
-                      Minimum order: 100 units
+                      Minimum order: 200 units
                     </small>
                   </div>
 
@@ -3029,8 +3098,8 @@ const ProductDetail = () => {
               {/* Platform Comparison and Profit Evaluation Side by Side */}
               <div className="row g-3">
                 {/* Platform Pricing Table - Left Side */}
-                {hasValidPlatformData() && (
-                  <div className={hasValidEvaluationData() ? "col-lg-6" : "col-12"}>
+                {(hasValidPlatformData() || product?.forceShowPlatforms || (product?.platforms && product.platforms.length > 0)) && (
+                  <div className={(hasValidEvaluationData() || product?.forceShowEvaluation || product?.evaluation) ? "col-lg-6" : "col-12"}>
                     <div className="mb-3">
                       <div className="fw-bold mb-2" style={{fontSize: '0.9rem', color: '#2d3748'}}>
                         <i className="fas fa-chart-line me-2"></i>Platform Comparison
@@ -3046,35 +3115,51 @@ const ProductDetail = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {calculatePlatformData().map((platform, idx) => (
-                              <tr key={idx} style={{background: idx % 2 === 0 ? '#f8f9fa' : 'white'}}>
-                                <td className="fw-semibold py-2 px-2" style={{color: '#2d3748', fontSize: '0.75rem'}}>
-                                  <i className={`fas fa-${platform.name === 'Amazon' ? 'shopping-cart' : platform.name === 'eBay' ? 'gavel' : 'store'} me-1 text-primary`} style={{fontSize: '0.7rem'}}></i>
-                                  {platform.name}
-                                </td>
-                                <td className="fw-bold text-primary py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
-                                  {platform.isPKR ? convertFromPKR(platform.price) : convertPrice(platform.price)}
-                                </td>
-                                <td className="fw-bold text-success py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
-                                  <div>{platform.isPKR ? convertFromPKR(platform.grossProfit) : convertPrice(platform.grossProfit)}</div>
-                                  <div style={{fontSize: '0.6rem', color: '#6c757d', fontWeight: 'normal'}}>
-                                    ({platform.units || 200} units)
-                                  </div>
-                                </td>
-                                <td className="py-2 px-2 text-center">
-                                  <span className="badge bg-info" style={{fontSize: '0.65rem', padding: '3px 6px'}}>
-                                    {platform.markup}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
+                            {(() => {
+                              const platformData = calculatePlatformData();
+                              console.log('🎯 PLATFORM DATA FOR DISPLAY:', platformData);
+                              return platformData.map((platform, idx) => {
+                                console.log(`🔍 Platform ${idx + 1} (${platform.name}):`, {
+                                  rawPrice: platform.price,
+                                  rawProfit: platform.grossProfit,
+                                  isPKR: platform.isPKR,
+                                  units: platform.units,
+                                  markup: platform.markup,
+                                  convertedPrice: platform.isPKR ? convertFromPKR(platform.price) : convertPrice(platform.price),
+                                  convertedProfit: platform.isPKR ? convertFromPKR(platform.grossProfit) : convertPrice(platform.grossProfit)
+                                });
+                                
+                                return (
+                                  <tr key={idx} style={{background: idx % 2 === 0 ? '#f8f9fa' : 'white'}}>
+                                    <td className="fw-semibold py-2 px-2" style={{color: '#2d3748', fontSize: '0.75rem'}}>
+                                      <i className={`fas fa-${platform.name === 'Amazon' ? 'shopping-cart' : platform.name === 'eBay' ? 'gavel' : 'store'} me-1 text-primary`} style={{fontSize: '0.7rem'}}></i>
+                                      {platform.name}
+                                    </td>
+                                    <td className="fw-bold text-primary py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
+                                      £{safeNumber(platform.price).toFixed(2)}
+                                    </td>
+                                    <td className="fw-bold text-success py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
+                                      <div>£{safeNumber(platform.grossProfit).toFixed(2)}</div>
+                                      <div style={{fontSize: '0.6rem', color: '#6c757d', fontWeight: 'normal'}}>
+                                        ({platform.units || 200} units)
+                                      </div>
+                                    </td>
+                                    <td className="py-2 px-2 text-center">
+                                      <span className="badge bg-info" style={{fontSize: '0.65rem', padding: '3px 6px'}}>
+                                        {platform.markup}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              });
+                            })()}
                           </tbody>
                         </table>
                       </div>
                     </div>
 
                     {/* Profit Calculations - Below Platform Comparison */}
-                    {hasValidProfitData() && (
+                    {(hasValidProfitData() || product?.forceShowProfitCalculations || product?.profitCalculations) && (
                       <div className="mb-3">
                         <div className="card border-0 shadow-sm" style={{background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'}}>
                           <div className="card-body p-2">
@@ -3086,26 +3171,7 @@ const ProductDetail = () => {
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Profit per Unit</div>
                                   <div className="fw-bold text-success" style={{fontSize: '0.9rem'}}>
-                                    {(() => {
-                                      // Use the same profit logic as AmazonsChoice for consistency
-                                      const productName = product.name.toLowerCase();
-                                      let profitPerUnit = product.profitCalculations.profitPerUnit;
-                                      
-                                      // Apply hardcoded profits for specific products (same as AmazonsChoice)
-                                      if (productName.includes('nose ring')) {
-                                        profitPerUnit = 40.14;
-                                      } else if (productName.includes('bulb')) {
-                                        profitPerUnit = 251.10;
-                                      } else if (productName.includes('fuse')) {
-                                        profitPerUnit = 455.80;
-                                      } else if (productName.includes('lampshade')) {
-                                        profitPerUnit = 227.80;
-                                      } else if (productName.includes('leather') && productName.includes('watch')) {
-                                        profitPerUnit = 586.00;
-                                      }
-                                      
-                                      return convertProfitValue(profitPerUnit);
-                                    })()}
+                                    £{safeNumber(product.profitCalculations.profitPerUnit).toFixed(2)}
                                   </div>
                                 </div>
                               </div>
@@ -3113,43 +3179,7 @@ const ProductDetail = () => {
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Monthly Profit</div>
                                   <div className="fw-bold text-primary" style={{fontSize: '0.9rem'}}>
-                                    {(() => {
-                                      // Use saved monthly profit if available, otherwise calculate
-                                      console.log('🔍 Monthly Profit Debug:', {
-                                        hasEvaluation: !!product.evaluation,
-                                        evaluationMonthlyProfit: product.evaluation?.monthlyProfit,
-                                        hasProfitEvaluation: !!product.profitEvaluation,
-                                        profitEvaluationMonthlyProfit: product.profitEvaluation?.monthlyProfit,
-                                        productStructure: Object.keys(product)
-                                      });
-                                      
-                                      if ((product.evaluation && product.evaluation.monthlyProfit) || (product.profitEvaluation && product.profitEvaluation.monthlyProfit)) {
-                                        const savedMonthlyProfit = product.evaluation?.monthlyProfit || product.profitEvaluation?.monthlyProfit;
-                                        console.log('✅ Using saved monthly profit:', savedMonthlyProfit);
-                                        return convertProfitValue(savedMonthlyProfit);
-                                      } else {
-                                        // Use the same profit logic as AmazonsChoice for consistency
-                                        const productName = product.name.toLowerCase();
-                                        let profitPerUnit = safeNumber(product.profitCalculations.profitPerUnit);
-                                        
-                                        // Apply hardcoded profits for specific products (same as AmazonsChoice)
-                                        if (productName.includes('nose ring')) {
-                                          profitPerUnit = 40.14;
-                                        } else if (productName.includes('bulb')) {
-                                          profitPerUnit = 251.10;
-                                        } else if (productName.includes('fuse')) {
-                                          profitPerUnit = 455.80;
-                                        } else if (productName.includes('lampshade')) {
-                                          profitPerUnit = 227.80;
-                                        } else if (productName.includes('leather') && productName.includes('watch')) {
-                                          profitPerUnit = 586.00;
-                                        }
-                                        
-                                        const monthlyProfit = profitPerUnit * 30; // 30 units per month (fallback)
-                                        console.log('⚠️ Calculating monthly profit (no saved value):', monthlyProfit, 'from profit per unit:', profitPerUnit);
-                                        return convertProfitValue(monthlyProfit);
-                                      }
-                                    })()}
+                                    £{safeNumber(product.evaluation?.monthlyProfit || product.profitCalculations?.monthlyProfit || (product.profitCalculations.profitPerUnit * 30)).toFixed(2)}
                                   </div>
                                 </div>
                               </div>
@@ -3157,42 +3187,7 @@ const ProductDetail = () => {
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Yearly Profit</div>
                                   <div className="fw-bold text-warning" style={{fontSize: '0.9rem'}}>
-                                    {(() => {
-                                      // Use saved yearly profit if available, otherwise calculate
-                                      console.log('🔍 Yearly Profit Debug:', {
-                                        hasEvaluation: !!product.evaluation,
-                                        evaluationYearlyProfit: product.evaluation?.yearlyProfit,
-                                        hasProfitEvaluation: !!product.profitEvaluation,
-                                        profitEvaluationYearlyProfit: product.profitEvaluation?.yearlyProfit
-                                      });
-                                      
-                                      if ((product.evaluation && product.evaluation.yearlyProfit) || (product.profitEvaluation && product.profitEvaluation.yearlyProfit)) {
-                                        const savedYearlyProfit = product.evaluation?.yearlyProfit || product.profitEvaluation?.yearlyProfit;
-                                        console.log('✅ Using saved yearly profit:', savedYearlyProfit);
-                                        return convertProfitValue(savedYearlyProfit);
-                                      } else {
-                                        // Use the same profit logic as AmazonsChoice for consistency
-                                        const productName = product.name.toLowerCase();
-                                        let profitPerUnit = safeNumber(product.profitCalculations.profitPerUnit);
-                                        
-                                        // Apply hardcoded profits for specific products (same as AmazonsChoice)
-                                        if (productName.includes('nose ring')) {
-                                          profitPerUnit = 40.14;
-                                        } else if (productName.includes('bulb')) {
-                                          profitPerUnit = 251.10;
-                                        } else if (productName.includes('fuse')) {
-                                          profitPerUnit = 455.80;
-                                        } else if (productName.includes('lampshade')) {
-                                          profitPerUnit = 227.80;
-                                        } else if (productName.includes('leather') && productName.includes('watch')) {
-                                          profitPerUnit = 586.00;
-                                        }
-                                        
-                                        const yearlyProfit = profitPerUnit * 365; // 365 units per year (fallback)
-                                        console.log('⚠️ Calculating yearly profit (no saved value):', yearlyProfit, 'from profit per unit:', profitPerUnit);
-                                        return convertProfitValue(yearlyProfit);
-                                      }
-                                    })()}
+                                    £{safeNumber(product.evaluation?.yearlyProfit || product.profitCalculations?.yearlyProfit || (product.profitCalculations.profitPerUnit * 365)).toFixed(2)}
                                   </div>
                                 </div>
                               </div>
@@ -3206,7 +3201,7 @@ const ProductDetail = () => {
                 )}
                 
                 {/* Profit Evaluation - Right Side */}
-                {hasValidEvaluationData() && (
+                {(hasValidEvaluationData() || product?.forceShowEvaluation || product?.evaluation) && (
                   <div className="col-lg-6">
                     <div className="mb-3">
                       <div className="fw-bold mb-2" style={{fontSize: '0.9rem', color: '#2d3748'}}>
@@ -3223,7 +3218,14 @@ const ProductDetail = () => {
                           <tbody>
                             <tr style={{background: '#f1f5f9'}}>
                               <td className="fw-semibold py-2 px-2">Sales Proceeds</td>
-                              <td className="fw-bold py-2 px-2 text-end text-success">{convertProfitValue(product.evaluation.salesProceeds)}</td>
+                              <td className="fw-bold py-2 px-2 text-end text-success">{(() => {
+                                console.log('🔍 Sales Proceeds Debug:', {
+                                  rawValue: product.evaluation.salesProceeds,
+                                  isAdminProfitData: product?.isAdminProfitData,
+                                  convertedValue: convertProfitValue(product.evaluation.salesProceeds)
+                                });
+                                return convertProfitValue(product.evaluation.salesProceeds);
+                              })()}</td>
                             </tr>
                             <tr>
                               <td className="py-2 px-2 ps-3" style={{fontSize: '0.7rem'}}>Commission</td>

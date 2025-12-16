@@ -21,7 +21,6 @@ const AdminProducts = () => {
   const [profitEditProduct, setProfitEditProduct] = useState(null);
   const [selectedProducts, setSelectedProducts] = useState(new Set());
   const [selectedUnits, setSelectedUnits] = useState(200);
-  const [productCostUpdated, setProductCostUpdated] = useState(false);
   
   const currency = 'GBP';
   const currencySymbol = '£';
@@ -48,20 +47,7 @@ const AdminProducts = () => {
   const safeFormatNumber = (value, decimals = 2) => {
     const num = parseFloat(value);
     if (isNaN(num)) return '';
-    // For input fields, return the number with proper decimal formatting
-    return num.toFixed(decimals);
-  };
-
-  const formatCurrency = (value, decimals = 2) => {
-    const num = parseFloat(value);
-    if (isNaN(num)) return '0.00';
-    return num.toFixed(decimals);
-  };
-
-  const displayNumber = (value, decimals = 2) => {
-    const num = parseFloat(value);
-    if (isNaN(num)) return '0.00';
-    return num.toFixed(decimals);
+    return num.toString();
   };
 
   const safeParseInput = (value) => {
@@ -324,161 +310,6 @@ const AdminProducts = () => {
         ));
         setEditingCell(null);
         
-        // If price was updated, check if we need to update profit data
-        if (field === 'price') {
-          // Update profit modal if it's open for this product
-          if (profitEditProduct && profitEditProduct._id === productId) {
-          console.log('🔄 Price updated, updating product cost in profit modal from', profitEditProduct.profitEvaluation.productCost, 'to', parsedValue);
-          
-          // Update the product cost in the profit evaluation
-          const updatedProfitEvaluation = {
-            ...profitEditProduct.profitEvaluation,
-            productCost: parsedValue
-          };
-          
-          // Recalculate net profit with new product cost
-          const balanceChange = updatedProfitEvaluation.balanceChange || 0;
-          const newNetProfit = parseFloat((balanceChange - parsedValue).toFixed(2));
-          updatedProfitEvaluation.netProfit = newNetProfit;
-          
-          // Update profit calculations
-          const updatedProfitCalculations = {
-            ...profitEditProduct.profitCalculations,
-            costPrice: parsedValue,
-            profitPerUnit: newNetProfit
-          };
-          
-          // Update platform comparison profits with new net profit
-          const updatedPlatformComparison = profitEditProduct.platformComparison.map(platform => ({
-            ...platform,
-            profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2))
-          }));
-          
-          // Update the profit edit product state
-          setProfitEditProduct({
-            ...profitEditProduct,
-            profitEvaluation: updatedProfitEvaluation,
-            profitCalculations: updatedProfitCalculations,
-            platformComparison: updatedPlatformComparison
-          });
-          
-          // Set visual indicator that product cost was updated
-          setProductCostUpdated(true);
-          setTimeout(() => setProductCostUpdated(false), 3000); // Clear after 3 seconds
-          
-          // Automatically save the updated profit data to the database
-          try {
-            const profitUpdateData = {
-              platformComparison: updatedPlatformComparison.map(platform => ({
-                platform: platform.platform || 'Platform',
-                rrpPerUnit: parseFloat((parseFloat(platform.rrpPerUnit) || 0).toFixed(2)),
-                units: parseInt(platform.units) || 200,
-                profitFor200Units: parseFloat((parseFloat(platform.profitFor200Units) || 0).toFixed(2)),
-                markup: platform.markup || '0%'
-              })),
-              platformUnits: parseInt(selectedUnits) || 200,
-              profitCalculations: {
-                profitPerUnit: parseFloat((parseFloat(updatedProfitCalculations.profitPerUnit) || 0).toFixed(2)),
-                profitFor200Units: parseFloat((parseFloat(updatedProfitCalculations.profitPerUnit) * 200 || 0).toFixed(2)),
-                dealUnitsProfit: parseFloat((parseFloat(updatedProfitCalculations.dealUnitsProfit) || 0).toFixed(2)),
-                profitForDealUnits: parseFloat((parseFloat(updatedProfitCalculations.profitForDealUnits) || 0).toFixed(2))
-              },
-              profitEvaluation: {
-                salesProceeds: parseFloat((parseFloat(updatedProfitEvaluation.salesProceeds) || 0).toFixed(2)),
-                commission: parseFloat((parseFloat(updatedProfitEvaluation.commission) || 0).toFixed(2)),
-                commissionTax: parseFloat((parseFloat(updatedProfitEvaluation.commissionTax) || 0).toFixed(2)),
-                digitalServicesFee: parseFloat((parseFloat(updatedProfitEvaluation.digitalServicesFee) || 0).toFixed(2)),
-                digitalServicesTax: parseFloat((parseFloat(updatedProfitEvaluation.digitalServicesTax) || 0).toFixed(2)),
-                fbaFulfilmentFee: parseFloat((parseFloat(updatedProfitEvaluation.fbaFulfilmentFee) || 0).toFixed(2)),
-                fbaFulfilmentTax: parseFloat((parseFloat(updatedProfitEvaluation.fbaFulfilmentTax) || 0).toFixed(2)),
-                balanceChange: parseFloat((parseFloat(updatedProfitEvaluation.balanceChange) || 0).toFixed(2)),
-                productCost: parseFloat((parseFloat(updatedProfitEvaluation.productCost) || 0).toFixed(2)),
-                netProfit: parseFloat((parseFloat(updatedProfitEvaluation.netProfit) || 0).toFixed(2)),
-                monthlyProfit: parseFloat((parseFloat(updatedProfitEvaluation.monthlyProfit) || 0).toFixed(2)),
-                yearlyProfit: parseFloat((parseFloat(updatedProfitEvaluation.yearlyProfit) || 0).toFixed(2))
-              }
-            };
-
-            const profitResponse = await fetch(`http://localhost:5000/api/products/${productId}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify(profitUpdateData)
-            });
-
-            if (profitResponse.ok) {
-              console.log('✅ Profit data automatically updated in database after price change');
-            } else {
-              console.log('⚠️ Failed to auto-update profit data in database');
-            }
-          } catch (error) {
-            console.error('❌ Error auto-updating profit data:', error);
-          }
-          
-          console.log('✅ Profit modal updated with new product cost and recalculated profits');
-          } else {
-            // Even if modal is not open, update profit data in database if it exists
-            const productToUpdate = updatedProducts.find(p => p._id === productId);
-            if (productToUpdate && (productToUpdate.profitEvaluation || productToUpdate.profitCalculations)) {
-              console.log('🔄 Price updated for product with existing profit data, updating product cost in database');
-              
-              // Update product cost in existing profit evaluation
-              const existingEvaluation = productToUpdate.profitEvaluation || {};
-              const balanceChange = existingEvaluation.balanceChange || 0;
-              const newNetProfit = parseFloat((balanceChange - parsedValue).toFixed(2));
-              
-              const updatedProfitEvaluation = {
-                ...existingEvaluation,
-                productCost: parsedValue,
-                netProfit: newNetProfit
-              };
-              
-              // Update profit calculations
-              const existingCalculations = productToUpdate.profitCalculations || {};
-              const updatedProfitCalculations = {
-                ...existingCalculations,
-                costPrice: parsedValue,
-                profitPerUnit: newNetProfit
-              };
-              
-              // Update platform comparison if it exists
-              const updatedPlatformComparison = (productToUpdate.platformComparison || []).map(platform => ({
-                ...platform,
-                profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2))
-              }));
-              
-              // Save to database
-              const profitUpdateData = {
-                profitEvaluation: updatedProfitEvaluation,
-                profitCalculations: updatedProfitCalculations
-              };
-              
-              if (updatedPlatformComparison.length > 0) {
-                profitUpdateData.platformComparison = updatedPlatformComparison;
-              }
-              
-              fetch(`http://localhost:5000/api/products/${productId}`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(profitUpdateData)
-              }).then(response => {
-                if (response.ok) {
-                  console.log('✅ Profit data automatically updated in database after price change (modal closed)');
-                } else {
-                  console.log('⚠️ Failed to auto-update profit data in database (modal closed)');
-                }
-              }).catch(error => {
-                console.error('❌ Error auto-updating profit data (modal closed):', error);
-              });
-            }
-          }
-        }
-        
         cacheManager.clearAll();
         
         const cell = document.querySelector(`[data-cell="${cellKey}"]`);
@@ -602,63 +433,7 @@ const AdminProducts = () => {
       profitCalculations: initProfitCalculations,
       profitEvaluation: initProfitEvaluation
     });
-    setProductCostUpdated(false); // Reset visual indicator
     setShowProfitModal(true);
-  };
-
-  const testApiConnection = async () => {
-    try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/products/admin/fast', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      console.log('🧪 API Test - Status:', response.status);
-      if (response.ok) {
-        console.log('✅ API connection successful');
-      } else {
-        console.log('❌ API connection failed');
-      }
-    } catch (error) {
-      console.error('❌ API test error:', error);
-    }
-  };
-
-  const verifyProductData = async () => {
-    if (!profitEditProduct) return;
-    
-    try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/products/${profitEditProduct._id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (response.ok) {
-        const productData = await response.json();
-        console.log('🔍 Current product data in database:');
-        console.log('- Product ID:', productData._id);
-        console.log('- Product Name:', productData.name);
-        console.log('- Platform Comparison:', productData.platformComparison);
-        console.log('- Profit Calculations:', productData.profitCalculations);
-        console.log('- Profit Evaluation:', productData.profitEvaluation);
-        
-        // Also test the public API endpoint that the product detail page uses
-        const publicResponse = await fetch(`http://localhost:5000/api/products/public/${productData._id}`);
-        if (publicResponse.ok) {
-          const publicData = await publicResponse.json();
-          console.log('🌐 Public API data (what product detail page sees):');
-          console.log('- Platform Comparison:', publicData.platformComparison);
-          console.log('- Profit Calculations:', publicData.profitCalculations);
-          console.log('- Profit Evaluation:', publicData.profitEvaluation);
-        }
-        
-        alert('✅ Product data fetched! Check browser console for details.');
-      } else {
-        alert('❌ Failed to fetch product data');
-      }
-    } catch (error) {
-      console.error('❌ Error fetching product data:', error);
-      alert('❌ Error fetching product data');
-    }
   };
 
   const updateProfitData = async () => {
@@ -667,56 +442,17 @@ const AdminProducts = () => {
     try {
       const token = localStorage.getItem('adminToken');
       
-      if (!token) {
-        alert('❌ No admin token found. Please login again.');
-        navigate('/admin/login');
-        return;
-      }
-      
       const calculatedProfitFor200Units = (profitEditProduct.profitCalculations.profitPerUnit || 0) * 200;
       
-      // Validate and clean the data before sending
-      const cleanPlatformComparison = profitEditProduct.platformComparison.map(platform => ({
-        platform: platform.platform || 'Platform',
-        rrpPerUnit: parseFloat((parseFloat(platform.rrpPerUnit) || 0).toFixed(2)),
-        units: parseInt(platform.units) || 200,
-        profitFor200Units: parseFloat((parseFloat(platform.profitFor200Units) || 0).toFixed(2)),
-        markup: platform.markup || '0%'
-      }));
-
-      const cleanProfitCalculations = {
-        profitPerUnit: parseFloat((parseFloat(profitEditProduct.profitCalculations.profitPerUnit) || 0).toFixed(2)),
-        profitFor200Units: parseFloat(calculatedProfitFor200Units.toFixed(2)),
-        dealUnitsProfit: parseFloat((parseFloat(profitEditProduct.profitCalculations.dealUnitsProfit) || 0).toFixed(2)),
-        profitForDealUnits: parseFloat((parseFloat(profitEditProduct.profitCalculations.profitForDealUnits) || 0).toFixed(2))
-      };
-
-      const cleanProfitEvaluation = {
-        salesProceeds: parseFloat((parseFloat(profitEditProduct.profitEvaluation.salesProceeds) || 0).toFixed(2)),
-        commission: parseFloat((parseFloat(profitEditProduct.profitEvaluation.commission) || 0).toFixed(2)),
-        commissionTax: parseFloat((parseFloat(profitEditProduct.profitEvaluation.commissionTax) || 0).toFixed(2)),
-        digitalServicesFee: parseFloat((parseFloat(profitEditProduct.profitEvaluation.digitalServicesFee) || 0).toFixed(2)),
-        digitalServicesTax: parseFloat((parseFloat(profitEditProduct.profitEvaluation.digitalServicesTax) || 0).toFixed(2)),
-        fbaFulfilmentFee: parseFloat((parseFloat(profitEditProduct.profitEvaluation.fbaFulfilmentFee) || 0).toFixed(2)),
-        fbaFulfilmentTax: parseFloat((parseFloat(profitEditProduct.profitEvaluation.fbaFulfilmentTax) || 0).toFixed(2)),
-        balanceChange: parseFloat((parseFloat(profitEditProduct.profitEvaluation.balanceChange) || 0).toFixed(2)),
-        productCost: parseFloat((parseFloat(profitEditProduct.profitEvaluation.productCost) || 0).toFixed(2)),
-        netProfit: parseFloat((parseFloat(profitEditProduct.profitEvaluation.netProfit) || 0).toFixed(2)),
-        monthlyProfit: parseFloat((parseFloat(profitEditProduct.profitEvaluation.monthlyProfit) || 0).toFixed(2)),
-        yearlyProfit: parseFloat((parseFloat(profitEditProduct.profitEvaluation.yearlyProfit) || 0).toFixed(2))
-      };
-
       const updateData = {
-        platformComparison: cleanPlatformComparison,
-        platformUnits: parseInt(selectedUnits) || 200,
-        profitCalculations: cleanProfitCalculations,
-        profitEvaluation: cleanProfitEvaluation
+        platformComparison: profitEditProduct.platformComparison,
+        platformUnits: selectedUnits,
+        profitCalculations: {
+          ...profitEditProduct.profitCalculations,
+          profitFor200Units: calculatedProfitFor200Units
+        },
+        profitEvaluation: profitEditProduct.profitEvaluation
       };
-
-      console.log('🔄 Sending profit update data:', updateData);
-      console.log('🔑 Using token:', token ? 'Token exists' : 'No token');
-      console.log('🎯 Product ID:', profitEditProduct._id);
-      console.log('🌐 API URL:', `http://localhost:5000/api/products/${profitEditProduct._id}`);
 
       const response = await fetch(`http://localhost:5000/api/products/${profitEditProduct._id}`, {
         method: 'PUT',
@@ -727,59 +463,20 @@ const AdminProducts = () => {
         body: JSON.stringify(updateData)
       });
 
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', response.headers);
-
       if (response.ok) {
-        const responseData = await response.json();
-        console.log('✅ Update successful:', responseData);
-        
-        // Verify the data was saved correctly
-        console.log('🔍 Verifying saved data:');
-        console.log('- Platform Comparison:', responseData.platformComparison);
-        console.log('- Profit Calculations:', responseData.profitCalculations);
-        console.log('- Profit Evaluation:', responseData.profitEvaluation);
-        
-        // Clear all caches to ensure fresh data
         cacheManager.clearAll();
-        
-        // Clear browser cache for this product
-        if ('caches' in window) {
-          caches.keys().then(names => {
-            names.forEach(name => {
-              caches.delete(name);
-            });
-          });
-        }
-        
-        // Force reload product data
-        await fetchProducts();
-        
-        alert('✅ Profit data updated successfully! The product detail page will now show the updated data.');
+        alert('✅ Profit data updated successfully!');
         setShowProfitModal(false);
         setProfitEditProduct(null);
+        fetchProducts();
       } else {
         const errorData = await response.text();
-        console.error('❌ Save failed with status:', response.status);
-        console.error('❌ Error response:', errorData);
-        
-        if (response.status === 401) {
-          alert('❌ Authentication failed. Please login again.');
-          navigate('/admin/login');
-        } else if (response.status === 404) {
-          alert('❌ Product not found. It may have been deleted.');
-        } else {
-          alert(`❌ Failed to update profit data. Status: ${response.status}. Error: ${errorData}`);
-        }
-        throw new Error(`Failed to update profit data: ${response.status} - ${errorData}`);
+        console.error('❌ Save failed:', errorData);
+        throw new Error('Failed to update profit data');
       }
     } catch (error) {
-      console.error('❌ Error updating profit data:', error);
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        alert('❌ Network error. Please check if the server is running.');
-      } else {
-        alert(`❌ Failed to update profit data: ${error.message}`);
-      }
+      console.error('Error updating profit data:', error);
+      alert('❌ Failed to update profit data');
     }
   };
 
@@ -1539,35 +1236,29 @@ const AdminProducts = () => {
                         <input
                           type="number"
                           step="0.01"
-                          min="0"
-                          value={safeFormatNumber(platform.rrpPerUnit) || ''}
+                          value={safeFormatNumber(platform.rrpPerUnit)}
                           onChange={(e) => {
                             const newPlatforms = [...profitEditProduct.platformComparison];
-                            newPlatforms[index].rrpPerUnit = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                            newPlatforms[index].rrpPerUnit = safeParseInput(e.target.value);
                             setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
                           }}
-                          onFocus={(e) => e.target.select()}
                           style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                          placeholder="0.00"
                         />
                       </div>
                       <div>
                         <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Units</label>
                         <input
                           type="number"
-                          step="1"
-                          min="1"
                           value={platform.units || 200}
                           onChange={(e) => {
                             const newPlatforms = [...profitEditProduct.platformComparison];
-                            const newUnits = parseInt(e.target.value) || 200;
+                            const newUnits = parseInt(e.target.value);
                             newPlatforms[index].units = newUnits;
                             const profitPerUnit = profitEditProduct.profitEvaluation?.netProfit || 0;
                             newPlatforms[index].profitFor200Units = profitPerUnit * newUnits;
                             setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
                           }}
                           style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                          placeholder="200"
                         />
                       </div>
                       <div>
@@ -1575,8 +1266,9 @@ const AdminProducts = () => {
                           Total Profit ({platform.units || 200} units) (£)
                         </label>
                         <input
-                          type="text"
-                          value={displayNumber(platform.profitFor200Units)}
+                          type="number"
+                          step="0.01"
+                          value={safeFormatNumber(platform.profitFor200Units)}
                           readOnly
                           style={{
                             width: '100%',
@@ -1721,10 +1413,9 @@ const AdminProducts = () => {
                   <input
                     type="number"
                     step="0.01"
-                    min="0"
-                    value={safeFormatNumber(profitEditProduct.profitEvaluation.salesProceeds) || ''}
+                    value={safeFormatNumber(profitEditProduct.profitEvaluation.salesProceeds)}
                     onChange={(e) => {
-                      const newValue = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                      const newValue = safeParseInput(e.target.value);
                       const updatedEvaluation = {
                         ...profitEditProduct.profitEvaluation,
                         salesProceeds: newValue
@@ -1734,9 +1425,7 @@ const AdminProducts = () => {
                         profitEvaluation: updatedEvaluation
                       });
                     }}
-                    onFocus={(e) => e.target.select()}
                     style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                    placeholder="0.00"
                   />
                 </div>
 
@@ -1756,7 +1445,6 @@ const AdminProducts = () => {
                       <input
                         type="number"
                         step="0.01"
-                        min="0"
                         value={safeFormatNumber(profitEditProduct.profitEvaluation.commission)}
                         onChange={(e) => {
                           const newValue = safeParseInput(e.target.value);
@@ -1770,7 +1458,6 @@ const AdminProducts = () => {
                           });
                         }}
                         style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                        placeholder="0.00"
                       />
                     </div>
                     <div>
@@ -1783,7 +1470,6 @@ const AdminProducts = () => {
                       <input
                         type="number"
                         step="0.01"
-                        min="0"
                         value={safeFormatNumber(profitEditProduct.profitEvaluation.commissionTax)}
                         onChange={(e) => {
                           const newValue = safeParseInput(e.target.value);
@@ -1797,7 +1483,6 @@ const AdminProducts = () => {
                           });
                         }}
                         style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                        placeholder="0.00"
                       />
                     </div>
                   </div>
@@ -1813,7 +1498,6 @@ const AdminProducts = () => {
                       <input
                         type="number"
                         step="0.01"
-                        min="0"
                         value={safeFormatNumber(profitEditProduct.profitEvaluation.digitalServicesFee)}
                         onChange={(e) => {
                           const newValue = safeParseInput(e.target.value);
@@ -1827,7 +1511,6 @@ const AdminProducts = () => {
                           });
                         }}
                         style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                        placeholder="0.00"
                       />
                     </div>
                     <div>
@@ -1840,7 +1523,6 @@ const AdminProducts = () => {
                       <input
                         type="number"
                         step="0.01"
-                        min="0"
                         value={safeFormatNumber(profitEditProduct.profitEvaluation.digitalServicesTax)}
                         onChange={(e) => {
                           const newValue = safeParseInput(e.target.value);
@@ -1854,7 +1536,6 @@ const AdminProducts = () => {
                           });
                         }}
                         style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                        placeholder="0.00"
                       />
                     </div>
                   </div>
@@ -1870,7 +1551,6 @@ const AdminProducts = () => {
                       <input
                         type="number"
                         step="0.01"
-                        min="0"
                         value={safeFormatNumber(profitEditProduct.profitEvaluation.fbaFulfilmentFee)}
                         onChange={(e) => {
                           const newValue = safeParseInput(e.target.value);
@@ -1884,7 +1564,6 @@ const AdminProducts = () => {
                           });
                         }}
                         style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                        placeholder="0.00"
                       />
                     </div>
                     <div>
@@ -1897,7 +1576,6 @@ const AdminProducts = () => {
                       <input
                         type="number"
                         step="0.01"
-                        min="0"
                         value={safeFormatNumber(profitEditProduct.profitEvaluation.fbaFulfilmentTax)}
                         onChange={(e) => {
                           const newValue = safeParseInput(e.target.value);
@@ -1911,7 +1589,6 @@ const AdminProducts = () => {
                           });
                         }}
                         style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                        placeholder="0.00"
                       />
                     </div>
                   </div>
@@ -1933,7 +1610,6 @@ const AdminProducts = () => {
                       <input
                         type="number"
                         step="0.01"
-                        min="0"
                         value={safeFormatNumber(profitEditProduct.profitEvaluation.balanceChange)}
                         onChange={(e) => {
                           const newValue = safeParseInput(e.target.value);
@@ -1943,19 +1619,19 @@ const AdminProducts = () => {
                           const updatedEvaluation = {
                             ...profitEditProduct.profitEvaluation,
                             balanceChange: newValue,
-                            netProfit: parseFloat(netProfit.toFixed(2))
+                            netProfit: netProfit
                           };
                           
                           const updatedCalculations = {
                             ...profitEditProduct.profitCalculations,
-                            profitPerUnit: parseFloat(netProfit.toFixed(2)),
-                            profitFor200Units: parseFloat((netProfit * 200).toFixed(2))
+                            profitPerUnit: netProfit,
+                            profitFor200Units: netProfit * 200
                           };
                           
                           // Update platform comparison profits
                           const updatedPlatforms = profitEditProduct.platformComparison.map(platform => ({
                             ...platform,
-                            profitFor200Units: parseFloat((netProfit * (platform.units || 200)).toFixed(2))
+                            profitFor200Units: netProfit * (platform.units || 200)
                           }));
                           
                           setProfitEditProduct({
@@ -1966,7 +1642,6 @@ const AdminProducts = () => {
                           });
                         }}
                         style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                        placeholder="0.00"
                       />
                     </div>
                     <div>
@@ -1975,17 +1650,6 @@ const AdminProducts = () => {
                         <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
                           (Auto-filled from product price)
                         </span>
-                        {productCostUpdated && (
-                          <span style={{
-                            fontSize: '0.7rem', 
-                            fontWeight: 'bold', 
-                            color: '#28a745', 
-                            marginLeft: '8px',
-                            animation: 'pulse 1s infinite'
-                          }}>
-                            ✅ Updated!
-                          </span>
-                        )}
                       </label>
                       <input
                         type="number"
@@ -1995,12 +1659,11 @@ const AdminProducts = () => {
                         style={{
                           width: '100%',
                           padding: '10px',
-                          border: productCostUpdated ? '2px solid #28a745' : '1px solid #17a2b8',
+                          border: '1px solid #17a2b8',
                           borderRadius: '6px',
                           fontSize: '0.9rem',
-                          backgroundColor: productCostUpdated ? '#d4edda' : '#e7f3ff',
-                          cursor: 'not-allowed',
-                          transition: 'all 0.3s ease'
+                          backgroundColor: '#e7f3ff',
+                          cursor: 'not-allowed'
                         }}
                       />
                     </div>
@@ -2047,7 +1710,6 @@ const AdminProducts = () => {
                       <input
                         type="number"
                         step="0.01"
-                        min="0"
                         value={safeFormatNumber(profitEditProduct.profitEvaluation.monthlyProfit)}
                         onChange={(e) => {
                           const newValue = safeParseInput(e.target.value);
@@ -2061,7 +1723,6 @@ const AdminProducts = () => {
                           });
                         }}
                         style={{width: '100%', padding: '10px', border: '1px solid #28a745', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: 'white'}}
-                        placeholder="0.00"
                       />
                     </div>
                     <div>
@@ -2074,7 +1735,6 @@ const AdminProducts = () => {
                       <input
                         type="number"
                         step="0.01"
-                        min="0"
                         value={safeFormatNumber(profitEditProduct.profitEvaluation.yearlyProfit)}
                         onChange={(e) => {
                           const newValue = safeParseInput(e.target.value);
@@ -2088,38 +1748,29 @@ const AdminProducts = () => {
                           });
                         }}
                         style={{width: '100%', padding: '10px', border: '1px solid #28a745', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: 'white'}}
-                        placeholder="0.00"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Help Section */}
-               
+                <div style={{padding: '15px', backgroundColor: '#e3f2fd', borderRadius: '8px', border: '1px solid #2196f3'}}>
+                  <h5 style={{color: '#1976d2', marginBottom: '10px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                    💡 How to Use This Calculator
+                  </h5>
+                  <ul style={{color: '#1976d2', fontSize: '0.8rem', marginBottom: '0', paddingLeft: '20px'}}>
+                    <li>Enter your <strong>Sales Proceeds</strong> from Amazon Seller Central</li>
+                    <li>Fill in all <strong>Amazon fees and taxes</strong> from your settlement report</li>
+                    <li>The <strong>Balance Change</strong> is the net amount Amazon deposits to your account</li>
+                    <li><strong>Net Profit</strong> is automatically calculated (Balance Change - Product Cost)</li>
+                    <li>Set realistic <strong>Monthly/Yearly Profit</strong> projections based on your sales volume</li>
+                    <li>All data will be displayed in the product detail page for buyers to see</li>
+                  </ul>
+                </div>
               </div>
 
               {/* Action Buttons */}
               <div style={{display: 'flex', justifyContent: 'flex-end', gap: '15px', paddingTop: '20px', borderTop: '2px solid #f0f0f0'}}>
-               
-               
-                <button
-                  onClick={() => {
-                    const productUrl = `/product/${profitEditProduct._id}`;
-                    window.open(productUrl, '_blank');
-                  }}
-                  style={{
-                    padding: '12px 25px',
-                    fontSize: '1rem',
-                    background: '#6f42c1',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: '600'
-                  }}
-                >
-                  👁️ View Product
-                </button>
                 <button
                   onClick={() => setShowProfitModal(false)}
                   style={{

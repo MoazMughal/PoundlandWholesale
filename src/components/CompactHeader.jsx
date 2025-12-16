@@ -257,14 +257,14 @@ const CompactHeader = () => {
               borderRadius: '4px'
             }}>
               <img 
-                src={`https://flagcdn.com/w40/${currency === 'PKR' ? 'pk' : currency === 'USD' ? 'us' : currency === 'GBP' ? 'gb' : 'ae'}.png`}
-                alt={currency}
+                src="https://flagcdn.com/w40/gb.png"
+                alt="GBP"
                 style={{ width: '28px', height: '20px', objectFit: 'cover', borderRadius: '2px' }}
               />
               <i className="fas fa-chevron-down" style={{ fontSize: '9px', color: '#fff' }}></i>
             </div>
             <select 
-              value={currency}
+              value="GBP"
               onChange={(e) => setCurrency(e.target.value)}
               style={{
                 position: 'absolute',
@@ -276,10 +276,7 @@ const CompactHeader = () => {
                 cursor: 'pointer'
               }}
             >
-              <option value="PKR">PKR</option>
-              <option value="USD">USD</option>
               <option value="GBP">GBP</option>
-              <option value="AED">AED</option>
             </select>
           </div>
 

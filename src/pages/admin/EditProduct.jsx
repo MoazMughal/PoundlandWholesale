@@ -3,14 +3,16 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { adminGet, adminPut, adminDelete } from '../../utils/adminApi';
 import { uploadMultipleImages, validateImageFile } from '../../utils/imageUpload';
 import cacheManager from '../../utils/cacheManager';
-import { useCurrency } from '../../context/CurrencyContext';
 import '../../styles/AdminProductForm.css';
 
 const EditProduct = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { currency, currencySymbols, setCurrency, currencyRates } = useCurrency();
+  
+  // Only GBP currency used - no conversion needed
+  const currency = 'GBP';
+  const currencySymbol = '£';
   
   // Get return category from URL params or location state
   const urlParams = new URLSearchParams(location.search);
@@ -73,54 +75,17 @@ const EditProduct = () => {
     fetchSellers();
   }, [id]);
 
-  // Convert price when currency changes
-  useEffect(() => {
-    if (originalPrice > 0 && originalCurrency) {
-      // Convert from original currency (PKR) to selected currency
-      const convertedPrice = convertCurrency(originalPrice, originalCurrency, currency);
-      setFormData(prev => ({
-        ...prev,
-        price: convertedPrice
-      }));
-    }
-  }, [currency, originalPrice, originalCurrency]);
-
-  // Function to convert between currencies
-  const convertCurrency = (amount, fromCurrency, toCurrency) => {
-    if (fromCurrency === toCurrency) return amount;
-    
-    // PKR is the base currency (rate = 1)
-    // All other currencies have rates relative to PKR
-    
-    let amountInPKR;
-    if (fromCurrency === 'PKR') {
-      amountInPKR = amount;
-    } else {
-      // Convert from other currency to PKR
-      amountInPKR = amount / currencyRates[fromCurrency];
-    }
-    
-    let convertedAmount;
-    if (toCurrency === 'PKR') {
-      convertedAmount = amountInPKR;
-    } else {
-      // Convert from PKR to target currency
-      convertedAmount = amountInPKR * currencyRates[toCurrency];
-    }
-    
-    return parseFloat(convertedAmount.toFixed(2));
-  };
+  // No currency conversion needed - all prices in GBP only
 
   const fetchProduct = async () => {
     try {
       const response = await adminGet(`http://localhost:5000/api/products/${id}`);
       const product = await response.json();
       
-      // Store original price with its currency from database
+      // Store original price - all prices in GBP
       const productPrice = product.price !== undefined && product.price !== null ? product.price : 0;
-      const productCurrency = product.currency || 'GBP'; // Default to GBP as per model
       setOriginalPrice(productPrice);
-      setOriginalCurrency(productCurrency);
+      setOriginalCurrency('GBP');
       
       setFormData({
         name: product.name || '',
@@ -196,9 +161,9 @@ const EditProduct = () => {
     if (name === 'price' && value !== '') {
       const numericPrice = parseFloat(value);
       if (!isNaN(numericPrice)) {
-        // Update original price to current value in current currency
+        // Update original price to current value in GBP
         setOriginalPrice(numericPrice);
-        setOriginalCurrency(currency);
+        setOriginalCurrency('GBP');
       }
     }
 
@@ -448,18 +413,18 @@ const EditProduct = () => {
       console.log('  - newImageUrls uploaded:', newImageUrls);
       console.log('  - allImageUrls (before filter):', allImageUrls);
 
-      // Save price in the selected currency
+      // Save price in GBP
       const currentPrice = isNaN(parseFloat(formData.price)) ? 0 : parseFloat(formData.price);
       
       console.log('💰 Price saving:', {
         currentPrice,
-        currentCurrency: currency
+        currentCurrency: 'GBP'
       });
       
       productData = {
         name: formData.name.trim(),
-        price: currentPrice, // Save price as entered
-        currency: currency, // Save the currency used
+        price: currentPrice, // Save price as entered in GBP
+        currency: 'GBP', // Always save as GBP
         category: formData.category,
         brand: formData.brand || '',
         rating: Math.min(Math.max(parseFloat(formData.rating) || 4.5, 0), 5), // Clamp between 0-5
@@ -616,31 +581,8 @@ const EditProduct = () => {
             marginBottom: '15px',
             fontSize: '0.9rem'
           }}>
-            <strong>💡 Currency Note:</strong> Prices are saved in {currency} ({currencySymbols[currency]}). 
-            Make sure all admins use the same currency for consistency.
-          </div>
-
-          {/* Currency Selector */}
-          <div className="form-group" style={{ marginBottom: '20px' }}>
-            <label>Currency *</label>
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              style={{
-                width: '200px',
-                padding: '8px 12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '14px',
-                backgroundColor: '#f8f9fa'
-              }}
-            >
-              <option value="PKR">🇵🇰 Pakistani Rupee (Rs)</option>
-              <option value="GBP">🇬🇧 British Pound (£)</option>
-              <option value="USD">🇺🇸 US Dollar ($)</option>
-              <option value="AED">🇦🇪 UAE Dirham (د.إ)</option>
-            </select>
-            <small>Select currency for price display and calculations</small>
+            <strong>💡 Currency Note:</strong> All prices are saved in GBP (£). 
+            This ensures consistency across all products and Amazon Choice listings.
           </div>
           
           <div className="form-row">
@@ -659,7 +601,7 @@ const EditProduct = () => {
             </div>
 
             <div className="form-group">
-              <label>Price ({currencySymbols[currency]}) *</label>
+              <label>Price (£) *</label>
               <input
                 type="number"
                 name="price"

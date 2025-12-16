@@ -23,7 +23,7 @@ export const completeProductsData = {
     dealInfo: {
       location: 'Pakistan',
       flag: '🇵🇰',
-      minOrder: '100 Unit',
+      minOrder: '200 Unit',
       condition: 'New'
     },
     specifications: {
@@ -142,7 +142,7 @@ export const completeProductsData = {
     dealInfo: {
       location: 'Pakistan',
       flag: '🇵🇰',
-      minOrder: '100 Unit',
+      minOrder: '200 Unit',
       condition: 'New'
     },
     specifications: {
@@ -199,7 +199,7 @@ export const completeProductsData = {
     dealInfo: {
       location: 'Pakistan',
       flag: '🇵🇰',
-      minOrder: '100 Unit',
+      minOrder: '200 Unit',
       condition: 'New'
     },
     specifications: {
@@ -313,7 +313,7 @@ export const completeProductsData = {
     dealInfo: {
       location: 'Pakistan',
       flag: '🇵🇰',
-      minOrder: '100 Unit',
+      minOrder: '200 Unit',
       condition: 'New'
     },
     specifications: {
@@ -393,7 +393,7 @@ export const completeProductsData = {
     dealInfo: {
       location: 'Pakistan',
       flag: '🇵🇰',
-      minOrder: '100 Unit',
+      minOrder: '200 Unit',
       condition: 'New'
     },
     specifications: {
