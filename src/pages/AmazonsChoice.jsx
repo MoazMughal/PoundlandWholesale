@@ -8,6 +8,7 @@ import { useBasket } from '../context/BasketContext'
 import { useAdmin } from '../context/AdminContext'
 import { getImageUrl } from '../utils/imageImports'
 import { getApiUrl } from '../utils/api'
+import { logDeviceInfo } from '../utils/deviceDetection'
 import '../styles/mobile-products.css'
 
 const AmazonsChoice = () => {
@@ -43,6 +44,7 @@ const AmazonsChoice = () => {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [lastFetchKey, setLastFetchKey] = useState('')
   const [badgeRotation, setBadgeRotation] = useState(0) // For rotating badges every 2 seconds
+  const [dataSource, setDataSource] = useState('') // Track data source for debugging
 
 
   // Context hooks
@@ -104,22 +106,30 @@ const AmazonsChoice = () => {
       let apiUrl
       
       if (category && category !== 'all') {
-        // For specific categories, use filtered endpoint
+        // For specific categories, use filtered endpoint with Amazon Choice filter
         const params = new URLSearchParams()
         params.append('category', category)
+        params.append('isAmazonsChoice', 'true') // Always filter for Amazon Choice products
         params.append('limit', '50')
         if (search) params.append('search', search)
         apiUrl = `products/public?${params.toString()}`
       } else if (search) {
-        // For search, use filtered endpoint
+        // For search, use filtered endpoint with Amazon Choice filter
         const params = new URLSearchParams()
         params.append('search', search)
+        params.append('isAmazonsChoice', 'true') // Always filter for Amazon Choice products
         params.append('limit', '50')
         apiUrl = `products/public?${params.toString()}`
       } else {
-        // For "All" products, use the fast endpoint with random sorting
-        apiUrl = 'products/public/fast'
+        // For "All" Amazon Choice products from all categories, use filtered endpoint
+        const params = new URLSearchParams()
+        params.append('isAmazonsChoice', 'true') // Show Amazon Choice products from ALL categories
+        params.append('limit', '50')
+        apiUrl = `products/public?${params.toString()}`
       }
+      
+      console.log('🌐 API URL:', getApiUrl(apiUrl))
+      console.log('🏆 Amazon Choice Filter Applied - Category:', category || 'all')
       
       const response = await fetch(getApiUrl(apiUrl), {
         headers: { 'Accept': 'application/json' }
@@ -181,15 +191,26 @@ const AmazonsChoice = () => {
           setLoading(false)
           setHasLoadedOnce(true)
           setLastFetchKey(fetchKey)
+          setDataSource(data.source || 'unknown')
           
           console.log('✅ Products loaded successfully!')
           console.log('🔍 Final state check:', {
             productsLength: transformedProducts.length,
             firstProduct: transformedProducts[0]?.name,
-            loading: false
+            loading: false,
+            dataSource: data.source
           })
+          
+          // Show notification if using fallback data
+          if (data.source && data.source !== 'database' && data.source !== 'fast') {
+            console.warn('⚠️ Using fallback data source:', data.source);
+          }
         } else {
-          console.log('⚠️ No products found in database')
+          console.log('⚠️ No Amazon Choice products found in database')
+          console.log('🔍 This might mean:')
+          console.log('  1. No products are marked as isAmazonsChoice: true')
+          console.log('  2. Database connection issues')
+          console.log('  3. All Amazon Choice products are inactive')
           setProducts([])
           setLoading(false)
         }
@@ -254,6 +275,14 @@ const AmazonsChoice = () => {
     const searchParam = searchParams.get('search') || ''
     
     console.log('📍 URL params changed:', { catParam, searchParam })
+    console.log('🌍 Environment info:', {
+      isDev: import.meta.env.DEV,
+      apiUrl: import.meta.env.VITE_API_URL,
+      mode: import.meta.env.MODE
+    })
+    
+    // Log device info for debugging mobile issues
+    logDeviceInfo()
     
     // Update state
     setSelectedCategory(catParam)
@@ -262,6 +291,23 @@ const AmazonsChoice = () => {
     // Fetch products with filters
     applyFilters(catParam, searchParam)
   }, [searchParams])
+
+  // Health check on component mount
+  useEffect(() => {
+    const checkApiHealth = async () => {
+      try {
+        const healthUrl = getApiUrl('../health');
+        console.log('🏥 Checking API health:', healthUrl);
+        const response = await fetch(healthUrl);
+        const health = await response.json();
+        console.log('🏥 API Health:', health);
+      } catch (error) {
+        console.error('❌ API Health check failed:', error);
+      }
+    };
+    
+    checkApiHealth();
+  }, []);
 
   // Initial load - will be triggered by URL params useEffect
 
@@ -318,26 +364,46 @@ const AmazonsChoice = () => {
         }}>
           <div style={{ fontSize: '4rem', marginBottom: '20px', opacity: 0.3 }}>🔌</div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#374151', marginBottom: '10px' }}>
-            No Products Found
+            No Amazon Choice Products Found
           </h2>
           <p style={{ fontSize: '1rem', color: '#6b7280', marginBottom: '20px', maxWidth: '500px', lineHeight: '1.5' }}>
-            No products available at the moment. Please try again later.
+            No Amazon Choice products are currently available. This might be because:
+            <br />• Products are not marked as Amazon's Choice in the database
+            <br />• All Amazon Choice products are currently inactive
+            <br />• Database connection issues
           </p>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              background: '#667eea',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            🔄 Try Again
-          </button>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                background: '#667eea',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              🔄 Try Again
+            </button>
+            <button
+              onClick={() => navigate('/api-debug')}
+              style={{
+                background: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              🔧 Debug Info
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -356,7 +422,47 @@ const AmazonsChoice = () => {
       <div className="container products-container" style={{maxWidth: '1600px', padding: '10px 15px'}}>
         <ScrollToTop />
 
-    
+        {/* Data Source Indicator for Debugging */}
+        {dataSource && dataSource !== 'database' && dataSource !== 'fast' && (
+          <div style={{
+            background: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: '6px',
+            padding: '8px 12px',
+            marginBottom: '10px',
+            fontSize: '0.85rem',
+            color: '#92400e',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span>
+              ⚠️ Using {dataSource} data source. Real products may not be loading properly.
+              {dataSource === 'fallback' && ' Check your internet connection.'}
+              {dataSource === 'cache' && ' Showing cached data.'}
+            </span>
+            <button
+              onClick={() => {
+                setProducts([]);
+                setLoading(true);
+                setDataSource('');
+                fetchProducts();
+              }}
+              style={{
+                background: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '0.75rem',
+                cursor: 'pointer'
+              }}
+            >
+              🔄 Retry
+            </button>
+          </div>
+        )}
+
         
 
 

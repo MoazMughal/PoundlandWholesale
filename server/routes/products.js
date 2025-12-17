@@ -131,6 +131,46 @@ router.get('/public/cache-version', async (req, res) => {
   });
 });
 
+// Debug endpoint to check Amazon Choice products count (public)
+router.get('/public/debug/amazons-choice-count', async (req, res) => {
+  try {
+    const totalProducts = await Product.countDocuments({ 
+      $or: [{ status: 'active' }, { status: { $exists: false } }] 
+    });
+    
+    const amazonsChoiceProducts = await Product.countDocuments({ 
+      $or: [{ status: 'active' }, { status: { $exists: false } }],
+      isAmazonsChoice: true 
+    });
+    
+    const categoryCounts = await Product.aggregate([
+      { 
+        $match: { 
+          $or: [{ status: 'active' }, { status: { $exists: false } }],
+          isAmazonsChoice: true 
+        } 
+      },
+      { 
+        $group: { 
+          _id: '$category', 
+          count: { $sum: 1 } 
+        } 
+      },
+      { $sort: { count: -1 } }
+    ]);
+    
+    res.json({
+      totalProducts,
+      amazonsChoiceProducts,
+      categoryCounts,
+      percentage: totalProducts > 0 ? ((amazonsChoiceProducts / totalProducts) * 100).toFixed(2) : 0
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get unique categories from database (public)
 router.get('/public/categories', async (req, res) => {
   try {
@@ -197,6 +237,64 @@ router.post('/admin/clear-cache', authenticateAdmin, async (req, res) => {
   }
 });
 
+// Admin endpoint to bulk mark products as Amazon Choice
+router.post('/admin/mark-amazons-choice', authenticateAdmin, async (req, res) => {
+  try {
+    const { productIds, markAsAmazonsChoice = true } = req.body;
+    
+    if (!productIds || !Array.isArray(productIds)) {
+      return res.status(400).json({ message: 'productIds array is required' });
+    }
+    
+    const result = await Product.updateMany(
+      { _id: { $in: productIds } },
+      { $set: { isAmazonsChoice: markAsAmazonsChoice } }
+    );
+    
+    console.log(`🏆 Updated ${result.modifiedCount} products as Amazon Choice: ${markAsAmazonsChoice}`);
+    
+    // Clear cache after update
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+    
+    res.json({ 
+      message: `Successfully updated ${result.modifiedCount} products`,
+      modifiedCount: result.modifiedCount,
+      matchedCount: result.matchedCount
+    });
+  } catch (error) {
+    console.error('❌ Error marking products as Amazon Choice:', error);
+    res.status(500).json({ message: 'Error updating products', error: error.message });
+  }
+});
+
+// Admin endpoint to mark ALL active products as Amazon Choice (emergency fix)
+router.post('/admin/mark-all-amazons-choice', authenticateAdmin, async (req, res) => {
+  try {
+    const result = await Product.updateMany(
+      { 
+        $or: [{ status: 'active' }, { status: { $exists: false } }]
+      },
+      { $set: { isAmazonsChoice: true } }
+    );
+    
+    console.log(`🏆 Marked ALL ${result.modifiedCount} active products as Amazon Choice`);
+    
+    // Clear cache after update
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+    
+    res.json({ 
+      message: `Successfully marked ${result.modifiedCount} products as Amazon Choice`,
+      modifiedCount: result.modifiedCount,
+      matchedCount: result.matchedCount
+    });
+  } catch (error) {
+    console.error('❌ Error marking all products as Amazon Choice:', error);
+    res.status(500).json({ message: 'Error updating products', error: error.message });
+  }
+});
+
 // Fast endpoint for 50 products (optimized)
 router.get('/public/fast', async (req, res) => {
   const startTime = Date.now();
@@ -257,23 +355,38 @@ router.get('/public/fast', async (req, res) => {
       console.log(`✅ Fast aggregation successful: ${products.length} products in ${Date.now() - startTime}ms`);
       console.log('📂 Categories in results:', [...new Set(products.map(p => p.category))]);
       
-      // Cache the results
-      fastProductsCache = products;
-      cacheTimestamp = Date.now();
+      // Cache the results (only for unfiltered requests)
+      if (!isAmazonsChoice && !category) {
+        fastProductsCache = products;
+        cacheTimestamp = Date.now();
+        console.log('📦 Results cached for future requests');
+      } else {
+        console.log('📦 Filtered results not cached');
+      }
       
     } catch (error) {
       console.error('❌ Fast aggregation failed:', error);
       
       // Try simple query as fallback
       try {
-        products = await Product.find({ 
+        const fallbackQuery = {
           $or: [
             { status: 'active' },
             { status: { $exists: false } }
           ]
-        })
+        };
+        
+        // Add filters to fallback query too
+        if (isAmazonsChoice === 'true') {
+          fallbackQuery.isAmazonsChoice = true;
+        }
+        if (category && category !== 'all') {
+          fallbackQuery.category = { $regex: category, $options: 'i' };
+        }
+        
+        products = await Product.find(fallbackQuery)
         .limit(50)
-        .select('name price category brand images dealUnits currency rating reviews')
+        .select('name price category brand images dealUnits currency rating reviews isAmazonsChoice isBestSeller')
         .lean()
         .maxTimeMS(3000);
         
@@ -440,6 +553,8 @@ router.get('/public', async (req, res) => {
     if (isBestSeller === 'true') query.isBestSeller = true;
     if (isLatestDeal === 'true') query.isLatestDeal = true;
     if (showOnHome === 'true') query.showOnHome = true;
+
+    console.log('🔍 Final query for products:', JSON.stringify(query, null, 2));
 
     // Enhanced query execution with multiple fallback strategies
     let products;

@@ -63,6 +63,7 @@ const SellerUaeProducts = lazy(() => import('./pages/seller/UaeProducts'))
 const SellerAmazon10Products = lazy(() => import('./pages/seller/Amazon10Products'))
 const SellerAmazonsChoiceProducts = lazy(() => import('./pages/seller/AmazonsChoiceProducts'))
 const SellerListedProducts = lazy(() => import('./pages/seller/ListedProducts'))
+const ApiDebug = lazy(() => import('./components/ApiDebug'))
 
 // Legal Pages
 const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'))
@@ -120,6 +121,7 @@ function App() {
           <Route path="/" element={<AmazonsChoice />} />
           <Route path="/basket" element={<Basket />} />
           <Route path="/clear-storage" element={<ClearStorage />} />
+          <Route path="/api-debug" element={<ApiDebug />} />
           <Route path="/about-us" element={<AboutUs />} />
           <Route path="/categories" element={<Categories />} />
           {/* Legacy routes - redirect to new auth system */}

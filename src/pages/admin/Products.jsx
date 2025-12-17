@@ -911,6 +911,37 @@ const AdminProducts = () => {
           >
             📊 Import
           </button>
+          <button 
+            onClick={async () => {
+              if (confirm('Mark ALL active products as Amazon Choice? This will make all products appear on the Amazon Choice page.')) {
+                try {
+                  const token = localStorage.getItem('adminToken');
+                  const response = await fetch('http://localhost:5000/api/products/admin/mark-all-amazons-choice', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                  });
+                  const result = await response.json();
+                  alert(`✅ ${result.message}`);
+                  fetchProducts(); // Refresh the list
+                } catch (error) {
+                  alert('❌ Failed to update products');
+                }
+              }
+            }}
+            style={{
+              padding: '6px 10px',
+              fontSize: '0.7rem',
+              background: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            🏆 Mark All Amazon Choice
+          </button>
         </div>
         
         {/* Category Quick Filter Buttons */}
