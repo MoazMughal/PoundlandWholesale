@@ -38,18 +38,24 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Enhanced MongoDB connection with comprehensive error handling and fallbacks
 console.log('🔄 Attempting to connect to MongoDB...');
+console.log('📍 Environment:', process.env.NODE_ENV);
 console.log('📍 MongoDB URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
+if (process.env.NODE_ENV === 'production') {
+  console.log('🏭 Production mode - Enhanced connection settings applied');
+}
 
-// Connection options optimized for Atlas free tier
+// Connection options optimized for Atlas free tier and production
 const mongoOptions = {
-  maxPoolSize: 10,
-  minPoolSize: 2,
+  maxPoolSize: process.env.NODE_ENV === 'production' ? 5 : 10, // Smaller pool for free tier
+  minPoolSize: 1,
   maxIdleTimeMS: 30000,
-  serverSelectionTimeoutMS: 15000,
-  socketTimeoutMS: 45000,
-  connectTimeoutMS: 15000,
+  serverSelectionTimeoutMS: 20000, // Increased for production
+  socketTimeoutMS: 60000, // Increased for production
+  connectTimeoutMS: 20000, // Increased for production
   heartbeatFrequencyMS: 10000,
-  family: 4 // Use IPv4
+  family: 4, // Use IPv4
+  retryWrites: true,
+  w: 'majority'
 };
 
 // Connection retry mechanism
@@ -226,11 +232,15 @@ app.get('/api/test-db', async (req, res) => {
     const connectionState = mongoose.connection.readyState;
     const stateNames = ['disconnected', 'connected', 'connecting', 'disconnecting'];
     
+    console.log('🔍 Database test requested - Connection state:', stateNames[connectionState]);
+    
     if (connectionState !== 1) {
+      console.error('❌ Database not connected:', stateNames[connectionState]);
       return res.status(503).json({
         success: false,
         message: `Database ${stateNames[connectionState]}`,
         connectionState,
+        mongoUri: process.env.MONGODB_URI ? 'Set' : 'Not set',
         suggestion: 'Database is not connected. Check MongoDB Atlas status.'
       });
     }
@@ -238,28 +248,37 @@ app.get('/api/test-db', async (req, res) => {
     // Test ping
     const pingResult = await mongoose.connection.db.admin().ping();
     const pingTime = Date.now() - startTime;
+    console.log('✅ Database ping successful:', pingTime + 'ms');
     
     // Test simple query
     const queryStart = Date.now();
     const productCount = await mongoose.connection.db.collection('products').countDocuments({ status: 'active' });
+    const amazonsChoiceCount = await mongoose.connection.db.collection('products').countDocuments({ 
+      status: 'active', 
+      isAmazonsChoice: true 
+    });
     const queryTime = Date.now() - queryStart;
+    console.log('✅ Database query successful:', queryTime + 'ms', 'Products:', productCount, 'Amazon Choice:', amazonsChoiceCount);
     
     res.json({
       success: true,
       message: 'Database connection healthy',
+      environment: process.env.NODE_ENV,
       tests: {
         ping: { success: true, time: pingTime, result: pingResult },
-        query: { success: true, time: queryTime, productCount },
+        query: { success: true, time: queryTime, productCount, amazonsChoiceCount },
         connection: { state: stateNames[connectionState], readyState: connectionState }
       },
       totalTime: Date.now() - startTime
     });
     
   } catch (error) {
+    console.error('❌ Database test failed:', error);
     res.status(500).json({
       success: false,
       message: 'Database connection test failed',
       error: error.message,
+      mongoUri: process.env.MONGODB_URI ? 'Set' : 'Not set',
       suggestion: 'Check MongoDB Atlas connection string and network access'
     });
   }

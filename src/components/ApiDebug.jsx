@@ -37,6 +37,8 @@ const ApiDebug = () => {
 
   const runAllTests = async () => {
     setTestResults({});
+    await testEndpoint('../health', 'Server Health');
+    await testEndpoint('../test-db', 'Database Connection');
     await testEndpoint('products/public/debug/amazons-choice-count', 'Amazon Choice Count');
     await testEndpoint('products/public/fast', 'Fast Endpoint');
     await testEndpoint('products/public?isAmazonsChoice=true&limit=10', 'Amazon Choice Filter');
