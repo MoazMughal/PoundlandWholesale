@@ -155,29 +155,48 @@ const AmazonsChoice = () => {
           console.log('💰 Price fields in sample:', {
             price: data.products[0]?.price,
             originalPrice: data.products[0]?.originalPrice,
-            dealUnits: data.products[0]?.dealUnits
+            dealUnits: data.products[0]?.dealUnits,
+            profitCalculations: data.products[0]?.profitCalculations,
+            profitEvaluation: data.products[0]?.profitEvaluation
           })
           
           // Simplified: All prices in GBP (£) only - use actual database price
-          const transformedProducts = data.products.map(p => ({
-            id: p._id,
-            name: p.name,
-            // Store the raw database price (this might be per-unit or total price)
-            price: `£${parseFloat(p.price || 0).toFixed(2)}`,
-            rawPrice: parseFloat(p.price || 0), // Keep raw number for calculations
-            originalPrice: p.originalPrice ? `£${parseFloat(p.originalPrice).toFixed(2)}` : null,
-            category: p.category,
-            brand: p.brand,
-            image: p.images?.[0] || '',
-            images: p.images || [],
-            rating: p.rating || 4.5,
-            reviews: p.reviews || 0,
-            stock: p.stock || 0,
-            discount: p.discount || 0,
-            dealUnits: p.dealUnits || 1,
-            currency: 'GBP',
-            isAmazonsChoice: true
-          }))
+          const transformedProducts = data.products.map(p => {
+            // Debug amber bulb specifically
+            if (p.name && p.name.toLowerCase().includes('amber') && p.name.toLowerCase().includes('bulb')) {
+              console.log('🔍 AMBER BULB DEBUG:', {
+                id: p._id,
+                name: p.name,
+                profitCalculations: p.profitCalculations,
+                profitEvaluation: p.profitEvaluation,
+                evaluation: p.evaluation
+              });
+            }
+            
+            return {
+              id: p._id,
+              name: p.name,
+              // Store the raw database price (this might be per-unit or total price)
+              price: `£${parseFloat(p.price || 0).toFixed(2)}`,
+              rawPrice: parseFloat(p.price || 0), // Keep raw number for calculations
+              originalPrice: p.originalPrice ? `£${parseFloat(p.originalPrice).toFixed(2)}` : null,
+              category: p.category,
+              brand: p.brand,
+              image: p.images?.[0] || '',
+              images: p.images || [],
+              rating: p.rating || 4.5,
+              reviews: p.reviews || 0,
+              stock: p.stock || 0,
+              discount: p.discount || 0,
+              dealUnits: p.dealUnits || 1,
+              currency: 'GBP',
+              isAmazonsChoice: true,
+              // Include profit data from database
+              profitCalculations: p.profitCalculations || null,
+              evaluation: p.evaluation || null,
+              profitEvaluation: p.profitEvaluation || null
+            };
+          })
           
           console.log('🎯 Setting products state:', {
             originalCount: data.products.length,
@@ -656,18 +675,20 @@ const AmazonsChoice = () => {
                         profitPerUnit = parseFloat(product.evaluation.netProfit);
                       }
                       
-                      // Apply hardcoded profits for specific products (same as ProductDetail)
-                      const productName = product.name?.toLowerCase() || '';
-                      if (productName.includes('nose ring')) {
-                        profitPerUnit = 40.14;
-                      } else if (productName.includes('bulb')) {
-                        profitPerUnit = 251.10;
-                      } else if (productName.includes('fuse')) {
-                        profitPerUnit = 455.80;
-                      } else if (productName.includes('lampshade')) {
-                        profitPerUnit = 227.80;
-                      } else if (productName.includes('leather') && productName.includes('watch')) {
-                        profitPerUnit = 586.00;
+                      // Only use hardcoded profits if no database profit data exists
+                      if (profitPerUnit === 0) {
+                        const productName = product.name?.toLowerCase() || '';
+                        if (productName.includes('nose ring')) {
+                          profitPerUnit = 40.14;
+                        } else if (productName.includes('bulb')) {
+                          profitPerUnit = 251.10;
+                        } else if (productName.includes('fuse')) {
+                          profitPerUnit = 455.80;
+                        } else if (productName.includes('lampshade')) {
+                          profitPerUnit = 227.80;
+                        } else if (productName.includes('leather') && productName.includes('watch')) {
+                          profitPerUnit = 586.00;
+                        }
                       }
                       
                       return parseFloat(profitPerUnit) || 0;
@@ -692,7 +713,7 @@ const AmazonsChoice = () => {
                         
                         {/* Profit for deal units */}
                         <div style={{fontSize: '8px', color: '#059669', fontWeight: '700'}}>
-                          📈 £{totalProfit.toFixed(2)}/${dealUnits} unit${dealUnits !== 1 ? 's' : ''}
+                          📈 £{totalProfit.toFixed(2)}/{dealUnits} unit{dealUnits !== 1 ? 's' : ''}
                         </div>
                       </div>
                     );

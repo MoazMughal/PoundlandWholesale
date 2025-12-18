@@ -22,12 +22,13 @@ const AdminProducts = () => {
   const [selectedProducts, setSelectedProducts] = useState(new Set());
   const [selectedUnits, setSelectedUnits] = useState(200);
   const [productCostUpdated, setProductCostUpdated] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   
   const currency = 'GBP';
   const currencySymbol = '£';
   const productsPerPage = 50;
 
-  const categories = [
+  const [categories, setCategories] = useState([
     { value: 'all', label: 'All Products', icon: '📦' },
     { value: 'remote', label: 'Remote Controls', icon: '📺' },
     { value: 'electronics', label: 'Electronics', icon: '⚡' },
@@ -39,7 +40,7 @@ const AdminProducts = () => {
     { value: 'automotive', label: 'Automotive', icon: '🚗' },
     { value: 'tape', label: 'Tape', icon: '📼' },
     { value: 'lampshade', label: 'Lampshades', icon: '💡' }
-  ];
+  ]);
 
   const formatPrice = (price) => {
     return `£${parseFloat(price || 0).toFixed(2)}`;
@@ -90,8 +91,70 @@ const AdminProducts = () => {
   }, [location.pathname, location.search, location.state?.category]);
 
   useEffect(() => {
+    // Clear cache to ensure fresh data
+    cacheManager.clearAll();
     fetchProducts();
+    fetchCategories();
   }, [search, filters]);
+
+  // Track window resize for responsive modal
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      // Include Excel categories for admin use
+      const response = await fetch('http://localhost:5000/api/categories?includeExcel=true');
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Merge with default categories (keeping icons)
+        const defaultCategories = [
+          { value: 'all', label: 'All Products', icon: '📦' }
+        ];
+        
+        const dynamicCategories = data.categories.map(cat => ({
+          value: cat.value,
+          label: cat.label,
+          icon: getCategoryIcon(cat.value)
+        }));
+        
+        setCategories([...defaultCategories, ...dynamicCategories]);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      // Keep default categories if API fails
+    }
+  };
+
+  const getCategoryIcon = (categoryValue) => {
+    const iconMap = {
+      'remote': '📺',
+      'electronics': '⚡',
+      'strap': '⌚',
+      'jewelry': '💎',
+      'party': '🎉',
+      'home': '🏠',
+      'kitchen': '🍳',
+      'automotive': '🚗',
+      'tape': '📼',
+      'lampshade': '💡',
+      'clothing': '👕',
+      'food': '🍕',
+      'beauty': '💄',
+      'sports': '⚽',
+      'toys': '🧸',
+      'books': '📚',
+      'health': '🏥'
+    };
+    return iconMap[categoryValue] || '📂';
+  };
 
   useEffect(() => {
     let filtered = [...products];
@@ -133,12 +196,18 @@ const AdminProducts = () => {
 
       const useFastEndpoint = !search && !filters.category && !filters.status && !filters.isAmazonsChoice;
       
+      // Add cache buster to ensure fresh data
+      const cacheBuster = `_t=${Date.now()}`;
       const url = useFastEndpoint 
-        ? `http://localhost:5000/api/products/admin/fast`
-        : `http://localhost:5000/api/products?${params}`;
+        ? `http://localhost:5000/api/products/admin/fast?${cacheBuster}`
+        : `http://localhost:5000/api/products?${params}&${cacheBuster}`;
 
       const response = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
       });
 
       if (!response.ok) {
@@ -275,7 +344,9 @@ const AdminProducts = () => {
 
   const handleCellClick = (productId, field, currentValue) => {
     setEditingCell(`${productId}-${field}`);
-    setEditValues({ ...editValues, [`${productId}-${field}`]: currentValue });
+    // Ensure ASIN field has a proper initial value (empty string if null/undefined)
+    const initialValue = field === 'asin' ? (currentValue || '') : currentValue;
+    setEditValues({ ...editValues, [`${productId}-${field}`]: initialValue });
   };
 
   const handleEditChange = (productId, field, value) => {
@@ -286,17 +357,37 @@ const AdminProducts = () => {
     const cellKey = `${productId}-${field}`;
     const newValue = editValues[cellKey];
     
-    if (newValue === undefined || newValue === '') {
+    // Allow empty values for ASIN field, but not for price/stock
+    if (newValue === undefined || (newValue === '' && field !== 'asin')) {
       return;
     }
 
     try {
       const token = localStorage.getItem('adminToken');
-      let parsedValue = field === 'price' || field === 'stock' ? parseFloat(newValue) : newValue;
+      let parsedValue;
+      
+      if (field === 'price' || field === 'stock') {
+        parsedValue = parseFloat(newValue);
+      } else if (field === 'asin') {
+        // Handle ASIN field - trim and convert to uppercase, allow empty string
+        parsedValue = newValue ? newValue.trim().toUpperCase() : '';
+      } else {
+        parsedValue = newValue;
+      }
       
       const updateData = { [field]: parsedValue };
       if (field === 'price') {
         updateData.currency = 'GBP';
+      }
+      
+      // Debug logging for ASIN updates
+      if (field === 'asin') {
+        console.log('🏷️ Saving ASIN:', {
+          productId,
+          originalValue: newValue,
+          parsedValue,
+          updateData
+        });
       }
       
       const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
@@ -323,6 +414,15 @@ const AdminProducts = () => {
           p._id === productId ? { ...p, ...updateObject } : p
         ));
         setEditingCell(null);
+        
+        // Log successful ASIN update
+        if (field === 'asin') {
+          console.log('✅ ASIN updated successfully:', {
+            productId,
+            newASIN: parsedValue,
+            productName: updatedProducts.find(p => p._id === productId)?.name
+          });
+        }
         
         // If price was updated, check if we need to update profit data
         if (field === 'price') {
@@ -489,11 +589,33 @@ const AdminProducts = () => {
       } else {
         const errorData = await response.json();
         console.error('Update failed:', errorData);
-        alert(`❌ Failed to update: ${errorData.message || 'Unknown error'}`);
+        
+        // Specific error message for ASIN updates
+        if (field === 'asin') {
+          console.error('❌ ASIN update failed:', {
+            productId,
+            attemptedValue: parsedValue,
+            error: errorData
+          });
+          alert(`❌ Failed to update ASIN: ${errorData.message || 'Unknown error'}`);
+        } else {
+          alert(`❌ Failed to update: ${errorData.message || 'Unknown error'}`);
+        }
       }
     } catch (error) {
       console.error('Error updating product:', error);
-      alert('❌ Failed to update. Please try again.');
+      
+      // Specific error message for ASIN updates
+      if (field === 'asin') {
+        console.error('❌ ASIN update error:', {
+          productId,
+          attemptedValue: parsedValue,
+          error: error.message
+        });
+        alert('❌ Failed to update ASIN. Please try again.');
+      } else {
+        alert('❌ Failed to update. Please try again.');
+      }
     }
   };
 
@@ -600,7 +722,8 @@ const AdminProducts = () => {
       features: Array.isArray(product.features) ? product.features : [],
       platformComparison: initPlatformComparison,
       profitCalculations: initProfitCalculations,
-      profitEvaluation: initProfitEvaluation
+      profitEvaluation: initProfitEvaluation,
+      save: safeParseFloat(product.save, 0) // Initialize save field
     });
     setProductCostUpdated(false); // Reset visual indicator
     setShowProfitModal(true);
@@ -706,11 +829,22 @@ const AdminProducts = () => {
         yearlyProfit: parseFloat((parseFloat(profitEditProduct.profitEvaluation.yearlyProfit) || 0).toFixed(2))
       };
 
+      console.log('💰 PROFIT VALUES BEING SAVED:');
+      console.log('- Monthly Profit:', cleanProfitEvaluation.monthlyProfit);
+      console.log('- Yearly Profit:', cleanProfitEvaluation.yearlyProfit);
+      console.log('- Net Profit:', cleanProfitEvaluation.netProfit);
+      console.log('💰 SAVE FIELD DEBUG:', {
+        rawSave: profitEditProduct.save,
+        saveType: typeof profitEditProduct.save,
+        parsedSave: parseFloat((parseFloat(profitEditProduct.save) || 0).toFixed(2))
+      });
+
       const updateData = {
         platformComparison: cleanPlatformComparison,
         platformUnits: parseInt(selectedUnits) || 200,
         profitCalculations: cleanProfitCalculations,
-        profitEvaluation: cleanProfitEvaluation
+        profitEvaluation: cleanProfitEvaluation,
+        save: parseFloat((parseFloat(profitEditProduct.save) || 0).toFixed(2)) // Save the single save field
       };
 
       console.log('🔄 Sending profit update data:', updateData);
@@ -740,6 +874,14 @@ const AdminProducts = () => {
         console.log('- Profit Calculations:', responseData.profitCalculations);
         console.log('- Profit Evaluation:', responseData.profitEvaluation);
         
+        // Specifically check monthly and yearly profit values
+        if (responseData.profitEvaluation) {
+          console.log('💰 SAVED PROFIT VALUES VERIFICATION:');
+          console.log('- Monthly Profit saved:', responseData.profitEvaluation.monthlyProfit);
+          console.log('- Yearly Profit saved:', responseData.profitEvaluation.yearlyProfit);
+          console.log('- Net Profit saved:', responseData.profitEvaluation.netProfit);
+        }
+        
         // Clear all caches to ensure fresh data
         cacheManager.clearAll();
         
@@ -752,8 +894,14 @@ const AdminProducts = () => {
           });
         }
         
+        // Clear localStorage cache if any
+        const cacheKeys = Object.keys(localStorage).filter(key => key.includes('product') || key.includes('cache'));
+        cacheKeys.forEach(key => localStorage.removeItem(key));
+        
         // Force reload product data
         await fetchProducts();
+        
+        console.log('🔄 All caches cleared and product data refreshed');
         
         alert('✅ Profit data updated successfully! The product detail page will now show the updated data.');
         setShowProfitModal(false);
@@ -835,26 +983,13 @@ const AdminProducts = () => {
         </button>
       </div>
 
-      {/* Performance Notice */}
-      {!search && !filters.category && !filters.status && !filters.isAmazonsChoice && (
-        <div style={{
-          padding: '8px 12px',
-          marginBottom: '12px',
-          background: '#e3f2fd',
-          border: '1px solid #2196f3',
-          borderRadius: '6px',
-          fontSize: '0.8rem',
-          color: '#1976d2'
-        }}>
-          ⚡ Fast Mode: Showing 50 most recent products for optimal performance. Use search or filters to find specific products.
-        </div>
-      )}
+  
 
       <div className="filters-section" style={{padding: '6px 8px', marginBottom: '6px', background: 'white', borderRadius: '6px'}}>
         <div style={{display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center'}}>
           <input
             type="text"
-            placeholder="🔍 Search by name, ID, category, brand..."
+            placeholder="🔍 Search by name, ID, category, brand, ASIN..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="search-input"
@@ -877,6 +1012,16 @@ const AdminProducts = () => {
               whiteSpace: 'nowrap'
             }}>
               🔍 ID Search
+            </small>
+          )}
+          {search && search.length >= 3 && /^[A-Z0-9]{10}$/.test(search.toUpperCase()) && (
+            <small style={{
+              fontSize: '0.65rem', 
+              color: '#ff9800', 
+              fontWeight: '500',
+              whiteSpace: 'nowrap'
+            }}>
+              🏷️ ASIN Search
             </small>
           )}
           <button 
@@ -1192,6 +1337,7 @@ const AdminProducts = () => {
                     />
                   </th>
                   <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Product</th>
+                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>ASIN</th>
                   <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Category</th>
                   <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Price</th>
                   <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Stock</th>
@@ -1233,6 +1379,47 @@ const AdminProducts = () => {
                         {product.isAmazonsChoice && <span style={{fontSize: '0.7rem'}}>🏆</span>}
                       </div>
                       <div className="product-id" style={{fontSize: '0.6rem', color: '#6b7280'}}>ID: {product._id.slice(-6)}</div>
+                    </td>
+                    <td 
+                      className="asin" 
+                      style={{padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s'}}
+                      data-cell={`${product._id}-asin`}
+                      onClick={() => handleCellClick(product._id, 'asin', product.asin)}
+                      onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
+                      onMouseLeave={(e) => e.target.style.background = ''}
+                      title="Click to edit ASIN"
+                    >
+                      {editingCell === `${product._id}-asin` ? (
+                        <input
+                          type="text"
+                          value={editValues[`${product._id}-asin`] || ''}
+                          onChange={(e) => handleEditChange(product._id, 'asin', e.target.value.toUpperCase())}
+                          onBlur={() => handleSaveEdit(product._id, 'asin')}
+                          onKeyDown={(e) => handleKeyPress(e, product._id, 'asin')}
+                          autoFocus
+                          maxLength="10"
+                          style={{
+                            width: '80px',
+                            padding: '3px',
+                            fontSize: '0.7rem',
+                            border: '2px solid #667eea',
+                            borderRadius: '4px',
+                            outline: 'none',
+                            textTransform: 'uppercase',
+                            fontFamily: 'monospace'
+                          }}
+                        />
+                      ) : (
+                        <span style={{
+                          fontSize: '0.65rem',
+                          fontFamily: 'monospace',
+                          color: product.asin ? '#374151' : '#9ca3af',
+                          fontWeight: product.asin ? '600' : '400'
+                        }}>
+                          {product.asin || 'No ASIN'}
+                          <span style={{marginLeft: '3px', fontSize: '0.55rem', color: '#999'}}>✏️</span>
+                        </span>
+                      )}
                     </td>
                     <td style={{padding: '4px 8px'}}>
                       <span className="category-badge" style={{fontSize: '0.65rem', padding: '2px 6px'}}>{product.category}</span>
@@ -1479,39 +1666,73 @@ const AdminProducts = () => {
           backgroundColor: 'rgba(0, 0, 0, 0.7)',
           display: 'flex',
           justifyContent: 'center',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           zIndex: 1000,
-          padding: '20px'
+          padding: windowWidth <= 768 ? '10px' : '20px',
+          overflowY: 'auto'
         }}>
           <div style={{
             backgroundColor: 'white',
-            borderRadius: '12px',
-            width: '90%',
-            maxWidth: '1200px',
-            maxHeight: '90vh',
-            overflow: 'auto',
-            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)'
+            borderRadius: windowWidth <= 768 ? '8px' : '12px',
+            width: '100%',
+            maxWidth: windowWidth <= 768 ? '100%' : '1200px',
+            maxHeight: windowWidth <= 768 ? 'none' : '90vh',
+            overflow: windowWidth <= 768 ? 'visible' : 'auto',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+            marginTop: windowWidth <= 768 ? '10px' : '0',
+            marginBottom: windowWidth <= 768 ? '10px' : '0'
           }}>
             <div style={{
-              padding: '25px',
+              padding: windowWidth <= 768 ? '15px' : '25px',
               borderBottom: '2px solid #f0f0f0',
               background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
               color: 'white',
-              borderRadius: '12px 12px 0 0',
+              borderRadius: windowWidth <= 768 ? '8px 8px 0 0' : '12px 12px 0 0',
               display: 'flex',
+              flexDirection: windowWidth <= 768 ? 'column' : 'row',
               justifyContent: 'space-between',
-              alignItems: 'center'
+              alignItems: windowWidth <= 768 ? 'flex-start' : 'center',
+              gap: windowWidth <= 768 ? '15px' : '0'
             }}>
-              <div style={{flex: 1}}>
-                <h2 style={{margin: 0, fontSize: '1.5rem', fontWeight: 'bold'}}>💰 Profit Details Management</h2>
-                <p style={{margin: '5px 0 0 0', opacity: 0.9}}>{profitEditProduct.name}</p>
+              <div style={{flex: 1, minWidth: 0}}>
+                <h2 style={{
+                  margin: 0, 
+                  fontSize: window.innerWidth <= 768 ? '1.2rem' : '1.5rem', 
+                  fontWeight: 'bold',
+                  lineHeight: '1.2'
+                }}>
+                  💰 Profit Details Management
+                </h2>
+                <p style={{
+                  margin: '5px 0 0 0', 
+                  opacity: 0.9,
+                  fontSize: window.innerWidth <= 768 ? '0.85rem' : '1rem',
+                  wordBreak: 'break-word'
+                }}>
+                  {profitEditProduct.name}
+                </p>
               </div>
-              <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
-                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end'}}>
-                  <label style={{fontSize: '0.75rem', marginBottom: '4px', opacity: 0.9}}>Currency</label>
+              <div style={{
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: window.innerWidth <= 768 ? '10px' : '15px',
+                flexShrink: 0
+              }}>
+                <div style={{
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: window.innerWidth <= 768 ? 'flex-start' : 'flex-end'
+                }}>
+                  <label style={{
+                    fontSize: window.innerWidth <= 768 ? '0.7rem' : '0.75rem', 
+                    marginBottom: '4px', 
+                    opacity: 0.9
+                  }}>
+                    Currency
+                  </label>
                   <div style={{
-                    padding: '6px 12px',
-                    fontSize: '0.9rem',
+                    padding: window.innerWidth <= 768 ? '4px 8px' : '6px 12px',
+                    fontSize: window.innerWidth <= 768 ? '0.8rem' : '0.9rem',
                     border: '2px solid rgba(255,255,255,0.3)',
                     borderRadius: '6px',
                     fontWeight: '600',
@@ -1527,12 +1748,13 @@ const AdminProducts = () => {
                     background: 'rgba(255,255,255,0.2)',
                     border: 'none',
                     color: '#fff',
-                    width: '40px',
-                    height: '40px',
+                    width: window.innerWidth <= 768 ? '35px' : '40px',
+                    height: window.innerWidth <= 768 ? '35px' : '40px',
                     borderRadius: '50%',
                     cursor: 'pointer',
-                    fontSize: '20px',
-                    fontWeight: '700'
+                    fontSize: window.innerWidth <= 768 ? '18px' : '20px',
+                    fontWeight: '700',
+                    flexShrink: 0
                   }}
                 >
                   ×
@@ -1540,13 +1762,37 @@ const AdminProducts = () => {
               </div>
             </div>
 
-            <div style={{padding: '25px'}}>
+            <div style={{padding: window.innerWidth <= 768 ? '15px' : '25px'}}>
               {/* Platform Comparison Section */}
-              <div style={{marginBottom: '30px', padding: '20px', backgroundColor: '#e8f5e9', borderRadius: '8px', border: '2px solid #28a745'}}>
-                <h3 style={{color: '#28a745', marginBottom: '20px', fontSize: '1.3rem'}}>📊 Platform Comparison</h3>
+              <div style={{
+                marginBottom: window.innerWidth <= 768 ? '20px' : '30px', 
+                padding: window.innerWidth <= 768 ? '15px' : '20px', 
+                backgroundColor: '#e8f5e9', 
+                borderRadius: '8px', 
+                border: '2px solid #28a745'
+              }}>
+                <h3 style={{
+                  color: '#28a745', 
+                  marginBottom: window.innerWidth <= 768 ? '15px' : '20px', 
+                  fontSize: window.innerWidth <= 768 ? '1.1rem' : '1.3rem'
+                }}>
+                  📊 Platform Comparison
+                </h3>
                 {profitEditProduct.platformComparison.map((platform, index) => (
-                  <div key={index} style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #ddd'}}>
-                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr auto', gap: '15px', alignItems: 'center'}}>
+                  <div key={index} style={{
+                    marginBottom: window.innerWidth <= 768 ? '15px' : '20px', 
+                    padding: window.innerWidth <= 768 ? '12px' : '15px', 
+                    backgroundColor: 'white', 
+                    borderRadius: '8px', 
+                    border: '1px solid #ddd'
+                  }}>
+                    <div style={{
+                      display: window.innerWidth <= 768 ? 'flex' : 'grid',
+                      flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+                      gridTemplateColumns: window.innerWidth <= 768 ? 'none' : '1fr 1fr 1fr 1fr 1fr auto',
+                      gap: window.innerWidth <= 768 ? '12px' : '15px',
+                      alignItems: window.innerWidth <= 768 ? 'stretch' : 'center'
+                    }}>
                       <div>
                         <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Platform</label>
                         <select
@@ -1682,12 +1928,86 @@ const AdminProducts = () => {
                 >
                   + Add Platform
                 </button>
+                
+                {/* Single Save Field */}
+                <div style={{
+                  marginTop: window.innerWidth <= 768 ? '15px' : '20px',
+                  padding: window.innerWidth <= 768 ? '12px' : '15px',
+                  backgroundColor: '#e8f5e9',
+                  borderRadius: '8px',
+                  border: '2px solid #28a745'
+                }}>
+                  <div style={{
+                    display: window.innerWidth <= 768 ? 'flex' : 'grid',
+                    flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+                    gridTemplateColumns: window.innerWidth <= 768 ? 'none' : '1fr 2fr',
+                    gap: window.innerWidth <= 768 ? '12px' : '15px',
+                    alignItems: window.innerWidth <= 768 ? 'stretch' : 'center'
+                  }}>
+                    <div>
+                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#28a745'}}>
+                        Save (£)
+                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
+                          (Total savings amount)
+                        </span>
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={safeFormatNumber(profitEditProduct.save) || ''}
+                        onChange={(e) => {
+                          const newValue = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                          setProfitEditProduct({...profitEditProduct, save: newValue});
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          border: '2px solid #28a745',
+                          borderRadius: '6px',
+                          fontSize: '0.9rem',
+                          backgroundColor: 'white'
+                        }}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div style={{
+                      fontSize: '0.8rem',
+                      color: '#155724',
+                      fontStyle: 'italic',
+                      padding: '10px',
+                      backgroundColor: 'rgba(255,255,255,0.7)',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(40, 167, 69, 0.3)'
+                    }}>
+                      💡 This save amount will be displayed in the product detail page to show customers how much they can save.
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Profit Calculations Section */}
-              <div style={{marginBottom: '30px', padding: '20px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '2px solid #ffc107'}}>
-                <h3 style={{color: '#856404', marginBottom: '20px', fontSize: '1.3rem'}}>🧮 Profit Calculations</h3>
-                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
+              <div style={{
+                marginBottom: window.innerWidth <= 768 ? '20px' : '30px', 
+                padding: window.innerWidth <= 768 ? '15px' : '20px', 
+                backgroundColor: '#fff3cd', 
+                borderRadius: '8px', 
+                border: '2px solid #ffc107'
+              }}>
+                <h3 style={{
+                  color: '#856404', 
+                  marginBottom: window.innerWidth <= 768 ? '15px' : '20px', 
+                  fontSize: window.innerWidth <= 768 ? '1.1rem' : '1.3rem'
+                }}>
+                  🧮 Profit Calculations
+                </h3>
+                <div style={{
+                  display: window.innerWidth <= 768 ? 'flex' : 'grid',
+                  flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+                  gridTemplateColumns: window.innerWidth <= 768 ? 'none' : '1fr 1fr',
+                  gap: window.innerWidth <= 768 ? '15px' : '20px'
+                }}>
                   <div>
                     <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
                       Profit Per Unit (£)
@@ -1732,9 +2052,26 @@ const AdminProducts = () => {
               </div>
 
               {/* Amazon FBA Revenue Calculator Section */}
-              <div style={{marginBottom: '30px', padding: '20px', backgroundColor: '#f8d7da', borderRadius: '8px', border: '2px solid #dc3545'}}>
-                <h3 style={{color: '#721c24', marginBottom: '15px', fontSize: '1.3rem'}}>💼 Amazon FBA Revenue Calculator</h3>
-                <p style={{color: '#721c24', marginBottom: '20px', fontSize: '0.9rem', fontStyle: 'italic'}}>
+              <div style={{
+                marginBottom: window.innerWidth <= 768 ? '20px' : '30px', 
+                padding: window.innerWidth <= 768 ? '15px' : '20px', 
+                backgroundColor: '#f8d7da', 
+                borderRadius: '8px', 
+                border: '2px solid #dc3545'
+              }}>
+                <h3 style={{
+                  color: '#721c24', 
+                  marginBottom: window.innerWidth <= 768 ? '12px' : '15px', 
+                  fontSize: window.innerWidth <= 768 ? '1.1rem' : '1.3rem'
+                }}>
+                  💼 Amazon FBA Revenue Calculator
+                </h3>
+                <p style={{
+                  color: '#721c24', 
+                  marginBottom: window.innerWidth <= 768 ? '15px' : '20px', 
+                  fontSize: window.innerWidth <= 768 ? '0.8rem' : '0.9rem', 
+                  fontStyle: 'italic'
+                }}>
                   Complete Amazon FBA profit analysis - all fields will be displayed in the product detail page
                 </p>
                 
@@ -1776,7 +2113,13 @@ const AdminProducts = () => {
                   <h4 style={{color: '#721c24', marginBottom: '15px', fontSize: '1.1rem', borderBottom: '2px solid #dc3545', paddingBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px'}}>
                     💸 Amazon Fees & Taxes
                   </h4>
-                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px'}}>
+                  <div style={{
+                    display: window.innerWidth <= 768 ? 'flex' : 'grid',
+                    flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+                    gridTemplateColumns: window.innerWidth <= 768 ? 'none' : '1fr 1fr',
+                    gap: window.innerWidth <= 768 ? '12px' : '15px',
+                    marginBottom: window.innerWidth <= 768 ? '12px' : '15px'
+                  }}>
                     <div>
                       <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
                         Commission (£)
@@ -1833,7 +2176,13 @@ const AdminProducts = () => {
                     </div>
                   </div>
 
-                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px'}}>
+                  <div style={{
+                    display: window.innerWidth <= 768 ? 'flex' : 'grid',
+                    flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+                    gridTemplateColumns: window.innerWidth <= 768 ? 'none' : '1fr 1fr',
+                    gap: window.innerWidth <= 768 ? '12px' : '15px',
+                    marginBottom: window.innerWidth <= 768 ? '12px' : '15px'
+                  }}>
                     <div>
                       <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
                         Digital Services Fee (£)
@@ -1890,7 +2239,12 @@ const AdminProducts = () => {
                     </div>
                   </div>
 
-                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+                  <div style={{
+                    display: window.innerWidth <= 768 ? 'flex' : 'grid',
+                    flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+                    gridTemplateColumns: window.innerWidth <= 768 ? 'none' : '1fr 1fr',
+                    gap: window.innerWidth <= 768 ? '12px' : '15px'
+                  }}>
                     <div>
                       <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
                         FBA Fulfilment Fee (£)
@@ -1953,7 +2307,13 @@ const AdminProducts = () => {
                   <h4 style={{color: '#721c24', marginBottom: '15px', fontSize: '1.1rem', borderBottom: '2px solid #dc3545', paddingBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px'}}>
                     📊 Financial Summary
                   </h4>
-                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px'}}>
+                  <div style={{
+                    display: window.innerWidth <= 768 ? 'flex' : 'grid',
+                    flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+                    gridTemplateColumns: window.innerWidth <= 768 ? 'none' : '1fr 1fr',
+                    gap: window.innerWidth <= 768 ? '12px' : '15px',
+                    marginBottom: window.innerWidth <= 768 ? '12px' : '15px'
+                  }}>
                     <div>
                       <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
                         Balance Change (£)
@@ -2043,7 +2403,16 @@ const AdminProducts = () => {
                   <h4 style={{color: '#155724', marginBottom: '15px', fontSize: '1.1rem', borderBottom: '2px solid #28a745', paddingBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px'}}>
                     💰 Profit Analysis
                   </h4>
-                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', padding: '15px', backgroundColor: '#e6f7ee', borderRadius: '8px', border: '1px solid #28a745'}}>
+                  <div style={{
+                    display: window.innerWidth <= 768 ? 'flex' : 'grid',
+                    flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+                    gridTemplateColumns: window.innerWidth <= 768 ? 'none' : '1fr 1fr 1fr',
+                    gap: window.innerWidth <= 768 ? '12px' : '15px',
+                    padding: window.innerWidth <= 768 ? '12px' : '15px',
+                    backgroundColor: '#e6f7ee',
+                    borderRadius: '8px',
+                    border: '1px solid #28a745'
+                  }}>
                     <div>
                       <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#155724'}}>
                         Net Profit (£)
@@ -2130,23 +2499,29 @@ const AdminProducts = () => {
               </div>
 
               {/* Action Buttons */}
-              <div style={{display: 'flex', justifyContent: 'flex-end', gap: '15px', paddingTop: '20px', borderTop: '2px solid #f0f0f0'}}>
-               
-               
+              <div style={{
+                display: 'flex',
+                flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+                justifyContent: window.innerWidth <= 768 ? 'stretch' : 'flex-end',
+                gap: window.innerWidth <= 768 ? '10px' : '15px',
+                paddingTop: window.innerWidth <= 768 ? '15px' : '20px',
+                borderTop: '2px solid #f0f0f0'
+              }}>
                 <button
                   onClick={() => {
                     const productUrl = `/product/${profitEditProduct._id}`;
                     window.open(productUrl, '_blank');
                   }}
                   style={{
-                    padding: '12px 25px',
-                    fontSize: '1rem',
+                    padding: window.innerWidth <= 768 ? '10px 20px' : '12px 25px',
+                    fontSize: window.innerWidth <= 768 ? '0.9rem' : '1rem',
                     background: '#6f42c1',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
                     cursor: 'pointer',
-                    fontWeight: '600'
+                    fontWeight: '600',
+                    order: window.innerWidth <= 768 ? 1 : 0
                   }}
                 >
                   👁️ View Product
@@ -2154,14 +2529,15 @@ const AdminProducts = () => {
                 <button
                   onClick={() => setShowProfitModal(false)}
                   style={{
-                    padding: '12px 25px',
-                    fontSize: '1rem',
+                    padding: window.innerWidth <= 768 ? '10px 20px' : '12px 25px',
+                    fontSize: window.innerWidth <= 768 ? '0.9rem' : '1rem',
                     background: '#6c757d',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
                     cursor: 'pointer',
-                    fontWeight: '600'
+                    fontWeight: '600',
+                    order: window.innerWidth <= 768 ? 3 : 0
                   }}
                 >
                   Cancel
@@ -2169,14 +2545,15 @@ const AdminProducts = () => {
                 <button
                   onClick={updateProfitData}
                   style={{
-                    padding: '12px 25px',
-                    fontSize: '1rem',
+                    padding: window.innerWidth <= 768 ? '10px 20px' : '12px 25px',
+                    fontSize: window.innerWidth <= 768 ? '0.9rem' : '1rem',
                     background: '#28a745',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
                     cursor: 'pointer',
-                    fontWeight: '600'
+                    fontWeight: '600',
+                    order: window.innerWidth <= 768 ? 2 : 0
                   }}
                 >
                   💾 Save Changes

@@ -56,7 +56,7 @@ const MobileHeader = () => {
     window.location.reload();
   };
 
-  const categories = [
+  const [categories, setCategories] = useState([
     { value: 'all', label: 'All' },
     { value: 'remote', label: 'Remote Controls' },
     { value: 'electronics', label: 'Electronics' },
@@ -68,7 +68,46 @@ const MobileHeader = () => {
     { value: 'automotive', label: 'Automotive' },
     { value: 'tape', label: 'Tape' },
     { value: 'lampshade', label: 'Lampshades' }
-  ];
+    // Note: Excel categories (UAE Products, UK Products, Amazon10) are intentionally excluded
+  ]);
+
+  // Fetch dynamic categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        // Add cache buster to ensure fresh data
+        const cacheBuster = `_t=${Date.now()}`;
+        const response = await fetch(`http://localhost:5000/api/categories?${cacheBuster}`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Filter out Excel categories explicitly (double check)
+          const filteredCategories = data.categories.filter(cat => 
+            !['UAE Products', 'UK Products', 'Amazon10'].includes(cat.value)
+          );
+          
+          // Add "All" category at the beginning
+          const allCategories = [
+            { value: 'all', label: 'All' },
+            ...filteredCategories
+          ];
+          
+          console.log('📱 Mobile header categories loaded:', allCategories.length, 'categories');
+          setCategories(allCategories);
+        }
+      } catch (error) {
+        console.error('Error fetching categories for mobile header:', error);
+        // Keep default categories if API fails
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -97,6 +136,96 @@ const MobileHeader = () => {
           padding: 8px 12px;
           background: #fc5e03;
           gap: 8px;
+        }
+
+        .mobile-menu-btn {
+          background: rgba(255,255,255,0.2);
+          border: 1px solid rgba(255,255,255,0.3);
+          color: #fff;
+          width: 36px;
+          height: 36px;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 18px;
+        }
+
+        .mobile-logo {
+          flex: 1;
+          text-align: center;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-decoration: none;
+        }
+
+        .mobile-header-icons {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .mobile-icon-btn {
+          background: rgba(255,255,255,0.2);
+          border: 1px solid rgba(255,255,255,0.3);
+          color: #fff;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 16px;
+          position: relative;
+          text-decoration: none;
+        }
+
+        .mobile-search-bar {
+          padding: 8px 12px;
+          background: #f5a855;
+        }
+
+        .mobile-search-form {
+          position: relative;
+          width: 100%;
+        }
+
+        .mobile-search-input {
+          width: 100%;
+          padding: 8px 12px 8px 36px;
+          border: 1px solid #fff;
+          border-radius: 20px;
+          font-size: 13px;
+          outline: none;
+        }
+
+        .mobile-search-icon {
+          position: absolute;
+          left: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #999;
+          font-size: 14px;
+        }
+
+        .basket-badge {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          background: #dc2626;
+          color: #fff;
+          border-radius: 50%;
+          width: 18px;
+          height: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          font-weight: 700;
+          border: 2px solid #fc5e03;
         }
 
         .mobile-menu-btn {

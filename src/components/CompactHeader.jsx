@@ -58,7 +58,7 @@ const CompactHeader = () => {
     window.location.reload();
   };
 
-  const categories = [
+  const [categories, setCategories] = useState([
     { value: 'all', label: 'All' },
     { value: 'remote', label: 'Remote Controls' },
     { value: 'electronics', label: 'Electronics' },
@@ -70,7 +70,46 @@ const CompactHeader = () => {
     { value: 'automotive', label: 'Automotive' },
     { value: 'tape', label: 'Tape' },
     { value: 'lampshade', label: 'Lampshades' }
-  ];
+    // Note: Excel categories (UAE Products, UK Products, Amazon10) are intentionally excluded
+  ]);
+
+  // Fetch dynamic categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        // Add cache buster to ensure fresh data
+        const cacheBuster = `_t=${Date.now()}`;
+        const response = await fetch(`http://localhost:5000/api/categories?${cacheBuster}`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Filter out Excel categories explicitly (double check)
+          const filteredCategories = data.categories.filter(cat => 
+            !['UAE Products', 'UK Products', 'Amazon10'].includes(cat.value)
+          );
+          
+          // Add "All" category at the beginning
+          const allCategories = [
+            { value: 'all', label: 'All' },
+            ...filteredCategories
+          ];
+          
+          console.log('🏠 Header categories loaded:', allCategories.length, 'categories');
+          setCategories(allCategories);
+        }
+      } catch (error) {
+        console.error('Error fetching categories for header:', error);
+        // Keep default categories if API fails
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();

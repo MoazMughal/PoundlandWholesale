@@ -25,6 +25,7 @@ const EditProduct = () => {
     price: 0,
     category: '',
     brand: '',
+    asin: '',
     rating: 4.5,
     reviews: 0,
     stock: 0,
@@ -46,33 +47,15 @@ const EditProduct = () => {
   const fileInputRef = useRef(null);
   const additionalFileInputRefs = useRef([null, null, null, null]); // Refs for 4 additional image inputs
 
-  // Categories that match Amazon's Choice page
-  const categories = [
-    { value: 'remote', label: 'Remote Controls' },
-    { value: 'electronics', label: 'Electronics' },
-    { value: 'strap', label: 'Watch Straps' },
-    { value: 'jewelry', label: 'Jewelry' },
-    { value: 'party', label: 'Party Supplies' },
-    { value: 'home', label: 'Home & Decor' },
-    { value: 'kitchen', label: 'Kitchen' },
-    { value: 'automotive', label: 'Automotive' },
-    { value: 'tape', label: 'Tape' },
-    { value: 'lampshade', label: 'Lampshades' },
-    { value: 'clothing', label: 'Clothing' },
-    { value: 'food', label: 'Food' },
-    { value: 'beauty', label: 'Beauty' },
-    { value: 'sports', label: 'Sports' },
-    { value: 'toys', label: 'Toys' },
-    { value: 'books', label: 'Books' },
-    { value: 'health', label: 'Health' },
-    { value: 'UAE Products', label: 'UAE Products' },
-    { value: 'UK Products', label: 'UK Products' },
-    { value: 'Amazon10', label: 'Amazon 10' }
-  ];
+  // Dynamic categories loaded from API
+  const [categories, setCategories] = useState([]);
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   useEffect(() => {
     fetchProduct();
     fetchSellers();
+    fetchCategories();
   }, [id]);
 
   // No currency conversion needed - all prices in GBP only
@@ -92,6 +75,7 @@ const EditProduct = () => {
         price: productPrice,
         category: product.category || '',
         brand: product.brand || '',
+        asin: product.asin || '',
         rating: product.rating || 4.5,
         reviews: product.reviews || 0,
         stock: product.stock || 0,
@@ -147,6 +131,68 @@ const EditProduct = () => {
       setSellers(data.sellers || []);
     } catch (error) {
       console.error('Error fetching sellers:', error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      // Include Excel categories for admin use
+      const response = await fetch('http://localhost:5000/api/categories?includeExcel=true');
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data.categories || []);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      // Fallback to default categories if API fails
+      setCategories([
+        { value: 'electronics', label: 'Electronics' },
+        { value: 'kitchen', label: 'Kitchen' },
+        { value: 'home', label: 'Home & Decor' },
+        { value: 'automotive', label: 'Automotive' }
+      ]);
+    }
+  };
+
+  const handleAddNewCategory = async () => {
+    if (!newCategoryName.trim()) {
+      alert('Please enter a category name');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch('http://localhost:5000/api/categories', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ category: newCategoryName.trim() })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const newCategory = data.category;
+        
+        // Add new category to the list
+        setCategories(prev => [...prev, newCategory]);
+        
+        // Select the new category
+        setFormData(prev => ({ ...prev, category: newCategory.value }));
+        
+        // Reset the input
+        setNewCategoryName('');
+        setShowNewCategoryInput(false);
+        
+        alert(`✅ Category "${newCategory.label}" added successfully!`);
+      } else {
+        const errorData = await response.json();
+        alert(`❌ Error: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error('Error adding category:', error);
+      alert('❌ Failed to add category. Please try again.');
     }
   };
 
@@ -427,6 +473,7 @@ const EditProduct = () => {
         currency: 'GBP', // Always save as GBP
         category: formData.category,
         brand: formData.brand || '',
+        asin: formData.asin.trim() || '',
         rating: Math.min(Math.max(parseFloat(formData.rating) || 4.5, 0), 5), // Clamp between 0-5
         reviews: parseInt(formData.reviews) || 0,
         stock: parseInt(formData.stock) || 0,
@@ -548,14 +595,108 @@ const EditProduct = () => {
           <div className="form-row">
             <div className="form-group">
               <label>Category * <small>(matches Amazon's Choice categories)</small></label>
-              <select name="category" value={formData.category} onChange={handleChange} required>
-                <option value="">Select Category</option>
-                {categories.map(cat => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+                <div style={{ flex: 1 }}>
+                  <select name="category" value={formData.category} onChange={handleChange} required>
+                    <option value="">Select Category</option>
+                    {categories.map(cat => (
+                      <option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowNewCategoryInput(!showNewCategoryInput)}
+                  style={{
+                    padding: '10px 15px',
+                    background: '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title="Add new category"
+                >
+                  + New
+                </button>
+              </div>
+              
+              {showNewCategoryInput && (
+                <div style={{ 
+                  marginTop: '10px', 
+                  padding: '15px', 
+                  background: '#f8f9fa', 
+                  border: '1px solid #dee2e6', 
+                  borderRadius: '6px' 
+                }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                    New Category Name
+                  </label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Enter new category name"
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '6px',
+                        fontSize: '0.9rem'
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddNewCategory();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddNewCategory}
+                      style={{
+                        padding: '10px 20px',
+                        background: '#007bff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowNewCategoryInput(false);
+                        setNewCategoryName('');
+                      }}
+                      style={{
+                        padding: '10px 15px',
+                        background: '#6c757d',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <small style={{ color: '#6c757d', fontSize: '0.8rem', marginTop: '5px', display: 'block' }}>
+                    The new category will be available for all future products and will appear in Amazon's Choice page.
+                  </small>
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -567,6 +708,26 @@ const EditProduct = () => {
                 onChange={handleChange}
                 placeholder="Enter brand name"
               />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>ASIN (Amazon Standard Identification Number)</label>
+              <input
+                type="text"
+                name="asin"
+                value={formData.asin}
+                onChange={handleChange}
+                placeholder="Enter ASIN (e.g., B08N5WRWNW)"
+                maxLength="10"
+                style={{
+                  textTransform: 'uppercase',
+                  fontFamily: 'monospace',
+                  letterSpacing: '1px'
+                }}
+              />
+              <small>Optional: 10-character Amazon product identifier for admin tracking</small>
             </div>
           </div>
         </div>

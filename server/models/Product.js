@@ -100,7 +100,16 @@ const productSchema = new mongoose.Schema({
   asin: {
     type: String,
     sparse: true,
-    index: true
+    index: true,
+    trim: true,
+    uppercase: true,
+    validate: {
+      validator: function(v) {
+        // Allow empty string or valid ASIN format (10 alphanumeric characters)
+        return !v || /^[A-Z0-9]{10}$/.test(v);
+      },
+      message: 'ASIN must be exactly 10 alphanumeric characters'
+    }
   },
   marketplace: {
     type: String,
@@ -217,6 +226,11 @@ const productSchema = new mongoose.Schema({
       type: Number,
       default: 0
     }
+  },
+  // Save field for displaying savings amount
+  save: {
+    type: Number,
+    default: 0
   },
   // Keep existing field
   showOnHome: {

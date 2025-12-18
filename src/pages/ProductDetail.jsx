@@ -89,12 +89,6 @@ const ProductDetail = () => {
     const sellerToken = localStorage.getItem('sellerToken');
     const isSellerUser = !!sellerToken;
     
-    console.log('Auth check:', { 
-      adminLoggedIn: isAdminLoggedIn, 
-      admin: admin,
-      sellerToken: !!sellerToken, 
-      isSellerUser 
-    });
     setIsAdmin(isAdminLoggedIn);
     setIsSellerLoggedIn(isSellerUser);
     
@@ -250,17 +244,12 @@ const ProductDetail = () => {
 
   // Fetch seller information
   const fetchSellerInfo = async (sellerId) => {
-    console.log('fetchSellerInfo called with sellerId:', sellerId);
     if (!sellerId) {
-      console.log('No sellerId provided');
       return;
     }
     
     try {
-      console.log('Admin logged in:', isAdminLoggedIn);
-      
       if (!isAdminLoggedIn) {
-        console.log('Admin not logged in, skipping seller fetch');
         return;
       }
       
@@ -272,15 +261,9 @@ const ProductDetail = () => {
         }
       });
       
-      console.log('Seller fetch response status:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
-        console.log('Seller info fetched:', data);
         setSellerInfo(data);
-      } else {
-        const errorText = await response.text();
-        console.log('Failed to fetch seller info:', response.status, errorText);
       }
     } catch (error) {
       console.error('Error fetching seller info:', error);
@@ -311,11 +294,17 @@ const ProductDetail = () => {
             'Pragma': 'no-cache'
           }
         })
-        console.log('🔄 Fetching product data with cache buster:', cacheBuster);
+
         if (response.ok) {
           const dbProduct = await response.json()
           
           // Use database product data
+          console.log('💰 SAVE FIELD DEBUG:', {
+            dbProductSave: dbProduct.save,
+            saveType: typeof dbProduct.save,
+            parsedSave: parseFloat(dbProduct.save) || 0
+          });
+          
           const productData = {
             id: dbProduct._id,
             name: dbProduct.name,
@@ -334,6 +323,7 @@ const ProductDetail = () => {
             dealUnits: dbProduct.dealUnits || 1,
             seller: dbProduct.seller,
             sellerInfo: dbProduct.sellerInfo,
+            save: parseFloat(dbProduct.save) || 0, // Add the single save field
             showEvaluation: dbProduct.name.toLowerCase().includes('nose ring') ||
                            dbProduct.name.toLowerCase().includes('bulb') ||
                            dbProduct.name.toLowerCase().includes('fuse') ||
@@ -383,14 +373,6 @@ const ProductDetail = () => {
           }
           
           // Add profit data from database
-          console.log('=== PROFIT DATA FROM DATABASE ===')
-          console.log('Product name:', productData.name)
-          console.log('Product ID:', dbProduct._id)
-          console.log('Raw product price from DB:', dbProduct.price)
-          console.log('Processed product price:', productData.price)
-          console.log('Platform Comparison:', dbProduct.platformComparison)
-          console.log('Profit Calculations:', dbProduct.profitCalculations)
-          console.log('Profit Evaluation:', dbProduct.profitEvaluation)
           
           // Special debugging for the specific product (check multiple variations)
           const isTargetProduct = productData.name.toLowerCase().includes('professional smart remote') || 
@@ -3112,8 +3094,9 @@ const ProductDetail = () => {
                           <thead style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white'}}>
                             <tr>
                               <th className="fw-bold py-2 px-2" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Platform</th>
-                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>RRP/Total</th>
-                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Profit (per platform units)</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>RRP/Unit (£)</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Units</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Total Profit ({quantity} units) (£)</th>
                               <th className="fw-bold py-2 px-2 text-center">Markup</th>
                             </tr>
                           </thead>
@@ -3132,6 +3115,11 @@ const ProductDetail = () => {
                                   convertedProfit: platform.isPKR ? convertFromPKR(platform.grossProfit) : convertPrice(platform.grossProfit)
                                 });
                                 
+                                // Calculate per unit price and total profit correctly
+                                const perUnitPrice = platform.perUnitPrice || parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) / (platform.units || 200);
+                                const platformUnits = platform.units || quantity || 200;
+                                const totalProfit = perUnitPrice * platformUnits;
+                                
                                 return (
                                   <tr key={idx} style={{background: idx % 2 === 0 ? '#f8f9fa' : 'white'}}>
                                     <td className="fw-semibold py-2 px-2" style={{color: '#2d3748', fontSize: '0.75rem'}}>
@@ -3139,13 +3127,13 @@ const ProductDetail = () => {
                                       {platform.name}
                                     </td>
                                     <td className="fw-bold text-primary py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
-                                      £{safeNumber(platform.price).toFixed(2)}
+                                      {safeNumber(perUnitPrice).toFixed(2)}
                                     </td>
-                                    <td className="fw-bold text-success py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
-                                      <div>£{safeNumber(platform.grossProfit).toFixed(2)}</div>
-                                      <div style={{fontSize: '0.6rem', color: '#6c757d', fontWeight: 'normal'}}>
-                                        ({platform.units || 200} units)
-                                      </div>
+                                    <td className="fw-bold py-2 px-2 text-center" style={{fontSize: '0.75rem', color: '#2d3748'}}>
+                                      ✕ {platformUnits}
+                                    </td>
+                                    <td className="fw-bold py-2 px-2 text-center" style={{fontSize: '0.75rem', color: '#2d3748'}}>
+                                      = {safeNumber(totalProfit).toFixed(2)}
                                     </td>
                                     <td className="py-2 px-2 text-center">
                                       <span className="badge bg-info" style={{fontSize: '0.65rem', padding: '3px 6px'}}>
@@ -3159,6 +3147,27 @@ const ProductDetail = () => {
                           </tbody>
                         </table>
                       </div>
+                      
+                      {/* Single Save Field Display */}
+                      {product.save && product.save > 0 && (
+                        <div className="mt-3">
+                          <div className="card border-0 shadow-sm" style={{background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'}}>
+                            <div className="card-body p-2">
+                              <div className="text-center">
+                                <div className="text-white mb-1" style={{fontSize: '0.8rem', fontWeight: '600'}}>
+                                  💰 Total Savings
+                                </div>
+                                <div className="text-white" style={{fontSize: '1.2rem', fontWeight: 'bold'}}>
+                                  £{safeNumber(product.save).toFixed(2)}
+                                </div>
+                                <div className="text-white" style={{fontSize: '0.7rem', opacity: 0.9}}>
+                                  Save on your purchase
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Profit Calculations - Below Platform Comparison */}
@@ -3182,7 +3191,16 @@ const ProductDetail = () => {
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Monthly Profit</div>
                                   <div className="fw-bold text-primary" style={{fontSize: '0.9rem'}}>
-                                    £{safeNumber(product.evaluation?.monthlyProfit || product.profitCalculations?.monthlyProfit || (product.profitCalculations.profitPerUnit * 30)).toFixed(2)}
+                                    £{(() => {
+                                      const monthlyValue = product.evaluation?.monthlyProfit || product.profitCalculations?.monthlyProfit || (product.profitCalculations?.profitPerUnit * 30) || 0;
+                                      console.log('📊 Monthly Profit Display Debug:', {
+                                        evaluationMonthly: product.evaluation?.monthlyProfit,
+                                        calculationsMonthly: product.profitCalculations?.monthlyProfit,
+                                        fallbackCalculation: product.profitCalculations?.profitPerUnit * 30,
+                                        finalValue: monthlyValue
+                                      });
+                                      return safeNumber(monthlyValue).toFixed(2);
+                                    })()}
                                   </div>
                                 </div>
                               </div>
@@ -3190,7 +3208,16 @@ const ProductDetail = () => {
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Yearly Profit</div>
                                   <div className="fw-bold text-warning" style={{fontSize: '0.9rem'}}>
-                                    £{safeNumber(product.evaluation?.yearlyProfit || product.profitCalculations?.yearlyProfit || (product.profitCalculations.profitPerUnit * 365)).toFixed(2)}
+                                    £{(() => {
+                                      const yearlyValue = product.evaluation?.yearlyProfit || product.profitCalculations?.yearlyProfit || (product.profitCalculations?.profitPerUnit * 365) || 0;
+                                      console.log('📊 Yearly Profit Display Debug:', {
+                                        evaluationYearly: product.evaluation?.yearlyProfit,
+                                        calculationsYearly: product.profitCalculations?.yearlyProfit,
+                                        fallbackCalculation: product.profitCalculations?.profitPerUnit * 365,
+                                        finalValue: yearlyValue
+                                      });
+                                      return safeNumber(yearlyValue).toFixed(2);
+                                    })()}
                                   </div>
                                 </div>
                               </div>

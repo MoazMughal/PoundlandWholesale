@@ -333,7 +333,7 @@ router.get('/public/fast', async (req, res) => {
         // Sample random products for diversity
         { $sample: { size: 50 } },
         
-        // Project essential fields
+        // Project essential fields including profit data
         { $project: {
           name: 1,
           price: 1,
@@ -348,7 +348,11 @@ router.get('/public/fast', async (req, res) => {
           reviews: 1,
           stock: 1,
           isAmazonsChoice: 1,
-          isBestSeller: 1
+          isBestSeller: 1,
+          profitCalculations: 1,
+          profitEvaluation: 1,
+          platformComparison: 1,
+          showEvaluation: 1
         }}
       ]).maxTimeMS(5000);
       
@@ -386,7 +390,7 @@ router.get('/public/fast', async (req, res) => {
         
         products = await Product.find(fallbackQuery)
         .limit(50)
-        .select('name price category brand images dealUnits currency rating reviews isAmazonsChoice isBestSeller')
+        .select('name price category brand images dealUnits currency rating reviews isAmazonsChoice isBestSeller profitCalculations profitEvaluation platformComparison showEvaluation asin')
         .lean()
         .maxTimeMS(3000);
         
@@ -569,7 +573,7 @@ router.get('/public', async (req, res) => {
       products = await Product.find(query)
         .sort(sortOptions)
         .limit(parseInt(limit))
-        .select('name description price originalPrice discount category brand images rating reviews stock dealUnits currency isAmazonsChoice isBestSeller seller isAdminProduct sellerInfo')
+        .select('name description price originalPrice discount category brand images rating reviews stock dealUnits currency isAmazonsChoice isBestSeller seller isAdminProduct sellerInfo profitCalculations profitEvaluation platformComparison showEvaluation asin')
         .maxTimeMS(10000) // Increased timeout to 10 seconds
         .lean();
       console.log(`✅ Database query successful: ${products.length} products in ${Date.now() - startTime}ms`);
@@ -869,7 +873,7 @@ router.get('/admin/fast', authenticateAdmin, async (req, res) => {
     try {
       products = await Product.find({})
         .limit(50) // Limit to 50 for admin dashboard
-        .select('name price category status createdAt dealUnits currency') // Minimal fields for speed
+        .select('name price category status createdAt dealUnits currency asin') // Minimal fields for speed including ASIN
         .sort({ createdAt: -1 })
         .maxTimeMS(3000) // 3 second timeout
         .lean();
@@ -904,7 +908,7 @@ router.get('/admin/fast', authenticateAdmin, async (req, res) => {
   }
 });
 
-// Admin endpoint (auth required) - Optimized
+// Admin endpoint (auth required) - Optimized with ASIN search
 router.get('/', authenticateAdmin, async (req, res) => {
   try {
     const { 
@@ -978,12 +982,28 @@ router.get('/', authenticateAdmin, async (req, res) => {
         ]
       };
       
-      // Debug logging for ID searches
+      // Add ASIN search to the query if it looks like an ASIN
+      if (search.length === 10 && /^[A-Z0-9]{10}$/i.test(search)) {
+        searchQuery.$or.unshift({ asin: search.toUpperCase() });
+      } else if (search.length >= 3 && /^[A-Z0-9]+$/i.test(search) && search.length < 10) {
+        searchQuery.$or.unshift({ asin: { $regex: search.toUpperCase(), $options: 'i' } });
+      }
+      
+      // Debug logging for ID and ASIN searches
       if (search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
         console.log('🔍 ID Search Debug:', {
           searchTerm: search,
           isValidObjectId,
           queryStructure: JSON.stringify(searchQuery, null, 2)
+        });
+      }
+      
+      // Debug logging for ASIN searches
+      if (search.length >= 3 && /^[A-Z0-9]+$/i.test(search)) {
+        console.log('🏷️ ASIN Search Debug:', {
+          searchTerm: search,
+          isExactASIN: search.length === 10,
+          upperCaseSearch: search.toUpperCase()
         });
       }
       
@@ -1126,6 +1146,16 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     console.log('📝 Platform comparison:', req.body.platformComparison);
     console.log('📝 Profit calculations:', req.body.profitCalculations);
     console.log('📝 Profit evaluation:', req.body.profitEvaluation);
+    console.log('💰 Save field:', req.body.save);
+    
+    // Log ASIN updates specifically
+    if (req.body.asin !== undefined) {
+      console.log('🏷️ ASIN update:', {
+        productId: req.params.id,
+        newASIN: req.body.asin,
+        asinType: typeof req.body.asin
+      });
+    }
     
     // Validate product ID format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
