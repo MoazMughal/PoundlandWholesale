@@ -12,14 +12,13 @@ export const useCurrency = () => {
 
 export const CurrencyProvider = ({ children }) => {
   const [currency, setCurrency] = useState(() => {
-    // Load from localStorage or default to GBP for admin routes, PKR for others
+    // Load from localStorage or default to GBP for all routes
     const savedCurrency = localStorage.getItem('selectedCurrency');
     if (savedCurrency) {
       return savedCurrency;
     }
-    // Default currency based on route
-    const isAdminRoute = window.location.pathname.includes('/admin');
-    return isAdminRoute ? 'GBP' : 'PKR';
+    // Default currency is GBP for all routes since products are stored in GBP
+    return 'GBP';
   });
 
   // Currency conversion rates (base: PKR) - Manual rates

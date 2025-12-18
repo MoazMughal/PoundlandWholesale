@@ -64,17 +64,20 @@ const ProductDetail = () => {
     // Detect if price is in PKR (has ₨ or Rs symbol or is a plain number from database)
     const isPKR = String(priceStr).includes('?') || String(priceStr).includes('Rs') || (!isGBP && !String(priceStr).includes('$'))
     
-    // Convert to target currency
+    // Since all products are stored in GBP, show them as GBP by default
+    if (currency === 'GBP') {
+      return `£${price.toFixed(2)}`
+    }
+    
+    // Only convert if user explicitly selects a different currency
     let converted
-    if (isGBP) {
-      // Convert from GBP to PKR first, then to target currency
-      const pkrValue = price / 0.00272
-      converted = pkrValue * currencyRates[currency]
-    } else if (isPKR) {
-      // Convert from PKR to target currency
-      converted = price * currencyRates[currency]
+    if (currency === 'PKR') {
+      converted = price / 0.00272 // Convert GBP to PKR
+    } else if (currency === 'USD') {
+      converted = price * 1.27 // Convert GBP to USD
+    } else if (currency === 'AED') {
+      converted = price * 4.63 // Convert GBP to AED
     } else {
-      // Already in target currency or unknown
       converted = price
     }
     
