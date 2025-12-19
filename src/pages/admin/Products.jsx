@@ -1,8 +1,55 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import cacheManager from '../../utils/cacheManager';
+import { getImageUrl } from '../../utils/imageImports';
 import '../../styles/AdminProducts.css';
 import '../../styles/AdminLayout.css';
+
+// Component to show linked product preview in admin
+const LinkedProductPreview = ({ productId }) => {
+  const [productData, setProductData] = useState(null);
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`http://localhost:5000/api/products/public/${productId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setProductData(data);
+        }
+      } catch (error) {
+        console.error('Error fetching product preview:', error);
+      }
+    };
+
+    if (productId) {
+      fetchProduct();
+    }
+  }, [productId]);
+
+  if (!productData) {
+    return <span style={{ fontSize: '0.6rem', color: '#999' }}>...</span>;
+  }
+
+  const imageUrl = productData.images?.[0] || productData.image;
+  
+  return imageUrl ? (
+    <img 
+      src={getImageUrl(imageUrl)}
+      alt="Preview"
+      style={{
+        width: '100%',
+        height: '100%',
+        objectFit: 'contain'
+      }}
+      onError={(e) => {
+        e.target.style.display = 'none';
+      }}
+    />
+  ) : (
+    <span style={{ fontSize: '0.6rem', color: '#999' }}>No img</span>
+  );
+};
 
 const AdminProducts = () => {
   const navigate = useNavigate();
@@ -23,6 +70,12 @@ const AdminProducts = () => {
   const [selectedUnits, setSelectedUnits] = useState(200);
   const [productCostUpdated, setProductCostUpdated] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  
+  // Variations management state
+  const [showVariationsModal, setShowVariationsModal] = useState(false);
+  const [variationsEditProduct, setVariationsEditProduct] = useState(null);
+  const [availableProducts, setAvailableProducts] = useState([]);
+  const [variationSearchQuery, setVariationSearchQuery] = useState('');
   
   const currency = 'GBP';
   const currencySymbol = '£';
@@ -178,12 +231,6 @@ const AdminProducts = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      
-      if (!token) {
-        console.error('No admin token found. Please login.');
-        navigate('/admin/login');
-        return;
-      }
       
       const params = new URLSearchParams({
         ...(search && { search }),
@@ -633,6 +680,207 @@ const AdminProducts = () => {
     });
   };
 
+  // Variations management functions
+  const handleVariationsClick = async (product) => {
+    // Initialize variations if they don't exist
+    const productWithVariations = {
+      ...product,
+      variations: product.variations || []
+    };
+    setVariationsEditProduct(productWithVariations);
+    setShowVariationsModal(true);
+    
+    // Fetch available products from the same category for variations
+    try {
+      const response = await fetch(`http://localhost:5000/api/products/public?category=${encodeURIComponent(product.category)}&limit=100`);
+      if (response.ok) {
+        const data = await response.json();
+        // Filter out the current product and only show products without variations or with different variation types
+        const filtered = data.products.filter(p => p._id !== product._id);
+        setAvailableProducts(filtered);
+      }
+    } catch (error) {
+      console.error('Error fetching available products:', error);
+      setAvailableProducts([]);
+    }
+  };
+
+  const addVariation = () => {
+    const newVariation = {
+      type: 'color',
+      name: 'Color',
+      options: []
+    };
+    
+    setVariationsEditProduct({
+      ...variationsEditProduct,
+      variations: [...(variationsEditProduct.variations || []), newVariation]
+    });
+  };
+
+  const updateVariation = (variationIndex, field, value) => {
+    const updatedVariations = [...(variationsEditProduct.variations || [])];
+    updatedVariations[variationIndex] = {
+      ...updatedVariations[variationIndex],
+      [field]: value
+    };
+    
+    setVariationsEditProduct({
+      ...variationsEditProduct,
+      variations: updatedVariations
+    });
+  };
+
+  const addVariationOption = (variationIndex) => {
+    const updatedVariations = [...(variationsEditProduct.variations || [])];
+    updatedVariations[variationIndex].options.push({
+      value: '',
+      productId: null,
+      images: [],
+      price: null,
+      stock: null
+    });
+    
+    setVariationsEditProduct({
+      ...variationsEditProduct,
+      variations: updatedVariations
+    });
+  };
+
+  const updateVariationOption = (variationIndex, optionIndex, field, value) => {
+    const updatedVariations = [...(variationsEditProduct.variations || [])];
+    updatedVariations[variationIndex].options[optionIndex] = {
+      ...updatedVariations[variationIndex].options[optionIndex],
+      [field]: value
+    };
+    
+    setVariationsEditProduct({
+      ...variationsEditProduct,
+      variations: updatedVariations
+    });
+  };
+
+  const removeVariation = (variationIndex) => {
+    const updatedVariations = [...(variationsEditProduct.variations || [])];
+    updatedVariations.splice(variationIndex, 1);
+    
+    setVariationsEditProduct({
+      ...variationsEditProduct,
+      variations: updatedVariations
+    });
+  };
+
+  const removeVariationOption = (variationIndex, optionIndex) => {
+    const updatedVariations = [...(variationsEditProduct.variations || [])];
+    updatedVariations[variationIndex].options.splice(optionIndex, 1);
+    
+    setVariationsEditProduct({
+      ...variationsEditProduct,
+      variations: updatedVariations
+    });
+  };
+
+  const saveVariations = async () => {
+    try {
+      console.log('🎨 Saving variations for product:', variationsEditProduct._id);
+      
+      // Check if token exists
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        alert('❌ Authentication token not found. Please log in again.');
+        return;
+      }
+      
+      // Clean the variations data before sending
+      const cleanedVariations = (variationsEditProduct.variations || [])
+        .filter(variation => variation.type && variation.name) // Only include valid variations
+        .map(variation => ({
+          type: variation.type,
+          name: variation.name,
+          options: variation.options
+            .filter(option => option.value && option.value.trim() !== '') // Only include options with values
+            .map(option => ({
+              value: option.value.trim(),
+              productId: option.productId && option.productId !== '' && option.productId !== 'null' ? option.productId : null,
+              images: option.images || [],
+              price: option.price || null,
+              stock: option.stock || null
+            }))
+        }))
+        .filter(variation => variation.options.length > 0); // Only include variations with options
+      
+      console.log('🎨 Cleaned variations data:', JSON.stringify(cleanedVariations, null, 2));
+      
+      // Try simple update first
+      console.log('🔄 Trying simple variations update...');
+      const simpleResponse = await fetch(`http://localhost:5000/api/products/${variationsEditProduct._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          variations: cleanedVariations
+        })
+      });
+
+      if (simpleResponse.ok) {
+        const result = await simpleResponse.json();
+        console.log('✅ Simple variations update successful:', result);
+        alert('✅ Variations updated successfully!');
+        setShowVariationsModal(false);
+        fetchProducts(); // Refresh the products list
+        return;
+      }
+
+      // If simple update fails, try bidirectional
+      console.log('🔄 Simple update failed, trying bidirectional endpoint...');
+      const bidirectionalResponse = await fetch(`http://localhost:5000/api/products/variations/bidirectional/${variationsEditProduct._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          variations: cleanedVariations,
+          currentProduct: {
+            id: variationsEditProduct._id,
+            name: variationsEditProduct.name,
+            category: variationsEditProduct.category
+          }
+        })
+      });
+
+      if (bidirectionalResponse.ok) {
+        const result = await bidirectionalResponse.json();
+        console.log('✅ Bidirectional variations result:', result);
+        alert(`✅ Variations updated successfully! Updated ${result.linkedProducts} linked products.`);
+        setShowVariationsModal(false);
+        fetchProducts(); // Refresh the products list
+      } else {
+        const errorData = await bidirectionalResponse.text();
+        console.error('❌ Both endpoints failed');
+        
+        if (bidirectionalResponse.status === 401) {
+          alert('❌ Authentication failed. Please log in again.');
+        } else {
+          alert(`❌ Failed to save variations: ${errorData}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving variations:', error);
+      if (error.message.includes('401')) {
+        alert('❌ Authentication failed. Please log in again.');
+      } else {
+        alert('❌ Failed to save variations. Please try again.');
+      }
+    }
+  };
+
+  const filteredAvailableProducts = availableProducts.filter(product =>
+    product.name.toLowerCase().includes(variationSearchQuery.toLowerCase())
+  );
+
   const handleKeyPress = (e, productId, field) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -790,12 +1038,6 @@ const AdminProducts = () => {
     try {
       const token = localStorage.getItem('adminToken');
       
-      if (!token) {
-        alert('❌ No admin token found. Please login again.');
-        navigate('/admin/login');
-        return;
-      }
-      
       const calculatedProfitFor200Units = (profitEditProduct.profitCalculations.profitPerUnit || 0) * 200;
       
       // Validate and clean the data before sending
@@ -912,8 +1154,7 @@ const AdminProducts = () => {
         console.error('❌ Error response:', errorData);
         
         if (response.status === 401) {
-          alert('❌ Authentication failed. Please login again.');
-          navigate('/admin/login');
+          alert('❌ Authentication failed. Please refresh the page.');
         } else if (response.status === 404) {
           alert('❌ Product not found. It may have been deleted.');
         } else {
@@ -1529,6 +1770,14 @@ const AdminProducts = () => {
                         💰
                       </button>
                       <button
+                        onClick={() => handleVariationsClick(product)}
+                        className="variations-btn"
+                        title="Manage Product Variations"
+                        style={{padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px', background: '#6f42c1', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer'}}
+                      >
+                        🎨
+                      </button>
+                      <button
                         onClick={() => handleDelete(product._id)}
                         className="delete-btn"
                         title="Delete Product"
@@ -1946,31 +2195,42 @@ const AdminProducts = () => {
                   }}>
                     <div>
                       <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#28a745'}}>
-                        Save (£)
+                        Save (%)
                         <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
-                          (Total savings amount)
+                          (Percentage savings - % will be auto-added)
                         </span>
                       </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={safeFormatNumber(profitEditProduct.save) || ''}
-                        onChange={(e) => {
-                          const newValue = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
-                          setProfitEditProduct({...profitEditProduct, save: newValue});
-                        }}
-                        onFocus={(e) => e.target.select()}
-                        style={{
-                          width: '100%',
-                          padding: '10px',
-                          border: '2px solid #28a745',
-                          borderRadius: '6px',
+                      <div style={{position: 'relative', display: 'flex', alignItems: 'center'}}>
+                        <input
+                          type="number"
+                          step="1"
+                          min="0"
+                          max="100"
+                          value={safeFormatNumber(profitEditProduct.save) || ''}
+                          onChange={(e) => {
+                            const newValue = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                            setProfitEditProduct({...profitEditProduct, save: newValue});
+                          }}
+                          onFocus={(e) => e.target.select()}
+                          style={{
+                            width: '100%',
+                            padding: '10px 35px 10px 10px',
+                            border: '2px solid #28a745',
+                            borderRadius: '6px',
+                            fontSize: '0.9rem',
+                            backgroundColor: 'white'
+                          }}
+                          placeholder="20"
+                        />
+                        <span style={{
+                          position: 'absolute',
+                          right: '12px',
                           fontSize: '0.9rem',
-                          backgroundColor: 'white'
-                        }}
-                        placeholder="0.00"
-                      />
+                          color: '#28a745',
+                          fontWeight: 'bold',
+                          pointerEvents: 'none'
+                        }}>%</span>
+                      </div>
                     </div>
                     <div style={{
                       fontSize: '0.8rem',
@@ -1981,7 +2241,7 @@ const AdminProducts = () => {
                       borderRadius: '6px',
                       border: '1px solid rgba(40, 167, 69, 0.3)'
                     }}>
-                      💡 This save amount will be displayed in the product detail page to show customers how much they can save.
+                      💡 Enter the percentage value (e.g., 20 for 20%). This will be displayed as "Save: 20%" on the product detail page to show customers their savings.
                     </div>
                   </div>
                 </div>
@@ -2557,6 +2817,549 @@ const AdminProducts = () => {
                   }}
                 >
                   💾 Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Variations Management Modal */}
+      {showVariationsModal && variationsEditProduct && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '900px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+              borderBottom: '2px solid #6f42c1',
+              paddingBottom: '10px'
+            }}>
+              <h2 style={{
+                margin: 0,
+                color: '#6f42c1',
+                fontSize: '1.4rem',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                🎨 Product Variations Management
+              </h2>
+              <button
+                onClick={() => setShowVariationsModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#666',
+                  padding: '5px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9ff', borderRadius: '8px', border: '1px solid #e0e6ff' }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#6f42c1', fontSize: '1.1rem' }}>
+                Product: {variationsEditProduct.name}
+              </h3>
+              <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9rem' }}>
+                Category: {variationsEditProduct.category} | Price: £{variationsEditProduct.price}
+              </p>
+              <div style={{ 
+                backgroundColor: '#e8f4fd', 
+                border: '1px solid #bee5eb', 
+                borderRadius: '6px', 
+                padding: '10px',
+                fontSize: '0.8rem',
+                color: '#0c5460'
+              }}>
+                <strong>💡 How Bidirectional Variations Work:</strong>
+                <ul style={{ margin: '5px 0 0 0', paddingLeft: '20px' }}>
+                  <li>Create variation types (Color, Size, Style)</li>
+                  <li>Add options and link products from the same category</li>
+                  <li><strong>Automatic linking:</strong> When you link Product A → Product B, Product B automatically gets Product A as a variation</li>
+                  <li>Customers see all related products and can navigate between them (like Amazon)</li>
+                  <li>Both products will show each other in their variations section</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Existing Variations */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h3 style={{ margin: 0, color: '#333', fontSize: '1.1rem' }}>Current Variations</h3>
+                <button
+                  onClick={addVariation}
+                  style={{
+                    background: 'linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '600'
+                  }}
+                >
+                  + Add Variation
+                </button>
+              </div>
+
+              {variationsEditProduct.variations && variationsEditProduct.variations.length > 0 ? (
+                variationsEditProduct.variations.map((variation, variationIndex) => (
+                  <div key={variationIndex} style={{
+                    border: '1px solid #e0e6ff',
+                    borderRadius: '8px',
+                    padding: '15px',
+                    marginBottom: '15px',
+                    backgroundColor: '#fafbff'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <select
+                          value={variation.type}
+                          onChange={(e) => updateVariation(variationIndex, 'type', e.target.value)}
+                          style={{
+                            padding: '6px 10px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            fontSize: '0.9rem'
+                          }}
+                        >
+                          <option value="color">Color</option>
+                          <option value="size">Size</option>
+                          <option value="style">Style</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={variation.name}
+                          onChange={(e) => updateVariation(variationIndex, 'name', e.target.value)}
+                          placeholder="Variation name (e.g., Color, Size)"
+                          style={{
+                            padding: '6px 10px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            fontSize: '0.9rem',
+                            minWidth: '150px'
+                          }}
+                        />
+                      </div>
+                      <button
+                        onClick={() => removeVariation(variationIndex)}
+                        style={{
+                          background: '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem'
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+
+                    {/* Variation Options */}
+                    <div style={{ marginLeft: '20px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#555' }}>Options:</h4>
+                        <button
+                          onClick={() => addVariationOption(variationIndex)}
+                          style={{
+                            background: '#28a745',
+                            color: 'white',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem'
+                          }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
+
+                      {variation.options.map((option, optionIndex) => (
+                        <div key={optionIndex} style={{
+                          display: 'flex',
+                          gap: '10px',
+                          alignItems: 'center',
+                          marginBottom: '8px',
+                          padding: '8px',
+                          backgroundColor: 'white',
+                          borderRadius: '4px',
+                          border: '1px solid #eee'
+                        }}>
+                          <input
+                            type="text"
+                            value={option.value}
+                            onChange={(e) => updateVariationOption(variationIndex, optionIndex, 'value', e.target.value)}
+                            placeholder="Option value (e.g., Red, Large)"
+                            style={{
+                              padding: '4px 8px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontSize: '0.8rem',
+                              minWidth: '120px'
+                            }}
+                          />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                            <select
+                              value={option.productId || ''}
+                              onChange={(e) => updateVariationOption(variationIndex, optionIndex, 'productId', e.target.value || null)}
+                              style={{
+                                padding: '4px 8px',
+                                border: '1px solid #ddd',
+                                borderRadius: '4px',
+                                fontSize: '0.8rem',
+                                minWidth: '200px',
+                                flex: 1
+                              }}
+                            >
+                              <option value="">Select linked product (optional)</option>
+                              {filteredAvailableProducts.map(product => (
+                                <option key={product._id} value={product._id}>
+                                  {product.name} (£{product.price})
+                                </option>
+                              ))}
+                            </select>
+                            {/* Show linked product image preview */}
+                            {option.productId && (
+                              <div style={{
+                                width: '30px',
+                                height: '30px',
+                                border: '1px solid #ddd',
+                                borderRadius: '4px',
+                                overflow: 'hidden',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#f8f9fa'
+                              }}>
+                                <LinkedProductPreview productId={option.productId} />
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => removeVariationOption(variationIndex, optionIndex)}
+                            style={{
+                              background: '#dc3545',
+                              color: 'white',
+                              border: 'none',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '0.7rem'
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '40px',
+                  color: '#666',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '8px',
+                  border: '2px dashed #ddd'
+                }}>
+                  <p style={{ margin: 0, fontSize: '1rem' }}>No variations added yet.</p>
+                  <p style={{ margin: '5px 0 0 0', fontSize: '0.9rem' }}>Click "Add Variation" to create color, size, or style options.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Available Products Search */}
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#333', fontSize: '1rem' }}>
+                Available Products in "{variationsEditProduct.category}" Category
+              </h3>
+              <input
+                type="text"
+                value={variationSearchQuery}
+                onChange={(e) => setVariationSearchQuery(e.target.value)}
+                placeholder="Search products to link as variations..."
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '6px',
+                  fontSize: '0.9rem',
+                  marginBottom: '10px'
+                }}
+              />
+              <div style={{
+                maxHeight: '200px',
+                overflow: 'auto',
+                border: '1px solid #eee',
+                borderRadius: '6px',
+                backgroundColor: '#fafafa'
+              }}>
+                {filteredAvailableProducts.length > 0 ? (
+                  filteredAvailableProducts.slice(0, 10).map(product => {
+                    // Check if this product is already linked in current variations
+                    const isLinked = variationsEditProduct.variations?.some(variation =>
+                      variation.options?.some(option => option.productId === product._id)
+                    );
+                    
+                    return (
+                      <div key={product._id} style={{
+                        padding: '8px 12px',
+                        borderBottom: '1px solid #eee',
+                        fontSize: '0.8rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        backgroundColor: isLinked ? '#e8f5e9' : 'transparent'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>{product.name}</span>
+                          {isLinked && (
+                            <span style={{
+                              fontSize: '0.6rem',
+                              backgroundColor: '#28a745',
+                              color: 'white',
+                              padding: '2px 6px',
+                              borderRadius: '10px'
+                            }}>
+                              ↔ Linked
+                            </span>
+                          )}
+                        </div>
+                        <span style={{ color: '#666' }}>£{product.price}</span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '0.9rem' }}>
+                    No products found in this category
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderTop: '1px solid #eee',
+              paddingTop: '15px'
+            }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(`http://localhost:5000/api/products/variations/test/${variationsEditProduct._id}`, {
+                        headers: {
+                          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                        }
+                      });
+                      
+                      if (response.ok) {
+                        const result = await response.json();
+                        console.log('🔍 Database test result:', result);
+                        alert(`Database Check:\nProduct: ${result.productName}\nHas Variations: ${result.hasVariations}\nVariations Count: ${result.variationsCount}\nCheck console for full data.`);
+                      }
+                    } catch (error) {
+                      console.error('Error testing database:', error);
+                      alert('❌ Failed to test database');
+                    }
+                  }}
+                  style={{
+                    background: '#17a2b8',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  🔍 Check Database
+                </button>
+                
+                <button
+                  onClick={async () => {
+                    if (confirm('Clean up broken variation links across all products?')) {
+                      try {
+                        const response = await fetch('http://localhost:5000/api/products/variations/cleanup', {
+                          method: 'POST',
+                          headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                          }
+                        });
+                        
+                        if (response.ok) {
+                          const result = await response.json();
+                          alert(`✅ ${result.message}`);
+                        }
+                      } catch (error) {
+                        console.error('Error cleaning up variations:', error);
+                        alert('❌ Failed to clean up variations');
+                      }
+                    }
+                  }}
+                  style={{
+                    background: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  🧹 Cleanup Broken Links
+                </button>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => setShowVariationsModal(false)}
+                  style={{
+                    background: '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    // Simple save without bidirectional linking for testing
+                    try {
+                      console.log('🔍 Raw variations before cleaning:', variationsEditProduct.variations);
+                      
+                      const step1 = (variationsEditProduct.variations || [])
+                        .filter(variation => {
+                          const isValid = variation.type && variation.name;
+                          console.log('🔍 Step 1 - Variation valid?', { variation, isValid });
+                          return isValid;
+                        });
+                      
+                      console.log('🔍 After step 1 (type & name filter):', step1);
+                      
+                      const step2 = step1.map(variation => {
+                        const filteredOptions = variation.options
+                          .filter(option => {
+                            const isValid = option.value && option.value.trim() !== '';
+                            console.log('🔍 Option valid?', { option, isValid });
+                            return isValid;
+                          })
+                          .map(option => ({
+                            value: option.value.trim(),
+                            productId: option.productId && option.productId !== '' && option.productId !== 'null' ? option.productId : null,
+                            images: option.images || [],
+                            price: option.price || null,
+                            stock: option.stock || null
+                          }));
+                        
+                        console.log('🔍 Filtered options for variation:', filteredOptions);
+                        
+                        return {
+                          type: variation.type,
+                          name: variation.name,
+                          options: filteredOptions
+                        };
+                      });
+                      
+                      console.log('🔍 After step 2 (options mapping):', step2);
+                      
+                      const cleanedVariations = step2.filter(variation => {
+                        const hasOptions = variation.options.length > 0;
+                        console.log('🔍 Step 3 - Variation has options?', { variation: variation.name, hasOptions, optionsCount: variation.options.length });
+                        return hasOptions;
+                      });
+
+                      console.log('🧪 Final cleaned variations:', cleanedVariations);
+
+                      const response = await fetch(`http://localhost:5000/api/products/${variationsEditProduct._id}`, {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                        },
+                        body: JSON.stringify({ variations: cleanedVariations })
+                      });
+
+                      if (response.ok) {
+                        alert('✅ Simple save successful!');
+                        setShowVariationsModal(false);
+                        fetchProducts();
+                      } else {
+                        const error = await response.text();
+                        console.error('❌ Simple save failed:', error);
+                        alert('❌ Simple save failed: ' + error);
+                      }
+                    } catch (error) {
+                      console.error('❌ Simple save error:', error);
+                      alert('❌ Simple save error: ' + error.message);
+                    }
+                  }}
+                  style={{
+                    background: '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    marginRight: '10px'
+                  }}
+                >
+                  🧪 Test Simple Save
+                </button>
+                <button
+                  onClick={saveVariations}
+                  style={{
+                    background: 'linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '600'
+                  }}
+                >
+                  Save Bidirectional Variations
                 </button>
               </div>
             </div>

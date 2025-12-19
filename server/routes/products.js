@@ -786,6 +786,14 @@ router.get('/public/:id', async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
     
+    // Debug variations
+    console.log('🎨 Product variations debug:', {
+      productId: id,
+      hasVariations: !!product.variations,
+      variationsLength: product.variations?.length || 0,
+      variations: product.variations
+    });
+    
     // Only return if product is active
     if (product.status !== 'active') {
       return res.status(404).json({ message: 'Product not available' });
@@ -1139,6 +1147,245 @@ router.post('/', authenticateAdmin, async (req, res) => {
   }
 });
 
+// Debug endpoint to check variations on a product
+router.get('/variations/debug/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    res.json({
+      productId: product._id,
+      productName: product.name,
+      hasVariations: !!product.variations,
+      variationsCount: product.variations?.length || 0,
+      variations: product.variations || [],
+      linkedProducts: []
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching variations', error: error.message });
+  }
+});
+
+// Clean up broken variation links
+router.post('/variations/cleanup', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🧹 Cleaning up broken variation links...');
+    
+    const products = await Product.find({ variations: { $exists: true, $ne: [] } });
+    let cleanedCount = 0;
+
+    for (const product of products) {
+      let hasChanges = false;
+      const cleanedVariations = [];
+
+      for (const variation of product.variations) {
+        const cleanedOptions = [];
+        
+        for (const option of variation.options) {
+          if (option.productId) {
+            // Check if linked product exists
+            const linkedProduct = await Product.findById(option.productId);
+            if (linkedProduct) {
+              cleanedOptions.push(option);
+            } else {
+              console.log(`🗑️ Removing broken link: ${product.name} -> ${option.productId}`);
+              hasChanges = true;
+            }
+          } else {
+            cleanedOptions.push(option);
+          }
+        }
+
+        if (cleanedOptions.length > 0) {
+          cleanedVariations.push({
+            ...variation,
+            options: cleanedOptions
+          });
+        } else if (variation.options.length > 0) {
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        await Product.findByIdAndUpdate(product._id, { variations: cleanedVariations });
+        cleanedCount++;
+      }
+    }
+
+    res.json({
+      message: `Cleaned up ${cleanedCount} products with broken variation links`,
+      cleanedCount
+    });
+
+  } catch (error) {
+    console.error('❌ Error cleaning up variations:', error);
+    res.status(500).json({ message: 'Error cleaning up variations', error: error.message });
+  }
+});
+
+// Test endpoint to verify route is working
+router.get('/variations/test/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    res.json({ 
+      message: 'Route is working', 
+      productId: req.params.id,
+      productName: product?.name,
+      hasVariations: !!product?.variations,
+      variationsCount: product?.variations?.length || 0,
+      variations: product?.variations || []
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Bidirectional variations update endpoint
+router.put('/variations/bidirectional/:id', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🎨 Updating bidirectional variations for product:', req.params.id);
+    console.log('🎨 Request body:', JSON.stringify(req.body, null, 2));
+    const { variations, currentProduct } = req.body;
+    
+    // Validate product ID format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid product ID format' });
+    }
+
+    // Update the current product with variations
+    console.log('💾 Saving variations to current product:', JSON.stringify(variations, null, 2));
+    
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      { variations: variations },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProduct) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    console.log('✅ Current product updated. Variations saved:', updatedProduct.variations?.length || 0);
+
+    // Create bidirectional links for all linked products
+    const linkedProductIds = [];
+    variations.forEach(variation => {
+      variation.options.forEach(option => {
+        if (option.productId && option.productId !== req.params.id) {
+          linkedProductIds.push({
+            productId: option.productId,
+            variationType: variation.type,
+            variationName: variation.name,
+            optionValue: option.value
+          });
+        }
+      });
+    });
+
+    console.log('🔗 Found linked products to update:', linkedProductIds);
+
+    // Update each linked product to include the current product as a variation
+    for (const linkedInfo of linkedProductIds) {
+      try {
+        console.log(`🔍 Processing linked product: ${linkedInfo.productId}`);
+        const linkedProduct = await Product.findById(linkedInfo.productId);
+        if (linkedProduct) {
+          console.log(`✅ Found linked product: ${linkedProduct.name}`);
+          let linkedVariations = linkedProduct.variations || [];
+          console.log(`📋 Current variations on ${linkedProduct.name}:`, linkedVariations);
+          
+          // Find or create the variation type
+          let variationIndex = linkedVariations.findIndex(v => v.type === linkedInfo.variationType);
+          if (variationIndex === -1) {
+            console.log(`➕ Creating new variation type: ${linkedInfo.variationType}`);
+            // Create new variation type
+            linkedVariations.push({
+              type: linkedInfo.variationType,
+              name: linkedInfo.variationName,
+              options: []
+            });
+            variationIndex = linkedVariations.length - 1;
+          } else {
+            console.log(`🔄 Using existing variation type: ${linkedInfo.variationType}`);
+          }
+
+          // Check if current product is already in the options
+          const existingOptionIndex = linkedVariations[variationIndex].options.findIndex(
+            opt => opt.productId && opt.productId.toString() === req.params.id
+          );
+
+          if (existingOptionIndex === -1) {
+            // Add current product as an option
+            const optionValue = currentProduct.name.length > 15 ? 
+              `${currentProduct.name.substring(0, 15)}...` : 
+              currentProduct.name;
+
+            linkedVariations[variationIndex].options.push({
+              value: optionValue,
+              productId: req.params.id,
+              images: updatedProduct.images || [],
+              price: updatedProduct.price || null,
+              stock: updatedProduct.stock || null
+            });
+
+            // Update the linked product
+            const updatedLinkedProduct = await Product.findByIdAndUpdate(
+              linkedInfo.productId,
+              { variations: linkedVariations },
+              { new: true, runValidators: true }
+            );
+
+            console.log(`✅ Added bidirectional link: ${linkedProduct.name} ↔ ${currentProduct.name}`);
+            console.log(`📋 Final variations on ${linkedProduct.name}:`, updatedLinkedProduct.variations);
+          } else {
+            // Update existing option with latest data
+            linkedVariations[variationIndex].options[existingOptionIndex] = {
+              ...linkedVariations[variationIndex].options[existingOptionIndex],
+              images: updatedProduct.images || [],
+              price: updatedProduct.price || null,
+              stock: updatedProduct.stock || null
+            };
+
+            const updatedLinkedProduct = await Product.findByIdAndUpdate(
+              linkedInfo.productId,
+              { variations: linkedVariations },
+              { new: true, runValidators: true }
+            );
+
+            console.log(`🔄 Updated bidirectional link: ${linkedProduct.name} ↔ ${currentProduct.name}`);
+            console.log(`📋 Updated variations on ${linkedProduct.name}:`, updatedLinkedProduct.variations);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error updating linked product ${linkedInfo.productId}:`, error);
+      }
+    }
+
+    // Clear cache
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+
+    console.log('✅ Bidirectional variations updated successfully');
+    res.json({
+      message: 'Bidirectional variations updated successfully',
+      product: updatedProduct,
+      linkedProducts: linkedProductIds.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating bidirectional variations:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error name:', error.name);
+    res.status(500).json({ 
+      message: 'Internal server error', 
+      error: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
 router.put('/:id', authenticateAdmin, async (req, res) => {
   try {
     console.log('📝 Updating product:', req.params.id);
@@ -1147,6 +1394,7 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     console.log('📝 Profit calculations:', req.body.profitCalculations);
     console.log('📝 Profit evaluation:', req.body.profitEvaluation);
     console.log('💰 Save field:', req.body.save);
+    console.log('🎨 Variations:', req.body.variations);
     
     // Log ASIN updates specifically
     if (req.body.asin !== undefined) {
@@ -1163,10 +1411,26 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Invalid product ID format' });
     }
     
+    // Clean and validate variations data
+    let cleanedVariations = req.body.variations;
+    if (cleanedVariations) {
+      cleanedVariations = cleanedVariations.map(variation => ({
+        ...variation,
+        options: variation.options.map(option => ({
+          ...option,
+          productId: option.productId && option.productId !== '' ? option.productId : null,
+          images: option.images || [],
+          price: option.price || null,
+          stock: option.stock || null
+        }))
+      }));
+    }
+
     // Ensure currency is always GBP
     const updateData = {
       ...req.body,
-      currency: 'GBP'
+      currency: 'GBP',
+      ...(cleanedVariations && { variations: cleanedVariations })
     };
     
     console.log('🔍 Searching for product with ID:', req.params.id);

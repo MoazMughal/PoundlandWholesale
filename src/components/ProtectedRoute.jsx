@@ -4,11 +4,6 @@ import { useAdmin } from '../context/AdminContext';
 const ProtectedRoute = ({ children }) => {
   const { isLoggedIn, loading } = useAdmin();
   
-  // Always check localStorage directly for most up-to-date auth state
-  const adminToken = localStorage.getItem('adminToken');
-  const sellerToken = localStorage.getItem('sellerToken');
-  const buyerToken = localStorage.getItem('buyerToken');
-  
   // Show loading state while checking authentication
   if (loading) {
     return (
@@ -20,7 +15,7 @@ const ProtectedRoute = ({ children }) => {
         fontSize: '1.2rem',
         color: '#666'
       }}>
-        <div>
+        <div style={{ textAlign: 'center' }}>
           <div style={{fontSize: '2rem', marginBottom: '10px'}}>⏳</div>
           <div>Verifying admin access...</div>
         </div>
@@ -28,17 +23,16 @@ const ProtectedRoute = ({ children }) => {
     );
   }
   
-  // If trying to access admin routes but logged in as seller/buyer, clear their tokens
-  if (!adminToken && (sellerToken || buyerToken)) {
+  // Simple authentication check
+  const adminToken = localStorage.getItem('adminToken');
+  
+  if (!isLoggedIn || !adminToken) {
+    // Clear any conflicting tokens
     localStorage.removeItem('sellerToken');
     localStorage.removeItem('sellerData');
     localStorage.removeItem('buyerToken');
     localStorage.removeItem('buyerData');
-    return <Navigate to="/admin/login" replace />;
-  }
-  
-  // Check both context and localStorage for authentication
-  if (!isLoggedIn || !adminToken) {
+    
     return <Navigate to="/admin/login" replace />;
   }
 

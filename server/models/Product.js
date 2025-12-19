@@ -236,7 +236,33 @@ const productSchema = new mongoose.Schema({
   showOnHome: {
     type: Boolean,
     default: false
-  }
+  },
+  // Product Variations
+  variations: [{
+    type: {
+      type: String,
+      enum: ['color', 'size', 'style'],
+      required: true
+    },
+    name: {
+      type: String,
+      required: true
+    },
+    options: [{
+      value: {
+        type: String,
+        required: true
+      },
+      productId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product',
+        required: false
+      },
+      images: [String], // Specific images for this variation option
+      price: Number, // Optional different price for this variation
+      stock: Number // Optional different stock for this variation
+    }]
+  }]
 }, { timestamps: true });
 
 // Indexes for better query performance

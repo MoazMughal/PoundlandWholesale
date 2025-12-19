@@ -24,6 +24,15 @@ const AdminLogin = () => {
     setLoading(true);
 
     try {
+      // Clear any existing tokens first
+      localStorage.removeItem('sellerToken');
+      localStorage.removeItem('sellerData');
+      localStorage.removeItem('buyerToken');
+      localStorage.removeItem('buyerData');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminData');
+      sessionStorage.removeItem('admin_logged_out');
+
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -36,17 +45,14 @@ const AdminLogin = () => {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Clear any seller/buyer tokens before setting admin token
-      localStorage.removeItem('sellerToken');
-      localStorage.removeItem('sellerData');
-      localStorage.removeItem('buyerToken');
-      localStorage.removeItem('buyerData');
-      
-      // Use the AdminContext login function (now async)
+      // Use the AdminContext login function
       await login(data.admin, data.token);
+      
+      // Navigate after successful login
       navigate('/admin/dashboard', { replace: true });
+      
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }

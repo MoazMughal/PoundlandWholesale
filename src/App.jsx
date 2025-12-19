@@ -15,6 +15,7 @@ import { BasketProvider } from './context/BasketContext'
 import authSessionManager from './utils/authSession'
 import './App.css'
 import './styles/mobile-responsive.css'
+import './styles/enhanced-theme.css'
 
 // Lazy load pages for better performance
 const AmazonsChoice = lazy(() => import('./pages/AmazonsChoice'))

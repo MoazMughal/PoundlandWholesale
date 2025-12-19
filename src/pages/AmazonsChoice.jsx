@@ -10,6 +10,7 @@ import { getImageUrl } from '../utils/imageImports'
 import { getApiUrl } from '../utils/api'
 import { logDeviceInfo } from '../utils/deviceDetection'
 import '../styles/mobile-products.css'
+import '../styles/enhanced-theme.css'
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
@@ -55,17 +56,17 @@ const AmazonsChoice = () => {
   // Rotating badge generator - alternates between Amazon's Choice and other badges every 2 seconds
   const getProductBadge = (product, index) => {
     const additionalBadges = [
-      { text: 'Best Seller', color: '#ff6b35', icon: '🏆', priority: 'high' },
-      { text: 'Top Rated', color: '#28a745', icon: '⭐', priority: 'high' },
-      { text: 'Crazy Low', color: '#dc3545', icon: '🔥', priority: 'urgent' },
-      { text: 'Very Popular', color: '#6f42c1', icon: '💎', priority: 'medium' },
-      { text: 'Limited Time', color: '#fd7e14', icon: '⚡', priority: 'urgent' },
-      { text: 'Hot Deal', color: '#e83e8c', icon: '💥', priority: 'high' },
-      { text: 'Trending', color: '#17a2b8', icon: '📈', priority: 'medium' },
-      { text: 'New Arrival', color: '#20c997', icon: '✨', priority: 'medium' }
+      { text: 'Best Seller', color: '#e74c3c', icon: '🏆', priority: 'high' },
+      { text: 'Top Rated', color: '#f39c12', icon: '⭐', priority: 'high' },
+      { text: 'Crazy Low', color: '#e67e22', icon: '🔥', priority: 'urgent' },
+      { text: 'Very Popular', color: '#9b59b6', icon: '💎', priority: 'medium' },
+      { text: 'Limited Time', color: '#3498db', icon: '⚡', priority: 'urgent' },
+      { text: 'Hot Deal', color: '#e91e63', icon: '💥', priority: 'high' },
+      { text: 'Trending', color: '#1abc9c', icon: '📈', priority: 'medium' },
+      { text: 'New Arrival', color: '#27ae60', icon: '✨', priority: 'medium' }
     ]
     
-    const amazonChoice = { text: "Amazon's Choice", color: '#667eea', icon: '✓', priority: 'standard' }
+    const amazonChoice = { text: "Amazon's Choice", color: '#ff6600', icon: '✓', priority: 'standard' }
     const alternativeBadge = additionalBadges[index % additionalBadges.length]
     
     // Rotate every 2 seconds between Amazon's Choice and alternative badge
@@ -90,7 +91,7 @@ const AmazonsChoice = () => {
       
       // Skip if we just fetched the same data
       if (fetchKey === lastFetchKey && products.length > 0) {
-        console.log('🔄 Skipping duplicate fetch for:', fetchKey)
+        // Skipping duplicate fetch
         return
       }
       
@@ -98,7 +99,7 @@ const AmazonsChoice = () => {
       if (products.length === 0) {
         setLoading(true)
       }
-      console.log('🔄 Fetching products from database...', { category, search, fetchKey })
+      // Fetching products from database
       
       // No timeout - let database take as long as it needs
       
@@ -128,50 +129,26 @@ const AmazonsChoice = () => {
         apiUrl = `products/public?${params.toString()}`
       }
       
-      console.log('🌐 API URL:', getApiUrl(apiUrl))
-      console.log('🏆 Amazon Choice Filter Applied - Category:', category || 'all')
+      // API URL and Amazon Choice filter applied
       
       const response = await fetch(getApiUrl(apiUrl), {
         headers: { 'Accept': 'application/json' }
       })
       
-      console.log('📊 Response received after long wait')
-      console.log('📊 Response status:', response.status)
-      console.log('📊 Response ok:', response.ok)
+      // Response received
       
       if (response.ok) {
-        console.log('�  Parsing JSON response...')
+        // Parsing JSON response
         const data = await response.json()
-        console.log('📦 Raw data received:', {
-          hasProducts: !!data.products,
-          productsCount: data.products?.length || 0,
-          source: data.source,
-          responseTime: data.responseTime
-        })
+        // Raw data received
         
         if (data.products && data.products.length > 0) {
-          console.log('✅ Database fetch successful:', data.products.length, 'products')
-          console.log('📋 Sample product:', data.products[0])
-          console.log('💰 Price fields in sample:', {
-            price: data.products[0]?.price,
-            originalPrice: data.products[0]?.originalPrice,
-            dealUnits: data.products[0]?.dealUnits,
-            profitCalculations: data.products[0]?.profitCalculations,
-            profitEvaluation: data.products[0]?.profitEvaluation
-          })
+          // Database fetch successful
           
           // Simplified: All prices in GBP (£) only - use actual database price
           const transformedProducts = data.products.map(p => {
             // Debug amber bulb specifically
-            if (p.name && p.name.toLowerCase().includes('amber') && p.name.toLowerCase().includes('bulb')) {
-              console.log('🔍 AMBER BULB DEBUG:', {
-                id: p._id,
-                name: p.name,
-                profitCalculations: p.profitCalculations,
-                profitEvaluation: p.profitEvaluation,
-                evaluation: p.evaluation
-              });
-            }
+            // Product transformation
             
             return {
               id: p._id,
@@ -198,11 +175,7 @@ const AmazonsChoice = () => {
             };
           })
           
-          console.log('🎯 Setting products state:', {
-            originalCount: data.products.length,
-            transformedCount: transformedProducts.length,
-            sampleTransformed: transformedProducts[0]
-          })
+          // Setting products state
           
           setProducts(transformedProducts)
           // Initialize filtered products with all products
@@ -212,24 +185,11 @@ const AmazonsChoice = () => {
           setLastFetchKey(fetchKey)
           setDataSource(data.source || 'unknown')
           
-          console.log('✅ Products loaded successfully!')
-          console.log('🔍 Final state check:', {
-            productsLength: transformedProducts.length,
-            firstProduct: transformedProducts[0]?.name,
-            loading: false,
-            dataSource: data.source
-          })
+          // Products loaded successfully
           
           // Show notification if using fallback data
-          if (data.source && data.source !== 'database' && data.source !== 'fast') {
-            console.warn('⚠️ Using fallback data source:', data.source);
-          }
         } else {
-          console.log('⚠️ No Amazon Choice products found in database')
-          console.log('🔍 This might mean:')
-          console.log('  1. No products are marked as isAmazonsChoice: true')
-          console.log('  2. Database connection issues')
-          console.log('  3. All Amazon Choice products are inactive')
+          // No Amazon Choice products found in database
           setProducts([])
           setLoading(false)
         }
@@ -237,7 +197,7 @@ const AmazonsChoice = () => {
         throw new Error(`Failed to fetch products: ${response.status}`)
       }
     } catch (error) {
-      console.error('❌ Database fetch failed:', error)
+      // Database fetch failed
       alert('Failed to load products. Please refresh the page.')
       setProducts([])
       setLoading(false)
@@ -246,25 +206,20 @@ const AmazonsChoice = () => {
 
   // Server-side filtering - fetch products with filters
   const applyFilters = async (category, search) => {
-    console.log('🔍 Applying filters:', { category, search })
+    // Applying filters
     await fetchProducts(category, search)
   }
 
   // Force refresh for admin
   const forceRefresh = async () => {
-    console.log('🔄 Force refreshing products from database...')
+    // Force refreshing products from database
     setLoading(true)
-    await Promise.all([fetchProducts(), fetchCategories()])
+    await fetchProducts()
   }
 
-  // Debug: Track products state changes
+  // Track products state changes
   useEffect(() => {
-    console.log('🔍 Products state changed:', {
-      productsCount: products.length,
-      currentProductsCount: currentProducts.length,
-      loading: loading,
-      hasLoadedOnce: hasLoadedOnce
-    })
+    // Products state changed
   }, [products, currentProducts, loading, hasLoadedOnce])
 
   // Check admin status
@@ -293,12 +248,7 @@ const AmazonsChoice = () => {
     const catParam = searchParams.get('cat') || 'all'
     const searchParam = searchParams.get('search') || ''
     
-    console.log('📍 URL params changed:', { catParam, searchParam })
-    console.log('🌍 Environment info:', {
-      isDev: import.meta.env.DEV,
-      apiUrl: import.meta.env.VITE_API_URL,
-      mode: import.meta.env.MODE
-    })
+    // URL params changed
     
     // Log device info for debugging mobile issues
     logDeviceInfo()
@@ -316,12 +266,11 @@ const AmazonsChoice = () => {
     const checkApiHealth = async () => {
       try {
         const healthUrl = getApiUrl('../health');
-        console.log('🏥 Checking API health:', healthUrl);
         const response = await fetch(healthUrl);
-        const health = await response.json();
-        console.log('🏥 API Health:', health);
+        await response.json();
+        // API Health check completed
       } catch (error) {
-        console.error('❌ API Health check failed:', error);
+        // API Health check failed
       }
     };
     
@@ -333,18 +282,43 @@ const AmazonsChoice = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="container products-container" style={{maxWidth: '1600px', padding: '10px 15px'}}>
+      <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '20px 15px'}}>
         <ScrollToTop />
         
-        {/* Simple Loading Message */}
+        {/* Enhanced Loading Message */}
         <div style={{
           textAlign: 'center',
-          padding: '40px 20px',
-          fontSize: '18px',
-          color: '#374151'
+          padding: '60px 20px',
+          fontSize: '20px',
+          color: '#ff6600',
+          background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
+          borderRadius: '20px',
+          border: '3px solid #ff6600',
+          boxShadow: '0 10px 30px rgba(255, 102, 0, 0.2)',
+          margin: '20px 0'
         }}>
-          <i className="fas fa-spinner fa-spin" style={{ marginRight: '10px' }}></i>
-          Loading products from database...
+          <div style={{
+            fontSize: '3rem',
+            marginBottom: '20px',
+            animation: 'spin 2s linear infinite, pulse 1.5s ease-in-out infinite alternate'
+          }}>
+            🔄
+          </div>
+          <div style={{
+            fontWeight: '700',
+            textShadow: '0 2px 4px rgba(255, 102, 0, 0.3)',
+            letterSpacing: '1px'
+          }}>
+            Loading Amazing Products...
+          </div>
+          <div style={{
+            fontSize: '14px',
+            marginTop: '10px',
+            color: '#cc3300',
+            fontWeight: '500'
+          }}>
+            Fetching the best deals for you!
+          </div>
         </div>
         
         <div id="products-grid" style={{
@@ -370,7 +344,7 @@ const AmazonsChoice = () => {
   // No products state - only show if we've tried loading and have no products
   if (!loading && products.length === 0 && hasLoadedOnce) {
     return (
-      <div className="container products-container" style={{maxWidth: '1600px', padding: '10px 15px'}}>
+      <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '20px 15px'}}>
         <ScrollToTop />
         <div style={{
           display: 'flex',
@@ -379,45 +353,97 @@ const AmazonsChoice = () => {
           justifyContent: 'center',
           minHeight: '60vh',
           textAlign: 'center',
-          padding: '40px 20px'
+          padding: '60px 20px',
+          background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
+          borderRadius: '25px',
+          border: '3px solid #ff6600',
+          boxShadow: '0 15px 40px rgba(255, 102, 0, 0.2)'
         }}>
-          <div style={{ fontSize: '4rem', marginBottom: '20px', opacity: 0.3 }}>🔌</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#374151', marginBottom: '10px' }}>
-            No Amazon Choice Products Found
+          <div style={{ 
+            fontSize: '5rem', 
+            marginBottom: '30px', 
+            animation: 'bounce 2s ease-in-out infinite',
+            filter: 'drop-shadow(0 4px 8px rgba(255, 102, 0, 0.3))'
+          }}>
+            🛍️
+          </div>
+          <h2 style={{ 
+            fontSize: '2rem', 
+            fontWeight: '700', 
+            color: '#ff3300', 
+            marginBottom: '20px',
+            textShadow: '0 2px 4px rgba(255, 51, 0, 0.3)'
+          }}>
+            No Amazing Products Found!
           </h2>
-          <p style={{ fontSize: '1rem', color: '#6b7280', marginBottom: '20px', maxWidth: '500px', lineHeight: '1.5' }}>
-            No Amazon Choice products are currently available. This might be because:
-            <br />• Products are not marked as Amazon's Choice in the database
-            <br />• All Amazon Choice products are currently inactive
-            <br />• Database connection issues
+          <p style={{ 
+            fontSize: '1.1rem', 
+            color: '#cc3300', 
+            marginBottom: '30px', 
+            maxWidth: '600px', 
+            lineHeight: '1.6',
+            fontWeight: '500'
+          }}>
+            We're working hard to bring you the best deals! This might be because:
+            <br />• 🔄 Products are being updated
+            <br />• 🛠️ System maintenance in progress
+            <br />• 🌐 Connection issues
           </p>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={() => window.location.reload()}
+              className="enhanced-btn"
               style={{
-                background: '#667eea',
+                background: 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
                 color: 'white',
-                border: 'none',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: 'pointer'
+                border: '2px solid white',
+                padding: '15px 30px',
+                borderRadius: '12px',
+                fontSize: '1.1rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 8px 20px rgba(255, 102, 0, 0.4)',
+                transition: 'all 0.3s ease',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-3px) scale(1.05)';
+                e.target.style.boxShadow = '0 12px 30px rgba(255, 102, 0, 0.5)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0) scale(1)';
+                e.target.style.boxShadow = '0 8px 20px rgba(255, 102, 0, 0.4)';
               }}
             >
               🔄 Try Again
             </button>
             <button
               onClick={() => navigate('/api-debug')}
+              className="enhanced-btn"
               style={{
-                background: '#f59e0b',
+                background: 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)',
                 color: 'white',
-                border: 'none',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: 'pointer'
+                border: '2px solid #ff6600',
+                padding: '15px 30px',
+                borderRadius: '12px',
+                fontSize: '1.1rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 8px 20px rgba(0, 0, 0, 0.4)',
+                transition: 'all 0.3s ease',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-3px) scale(1.05)';
+                e.target.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
+                e.target.style.borderColor = 'white';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0) scale(1)';
+                e.target.style.background = 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)';
+                e.target.style.borderColor = '#ff6600';
               }}
             >
               🔧 Debug Info
@@ -428,17 +454,11 @@ const AmazonsChoice = () => {
     )
   }
 
-  // Debug: Log render state
-  console.log('🎨 Rendering with state:', {
-    loading,
-    productsLength: products.length,
-    currentProductsLength: currentProducts.length,
-    hasLoadedOnce
-  })
+  // Rendering with current state
 
   return (
     <div>
-      <div className="container products-container" style={{maxWidth: '1600px', padding: '10px 15px'}}>
+      <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '5px 15px', marginTop: '10px'}}>
         <ScrollToTop />
 
         {/* Data Source Indicator for Debugging */}
@@ -485,7 +505,7 @@ const AmazonsChoice = () => {
         
 
 
-        {/* Products Grid */}
+        {/* Enhanced Products Grid */}
         <div id="products-grid" style={{
           display: 'grid', 
           gridTemplateColumns: windowWidth < 576 ? 'repeat(2, 1fr)' : 
@@ -494,25 +514,31 @@ const AmazonsChoice = () => {
                               windowWidth < 1200 ? 'repeat(6, 1fr)' :
                               windowWidth < 1400 ? 'repeat(7, 1fr)' :
                               'repeat(8, 1fr)', 
-          gap: windowWidth < 576 ? '6px' : '10px',
+          gap: windowWidth < 576 ? '12px' : '15px',
           maxWidth: '1600px',
-          margin: '0 auto'
+          margin: '0 auto',
+          padding: '10px',
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 245, 240, 0.9) 100%)',
+          borderRadius: '15px',
+          boxShadow: '0 8px 25px rgba(255, 102, 0, 0.1)',
+          backdropFilter: 'blur(10px)',
+          border: '2px solid rgba(255, 102, 0, 0.2)'
         }}>
           {currentProducts.map((product, index) => (
             <div 
               key={product.id} 
-              className="product-card"
+              className="product-card enhanced-card"
               onClick={() => {
                 // Get the unique badge for this product
                 const additionalBadges = [
-                  { text: 'Best Seller', color: '#ff6b35', icon: '🏆' },
-                  { text: 'Top Rated', color: '#28a745', icon: '⭐' },
-                  { text: 'Crazy Low', color: '#dc3545', icon: '🔥' },
-                  { text: 'Very Popular', color: '#6f42c1', icon: '💎' },
-                  { text: 'Limited Time', color: '#fd7e14', icon: '⚡' },
-                  { text: 'Hot Deal', color: '#e83e8c', icon: '💥' },
-                  { text: 'Trending', color: '#17a2b8', icon: '📈' },
-                  { text: 'New Arrival', color: '#20c997', icon: '✨' }
+                  { text: 'Best Seller', color: '#e74c3c', icon: '🏆' },
+                  { text: 'Top Rated', color: '#f39c12', icon: '⭐' },
+                  { text: 'Crazy Low', color: '#e67e22', icon: '🔥' },
+                  { text: 'Very Popular', color: '#9b59b6', icon: '💎' },
+                  { text: 'Limited Time', color: '#3498db', icon: '⚡' },
+                  { text: 'Hot Deal', color: '#e91e63', icon: '💥' },
+                  { text: 'Trending', color: '#1abc9c', icon: '📈' },
+                  { text: 'New Arrival', color: '#27ae60', icon: '✨' }
                 ]
                 const uniqueBadge = additionalBadges[index % additionalBadges.length]
                 
@@ -531,7 +557,26 @@ const AmazonsChoice = () => {
                 })
                 navigate(`/product/${product.id}?${params.toString()}`)
               }}
-              style={{cursor: 'pointer'}}
+              style={{
+                cursor: 'pointer',
+                background: 'linear-gradient(145deg, #ffffff 0%, #fafafa 100%)',
+                border: '2px solid transparent',
+                borderRadius: '15px',
+                overflow: 'hidden',
+                boxShadow: '0 8px 25px rgba(255, 102, 0, 0.15)',
+                transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                position: 'relative'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+                e.currentTarget.style.boxShadow = '0 20px 40px rgba(255, 102, 0, 0.25)';
+                e.currentTarget.style.borderColor = '#ff6600';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 102, 0, 0.15)';
+                e.currentTarget.style.borderColor = 'transparent';
+              }}
             >
               <div className="product-image-container" style={{
                 position: 'relative', 
@@ -587,13 +632,38 @@ const AmazonsChoice = () => {
               </div>
               
               <div className="product-info" style={{padding: '3px 5px', display: 'flex', flexDirection: 'column', gap: '2px'}}>
-                <h5 style={{fontSize: '10px', fontWeight: '700', margin: 0, lineHeight: '1.2', height: '24px', overflow: 'hidden'}}>
+                <h5 style={{
+                  fontSize: '10px', 
+                  fontWeight: '700', 
+                  margin: 0, 
+                  lineHeight: '1.2', 
+                  height: '24px', 
+                  overflow: 'hidden',
+                  color: '#1a1a1a',
+                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+                  transition: 'color 0.3s ease'
+                }}
+                onMouseEnter={(e) => e.target.style.color = '#ff6600'}
+                onMouseLeave={(e) => e.target.style.color = '#1a1a1a'}
+                >
                   {product.name}
                 </h5>
                 
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '4px'}}>
-                  {/* Left side - Price */}
-                  <div style={{fontWeight: '800', fontSize: '12px', color: '#0b3b2e'}}>
+                  {/* Left side - Compact Enhanced Price */}
+                  <div style={{
+                    fontWeight: '800', 
+                    fontSize: '10px', 
+                    color: '#ff3300',
+                    background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
+                    padding: '2px 4px',
+                    borderRadius: '4px',
+                    border: '1px solid #ff6600',
+                    textShadow: '0 1px 2px rgba(255, 51, 0, 0.3)',
+                    boxShadow: '0 1px 4px rgba(255, 102, 0, 0.15)',
+                    whiteSpace: 'nowrap',
+                    maxWidth: 'fit-content'
+                  }}>
                     {(() => {
                       // Use the raw database price directly as per-unit price
                       const perUnitPrice = product.rawPrice || 0;
@@ -602,17 +672,9 @@ const AmazonsChoice = () => {
                     })()}
                   </div>
                   
-                  {/* Right side - Profit Information */}
+                  {/* Right side - Profit Information - MOVED LEFT */}
                   {(() => {
-                    // Debug: Log what profit data is available
-                    console.log('🔍 Profit Debug for', product.name?.substring(0, 30), ':', {
-                      hasProfitCalculations: !!product?.profitCalculations,
-                      profitCalculations: product?.profitCalculations,
-                      hasEvaluation: !!product?.evaluation,
-                      evaluation: product?.evaluation,
-                      hasShowEvaluation: !!product?.showEvaluation,
-                      showEvaluation: product?.showEvaluation
-                    });
+                    // Check profit data availability
 
                     // Check if profit data is valid - use multiple sources like ProductDetail
                     const hasValidProfitData = () => {
@@ -656,11 +718,8 @@ const AmazonsChoice = () => {
 
                     // Only show profit information if it's valid
                     if (!hasValidProfitData()) {
-                      console.log('❌ No valid profit data for', product.name?.substring(0, 30));
                       return null;
                     }
-
-                    console.log('✅ Valid profit data found for', product.name?.substring(0, 30));
 
                     // Get the exact same profit value as ProductDetail page
                     const getProfitPerUnit = () => {
@@ -698,22 +757,42 @@ const AmazonsChoice = () => {
                     const dealUnits = product.dealUnits || 1;
                     const totalProfit = profitPerUnit * dealUnits;
 
-                    console.log('💰 Calculated profit for', product.name?.substring(0, 30), ':', {
-                      profitPerUnit,
-                      dealUnits,
-                      totalProfit
-                    });
+                    // Calculated profit for product
 
                     return (
-                      <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1px'}}>
+                      <div style={{
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'flex-start', // MOVED LEFT - changed from flex-end to flex-start
+                        gap: '1px',
+                        marginLeft: '4px' // Reduced margin for compact layout
+                      }}>
                         {/* Profit per unit */}
-                        <div style={{fontSize: '8px', color: '#059669', fontWeight: '700'}}>
+                        <div style={{
+                          fontSize: '7px', 
+                          color: '#ff6600',
+                          fontWeight: '700',
+                          background: 'rgba(255, 102, 0, 0.1)',
+                          padding: '1px 3px',
+                          borderRadius: '2px',
+                          border: '1px solid rgba(255, 102, 0, 0.3)',
+                          whiteSpace: 'nowrap'
+                        }}>
                           💰 £{profitPerUnit.toFixed(2)}/unit
                         </div>
                         
                         {/* Profit for deal units */}
-                        <div style={{fontSize: '8px', color: '#059669', fontWeight: '700'}}>
-                          📈 £{totalProfit.toFixed(2)}/{dealUnits} unit{dealUnits !== 1 ? 's' : ''}
+                        <div style={{
+                          fontSize: '7px', 
+                          color: '#ff6600',
+                          fontWeight: '700',
+                          background: 'rgba(255, 102, 0, 0.1)',
+                          padding: '1px 3px',
+                          borderRadius: '2px',
+                          border: '1px solid rgba(255, 102, 0, 0.3)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          📈 £{totalProfit.toFixed(2)}/{dealUnits}units
                         </div>
                       </div>
                     );
@@ -723,20 +802,20 @@ const AmazonsChoice = () => {
                 {/* Deal Units Display */}
                 <div style={{ marginTop: '2px' }}>
                   <div style={{
-                    background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', 
-                    padding: '4px 6px', 
-                    borderRadius: '4px', 
-                    border: '1px solid #f59e0b', 
-                    boxShadow: '0 1px 3px rgba(245, 158, 11, 0.2)',
+                    background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)', 
+                    padding: '2px 4px', 
+                    borderRadius: '6px', 
+                    border: '1px solid #ff6600', 
+                    boxShadow: '0 2px 6px rgba(255, 102, 0, 0.15)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center'
                   }}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
-                      <span style={{fontSize: '8px', color: '#92400e', fontWeight: '700'}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '3px'}}>
+                      <span style={{fontSize: '9px', color: '#cc3300', fontWeight: '700'}}>
                         💰 Deal of {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
-                      <span style={{fontSize: '9px', fontWeight: '800', color: '#b45309'}}>
+                      <span style={{fontSize: '9px', fontWeight: '800', color: '#ff3300'}}>
                         {(() => {
                           try {
                             // Use raw price (per unit) from database
@@ -763,20 +842,34 @@ const AmazonsChoice = () => {
                       </span>
                     </div>
                     
-                    {/* Basket button moved here */}
+                    {/* Smaller Basket button */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         addToBasket(product)
                       }}
                       style={{
-                        background: isInBasket(product.id) ? '#10b981' : '#667eea',
+                        background: isInBasket(product.id) ? 
+                          'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
+                          'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
                         color: 'white',
                         border: 'none',
-                        padding: '3px 6px',
-                        borderRadius: '3px',
-                        fontSize: '10px',
-                        cursor: 'pointer'
+                        padding: '2px 4px',
+                        borderRadius: '4px',
+                        fontSize: '8px',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 4px rgba(255, 102, 0, 0.3)',
+                        transition: 'all 0.2s ease',
+                        minWidth: '20px',
+                        height: '16px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.transform = 'scale(1.1)';
+                        e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.transform = 'scale(1)';
+                        e.target.style.boxShadow = '0 1px 4px rgba(255, 102, 0, 0.3)';
                       }}
                     >
                       <i className={isInBasket(product.id) ? 'fas fa-check' : 'fas fa-shopping-basket'}></i>
@@ -792,23 +885,34 @@ const AmazonsChoice = () => {
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
                     style={{
-                      background: '#232f3e',
+                      background: 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)',
                       color: 'white',
-                      border: 'none',
-                      padding: '4px 6px',
-                      borderRadius: '3px',
+                      border: '2px solid #ff6600',
+                      padding: '5px 8px',
+                      borderRadius: '8px',
                       fontSize: '8.5px',
-                      fontWeight: '600',
+                      fontWeight: '700',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '3px',
+                      gap: '4px',
                       width: '100%',
                       textDecoration: 'none',
-                      transition: 'background 0.2s'
+                      transition: 'all 0.3s ease',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)'
                     }}
-                    onMouseEnter={(e) => e.target.style.background = '#1a252f'}
-                    onMouseLeave={(e) => e.target.style.background = '#232f3e'}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
+                      e.target.style.borderColor = '#ffffff';
+                      e.target.style.transform = 'translateY(-2px)';
+                      e.target.style.boxShadow = '0 4px 15px rgba(255, 102, 0, 0.4)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)';
+                      e.target.style.borderColor = '#ff6600';
+                      e.target.style.transform = 'translateY(0)';
+                      e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+                    }}
                   >
                     <i className="fab fa-amazon"></i> Verify on Amazon
                   </a>
@@ -818,27 +922,66 @@ const AmazonsChoice = () => {
           ))}
         </div>
 
-        {/* Pagination */}
+        {/* Enhanced Pagination */}
         {totalPages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '30px' }}>
-            <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+          <div className="pagination-container" style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            marginTop: '40px',
+            padding: '20px',
+            background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
+            borderRadius: '15px',
+            border: '2px solid #ff6600',
+            boxShadow: '0 8px 25px rgba(255, 102, 0, 0.2)'
+          }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <button
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
                 style={{
-                  padding: '8px 12px',
-                  border: '1px solid #e2e8f0',
-                  background: currentPage === 1 ? '#f8fafc' : 'white',
-                  color: currentPage === 1 ? '#9ca3af' : '#374151',
-                  borderRadius: '6px',
+                  padding: '12px 16px',
+                  border: '2px solid #ff6600',
+                  background: currentPage === 1 ? 
+                    'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)' : 
+                    'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)',
+                  color: currentPage === 1 ? '#999' : '#ff6600',
+                  borderRadius: '10px',
                   cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                  fontSize: '14px'
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  transition: 'all 0.3s ease',
+                  boxShadow: currentPage === 1 ? 'none' : '0 4px 12px rgba(255, 102, 0, 0.2)'
+                }}
+                onMouseEnter={(e) => {
+                  if (currentPage !== 1) {
+                    e.target.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
+                    e.target.style.color = 'white';
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 6px 18px rgba(255, 102, 0, 0.4)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentPage !== 1) {
+                    e.target.style.background = 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)';
+                    e.target.style.color = '#ff6600';
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = '0 4px 12px rgba(255, 102, 0, 0.2)';
+                  }
                 }}
               >
                 <i className="fas fa-chevron-left"></i>
               </button>
               
-              <span style={{ padding: '8px 16px', fontSize: '14px', color: '#374151' }}>
+              <span style={{ 
+                padding: '12px 20px', 
+                fontSize: '16px', 
+                color: '#ff3300',
+                fontWeight: '700',
+                background: 'linear-gradient(135deg, #ffffff 0%, #fff5f0 100%)',
+                border: '2px solid #ff6600',
+                borderRadius: '10px',
+                textShadow: '0 1px 2px rgba(255, 51, 0, 0.2)'
+              }}>
                 Page {currentPage} of {totalPages}
               </span>
               
@@ -846,13 +989,34 @@ const AmazonsChoice = () => {
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
                 style={{
-                  padding: '8px 12px',
-                  border: '1px solid #e2e8f0',
-                  background: currentPage === totalPages ? '#f8fafc' : 'white',
-                  color: currentPage === totalPages ? '#9ca3af' : '#374151',
-                  borderRadius: '6px',
+                  padding: '12px 16px',
+                  border: '2px solid #ff6600',
+                  background: currentPage === totalPages ? 
+                    'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)' : 
+                    'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)',
+                  color: currentPage === totalPages ? '#999' : '#ff6600',
+                  borderRadius: '10px',
                   cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                  fontSize: '14px'
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  transition: 'all 0.3s ease',
+                  boxShadow: currentPage === totalPages ? 'none' : '0 4px 12px rgba(255, 102, 0, 0.2)'
+                }}
+                onMouseEnter={(e) => {
+                  if (currentPage !== totalPages) {
+                    e.target.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
+                    e.target.style.color = 'white';
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 6px 18px rgba(255, 102, 0, 0.4)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentPage !== totalPages) {
+                    e.target.style.background = 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)';
+                    e.target.style.color = '#ff6600';
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = '0 4px 12px rgba(255, 102, 0, 0.2)';
+                  }
                 }}
               >
                 <i className="fas fa-chevron-right"></i>

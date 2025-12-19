@@ -9,6 +9,72 @@ import apiConfig from '../config/api.config'
 import { useCurrency } from '../context/CurrencyContext'
 import { useAdmin } from '../context/AdminContext'
 import '../styles/product-detail-compact.css'
+import '../styles/product-detail-enhanced.css'
+
+// Component to fetch and display linked product image
+const LinkedProductImage = ({ productId }) => {
+  const [imageUrl, setImageUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProductImage = async () => {
+      try {
+        const response = await fetch(apiConfig.getApiUrl(`products/public/${productId}`));
+        if (response.ok) {
+          const productData = await response.json();
+          const image = productData.images?.[0] || productData.image;
+          if (image) {
+            setImageUrl(getImageUrl(image));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching linked product image:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (productId) {
+      fetchProductImage();
+    }
+  }, [productId]);
+
+  if (loading) {
+    return (
+      <div style={{
+        width: '40px',
+        height: '40px',
+        backgroundColor: '#f0f0f0',
+        borderRadius: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: '4px',
+        fontSize: '0.6rem',
+        color: '#999'
+      }}>
+        ...
+      </div>
+    );
+  }
+
+  return (
+    <img 
+      src={imageUrl || '/placeholder-image.jpg'} 
+      alt="Variation"
+      style={{
+        width: '40px',
+        height: '40px',
+        objectFit: 'contain',
+        borderRadius: '4px',
+        marginBottom: '4px'
+      }}
+      onError={(e) => {
+        e.target.src = '/placeholder-image.jpg';
+      }}
+    />
+  );
+};
 
 const ProductDetail = () => {
   const { id } = useParams()
@@ -27,11 +93,7 @@ const ProductDetail = () => {
   const [relatedProducts, setRelatedProducts] = useState([])
   const [topDealsFromDB, setTopDealsFromDB] = useState([])
   const [mostPopularFromDB, setMostPopularFromDB] = useState([])
-  const [selectedVariations, setSelectedVariations] = useState({
-    color: null,
-    size: null,
-    packing: null
-  })
+  const [selectedVariations, setSelectedVariations] = useState({})
   const [productVariations, setProductVariations] = useState([])
   const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(false)
   const [isSupplierUnlocked, setIsSupplierUnlocked] = useState(false)
@@ -305,6 +367,12 @@ const ProductDetail = () => {
             parsedSave: parseFloat(dbProduct.save) || 0
           });
           
+          console.log('🎨 VARIATIONS DEBUG:', {
+            hasVariations: !!dbProduct.variations,
+            variationsLength: dbProduct.variations?.length || 0,
+            variations: dbProduct.variations
+          });
+          
           const productData = {
             id: dbProduct._id,
             name: dbProduct.name,
@@ -324,6 +392,7 @@ const ProductDetail = () => {
             seller: dbProduct.seller,
             sellerInfo: dbProduct.sellerInfo,
             save: parseFloat(dbProduct.save) || 0, // Add the single save field
+            variations: dbProduct.variations || [], // Add variations from database
             showEvaluation: dbProduct.name.toLowerCase().includes('nose ring') ||
                            dbProduct.name.toLowerCase().includes('bulb') ||
                            dbProduct.name.toLowerCase().includes('fuse') ||
@@ -896,6 +965,12 @@ const ProductDetail = () => {
             console.log('- Final productData.profitCalculations:', productData.profitCalculations)
             console.log('- Final productData.evaluation:', productData.evaluation)
           }
+          
+          console.log('🎨 Final productData with variations:', {
+            hasVariations: !!productData.variations,
+            variationsLength: productData.variations?.length || 0,
+            variations: productData.variations
+          });
           
           setProduct(productData)
           setLoading(false)
@@ -2235,12 +2310,17 @@ const ProductDetail = () => {
 
   console.log('Rendering product details')
   return (
-    <div className="product-detail-page">
+    <div className="product-detail-page" style={{fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
 
-      {/* Breadcrumb with Animation */}
-      <div className="container mt-1 mb-0 animate__animated animate__fadeInDown">
+      {/* Compact Breadcrumb */}
+      <div className="container mt-1 mb-1 animate__animated animate__fadeInDown">
         <nav aria-label="breadcrumb">
-          <ol className="breadcrumb bg-light p-2 rounded shadow-sm mb-0" style={{fontSize: '0.85rem'}}>
+          <ol className="breadcrumb p-2 rounded mb-0" style={{
+            fontSize: '0.8rem',
+            background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+            border: '1px solid #dee2e6'
+          }}>
             {(() => {
               console.log('🍞 Breadcrumb check:', {
                 returnTo: location.state?.returnTo,
@@ -2259,41 +2339,77 @@ const ProductDetail = () => {
                         state: { category: returnCategory }
                       });
                     }}
-                    style={{cursor: 'pointer'}}
+                    style={{
+                      cursor: 'pointer',
+                      color: '#0066c0',
+                      fontWeight: '500',
+                      transition: 'color 0.2s ease'
+                    }}
                     className="text-decoration-none"
+                    onMouseEnter={(e) => e.target.style.color = '#ff9900'}
+                    onMouseLeave={(e) => e.target.style.color = '#0066c0'}
                   >
-                    <i className="fas fa-arrow-left me-1"></i>Back to Products
+                    <i className="fas fa-arrow-left me-2"></i>Back to Products
                   </span>
                 </li>
-                <li className="breadcrumb-item active fw-bold">{product.name}</li>
+                <li className="breadcrumb-item active" style={{fontWeight: '600', color: '#232f3e'}}>{product.name}</li>
               </>
             ) : (
               <>
-                <li className="breadcrumb-item"><Link to="/" className="text-decoration-none"><i className="fas fa-home me-1"></i>Amazon's Choice</Link></li>
-                <li className="breadcrumb-item active fw-bold">{product.name}</li>
+                <li className="breadcrumb-item">
+                  <Link to="/" className="text-decoration-none" style={{
+                    color: '#0066c0',
+                    fontWeight: '500',
+                    transition: 'color 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.color = '#ff9900'}
+                  onMouseLeave={(e) => e.target.style.color = '#0066c0'}
+                  >
+                    <i className="fas fa-home me-2"></i>Amazon's Choice
+                  </Link>
+                </li>
+                <li className="breadcrumb-item active" style={{fontWeight: '600', color: '#232f3e'}}>{product.name}</li>
               </>
             )}
           </ol>
         </nav>
       </div>
 
-      {/* Product Detail Section - Responsive Layout */}
-      <section className="product-detail-section py-1" style={{background: '#ffffff'}}>
-        <div className="container-fluid" style={{maxWidth: '1600px', padding: '0 15px'}}>
+      {/* Compact Product Detail Section */}
+      <section className="product-detail-section py-1" style={{
+        background: 'linear-gradient(135deg, #ffffff 0%, #fafbfc 100%)'
+      }}>
+        <div className="container-fluid" style={{maxWidth: '1400px', padding: '0 10px'}}>
           <div className="row g-2">
             
-            {/* LEFT COLUMN - Product Images Only */}
+            {/* Compact LEFT COLUMN - Product Images */}
             <div className="col-12 col-lg-4 order-1 order-lg-1">
-              <div className="sticky-top" style={{top: '100px', zIndex: 10}}>
-                {/* Main Image */}
-                <div className="position-relative mb-2" style={{background: '#ffffff', border: '2px solid #e5e7eb', borderRadius: '8px', padding: '15px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'}}>
+              <div className="sticky-top" style={{top: '80px', zIndex: 10}}>
+                {/* Compact Main Image Container */}
+                <div className="position-relative mb-2" style={{
+                  background: '#ffffff', 
+                  border: '1px solid #e1e5e9', 
+                  borderRadius: '8px', 
+                  padding: '10px', 
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                  transition: 'box-shadow 0.3s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'}
+                onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)'}
+                >
                   <img 
                     src={product.images && product.images[selectedImage] ? product.images[selectedImage] : product.image} 
                     alt={product.name} 
                     className="img-fluid"
-                    style={{width: '100%', height: window.innerWidth < 768 ? '250px' : '320px', objectFit: 'contain'}}
+                    style={{
+                      width: '100%', 
+                      height: window.innerWidth < 768 ? '200px' : '250px', 
+                      objectFit: 'contain',
+                      borderRadius: '4px'
+                    }}
                   />
-                  <div className="position-absolute top-0 start-0 m-2">
+                  {/* Compact Badge */}
+                  <div className="position-absolute top-0 start-0 m-1">
                     {(() => {
                       const badgeParam = searchParams.get('badge')
                       const badgeStyle = getBadgeStyle(badgeParam)
@@ -2301,9 +2417,13 @@ const ProductDetail = () => {
                         <span 
                           className="badge px-2 py-1" 
                           style={{
-                            fontSize: '0.65rem',
+                            fontSize: '0.6rem',
+                            fontWeight: '600',
                             backgroundColor: badgeStyle.bgColor,
-                            color: badgeStyle.textColor || '#fff'
+                            color: badgeStyle.textColor || '#fff',
+                            borderRadius: '4px',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                            letterSpacing: '0.3px'
                           }}
                         >
                           <i className={`fas ${badgeStyle.icon} me-1`}></i>{badgeStyle.text}
@@ -2313,25 +2433,36 @@ const ProductDetail = () => {
                   </div>
                 </div>
 
-                {/* Thumbnail Images */}
-                <div className="d-flex gap-2 mb-2 overflow-auto" style={{maxWidth: '100%'}}>
+                {/* Compact Thumbnail Images */}
+                <div className="d-flex gap-1 mb-2 overflow-auto pb-1" style={{maxWidth: '100%'}}>
                   {product.images && product.images.map((img, idx) => (
                     <div 
                       key={idx}
                       onClick={() => setSelectedImage(idx)}
                       style={{
-                        minWidth: '60px',
-                        height: '60px',
-                        border: selectedImage === idx ? '2px solid #ff9900' : '1px solid #ddd',
-                        borderRadius: '8px',
-                        padding: '5px',
+                        minWidth: '45px',
+                        height: '45px',
+                        border: selectedImage === idx ? '2px solid #ff9900' : '1px solid #e1e5e9',
+                        borderRadius: '6px',
+                        padding: '3px',
                         cursor: 'pointer',
                         background: '#fff',
-                        transition: 'all 0.2s'
+                        transition: 'all 0.2s ease',
+                        boxShadow: selectedImage === idx ? '0 2px 6px rgba(255, 153, 0, 0.2)' : '0 1px 3px rgba(0,0,0,0.06)'
                       }}
-                      onMouseEnter={(e) => e.currentTarget.style.borderColor = '#ff9900'}
+                      onMouseEnter={(e) => {
+                        if (selectedImage !== idx) {
+                          e.currentTarget.style.borderColor = '#ff9900';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.2)';
+                        }
+                      }}
                       onMouseLeave={(e) => {
-                        if (selectedImage !== idx) e.currentTarget.style.borderColor = '#ddd'
+                        if (selectedImage !== idx) {
+                          e.currentTarget.style.borderColor = '#e1e5e9';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.08)';
+                        }
                       }}
                     >
                       <img 
@@ -2340,37 +2471,63 @@ const ProductDetail = () => {
                         style={{
                           width: '100%', 
                           height: '100%', 
-                          objectFit: 'contain'
+                          objectFit: 'contain',
+                          borderRadius: '6px'
                         }}
                       />
                     </div>
                   ))}
                 </div>
 
-                {/* Money Back Guarantee */}
-                <div className="alert alert-success border-0 mb-0" style={{background: 'linear-gradient(135deg, #28a745, #20c997)', borderRadius: '6px'}}>
-                  <div className="text-center text-white py-2">
-                    <i className="fas fa-shield-alt mb-1" style={{fontSize: '1.2rem'}}></i>
-                    <div className="fw-bold mb-1" style={{fontSize: '0.8rem'}}>100% Money Back Guarantee</div>
-                    <small style={{fontSize: '0.7rem', opacity: 0.95}}>Price guaranteed or full refund</small>
+                {/* Compact Money Back Guarantee */}
+                <div className="border-0 mb-0" style={{
+                  background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', 
+                  borderRadius: '6px',
+                  boxShadow: '0 2px 6px rgba(40, 167, 69, 0.2)'
+                }}>
+                  <div className="text-center text-white py-2 px-2">
+                    <i className="fas fa-shield-alt mb-1" style={{fontSize: '1rem'}}></i>
+                    <div className="fw-bold mb-1" style={{fontSize: '0.7rem', letterSpacing: '0.3px'}}>100% Money Back Guarantee</div>
+                    <small style={{fontSize: '0.6rem', opacity: 0.95, fontWeight: '500'}}>Price guaranteed or full refund</small>
                   </div>
                 </div>
               </div>
             </div>
             
-            {/* MIDDLE COLUMN - Title, Reviews, Price, Variations, About */}
+            {/* Compact MIDDLE COLUMN - Title, Reviews, Price, Variations */}
             <div className="col-12 col-lg-5 order-3 order-lg-2">
-              <div className="product-middle-info">
+              <div className="product-middle-info" style={{
+                background: '#ffffff',
+                borderRadius: '8px',
+                padding: '12px',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                border: '1px solid #e1e5e9'
+              }}>
                 
-                {/* Product Title */}
-                <h1 className="fw-bold text-dark mb-2" style={{fontSize: '1.1rem', lineHeight: '1.3'}}>{product.name}</h1>
+                {/* Compact Product Title */}
+                <h1 className="fw-bold text-dark mb-2" style={{
+                  fontSize: '1rem', 
+                  lineHeight: '1.3',
+                  fontWeight: '700',
+                  color: '#232f3e',
+                  letterSpacing: '-0.3px'
+                }}>{product.name}</h1>
                   
-                {/* Rating and Reviews */}
-                <div className="d-flex align-items-center flex-wrap mb-2">
-                  <div className="text-warning me-2" style={{fontSize: '0.75rem'}}>
+                {/* Compact Rating and Reviews Section */}
+                <div className="d-flex align-items-center flex-wrap mb-2 pb-2" style={{borderBottom: '1px solid #e1e5e9'}}>
+                  <div className="text-warning me-2" style={{fontSize: '0.7rem'}}>
                     {renderStars(product.rating)}
                   </div>
-                  <Link to="#reviews" className="text-primary me-2" style={{fontSize: '0.75rem', textDecoration: 'none'}}>
+                  <Link to="#reviews" className="me-2" style={{
+                    fontSize: '0.7rem', 
+                    textDecoration: 'none',
+                    color: '#0066c0',
+                    fontWeight: '500',
+                    transition: 'color 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.color = '#ff9900'}
+                  onMouseLeave={(e) => e.target.style.color = '#0066c0'}
+                  >
                     {product.reviews} ratings
                   </Link>
                   {(() => {
@@ -2381,7 +2538,15 @@ const ProductDetail = () => {
                     if (displayMarkup) {
                       console.log('🏷️ Badge markup - Admin RRP:', adminRRPMarkup, 'Product markup:', product.markup, 'Using:', displayMarkup);
                       return (
-                        <span className="badge bg-success px-2 py-1 me-2" style={{fontSize: '0.65rem'}}>
+                        <span className="badge px-2 py-1 me-2" style={{
+                          fontSize: '0.6rem',
+                          fontWeight: '600',
+                          background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+                          color: '#fff',
+                          borderRadius: '4px',
+                          boxShadow: '0 1px 3px rgba(40, 167, 69, 0.2)',
+                          letterSpacing: '0.3px'
+                        }}>
                           {displayMarkup}
                         </span>
                       );
@@ -2390,98 +2555,149 @@ const ProductDetail = () => {
                   })()}
 
                 </div>
-
-                <hr className="my-2" />
                   
-                {/* Price Section */}
-                <div className="price-section mb-2">
-                  <div className="d-flex justify-content-between align-items-start gap-3 mb-1">
-                    {/* Left side - Price and RRP */}
-                    <div>
-                      <div className="d-flex align-items-baseline gap-2 flex-wrap">
-                        <span className="fw-bold" style={{fontSize: '1.4rem', color: '#B12704'}}>
+                {/* Enhanced Price Section */}
+                <div className="price-section mb-3" style={{
+                  background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+                  border: '1px solid #e1e5e9',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                }}>
+                  <div className="d-flex justify-content-between align-items-start gap-3 mb-2">
+                    {/* Left side - Enhanced Price and RRP */}
+                    <div className="flex-grow-1">
+                      <div className="d-flex align-items-baseline gap-2 flex-wrap mb-2">
+                        <span className="fw-bold" style={{
+                          fontSize: '1.4rem', 
+                          color: '#B12704',
+                          fontWeight: '700',
+                          letterSpacing: '-0.3px'
+                        }}>
                           {convertPrice(product.price)}
                         </span>
-                        <span className="text-muted" style={{fontSize: '0.75rem'}}>/Unit ex. VAT</span>
+                        <span className="text-muted" style={{
+                          fontSize: '0.75rem',
+                          fontWeight: '500'
+                        }}>/Unit ex. VAT</span>
                       </div>
-                      {/* RRP and Save - Right below price */}
-                      <div className="d-flex gap-3 mt-1">
-                        <div>
-                          <small className="text-muted" style={{fontSize: '0.7rem'}}>RRP: </small>
-                          <span className="fw-semibold" style={{fontSize: '0.8rem'}}>{convertPrice(product.rrp)}</span>
-                        </div>
-                        <div>
-                          <small className="text-muted" style={{fontSize: '0.7rem'}}>Save: </small>
-                          <span className="fw-semibold text-danger" style={{fontSize: '0.8rem'}}>
+                      {/* Enhanced RRP and Save Section */}
+                      <div className="d-flex gap-3 align-items-center flex-wrap">
+                        <div className="d-flex align-items-center gap-1">
+                          <small className="text-muted" style={{fontSize: '0.65rem', fontWeight: '500'}}>RRP:</small>
+                          <span className="fw-bold text-primary" style={{
+                            fontSize: '0.75rem',
+                            fontWeight: '700'
+                          }}>
                             {(() => {
-                              // Use the helper function to get admin-set RRP markup
-                              const adminRRPMarkup = getRRPMarkupFromPlatforms();
-                              if (adminRRPMarkup) {
-                                console.log('✅ Save% using admin-set RRP markup:', adminRRPMarkup);
-                                return adminRRPMarkup;
+                              // Try to get RRP directly from admin panel platform data first
+                              if (product?.platforms && product.platforms.length > 0) {
+                                console.log('🏷️ RRP Display - Checking admin platforms:', product.platforms);
+                                
+                                const adminRRPPlatform = product.platforms.find(p => 
+                                  p.platform && p.platform.toLowerCase() === 'rrp'
+                                );
+                                
+                                console.log('🏷️ RRP Display - Found admin RRP platform:', adminRRPPlatform);
+                                
+                                if (adminRRPPlatform && adminRRPPlatform.rrpPerUnit) {
+                                  console.log('🏷️ RRP Display - Using admin RRP:', adminRRPPlatform.rrpPerUnit);
+                                  return `£${parseFloat(adminRRPPlatform.rrpPerUnit).toFixed(2)}`;
+                                }
                               }
                               
-                              // Fallback: Calculate markup the same way Platform Comparison does
-                              const wholesale = parseFloat(product.price.replace(/[₨£$€Rs]/g, ''))
-                              const rrp = parseFloat(product.rrp.replace(/[₨£$€Rs]/g, ''))
+                              // Get platform data exactly like the table does
+                              const platformData = calculatePlatformData();
+                              console.log('🏷️ RRP Display - Platform data:', platformData);
                               
-                              console.log('🔍 Fallback calculation - wholesale:', wholesale, 'rrp:', rrp);
+                              // Find RRP platform using correct property names
+                              const rrpPlatform = platformData.find(platform => 
+                                (platform.name && platform.name.toLowerCase().includes('rrp')) ||
+                                (platform.platform && platform.platform.toLowerCase().includes('rrp'))
+                              );
                               
-                              // If we can parse both prices, calculate markup percentage
-                              if (!isNaN(wholesale) && !isNaN(rrp) && rrp > 0 && wholesale > 0) {
-                                // Calculate markup: ((RRP - Wholesale) / Wholesale) * 100
-                                const markup = ((rrp - wholesale) / wholesale * 100).toFixed(0);
-                                console.log('🔍 Calculated markup percentage (RRP method):', `${markup}%`);
-                                return `${markup}%`;
+                              console.log('🏷️ RRP Display - Found RRP platform:', rrpPlatform);
+                              
+                              if (rrpPlatform) {
+                                // Use EXACTLY the same calculation as the Platform Comparison table
+                                const perUnitPrice = rrpPlatform.perUnitPrice || parseFloat(String(rrpPlatform.price).replace(/[£₨$€]/g, '')) / (rrpPlatform.units || 200);
+                                console.log('🏷️ RRP Display - Calculated perUnitPrice:', perUnitPrice);
+                                return `£${parseFloat(perUnitPrice).toFixed(2)}`;
                               }
                               
-                              // If we can't parse prices, calculate savings instead
-                              if (!isNaN(wholesale) && !isNaN(rrp) && rrp > 0) {
-                                const savings = ((rrp - wholesale) / rrp * 100).toFixed(0)
-                                console.log('🔍 Calculated savings percentage (fallback):', `${savings}%`);
+                              // Final fallback to product.rrp
+                              const fallbackRRP = parseFloat(product.rrp.replace(/[₨£$€Rs]/g, '')).toFixed(2);
+                              console.log('🏷️ RRP Display - Using fallback RRP:', fallbackRRP);
+                              return `£${fallbackRRP}`;
+                            })()}
+                          </span>
+                        </div>
+                        <div className="d-flex align-items-center gap-1">
+                          <small className="text-muted" style={{fontSize: '0.65rem', fontWeight: '500'}}>Save:</small>
+                          <span className="fw-bold" style={{
+                            fontSize: '0.75rem',
+                            color: '#B12704',
+                            background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            border: '1px solid #ff9900',
+                            fontWeight: '700'
+                          }}>
+                            {(() => {
+                              // Use product.save field if available
+                              if (product.save !== undefined && product.save !== null && product.save !== '') {
+                                const saveValue = parseFloat(product.save);
+                                if (!isNaN(saveValue) && saveValue > 0) {
+                                  return `${Math.round(saveValue)}%`;
+                                }
+                              }
+                              
+                              // Fallback calculation
+                              const wholesale = parseFloat(product.price.replace(/[₨£$€Rs]/g, '')) || 0;
+                              const rrp = parseFloat(product.rrp.replace(/[₨£$€Rs]/g, '')) || 0;
+                              
+                              if (wholesale > 0 && rrp > 0 && rrp > wholesale) {
+                                const savings = ((rrp - wholesale) / rrp * 100).toFixed(0);
                                 return `${savings}%`;
                               }
                               
-                              // Last resort: Default savings by product type
-                              const productName = product.name.toLowerCase()
-                              if (productName.includes('nose ring')) return '65%'
-                              if (productName.includes('bulb')) return '70%'
-                              if (productName.includes('fuse')) return '60%'
-                              if (productName.includes('lampshade')) return '55%'
-                              if (productName.includes('leather') && productName.includes('watch strap')) return '50%'
-                              
-                              console.log('🔍 Using default percentage: 50%');
-                              return '50%' // Default
+                              return '0%';
                             })()}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Right side - Profit Information */}
+                    {/* Compact Right side - Profit Information */}
                     {hasValidProfitData() && product.profitCalculations.profitPerUnit && (
                       <div 
                         style={{
-                          border: '1px solid #e5e7eb',
+                          border: '1px solid #e1e5e9',
                           borderRadius: '6px',
-                          padding: '8px 12px',
-                          background: '#f9fafb',
-                          fontSize: '0.75rem',
+                          padding: '8px 10px',
+                          background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+                          fontSize: '0.65rem',
                           fontWeight: '600',
-                          color: '#2d3748',
-                          minWidth: '320px'
+                          color: '#232f3e',
+                          minWidth: '200px',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
                         }}
                       >
                         <div style={{
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'center',
-                          marginBottom: '8px',
-                          paddingBottom: '6px',
-                          borderBottom: '1px solid #e5e7eb'
+                          marginBottom: '6px',
+                          paddingBottom: '4px',
+                          borderBottom: '1px solid #e1e5e9'
                         }}>
-                          <span style={{fontSize: '0.8rem', fontWeight: '700', color: '#111'}}>
-                            Amazon Profit Calculation
+                          <span style={{
+                            fontSize: '0.7rem', 
+                            fontWeight: '700', 
+                            color: '#232f3e',
+                            letterSpacing: '0.2px'
+                          }}>
+                            Profit Calculator
                           </span>
                           <button
                             onClick={() => {
@@ -2494,31 +2710,44 @@ const ProductDetail = () => {
                               }, 100);
                             }}
                             style={{
-                              background: '#ff9900',
+                              background: 'linear-gradient(135deg, #ff9900 0%, #ff7700 100%)',
                               color: '#fff',
                               border: 'none',
                               borderRadius: '4px',
-                              padding: '4px 10px',
-                              fontSize: '0.7rem',
+                              padding: '3px 6px',
+                              fontSize: '0.6rem',
                               fontWeight: '600',
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              boxShadow: '0 1px 3px rgba(255, 153, 0, 0.2)',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.transform = 'translateY(-1px)';
+                              e.target.style.boxShadow = '0 2px 6px rgba(255, 153, 0, 0.3)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.transform = 'translateY(0)';
+                              e.target.style.boxShadow = '0 1px 3px rgba(255, 153, 0, 0.2)';
                             }}
                           >
                             Verify
                           </button>
                         </div>
-                        <div style={{marginBottom: '4px'}}>
-                          💰 Profit/unit: <span style={{color: '#059669'}}>
+                        <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                          <span style={{color: '#565959'}}>💰 Profit/unit:</span>
+                          <span style={{color: '#059669', fontWeight: '700', fontSize: '0.7rem'}}>
                             £{safeNumber(product.profitCalculations.profitPerUnit).toFixed(2)}
                           </span>
                         </div>
-                        <div style={{marginBottom: '4px'}}>
-                          📈 Profit/{quantity || 200} unit: <span style={{color: '#059669'}}>
+                        <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                          <span style={{color: '#565959'}}>📈 Profit/{quantity || 200}:</span>
+                          <span style={{color: '#059669', fontWeight: '700', fontSize: '0.7rem'}}>
                             £{(safeNumber(product.profitCalculations.profitPerUnit) * (quantity || 200)).toFixed(2)}
                           </span>
                         </div>
-                        <div>
-                          💰 Cost of {quantity || 200} units: <span style={{color: '#059669'}}>{(() => {
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                          <span style={{color: '#565959'}}>💰 Total cost/{quantity || 200}:</span>
+                          <span style={{color: '#B12704', fontWeight: '700', fontSize: '0.7rem'}}>{(() => {
                             // Calculate total cost: quantity × unit price
                             // Extract the numeric price from the product price string
                             const priceString = product.price || '£0';
@@ -2544,31 +2773,286 @@ const ProductDetail = () => {
 
                 </div>
 
-                <hr className="my-2" />
+                {/* Compact Divider */}
+                <div style={{
+                  height: '1px',
+                  background: 'linear-gradient(90deg, transparent 0%, #e1e5e9 50%, transparent 100%)',
+                  margin: '8px 0'
+                }}></div>
 
-                {/* Product Variations - Amazon Style */}
-                <div className="product-variations mb-4 pb-4" style={{borderBottom: '1px solid #e5e7eb'}}>
-                  {/* Color Variations */}
-                  {product.specifications && product.specifications.Color && (
-                    <div className="mb-3">
-                      <div className="mb-2">
-                        <span className="fw-bold" style={{fontSize: '0.95rem'}}>Colour: </span>
-                        <span style={{fontSize: '0.95rem'}}>
-                          {selectedVariations.color || product.specifications.Color.split(',')[0].trim()}
+                {/* Compact Product Variations - Always Show */}
+                <div className="product-variations mb-2 pb-2" style={{
+                  borderBottom: '1px solid #e1e5e9',
+                  background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
+                  borderRadius: '6px',
+                  padding: '8px',
+                  border: '1px solid #e1e5e9'
+                }}>
+                  <h3 style={{
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    color: '#232f3e',
+                    marginBottom: '6px',
+                    letterSpacing: '0.2px'
+                  }}>Product Options</h3>
+                  
+                  {/* Dynamic Product Variations */}
+                  {(() => {
+                    console.log('🎨 Rendering variations:', {
+                      hasVariations: !!product.variations,
+                      variationsLength: product.variations?.length || 0,
+                      variations: product.variations
+                    });
+                    return null;
+                  })()}
+                  {product.variations && product.variations.length > 0 && product.variations.map((variation, variationIndex) => (
+                    <div key={variationIndex} className="mb-2">
+                      <div className="mb-1">
+                        <span className="fw-bold" style={{
+                          fontSize: '0.7rem',
+                          color: '#232f3e',
+                          letterSpacing: '0.2px'
+                        }}>{variation.name}: </span>
+                        <span style={{
+                          fontSize: '0.7rem',
+                          color: '#565959',
+                          fontWeight: '500'
+                        }}>
+                          {selectedVariations[variation.type] === 'current' || !selectedVariations[variation.type] ? 
+                            'Current Product' : 
+                            selectedVariations[variation.type] || (variation.options[0]?.value || 'Not selected')
+                          }
                         </span>
                       </div>
                       <div className="d-flex gap-2 flex-wrap">
+                        {/* Current Product Option */}
+                        <div
+                          onClick={() => {
+                            setSelectedVariations({
+                              ...selectedVariations, 
+                              [variation.type]: 'current'
+                            });
+                          }}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            padding: '8px',
+                            borderRadius: '8px',
+                            border: selectedVariations[variation.type] === 'current' || (!selectedVariations[variation.type]) ? 
+                              '3px solid #232f3e' : '2px solid #e1e5e9',
+                            background: '#ffffff',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            boxShadow: selectedVariations[variation.type] === 'current' || (!selectedVariations[variation.type]) ? 
+                              '0 4px 12px rgba(35, 47, 62, 0.25)' : '0 2px 6px rgba(0,0,0,0.08)',
+                            minWidth: '80px',
+                            minHeight: '80px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!(selectedVariations[variation.type] === 'current' || (!selectedVariations[variation.type]))) {
+                              e.currentTarget.style.borderColor = '#232f3e';
+                              e.currentTarget.style.transform = 'translateY(-1px)';
+                              e.currentTarget.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.1)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!(selectedVariations[variation.type] === 'current' || (!selectedVariations[variation.type]))) {
+                              e.currentTarget.style.borderColor = '#e1e5e9';
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+                            }
+                          }}
+                        >
+                          <img 
+                            src={product.image || product.images?.[0]} 
+                            alt="Current"
+                            style={{
+                              width: '50px',
+                              height: '50px',
+                              objectFit: 'contain',
+                              borderRadius: '6px',
+                              marginBottom: '6px'
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                          <span style={{
+                            fontSize: '0.7rem',
+                            fontWeight: '600',
+                            color: '#232f3e',
+                            textAlign: 'center',
+                            lineHeight: '1.2',
+                            wordBreak: 'break-word',
+                            maxWidth: '70px'
+                          }}>
+                            {variation.type === 'Silver' ? 'Gold' : 'Current'}
+                          </span>
+                        </div>
+
+                        {/* Variation Options */}
+                        {variation.options.map((option, optionIndex) => (
+                          <div
+                            key={optionIndex}
+                            onClick={async () => {
+                              if (option.productId) {
+                                // Navigate to the linked product (like Amazon)
+                                console.log('🎨 Navigating to linked product:', option.productId);
+                                
+                                // Add cache busting to ensure fresh data
+                                const cacheBuster = new Date().getTime();
+                                navigate(`/product/${option.productId}?_=${cacheBuster}`, {
+                                  state: { 
+                                    returnTo: location.pathname,
+                                    category: product.category 
+                                  }
+                                });
+                              } else {
+                                // Just update the selected variation for options without linked products
+                                setSelectedVariations({
+                                  ...selectedVariations, 
+                                  [variation.type]: option.value
+                                });
+                              }
+                            }}
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              padding: '8px',
+                              borderRadius: '8px',
+                              border: selectedVariations[variation.type] === option.value ? 
+                                '3px solid #232f3e' : '2px solid #e1e5e9',
+                              background: '#ffffff',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              boxShadow: selectedVariations[variation.type] === option.value ? 
+                                '0 4px 12px rgba(35, 47, 62, 0.25)' : '0 2px 6px rgba(0,0,0,0.08)',
+                              minWidth: '80px',
+                              minHeight: '80px',
+                              position: 'relative'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!(selectedVariations[variation.type] === option.value)) {
+                                e.currentTarget.style.borderColor = '#232f3e';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                e.currentTarget.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.1)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!(selectedVariations[variation.type] === option.value)) {
+                                e.currentTarget.style.borderColor = '#e1e5e9';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+                              }
+                            }}
+                          >
+                            {/* Show linked product image if available */}
+                            {option.productId ? (
+                              <LinkedProductImage productId={option.productId} />
+                            ) : (
+                              <div style={{
+                                width: '40px',
+                                height: '40px',
+                                backgroundColor: '#f0f0f0',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: '4px',
+                                fontSize: '0.7rem',
+                                color: '#666'
+                              }}>
+                                {option.value.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <span style={{
+                              fontSize: '0.6rem',
+                              fontWeight: '600',
+                              color: '#232f3e',
+                              textAlign: 'center',
+                              lineHeight: '1.2'
+                            }}>
+                              {option.value}
+                            </span>
+                            {/* Link indicator */}
+                            {option.productId && (
+                              <div style={{
+                                position: 'absolute',
+                                top: '2px',
+                                right: '2px',
+                                width: '12px',
+                                height: '12px',
+                                backgroundColor: '#ff9900',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.5rem',
+                                color: 'white',
+                                fontWeight: 'bold'
+                              }}>
+                                →
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Fallback to old specifications-based variations for backward compatibility */}
+                  {(!product.variations || product.variations.length === 0) && product.specifications && product.specifications.Color && (
+                    <div className="mb-2">
+                      <div className="mb-1">
+                        <span className="fw-bold" style={{
+                          fontSize: '0.7rem',
+                          color: '#232f3e',
+                          letterSpacing: '0.2px'
+                        }}>Colour: </span>
+                        <span style={{
+                          fontSize: '0.7rem',
+                          color: '#565959',
+                          fontWeight: '500'
+                        }}>
+                          {selectedVariations.color || product.specifications.Color.split(',')[0].trim()}
+                        </span>
+                      </div>
+                      <div className="d-flex gap-1 flex-wrap">
                         {product.specifications.Color.split(',').map((color, idx) => (
                           <button 
                             key={idx}
                             onClick={() => setSelectedVariations({...selectedVariations, color: color.trim()})}
-                            className={`btn ${selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0) ? 'btn-dark' : 'btn-outline-secondary'}`}
                             style={{
-                              fontSize: '0.85rem', 
-                              padding: '10px 20px',
-                              borderRadius: '8px',
-                              fontWeight: '500',
-                              border: selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0) ? '2px solid #232f3e' : '1px solid #ddd'
+                              fontSize: '0.65rem', 
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontWeight: '600',
+                              border: selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0) ? 
+                                '1px solid #232f3e' : '1px solid #e1e5e9',
+                              background: selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0) ? 
+                                '#232f3e' : '#ffffff',
+                              color: selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0) ? 
+                                '#ffffff' : '#232f3e',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              boxShadow: selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0) ? 
+                                '0 2px 6px rgba(35, 47, 62, 0.2)' : '0 1px 3px rgba(0,0,0,0.06)'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!(selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0))) {
+                                e.target.style.borderColor = '#232f3e';
+                                e.target.style.transform = 'translateY(-1px)';
+                                e.target.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.1)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!(selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0))) {
+                                e.target.style.borderColor = '#e1e5e9';
+                                e.target.style.transform = 'translateY(0)';
+                                e.target.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+                              }
                             }}
                           >
                             {color.trim()}
@@ -2578,27 +3062,70 @@ const ProductDetail = () => {
                     </div>
                   )}
                   
-                  {/* Size Variations */}
-                  {product.specifications && product.specifications.Diameter && (
-                    <div className="mb-3">
-                      <div className="mb-2">
-                        <span className="fw-bold" style={{fontSize: '0.95rem'}}>Size: </span>
-                        <span style={{fontSize: '0.95rem'}}>
+                  {/* Show message when no variations exist */}
+                  {(!product.variations || product.variations.length === 0) && (!product.specifications || (!product.specifications.Color && !product.specifications.Diameter)) && (
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '12px',
+                      color: '#666',
+                      fontSize: '0.7rem',
+                      fontStyle: 'italic'
+                    }}>
+                      No product variations available
+                    </div>
+                  )}
+
+                  {/* Fallback to old specifications-based size variations for backward compatibility */}
+                  {(!product.variations || product.variations.length === 0) && product.specifications && product.specifications.Diameter && (
+                    <div className="mb-2">
+                      <div className="mb-1">
+                        <span className="fw-bold" style={{
+                          fontSize: '0.7rem',
+                          color: '#232f3e',
+                          letterSpacing: '0.2px'
+                        }}>Size: </span>
+                        <span style={{
+                          fontSize: '0.7rem',
+                          color: '#565959',
+                          fontWeight: '500'
+                        }}>
                           {selectedVariations.size || product.specifications.Diameter.split(',')[0].trim()}
                         </span>
                       </div>
-                      <div className="d-flex gap-2 flex-wrap">
+                      <div className="d-flex gap-1 flex-wrap">
                         {product.specifications.Diameter.split(',').map((size, idx) => (
                           <button 
                             key={idx}
                             onClick={() => setSelectedVariations({...selectedVariations, size: size.trim()})}
-                            className={`btn ${selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0) ? 'btn-dark' : 'btn-outline-secondary'}`}
                             style={{
-                              fontSize: '0.85rem', 
-                              padding: '10px 20px',
-                              borderRadius: '8px',
-                              fontWeight: '500',
-                              border: selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0) ? '2px solid #232f3e' : '1px solid #ddd'
+                              fontSize: '0.65rem', 
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontWeight: '600',
+                              border: selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0) ? 
+                                '1px solid #232f3e' : '1px solid #e1e5e9',
+                              background: selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0) ? 
+                                '#232f3e' : '#ffffff',
+                              color: selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0) ? 
+                                '#ffffff' : '#232f3e',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              boxShadow: selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0) ? 
+                                '0 2px 6px rgba(35, 47, 62, 0.2)' : '0 1px 3px rgba(0,0,0,0.06)'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!(selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0))) {
+                                e.target.style.borderColor = '#232f3e';
+                                e.target.style.transform = 'translateY(-1px)';
+                                e.target.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.1)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!(selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0))) {
+                                e.target.style.borderColor = '#e1e5e9';
+                                e.target.style.transform = 'translateY(0)';
+                                e.target.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+                              }
                             }}
                           >
                             {size.trim()}
@@ -2707,74 +3234,211 @@ const ProductDetail = () => {
               </div>
             </div>
 
-            {/* RIGHT COLUMN - Buy Box, Supplier Details */}
+            {/* Compact RIGHT COLUMN - Buy Box, Supplier Details */}
             <div className="col-12 col-lg-3 order-2 order-lg-3">
-              <div className="sticky-top" style={{top: '100px', zIndex: 10}}>
-                <div className="border rounded p-3 mobile-buy-box" style={{background: '#ffffff', border: '2px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', color: '#1f2937'}}>
+              <div className="sticky-top" style={{top: '80px', zIndex: 10}}>
+                <div className="enhanced-card mobile-buy-box" style={{
+                  background: 'linear-gradient(135deg, #ffffff 0%, #fafbfc 100%)', 
+                  border: '1px solid #e1e5e9', 
+                  borderRadius: '8px',
+                  padding: '10px',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.06)', 
+                  color: '#232f3e'
+                }}>
                   
-                  {/* Buy Box Content */}
+                  {/* Compact Buy Box Header */}
+                  <div className="mb-2 pb-2" style={{borderBottom: '1px solid #e1e5e9'}}>
+                    <h3 style={{
+                      fontSize: '0.8rem',
+                      fontWeight: '700',
+                      color: '#232f3e',
+                      margin: 0,
+                      letterSpacing: '0.2px'
+                    }}>Purchase Details</h3>
+                  </div>
                   
-                  {/* Price in Buy Box */}
-                  <div className="mb-2">
-                    <div className="d-flex align-items-baseline gap-1">
-                      <span className="fw-bold" style={{fontSize: '1.2rem', color: '#dc2626'}}>
+                  {/* Compact Price in Buy Box */}
+                  <div className="mb-2" style={{
+                    background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
+                    border: '1px solid #ff9900',
+                    borderRadius: '6px',
+                    padding: '6px 8px'
+                  }}>
+                    <div className="d-flex align-items-baseline gap-1 mb-1">
+                      <span className="fw-bold" style={{
+                        fontSize: '1rem', 
+                        color: '#B12704',
+                        fontWeight: '700',
+                        letterSpacing: '-0.3px'
+                      }}>
                         {convertPrice(product.price)}
                       </span>
-                      <span style={{fontSize: '0.7rem', color: '#6b7280'}}>/Unit</span>
+                      <span style={{fontSize: '0.6rem', color: '#565959', fontWeight: '500'}}>/Unit</span>
                     </div>
-                    <small style={{fontSize: '0.7rem', color: '#6b7280'}}>ex. VAT</small>
-                  </div>
-
-                  {/* In Stock */}
-                  <div className="mb-2">
-                    <div className="fw-bold" style={{fontSize: '0.85rem', color: '#059669'}}>
-                      <i className="fas fa-check-circle me-1"></i>In Stock
-                    </div>
-                    <small style={{fontSize: '0.7rem', color: '#6b7280'}}>
-                      Ships from {product.dealInfo?.location || 'Pakistan'}
+                    <small style={{fontSize: '0.6rem', color: '#565959', fontWeight: '500'}}>
+                      Excluding VAT & shipping
                     </small>
                   </div>
 
-                  {/* Quantity Selector */}
-                  <div className="mb-2">
-                    <label className="form-label fw-bold mb-1" style={{fontSize: '0.75rem', color: '#1f2937'}}>Quantity:</label>
-                    <input 
-                      type="number" 
-                      className="form-control form-control-sm" 
-                      style={{fontSize: '0.8rem', color: '#1f2937', backgroundColor: '#ffffff', border: '1px solid #d1d5db'}}
-                      value={quantity}
-                      min="100"
-                      step="1"
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        // Allow user to type freely, including clearing the field
-                        if (value === '' || value === '0') {
-                          setQuantity('');
-                        } else {
-                          setQuantity(parseInt(value));
-                        }
-                      }}
-                      onBlur={(e) => {
-                        // Ensure value is at least 100 when user leaves the field
-                        const value = parseInt(e.target.value);
-                        if (isNaN(value) || value < 200) {
-                          setQuantity(200);
-                        }
-                      }}
-                      placeholder="Minimum 200 units"
-                    />
-                    <small style={{fontSize: '0.65rem', color: '#6b7280'}}>
-                      Minimum order: 200 units
+                  {/* Compact In Stock Status */}
+                  <div className="mb-2" style={{
+                    background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                    border: '1px solid #0ea5e9',
+                    borderRadius: '6px',
+                    padding: '6px 8px'
+                  }}>
+                    <div className="fw-bold d-flex align-items-center mb-1" style={{
+                      fontSize: '0.7rem', 
+                      color: '#0369a1'
+                    }}>
+                      <i className="fas fa-check-circle me-1" style={{color: '#059669', fontSize: '0.6rem'}}></i>
+                      In Stock & Ready
+                    </div>
+                    <small style={{fontSize: '0.6rem', color: '#0369a1', fontWeight: '500'}}>
+                      <i className="fas fa-shipping-fast me-1"></i>
+                      Ships from {product.dealInfo?.location || 'Pakistan'} 🇵🇰
                     </small>
                   </div>
 
+                  {/* Compact Quantity Selector */}
+                  <div className="mb-2" style={{
+                    background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
+                    border: '1px solid #e1e5e9',
+                    borderRadius: '6px',
+                    padding: '8px'
+                  }}>
+                    <label className="form-label fw-bold mb-1" style={{
+                      fontSize: '0.7rem', 
+                      color: '#232f3e',
+                      letterSpacing: '0.2px'
+                    }}>Quantity:</label>
+                    <div className="d-flex align-items-center gap-1 mb-1">
+                      <button
+                        onClick={() => setQuantity(Math.max(200, quantity - 50))}
+                        style={{
+                          background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                          border: '1px solid #e1e5e9',
+                          borderRadius: '4px',
+                          width: '24px',
+                          height: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          fontSize: '0.8rem',
+                          fontWeight: '600',
+                          color: '#232f3e'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.borderColor = '#ff9900';
+                          e.target.style.transform = 'scale(1.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.borderColor = '#e1e5e9';
+                          e.target.style.transform = 'scale(1)';
+                        }}
+                      >
+                        −
+                      </button>
+                      <input 
+                        type="number" 
+                        className="form-control text-center" 
+                        style={{
+                          fontSize: '0.7rem', 
+                          color: '#232f3e', 
+                          backgroundColor: '#ffffff', 
+                          border: '1px solid #e1e5e9',
+                          borderRadius: '4px',
+                          fontWeight: '600',
+                          maxWidth: '60px',
+                          padding: '4px',
+                          height: '24px'
+                        }}
+                        value={quantity}
+                        min="200"
+                        step="50"
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Allow user to type freely, including clearing the field
+                          if (value === '' || value === '0') {
+                            setQuantity('');
+                          } else {
+                            setQuantity(parseInt(value));
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Ensure value is at least 200 when user leaves the field
+                          const value = parseInt(e.target.value);
+                          if (isNaN(value) || value < 200) {
+                            setQuantity(200);
+                          }
+                          // Reset styling
+                          e.target.style.borderColor = '#e1e5e9';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = '#ff9900';
+                          e.target.style.boxShadow = '0 0 0 2px rgba(255, 153, 0, 0.1)';
+                        }}
+                        placeholder="200"
+                      />
+                      <button
+                        onClick={() => setQuantity(quantity + 50)}
+                        style={{
+                          background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                          border: '1px solid #e1e5e9',
+                          borderRadius: '4px',
+                          width: '24px',
+                          height: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          fontSize: '0.8rem',
+                          fontWeight: '600',
+                          color: '#232f3e'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.borderColor = '#ff9900';
+                          e.target.style.transform = 'scale(1.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.borderColor = '#e1e5e9';
+                          e.target.style.transform = 'scale(1)';
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <small style={{
+                      fontSize: '0.6rem', 
+                      color: '#565959',
+                      fontWeight: '500'
+                    }}>
+                      <i className="fas fa-info-circle me-1"></i>
+                      Min: 200 units
+                    </small>
+                  </div>
 
-
-                  {/* Buy Now Button */}
-                  <div className="d-grid gap-2 mb-2">
+                  {/* Compact Buy Now Button */}
+                  <div className="d-grid gap-1 mb-2">
                     <button 
-                      className="btn btn-danger" 
-                      style={{fontSize: '0.8rem', padding: '8px'}}
+                      className="enhanced-btn" 
+                      style={{
+                        fontSize: '0.7rem', 
+                        padding: '8px 12px',
+                        background: 'linear-gradient(135deg, #ff9900 0%, #ff7700 100%)',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontWeight: '700',
+                        letterSpacing: '0.3px',
+                        boxShadow: '0 2px 6px rgba(255, 153, 0, 0.25)',
+                        position: 'relative',
+                        overflow: 'hidden'
+                      }}
                       onClick={() => {
                         const buyerToken = localStorage.getItem('buyerToken');
                         if (!buyerToken) {
@@ -2784,8 +3448,49 @@ const ProductDetail = () => {
                           alert('Buy functionality will be implemented soon!');
                         }
                       }}
+                      onMouseEnter={(e) => {
+                        e.target.style.transform = 'translateY(-1px)';
+                        e.target.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.35)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.boxShadow = '0 2px 6px rgba(255, 153, 0, 0.25)';
+                      }}
                     >
-                      <i className="fas fa-bolt me-1"></i>Buy Now
+                      <i className="fas fa-bolt me-1"></i>Buy Now - {quantity || 200} Units
+                    </button>
+                    
+                    <button 
+                      className="enhanced-btn" 
+                      style={{
+                        fontSize: '0.65rem', 
+                        padding: '6px 10px',
+                        background: 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)',
+                        color: '#ffffff',
+                        border: '1px solid #ff9900',
+                        borderRadius: '6px',
+                        fontWeight: '600',
+                        letterSpacing: '0.2px',
+                        boxShadow: '0 2px 6px rgba(35, 47, 62, 0.25)'
+                      }}
+                      onClick={() => {
+                        // Add to cart functionality
+                        alert('Add to cart functionality will be implemented soon!');
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.background = 'linear-gradient(135deg, #ff9900 0%, #ff7700 100%)';
+                        e.target.style.borderColor = '#ffffff';
+                        e.target.style.transform = 'translateY(-1px)';
+                        e.target.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.35)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background = 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)';
+                        e.target.style.borderColor = '#ff9900';
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.25)';
+                      }}
+                    >
+                      <i className="fas fa-shopping-cart me-1"></i>Add to Cart
                     </button>
                   </div>
 

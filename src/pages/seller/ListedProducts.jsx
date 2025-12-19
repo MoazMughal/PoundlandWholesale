@@ -34,12 +34,12 @@ const ListedProducts = () => {
       });
 
       const data = await response.json();
-      console.log('Listed products response:', data);
+      // Listed products response received
       
       if (response.ok) {
         setProducts(data.products);
         setCounts(data.counts);
-        console.log('Loaded products:', data.products.length, 'Counts:', data.counts);
+        // Products loaded
       } else {
         console.error('Listed products error:', data);
         alert('❌ ' + data.message);

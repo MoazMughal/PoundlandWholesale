@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSeller } from '../context/SellerContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
@@ -7,6 +7,7 @@ import { useBasket } from '../context/BasketContext';
 
 const MobileHeader = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isLoggedIn: isSellerLoggedIn, logout: sellerLogout } = useSeller();
   const { currency, setCurrency } = useCurrency();
   const { getBasketCount } = useBasket();
@@ -421,10 +422,25 @@ const MobileHeader = () => {
 
           .mobile-category-nav {
             display: block;
-            padding: 4px 12px;
-            background: #f5a855;
-            overflow-x: auto;
-            white-space: nowrap;
+            /* Padding and background now handled inline for better control */
+          }
+          
+          .mobile-category-nav > div::-webkit-scrollbar {
+            height: 4px;
+          }
+          
+          .mobile-category-nav > div::-webkit-scrollbar-track {
+            background: rgba(255, 102, 0, 0.1);
+            border-radius: 2px;
+          }
+          
+          .mobile-category-nav > div::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, #ff6600 0%, #ff3300 100%);
+            border-radius: 2px;
+          }
+          
+          .mobile-category-nav > div::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(90deg, #ff3300 0%, #ff6600 100%);
           }
         }
 
@@ -566,7 +582,7 @@ const MobileHeader = () => {
                 <img 
                   src="https://flagcdn.com/w40/gb.png"
                   alt="GBP"
-                  style={{ width: '24px', height: '18px', objectFit: 'cover', borderRadius: '2px' }}
+                  style={{ width: '20px', height: '14px', objectFit: 'cover', borderRadius: '2px' }}
                 />
                 <i className="fas fa-chevron-down" style={{ fontSize: '8px', color: '#fff' }}></i>
               </div>
@@ -700,25 +716,25 @@ const MobileHeader = () => {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '15px'
+              gap: '8px'
             }}>
               <div style={{ position: 'relative' }}>
                 <div style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: '6px',
+                  gap: '3px',
                   cursor: 'pointer',
-                  padding: '4px 8px',
+                  padding: '2px 4px',
                   background: 'rgba(255,255,255,0.2)',
                   border: '1px solid rgba(255,255,255,0.3)',
-                  borderRadius: '4px'
+                  borderRadius: '3px'
                 }}>
                   <img 
                     src="https://flagcdn.com/w40/gb.png"
                     alt="GBP"
-                    style={{ width: '28px', height: '20px', objectFit: 'cover', borderRadius: '2px' }}
+                    style={{ width: '20px', height: '14px', objectFit: 'cover', borderRadius: '2px' }}
                   />
-                  <i className="fas fa-chevron-down" style={{ fontSize: '9px', color: '#fff' }}></i>
+                  <i className="fas fa-chevron-down" style={{ fontSize: '8px', color: '#fff' }}></i>
                 </div>
                 <select 
                   value="GBP"
@@ -740,26 +756,26 @@ const MobileHeader = () => {
               {!userInfo ? (
                 <>
                   <Link to="/login/buyer" style={{
-                    fontSize: '10px',
+                    fontSize: '9px',
                     color: '#fff',
                     textDecoration: 'none',
                     fontWeight: '600',
                     background: 'rgba(255,255,255,0.2)',
                     border: '1px solid rgba(255,255,255,0.3)',
-                    borderRadius: '4px',
-                    padding: '4px 10px'
+                    borderRadius: '3px',
+                    padding: '2px 6px'
                   }}>
                     <i className="fas fa-user"></i> Login
                   </Link>
                   <Link to="/register/buyer" style={{
-                    fontSize: '10px',
+                    fontSize: '9px',
                     color: '#fff',
                     textDecoration: 'none',
                     fontWeight: '600',
                     background: 'rgba(255,255,255,0.2)',
                     border: '1px solid rgba(255,255,255,0.3)',
-                    borderRadius: '4px',
-                    padding: '4px 10px'
+                    borderRadius: '3px',
+                    padding: '2px 6px'
                   }}>
                     <i className="fas fa-user-plus"></i> Register
                   </Link>
@@ -769,14 +785,14 @@ const MobileHeader = () => {
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     style={{
-                      fontSize: '10px',
+                      fontSize: '9px',
                       color: '#fff',
                       background: 'rgba(255,255,255,0.2)',
                       border: '1px solid rgba(255,255,255,0.3)',
-                      borderRadius: '4px',
+                      borderRadius: '3px',
                       fontWeight: '600',
                       cursor: 'pointer',
-                      padding: '4px 10px'
+                      padding: '2px 6px'
                     }}
                   >
                     <i className="fas fa-user-circle"></i> {userInfo.type}
@@ -829,28 +845,28 @@ const MobileHeader = () => {
               )}
 
               <Link to="/about-us" style={{
-                fontSize: '10px',
+                fontSize: '9px',
                 color: '#fff',
                 textDecoration: 'none',
                 fontWeight: '600',
                 background: 'rgba(255,255,255,0.2)',
                 border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '4px',
-                padding: '4px 10px'
+                borderRadius: '3px',
+                padding: '2px 6px'
               }}>
                 <i className="fas fa-info-circle"></i> About
               </Link>
 
               <Link to="/basket" style={{
                 position: 'relative',
-                fontSize: '14px',
+                fontSize: '13px',
                 color: '#fff',
                 textDecoration: 'none',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '30px',
-                height: '30px',
+                width: '24px',
+                height: '24px',
                 background: 'rgba(255,255,255,0.2)',
                 border: '1px solid rgba(255,255,255,0.3)',
                 borderRadius: '50%'
@@ -859,19 +875,19 @@ const MobileHeader = () => {
                 {getBasketCount() > 0 && (
                   <span style={{
                     position: 'absolute',
-                    top: '-3px',
-                    right: '-3px',
+                    top: '-2px',
+                    right: '-2px',
                     background: '#dc2626',
                     color: '#fff',
                     borderRadius: '50%',
-                    width: '16px',
-                    height: '16px',
+                    width: '14px',
+                    height: '14px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: '9px',
                     fontWeight: '700',
-                    border: '2px solid #fc5e03'
+                    border: '1px solid #fc5e03'
                   }}>
                     {getBasketCount()}
                   </span>
@@ -881,29 +897,75 @@ const MobileHeader = () => {
           </div>
         </div>
 
-        {/* Category Navigation */}
+        {/* Enhanced Category Navigation */}
         <div className="mobile-category-nav">
           <div style={{
             display: 'flex',
-            gap: '10px',
-            alignItems: 'center'
+            alignItems: 'center',
+            overflowX: 'auto',
+            padding: '4px 8px',
+            background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
+            borderTop: '1px solid #ff6600',
+            borderBottom: '1px solid #ff6600',
+            boxShadow: '0 1px 4px rgba(255, 102, 0, 0.2)'
           }}>
-            {categories.map(cat => (
-              <Link
-                key={cat.value}
-                to={cat.value === 'all' ? '/' : `/?cat=${cat.value}`}
-                style={{
-                  fontSize: '10px',
-                  color: '#111',
-                  textDecoration: 'none',
-                  fontWeight: '600',
-                  padding: '2px 0',
-                  borderBottom: '2px solid transparent'
-                }}
-              >
-                {cat.label}
-              </Link>
-            ))}
+            {categories.map((cat, index) => {
+              const currentCategory = searchParams.get('cat') || 'all';
+              const isActive = (cat.value === 'all' && currentCategory === 'all') || 
+                              (cat.value !== 'all' && currentCategory === cat.value);
+              
+              return (
+                <div key={cat.value} style={{ display: 'flex', alignItems: 'center' }}>
+                  <Link
+                    to={cat.value === 'all' ? '/' : `/?cat=${cat.value}`}
+                    style={{
+                      fontSize: '10px',
+                      color: isActive ? '#ffffff' : '#1a1a1a',
+                      textDecoration: 'none',
+                      fontWeight: isActive ? '800' : '600',
+                      padding: '3px 6px',
+                      borderRadius: '4px',
+                      background: isActive ? 
+                        'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)' : 
+                        'transparent',
+                      border: isActive ? '1px solid #ffffff' : '1px solid transparent',
+                      boxShadow: isActive ? '0 2px 6px rgba(255, 102, 0, 0.4)' : 'none',
+                      transition: 'all 0.3s ease',
+                      whiteSpace: 'nowrap',
+                      textShadow: isActive ? '0 1px 2px rgba(0, 0, 0, 0.3)' : 'none',
+                      transform: isActive ? 'scale(1.05)' : 'scale(1)'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.target.style.background = 'rgba(255, 102, 0, 0.1)';
+                        e.target.style.color = '#ff6600';
+                        e.target.style.transform = 'scale(1.02)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.target.style.background = 'transparent';
+                        e.target.style.color = '#1a1a1a';
+                        e.target.style.transform = 'scale(1)';
+                      }
+                    }}
+                  >
+                    {cat.label}
+                  </Link>
+                  
+                  {/* Divider line between categories */}
+                  {index < categories.length - 1 && (
+                    <div style={{
+                      width: '1px',
+                      height: '16px',
+                      background: 'linear-gradient(to bottom, transparent 0%, #ff6600 20%, #ff6600 80%, transparent 100%)',
+                      margin: '0 2px',
+                      opacity: 0.6
+                    }}></div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 

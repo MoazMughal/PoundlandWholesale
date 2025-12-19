@@ -2,23 +2,25 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Modern Color Palette */
-  --bs-primary: #ff9900;
-  --bs-primary-rgb: 255, 153, 0;
-  --bs-secondary: #ff6600;
+  /* Enhanced Orange, White, Black Color Palette */
+  --bs-primary: #ff6600;
+  --bs-primary-rgb: 255, 102, 0;
+  --bs-secondary: #ff9900;
   --bs-success: #10b981;
-  --bs-warning: #f59e0b;
-  --bs-danger: #ef4444;
-  --bs-info: #06b6d4;
-  --bs-dark: #1f2937;
-  --bs-dark-rgb: 31, 41, 55;
-  --bs-light: #f8fafc;
+  --bs-warning: #ff9900;
+  --bs-danger: #ff3300;
+  --bs-info: #ff6600;
+  --bs-dark: #000000;
+  --bs-dark-rgb: 0, 0, 0;
+  --bs-light: #ffffff;
   --bs-white: #ffffff;
   
-  /* Amazon-inspired colors */
-  --amazon-orange: #ff9900;
-  --amazon-blue: #232f3e;
-  --amazon-light-blue: #37475a;
+  /* Enhanced theme colors */
+  --primary-orange: #ff6600;
+  --secondary-orange: #ff9900;
+  --accent-orange: #ff3300;
+  --pure-black: #000000;
+  --dark-black: #1a1a1a;
   
   /* Modern Grays */
   --gray-50: #f9fafb;
@@ -49,8 +51,8 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
-  color: var(--gray-700);
+  background: linear-gradient(135deg, #ffffff 0%, #fff5f0 100%);
+  color: var(--pure-black);
   line-height: 1.6;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
@@ -80,15 +82,18 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--amazon-orange) 0%, var(--bs-secondary) 100%);
+  background: linear-gradient(135deg, var(--primary-orange) 0%, var(--accent-orange) 100%);
   color: white;
-  box-shadow: var(--shadow);
+  box-shadow: 0 4px 15px rgba(255, 102, 0, 0.3);
+  border: 2px solid white;
+  font-weight: 700;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, var(--bs-secondary) 0%, var(--amazon-orange) 100%);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lg);
+  background: linear-gradient(135deg, var(--accent-orange) 0%, var(--primary-orange) 100%);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(255, 102, 0, 0.4);
+  border-color: var(--pure-black);
 }
 
 .btn-success {
@@ -97,8 +102,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-warning {
-  background: linear-gradient(135deg, var(--amazon-orange) 0%, #e68a00 100%);
+  background: linear-gradient(135deg, var(--secondary-orange) 0%, var(--primary-orange) 100%);
   color: white;
+  border: 2px solid white;
+  font-weight: 700;
 }
 
 /* Card Enhancements */
@@ -135,12 +142,12 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-md);
 }
 
-/* Navbar - COMPACT SPACING */
+/* Enhanced Navbar */
 .navbar {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%) !important;
+  background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%) !important;
   padding: 8px 0;
-  box-shadow: 0 2px 10px rgba(255, 153, 0, 0.3);
-  border-bottom: 2px solid #ff9900;
+  box-shadow: 0 4px 20px rgba(255, 102, 0, 0.4);
+  border-bottom: 3px solid #ff6600;
 }
 
 .navbar-brand {
@@ -191,20 +198,22 @@ h1, h2, h3, h4, h5, h6 {
 
 .navbar-nav .nav-link:hover,
 .navbar-nav .nav-link.active {
-  color: #ff9900 !important;
-  background-color: rgba(255, 153, 0, 0.15);
-  border-radius: 6px;
+  color: #ff6600 !important;
+  background-color: rgba(255, 102, 0, 0.2);
+  border-radius: 8px;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 102, 0, 0.3);
 }
 
 /* Enhanced Product Cards */
 .product-card {
-  background: white;
+  background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);
   border-radius: 15px;
   overflow: hidden;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 25px rgba(255, 102, 0, 0.15);
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 2px solid transparent;
 }
 
 .product-card::before {
@@ -214,16 +223,17 @@ h1, h2, h3, h4, h5, h6 {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(255, 153, 0, 0.05), transparent);
+  background: linear-gradient(135deg, rgba(255, 102, 0, 0.05), transparent);
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: none;
+  z-index: 1;
 }
 
 .product-card:hover {
-  transform: translateY(-10px) scale(1.02);
-  box-shadow: 0 15px 40px rgba(255, 153, 0, 0.2);
-  border-color: rgba(255, 153, 0, 0.3);
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(255, 102, 0, 0.25);
+  border-color: #ff6600;
 }
 
 .product-card:hover::before {

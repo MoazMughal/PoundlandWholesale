@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import sessionManager from '../utils/sessionManager'
 
 const AdminContext = createContext()
 
@@ -14,286 +15,200 @@ export const AdminProvider = ({ children }) => {
   const [admin, setAdmin] = useState(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [isAuthenticating, setIsAuthenticating] = useState(false) // Prevent multiple auth attempts
-  const [currentPath, setCurrentPath] = useState(window.location.pathname)
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
 
   useEffect(() => {
     const initializeAuth = async () => {
-      // Check for logout flag (set when user logs out)
-      const logoutFlag = sessionStorage.getItem('admin_logged_out')
-      if (logoutFlag && window.location.pathname.startsWith('/admin')) {
-        // User has logged out, clear everything only on admin routes
-        localStorage.removeItem('adminToken')
-        localStorage.removeItem('adminData')
-        localStorage.removeItem('server_start_time')
-        setAdmin(null)
-        setIsLoggedIn(false)
-        setLoading(false)
-        return
-      }
-      
-      // Check if this is a fresh browser session (no session storage)
-      const sessionId = sessionStorage.getItem('admin_session_id')
-      if (!sessionId) {
-        console.log('🔄 Fresh browser session detected, clearing all auth data for security')
-        localStorage.removeItem('adminToken')
-        localStorage.removeItem('adminData')
-        localStorage.removeItem('admin_last_validation')
-        localStorage.removeItem('server_start_time')
-        // Create new session ID
-        sessionStorage.setItem('admin_session_id', Date.now() + '-' + Math.random().toString(36).substr(2, 9))
-        setAdmin(null)
-        setIsLoggedIn(false)
-        setLoading(false)
-        return
-      }
-      
-      const token = localStorage.getItem('adminToken')
-      const adminData = localStorage.getItem('adminData')
-      
-      // Always clear auth data first, then validate if we have tokens
-      console.log('🔐 Starting fresh auth validation...')
-      setAdmin(null)
-      setIsLoggedIn(false)
-      
-      if (token && adminData) {
-        // Basic token format validation
-        if (!token.includes('.') || token.split('.').length !== 3) {
-          console.log('❌ Invalid JWT token format, clearing auth data')
-          localStorage.removeItem('adminToken')
-          localStorage.removeItem('adminData')
-          localStorage.removeItem('admin_last_validation')
-          localStorage.removeItem('server_start_time')
+      try {
+        // Check for logout flag first
+        if (sessionManager.hasLogoutFlag()) {
+          console.log('🚫 Logout flag detected, clearing auth data')
+          clearAuthData()
           setLoading(false)
           return
         }
+
+        // Initialize session if fresh browser session
+        if (sessionManager.isFreshSession()) {
+          console.log('🔄 Fresh browser session detected')
+          sessionManager.initSession()
+          // Don't clear auth data on fresh session - let token validation handle it
+        }
+
+        const token = localStorage.getItem('adminToken')
+        const adminData = localStorage.getItem('adminData')
         
-        // Check if token is too old (more than 7 days)
-        try {
-          const tokenPayload = JSON.parse(atob(token.split('.')[1]))
-          const tokenAge = Date.now() - (tokenPayload.iat * 1000)
-          if (tokenAge > 7 * 24 * 60 * 60 * 1000) { // 7 days
-            console.log('❌ Token is too old, clearing auth data')
-            localStorage.removeItem('adminToken')
-            localStorage.removeItem('adminData')
-            localStorage.removeItem('admin_last_validation')
-            localStorage.removeItem('server_start_time')
-            setLoading(false)
-            return
-          }
-        } catch (tokenParseError) {
-          console.log('❌ Could not parse token, clearing auth data')
-          localStorage.removeItem('adminToken')
-          localStorage.removeItem('adminData')
-          localStorage.removeItem('admin_last_validation')
-          localStorage.removeItem('server_start_time')
+        if (!token || !adminData) {
+          console.log('🔐 No auth data found')
           setLoading(false)
           return
         }
+
+        // Basic token validation
+        if (!isValidJWT(token)) {
+          console.log('❌ Invalid token format')
+          clearAuthData()
+          setLoading(false)
+          return
+        }
+
         try {
           const parsedAdmin = JSON.parse(adminData)
           
-          // Check if server has restarted by comparing startup times
-          console.log('🔐 Checking server status and validating admin token...')
-          setIsAuthenticating(true)
+          // Set optimistic auth state first for better UX
+          setAdmin(parsedAdmin)
+          setIsLoggedIn(true)
           
-          try {
-            // First check server health to detect restarts
-            const healthResponse = await fetch('http://localhost:5000/api/health')
-            if (healthResponse.ok) {
-              const healthData = await healthResponse.json()
-              const currentServerStartTime = healthData.serverStartTime
-              const lastKnownStartTime = localStorage.getItem('server_start_time')
-              
-              // If no stored start time, this might be a fresh start - clear auth data to be safe
-              if (!lastKnownStartTime) {
-                console.log('🔄 No stored server start time found, clearing auth data for security')
-                localStorage.removeItem('adminToken')
-                localStorage.removeItem('adminData')
-                localStorage.removeItem('admin_last_validation')
-                localStorage.removeItem('server_start_time')
-                setAdmin(null)
-                setIsLoggedIn(false)
-                setLoading(false)
-                setIsAuthenticating(false)
-                return
-              }
-              
-              // If stored start time is different, server restarted
-              if (currentServerStartTime !== parseInt(lastKnownStartTime)) {
-                console.log('🔄 Server restart detected, clearing all auth data')
-                console.log('Stored start time:', parseInt(lastKnownStartTime))
-                console.log('Current start time:', currentServerStartTime)
-                localStorage.removeItem('adminToken')
-                localStorage.removeItem('adminData')
-                localStorage.removeItem('admin_last_validation')
-                localStorage.removeItem('server_start_time')
-                setAdmin(null)
-                setIsLoggedIn(false)
-                setLoading(false)
-                setIsAuthenticating(false)
-                return
-              }
-              
-              console.log('✅ Server start time matches, proceeding with token validation')
-              // Store current server start time (refresh it)
-              localStorage.setItem('server_start_time', currentServerStartTime.toString())
-            } else {
-              console.log('❌ Health check failed, clearing auth data for security')
-              localStorage.removeItem('adminToken')
-              localStorage.removeItem('adminData')
-              localStorage.removeItem('admin_last_validation')
-              localStorage.removeItem('server_start_time')
-              setAdmin(null)
-              setIsLoggedIn(false)
-              setLoading(false)
-              setIsAuthenticating(false)
-              return
-            }
-            
-            // Now validate the token
-            const response = await fetch('http://localhost:5000/api/auth/verify', {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            })
-            
-            if (response.ok) {
-              const freshAdminData = await response.json()
-              console.log('✅ Admin token is valid')
-              setAdmin(freshAdminData.admin || freshAdminData)
-              setIsLoggedIn(true)
-              localStorage.setItem('adminData', JSON.stringify(freshAdminData.admin || freshAdminData))
-              localStorage.setItem('admin_last_validation', Date.now().toString())
-            } else if (response.status === 401) {
-              console.log('❌ Admin token is invalid (401), attempting refresh')
-              
-              try {
-                const refreshResponse = await fetch('http://localhost:5000/api/auth/refresh', {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                  }
-                });
-                
-                if (refreshResponse.ok) {
-                  const refreshData = await refreshResponse.json();
-                  console.log('✅ Admin token refreshed successfully');
-                  localStorage.setItem('adminToken', refreshData.token);
-                  localStorage.setItem('adminData', JSON.stringify(refreshData.admin));
-                  setAdmin(refreshData.admin);
-                  setIsLoggedIn(true);
-                  localStorage.setItem('admin_last_validation', Date.now().toString())
-                } else {
-                  throw new Error('Token refresh failed');
-                }
-              } catch (refreshError) {
-                console.log('❌ Token refresh failed, clearing auth data');
-                localStorage.removeItem('adminToken');
-                localStorage.removeItem('adminData');
-                localStorage.removeItem('admin_last_validation');
-                setAdmin(null);
-                setIsLoggedIn(false);
-              }
-            } else {
-              console.log('❌ Server error during token validation, clearing auth data');
-              localStorage.removeItem('adminToken');
-              localStorage.removeItem('adminData');
-              localStorage.removeItem('admin_last_validation');
-              setAdmin(null);
-              setIsLoggedIn(false);
-            }
-          } catch (networkError) {
-            console.log('❌ Network error during token validation, clearing auth data');
-            // On network errors, also clear auth data to be safe
-            localStorage.removeItem('adminToken');
-            localStorage.removeItem('adminData');
-            localStorage.removeItem('admin_last_validation');
-            setAdmin(null);
-            setIsLoggedIn(false);
-          } finally {
-            setIsAuthenticating(false)
-            setLoading(false)
-          }
+          // Validate token in background
+          await validateTokenInBackground(token, parsedAdmin)
+          
         } catch (parseError) {
-          console.error('Error parsing admin data:', parseError)
-          localStorage.removeItem('adminToken')
-          localStorage.removeItem('adminData')
-          setAdmin(null)
-          setIsLoggedIn(false)
-          setLoading(false)
+          console.error('❌ Error parsing admin data:', parseError)
+          clearAuthData()
         }
-      } else {
+      } catch (error) {
+        console.error('❌ Auth initialization error:', error)
+        clearAuthData()
+      } finally {
         setLoading(false)
+      }
+    }
+
+    const clearAuthData = () => {
+      localStorage.removeItem('adminToken')
+      localStorage.removeItem('adminData')
+      setAdmin(null)
+      setIsLoggedIn(false)
+    }
+
+    const isValidJWT = (token) => {
+      try {
+        const parts = token.split('.')
+        if (parts.length !== 3) return false
+        
+        const payload = JSON.parse(atob(parts[1]))
+        const now = Date.now() / 1000
+        
+        // Check if token is expired (with 5 minute buffer)
+        if (payload.exp && payload.exp < (now - 300)) {
+          console.log('❌ Token expired')
+          return false
+        }
+        
+        return true
+      } catch (error) {
+        return false
+      }
+    }
+
+    const validateTokenInBackground = async (token, adminData) => {
+      if (isAuthenticating) return
+      
+      setIsAuthenticating(true)
+      
+      try {
+        const response = await fetch('http://localhost:5000/api/auth/verify', {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: AbortSignal.timeout(5000) // 5 second timeout
+        })
+        
+        if (response.ok) {
+          const freshData = await response.json()
+          const freshAdmin = freshData.admin || freshData
+          
+          // Update with fresh data
+          setAdmin(freshAdmin)
+          localStorage.setItem('adminData', JSON.stringify(freshAdmin))
+          console.log('✅ Token validated successfully')
+          
+        } else if (response.status === 401) {
+          console.log('❌ Token invalid, attempting refresh')
+          await attemptTokenRefresh(token)
+        } else {
+          console.log('⚠️ Server error during validation, keeping current auth state')
+        }
+      } catch (error) {
+        if (error.name === 'TimeoutError') {
+          console.log('⚠️ Token validation timeout, keeping current auth state')
+        } else {
+          console.log('⚠️ Network error during validation, keeping current auth state')
+        }
+      } finally {
+        setIsAuthenticating(false)
+      }
+    }
+
+    const attemptTokenRefresh = async (token) => {
+      try {
+        const refreshResponse = await fetch('http://localhost:5000/api/auth/refresh', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          signal: AbortSignal.timeout(5000)
+        })
+        
+        if (refreshResponse.ok) {
+          const refreshData = await refreshResponse.json()
+          console.log('✅ Token refreshed successfully')
+          
+          localStorage.setItem('adminToken', refreshData.token)
+          localStorage.setItem('adminData', JSON.stringify(refreshData.admin))
+          setAdmin(refreshData.admin)
+          setIsLoggedIn(true)
+        } else {
+          throw new Error('Refresh failed')
+        }
+      } catch (refreshError) {
+        console.log('❌ Token refresh failed, clearing auth')
+        clearAuthData()
       }
     }
     
     initializeAuth()
-  }, []) // Remove isAuthenticating from dependencies to prevent loops
-
-  // Track path changes but don't do optimistic loading
-  useEffect(() => {
-    const handlePathChange = () => {
-      const newPath = window.location.pathname
-      if (newPath !== currentPath) {
-        setCurrentPath(newPath)
-        
-        // If navigating to admin route but not logged in, redirect to login
-        if (newPath.startsWith('/admin') && !newPath.includes('/login') && !isLoggedIn && !loading) {
-          console.log('🚫 Accessing admin route without authentication, redirecting to login')
-          window.location.replace('/admin/login')
-        }
-      }
-    }
-    
-    // Listen for navigation events
-    window.addEventListener('popstate', handlePathChange)
-    
-    // Check on mount and when path changes
-    handlePathChange()
-    
-    return () => {
-      window.removeEventListener('popstate', handlePathChange)
-    }
-  }, [currentPath, isLoggedIn, loading])
+  }, [])
 
   const login = async (adminData, token) => {
-    setAdmin(adminData)
-    setIsLoggedIn(true)
-    localStorage.setItem('adminToken', token)
-    localStorage.setItem('adminData', JSON.stringify(adminData))
-    
-    // Store server start time for restart detection
     try {
-      const healthResponse = await fetch('http://localhost:5000/api/health')
-      if (healthResponse.ok) {
-        const healthData = await healthResponse.json()
-        localStorage.setItem('server_start_time', healthData.serverStartTime.toString())
-      }
+      console.log('🔐 Admin login initiated')
+      
+      // Clear any existing auth data first
+      localStorage.removeItem('adminToken')
+      localStorage.removeItem('adminData')
+      sessionManager.clearLogoutFlag()
+      
+      // Set new auth data
+      localStorage.setItem('adminToken', token)
+      localStorage.setItem('adminData', JSON.stringify(adminData))
+      
+      // Update state
+      setAdmin(adminData)
+      setIsLoggedIn(true)
+      
+      console.log('✅ Admin login successful')
     } catch (error) {
-      console.log('Could not fetch server start time:', error)
-    }
-    
-    // Clear logout flag on successful login
-    sessionStorage.removeItem('admin_logged_out')
-    // Clear any browser history of login page
-    if (window.history.length > 1) {
-      window.history.replaceState(null, '', '/admin/dashboard')
+      console.error('❌ Login error:', error)
+      throw error
     }
   }
 
   const logout = () => {
+    console.log('🚪 Admin logout initiated')
+    
+    // Clear all auth data
     setAdmin(null)
     setIsLoggedIn(false)
     localStorage.removeItem('adminToken')
     localStorage.removeItem('adminData')
-    localStorage.removeItem('admin_last_validation')
-    localStorage.removeItem('server_start_time') // Clear server start time
+    
     // Set logout flag to prevent back button access
-    sessionStorage.setItem('admin_logged_out', 'true')
-    // Use replace to avoid adding logout to history
+    sessionManager.setLogoutFlag()
+    
+    // Redirect to login
     window.location.replace('/admin/login')
+    
+    console.log('✅ Admin logout completed')
   }
 
   const updateAdmin = (updatedData) => {
@@ -328,58 +243,78 @@ export const AdminProvider = ({ children }) => {
   }
 
   const checkTokenValidity = async () => {
-    const token = localStorage.getItem('adminToken');
-    if (!token) return false;
+    const token = localStorage.getItem('adminToken')
+    if (!token) return false
     
-    // Prevent multiple simultaneous authentication attempts
+    // Prevent multiple simultaneous checks
     if (isAuthenticating) {
-      console.log('Authentication already in progress, skipping');
-      return false;
+      console.log('⏳ Authentication already in progress')
+      return isLoggedIn
     }
     
-    setIsAuthenticating(true);
+    setIsAuthenticating(true)
 
     try {
       const response = await fetch('http://localhost:5000/api/auth/verify', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal: AbortSignal.timeout(5000)
+      })
       
       if (response.ok) {
-        return true;
+        const data = await response.json()
+        const freshAdmin = data.admin || data
+        
+        // Update with fresh data
+        setAdmin(freshAdmin)
+        localStorage.setItem('adminData', JSON.stringify(freshAdmin))
+        return true
+        
       } else if (response.status === 401) {
-        // Token expired, try to refresh
+        console.log('🔄 Token expired, attempting refresh')
+        
         try {
           const refreshResponse = await fetch('http://localhost:5000/api/auth/refresh', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
-            }
-          });
+            },
+            signal: AbortSignal.timeout(5000)
+          })
           
           if (refreshResponse.ok) {
-            const refreshData = await refreshResponse.json();
-            localStorage.setItem('adminToken', refreshData.token);
-            localStorage.setItem('adminData', JSON.stringify(refreshData.admin));
-            setAdmin(refreshData.admin);
-            return true;
+            const refreshData = await refreshResponse.json()
+            console.log('✅ Token refreshed successfully')
+            
+            localStorage.setItem('adminToken', refreshData.token)
+            localStorage.setItem('adminData', JSON.stringify(refreshData.admin))
+            setAdmin(refreshData.admin)
+            setIsLoggedIn(true)
+            return true
           }
         } catch (refreshError) {
-          console.log('Token refresh failed');
+          console.log('❌ Token refresh failed')
         }
         
-        // If we get here, token is invalid and refresh failed
-        logout();
-        return false;
+        // Token invalid and refresh failed
+        logout()
+        return false
+      } else {
+        console.log('⚠️ Server error during token check, assuming valid')
+        return true // Assume valid on server errors
       }
     } catch (error) {
-      console.log('Token validation error:', error);
-      return true; // Assume valid on network errors
+      if (error.name === 'TimeoutError') {
+        console.log('⚠️ Token validation timeout, assuming valid')
+      } else {
+        console.log('⚠️ Network error during token check, assuming valid')
+      }
+      return true // Assume valid on network errors
     } finally {
-      setIsAuthenticating(false);
+      setIsAuthenticating(false)
     }
     
-    return false;
+    return false
   }
 
   const value = {
