@@ -649,6 +649,139 @@ const AmazonsChoice = () => {
                   {product.name}
                 </h5>
                 
+                {/* Product Variations Display */}
+                {product.variations && product.variations.length > 0 && (
+                  <div style={{ marginTop: '2px', marginBottom: '2px' }}>
+                    {product.variations.map((variation, varIndex) => {
+                      // Filter out current product from options
+                      const otherOptions = variation.options.filter(option => 
+                        option.productId && option.productId !== product._id
+                      );
+                      
+                      // Find current product's variation value
+                      const currentOption = variation.options.find(option => 
+                        option.productId === product._id
+                      );
+                      
+                      // Only show if there are other options to switch to
+                      if (otherOptions.length === 0) return null;
+                      
+                      // Determine current product's variation value
+                      let currentValue = 'Current';
+                      if (currentOption && currentOption.value) {
+                        currentValue = currentOption.value;
+                      } else {
+                        // If no specific value, try to derive from product name
+                        const productName = product.name?.toLowerCase() || '';
+                        if (variation.type === 'color') {
+                          if (productName.includes('red')) currentValue = 'Red';
+                          else if (productName.includes('blue')) currentValue = 'Blue';
+                          else if (productName.includes('green')) currentValue = 'Green';
+                          else if (productName.includes('black')) currentValue = 'Black';
+                          else if (productName.includes('white')) currentValue = 'White';
+                          else if (productName.includes('yellow')) currentValue = 'Yellow';
+                          else if (productName.includes('pink')) currentValue = 'Pink';
+                          else if (productName.includes('purple')) currentValue = 'Purple';
+                          else if (productName.includes('orange')) currentValue = 'Orange';
+                          else if (productName.includes('brown')) currentValue = 'Brown';
+                          else if (productName.includes('grey') || productName.includes('gray')) currentValue = 'Grey';
+                          else currentValue = 'Default Color';
+                        } else if (variation.type === 'size') {
+                          if (productName.includes('small')) currentValue = 'Small';
+                          else if (productName.includes('medium')) currentValue = 'Medium';
+                          else if (productName.includes('large')) currentValue = 'Large';
+                          else if (productName.includes('xl')) currentValue = 'XL';
+                          else if (productName.includes('xxl')) currentValue = 'XXL';
+                          else currentValue = 'Default Size';
+                        } else if (variation.type === 'style') {
+                          if (productName.includes('classic')) currentValue = 'Classic';
+                          else if (productName.includes('modern')) currentValue = 'Modern';
+                          else if (productName.includes('vintage')) currentValue = 'Vintage';
+                          else if (productName.includes('premium')) currentValue = 'Premium';
+                          else if (productName.includes('deluxe')) currentValue = 'Deluxe';
+                          else if (productName.includes('basic')) currentValue = 'Basic';
+                          else currentValue = 'Default Style';
+                        } else {
+                          // For other variation types (like animal types)
+                          if (productName.includes('dinosaur')) currentValue = 'Dinosaur';
+                          else if (productName.includes('dolphin')) currentValue = 'Dolphin';
+                          else if (productName.includes('shark')) currentValue = 'Shark';
+                          else if (productName.includes('whale')) currentValue = 'Whale';
+                          else if (productName.includes('fish')) currentValue = 'Fish';
+                          else if (productName.includes('dragon')) currentValue = 'Dragon';
+                          else if (productName.includes('unicorn')) currentValue = 'Unicorn';
+                          else {
+                            // Use first meaningful word from product name
+                            const words = product.name.split(' ').filter(word => 
+                              word.length > 3 && 
+                              !['the', 'and', 'for', 'with', 'from', 'inflatable'].includes(word.toLowerCase())
+                            );
+                            currentValue = words[0] || 'Default';
+                          }
+                        }
+                      }
+                      
+                      return (
+                        <div key={varIndex} style={{ marginBottom: '1px' }}>
+                          <div style={{
+                            fontSize: '6px',
+                            color: '#ff6600',
+                            fontWeight: '700',
+                            marginBottom: '1px',
+                            textTransform: 'capitalize'
+                          }}>
+                            {variation.type}: {currentValue}
+                          </div>
+                          <div style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '2px'
+                          }}>
+                            {otherOptions.map((option, optIndex) => (
+                              <button
+                                key={optIndex}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (option.productId) {
+                                    // Navigate to the variation product
+                                    navigate(`/product/${option.productId}`);
+                                  }
+                                }}
+                                style={{
+                                  fontSize: '5px',
+                                  padding: '1px 3px',
+                                  border: '1px solid #ff6600',
+                                  borderRadius: '2px',
+                                  background: '#fff',
+                                  color: '#ff6600',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease',
+                                  minWidth: '15px',
+                                  height: '12px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: '600'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.target.style.background = '#ff6600';
+                                  e.target.style.color = '#fff';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.background = '#fff';
+                                  e.target.style.color = '#ff6600';
+                                }}
+                              >
+                                {option.value.length > 8 ? `${option.value.substring(0, 8)}...` : option.value}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '4px'}}>
                   {/* Left side - Compact Enhanced Price */}
                   <div style={{

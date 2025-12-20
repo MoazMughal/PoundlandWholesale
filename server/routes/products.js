@@ -1,5 +1,6 @@
 import express from 'express';
 import Product from '../models/Product.js';
+import ExcelProduct from '../models/ExcelProduct.js';
 import { authenticateAdmin, authenticateSeller } from '../middleware/auth.js';
 import productCache from '../utils/productCache.js';
 import { fallbackProducts } from '../data/fallbackProducts.js';
@@ -7,6 +8,34 @@ import { amazonChoiceFallbackProducts, getFilteredFallbackProducts } from '../da
 import mongoose from 'mongoose';
 
 const router = express.Router();
+
+// Helper function to sync Excel products when main product is deleted
+async function syncExcelProductsOnDelete(mainProductId) {
+  try {
+    const updateResult = await ExcelProduct.updateMany(
+      { mainProductId: mainProductId },
+      {
+        $set: {
+          isConverted: false,
+          status: 'pending',
+          convertedAt: null
+        },
+        $unset: {
+          mainProductId: 1
+        }
+      }
+    );
+    
+    if (updateResult.modifiedCount > 0) {
+      console.log(`📊 Updated ${updateResult.modifiedCount} Excel products after main product deletion`);
+    }
+    
+    return updateResult;
+  } catch (error) {
+    console.error('⚠️ Failed to update Excel products after main product deletion:', error);
+    throw error;
+  }
+}
 
 // Helper function to get products with fallback mechanism
 async function getProductsWithFallback(query = {}, options = {}) {
@@ -390,7 +419,7 @@ router.get('/public/fast', async (req, res) => {
         
         products = await Product.find(fallbackQuery)
         .limit(50)
-        .select('name price category brand images dealUnits currency rating reviews isAmazonsChoice isBestSeller profitCalculations profitEvaluation platformComparison showEvaluation asin')
+        .select('name price category brand images dealUnits currency rating reviews isAmazonsChoice isBestSeller profitCalculations profitEvaluation platformComparison showEvaluation asin variations')
         .lean()
         .maxTimeMS(3000);
         
@@ -573,7 +602,7 @@ router.get('/public', async (req, res) => {
       products = await Product.find(query)
         .sort(sortOptions)
         .limit(parseInt(limit))
-        .select('name description price originalPrice discount category brand images rating reviews stock dealUnits currency isAmazonsChoice isBestSeller seller isAdminProduct sellerInfo profitCalculations profitEvaluation platformComparison showEvaluation asin')
+        .select('name description price originalPrice discount category brand images rating reviews stock dealUnits currency isAmazonsChoice isBestSeller seller isAdminProduct sellerInfo profitCalculations profitEvaluation platformComparison showEvaluation asin variations')
         .maxTimeMS(10000) // Increased timeout to 10 seconds
         .lean();
       console.log(`✅ Database query successful: ${products.length} products in ${Date.now() - startTime}ms`);
@@ -1317,10 +1346,57 @@ router.put('/variations/bidirectional/:id', authenticateAdmin, async (req, res) 
           );
 
           if (existingOptionIndex === -1) {
-            // Add current product as an option
-            const optionValue = currentProduct.name.length > 15 ? 
-              `${currentProduct.name.substring(0, 15)}...` : 
-              currentProduct.name;
+            // Add current product as an option with proper variation value
+            const currentProductName = currentProduct.name.toLowerCase();
+            let optionValue = currentProduct.name; // fallback
+            
+            // Derive proper variation value based on type
+            if (linkedInfo.variationType === 'color') {
+              if (currentProductName.includes('red')) optionValue = 'Red';
+              else if (currentProductName.includes('blue')) optionValue = 'Blue';
+              else if (currentProductName.includes('green')) optionValue = 'Green';
+              else if (currentProductName.includes('black')) optionValue = 'Black';
+              else if (currentProductName.includes('white')) optionValue = 'White';
+              else if (currentProductName.includes('yellow')) optionValue = 'Yellow';
+              else if (currentProductName.includes('pink')) optionValue = 'Pink';
+              else if (currentProductName.includes('purple')) optionValue = 'Purple';
+              else if (currentProductName.includes('orange')) optionValue = 'Orange';
+              else if (currentProductName.includes('brown')) optionValue = 'Brown';
+              else if (currentProductName.includes('grey') || currentProductName.includes('gray')) optionValue = 'Grey';
+              else optionValue = 'Default Color';
+            } else if (linkedInfo.variationType === 'size') {
+              if (currentProductName.includes('small')) optionValue = 'Small';
+              else if (currentProductName.includes('medium')) optionValue = 'Medium';
+              else if (currentProductName.includes('large')) optionValue = 'Large';
+              else if (currentProductName.includes('xl')) optionValue = 'XL';
+              else if (currentProductName.includes('xxl')) optionValue = 'XXL';
+              else optionValue = 'Default Size';
+            } else if (linkedInfo.variationType === 'style') {
+              if (currentProductName.includes('classic')) optionValue = 'Classic';
+              else if (currentProductName.includes('modern')) optionValue = 'Modern';
+              else if (currentProductName.includes('vintage')) optionValue = 'Vintage';
+              else if (currentProductName.includes('premium')) optionValue = 'Premium';
+              else if (currentProductName.includes('deluxe')) optionValue = 'Deluxe';
+              else if (currentProductName.includes('basic')) optionValue = 'Basic';
+              else optionValue = 'Default Style';
+            } else {
+              // For other variation types, try to extract meaningful value
+              if (currentProductName.includes('dinosaur')) optionValue = 'Dinosaur';
+              else if (currentProductName.includes('dolphin')) optionValue = 'Dolphin';
+              else if (currentProductName.includes('shark')) optionValue = 'Shark';
+              else if (currentProductName.includes('whale')) optionValue = 'Whale';
+              else if (currentProductName.includes('fish')) optionValue = 'Fish';
+              else {
+                // Use first meaningful word from product name
+                const words = currentProduct.name.split(' ').filter(word => 
+                  word.length > 3 && 
+                  !['the', 'and', 'for', 'with', 'from'].includes(word.toLowerCase())
+                );
+                optionValue = words[0] || 'Default';
+              }
+            }
+
+            console.log(`🎨 Setting variation value: ${currentProduct.name} → ${optionValue}`);
 
             linkedVariations[variationIndex].options.push({
               value: optionValue,
@@ -1532,6 +1608,14 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Update corresponding Excel products to reflect that main product is deleted
+    try {
+      await syncExcelProductsOnDelete(req.params.id);
+    } catch (excelUpdateError) {
+      console.error('⚠️ Excel product sync failed, but main product was deleted:', excelUpdateError);
+      // Don't fail the main deletion if Excel update fails
     }
 
     // Clear cache when product is deleted
@@ -3387,6 +3471,392 @@ router.get('/public/images/:id', async (req, res) => {
     res.json({ images: product.images || [] });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Helper endpoint to create bidirectional variation links between products
+router.post('/variations/link', authenticateAdmin, async (req, res) => {
+  try {
+    const { productIds, variationType, variationName } = req.body;
+    
+    if (!productIds || productIds.length < 2) {
+      return res.status(400).json({ message: 'At least 2 products are required to create variations' });
+    }
+
+    if (!variationType || !variationName) {
+      return res.status(400).json({ message: 'Variation type and name are required' });
+    }
+
+    console.log(`🔗 Creating bidirectional links for ${productIds.length} products`);
+    
+    // Get all products
+    const products = await Product.find({ _id: { $in: productIds } });
+    
+    if (products.length !== productIds.length) {
+      return res.status(404).json({ message: 'Some products not found' });
+    }
+
+    // Create variation options for each product
+    const variationOptions = products.map(product => ({
+      value: product.name.length > 20 ? `${product.name.substring(0, 20)}...` : product.name,
+      productId: product._id,
+      images: product.images || [],
+      price: product.price || null,
+      stock: product.stock || null
+    }));
+
+    // Update each product with the complete variation set
+    for (const product of products) {
+      let variations = product.variations || [];
+      
+      // Find or create the variation type
+      let variationIndex = variations.findIndex(v => v.type === variationType);
+      
+      if (variationIndex === -1) {
+        // Create new variation
+        variations.push({
+          type: variationType,
+          name: variationName,
+          options: variationOptions
+        });
+      } else {
+        // Update existing variation
+        variations[variationIndex].options = variationOptions;
+      }
+
+      await Product.findByIdAndUpdate(product._id, { variations });
+      console.log(`✅ Updated variations for: ${product.name}`);
+    }
+
+    // Clear cache
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+
+    res.json({
+      message: `Successfully created bidirectional variations for ${products.length} products`,
+      variationType,
+      variationName,
+      linkedProducts: products.length,
+      productNames: products.map(p => p.name)
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating variation links:', error);
+    res.status(500).json({ message: 'Error creating variation links', error: error.message });
+  }
+});
+
+// Helper endpoint to remove all variations from a product
+router.delete('/variations/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { variations: [] },
+      { new: true }
+    );
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Clear cache
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+
+    res.json({
+      message: 'Variations removed successfully',
+      product: product.name
+    });
+
+  } catch (error) {
+    console.error('❌ Error removing variations:', error);
+    res.status(500).json({ message: 'Error removing variations', error: error.message });
+  }
+});
+
+// Helper endpoint to fix variation values for products
+router.post('/variations/fix-values', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🔧 Fixing variation values for all products...');
+    
+    const products = await Product.find({ variations: { $exists: true, $ne: [] } });
+    let fixedCount = 0;
+
+    for (const product of products) {
+      let hasChanges = false;
+      const updatedVariations = [];
+
+      for (const variation of product.variations) {
+        const updatedOptions = [];
+        
+        for (const option of variation.options) {
+          if (option.productId) {
+            // Get the linked product to determine proper variation value
+            const linkedProduct = await Product.findById(option.productId);
+            if (linkedProduct) {
+              let properValue = option.value;
+              
+              // If the value is just the product name, try to derive a better variation value
+              if (option.value === linkedProduct.name || option.value.includes('...')) {
+                const productName = linkedProduct.name.toLowerCase();
+                
+                if (variation.type === 'color') {
+                  if (productName.includes('red')) properValue = 'Red';
+                  else if (productName.includes('blue')) properValue = 'Blue';
+                  else if (productName.includes('green')) properValue = 'Green';
+                  else if (productName.includes('black')) properValue = 'Black';
+                  else if (productName.includes('white')) properValue = 'White';
+                  else if (productName.includes('yellow')) properValue = 'Yellow';
+                  else if (productName.includes('pink')) properValue = 'Pink';
+                  else if (productName.includes('purple')) properValue = 'Purple';
+                  else properValue = 'Default Color';
+                } else if (variation.type === 'size') {
+                  if (productName.includes('small')) properValue = 'Small';
+                  else if (productName.includes('medium')) properValue = 'Medium';
+                  else if (productName.includes('large')) properValue = 'Large';
+                  else if (productName.includes('xl')) properValue = 'XL';
+                  else if (productName.includes('xxl')) properValue = 'XXL';
+                  else properValue = 'Default Size';
+                } else if (variation.type === 'style') {
+                  if (productName.includes('classic')) properValue = 'Classic';
+                  else if (productName.includes('modern')) properValue = 'Modern';
+                  else if (productName.includes('vintage')) properValue = 'Vintage';
+                  else if (productName.includes('premium')) properValue = 'Premium';
+                  else properValue = 'Default Style';
+                }
+                
+                if (properValue !== option.value) {
+                  hasChanges = true;
+                  console.log(`🔧 Fixed variation value for ${linkedProduct.name}: ${option.value} → ${properValue}`);
+                }
+              }
+              
+              updatedOptions.push({
+                ...option,
+                value: properValue
+              });
+            } else {
+              // Keep option if product exists
+              updatedOptions.push(option);
+            }
+          } else {
+            updatedOptions.push(option);
+          }
+        }
+        
+        updatedVariations.push({
+          ...variation,
+          options: updatedOptions
+        });
+      }
+
+      if (hasChanges) {
+        await Product.findByIdAndUpdate(product._id, { variations: updatedVariations });
+        fixedCount++;
+        console.log(`✅ Fixed variations for: ${product.name}`);
+      }
+    }
+
+    // Clear cache
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+
+    res.json({
+      message: `Fixed variation values for ${fixedCount} products`,
+      fixedCount,
+      totalChecked: products.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error fixing variation values:', error);
+    res.status(500).json({ message: 'Error fixing variation values', error: error.message });
+  }
+});
+
+// Helper endpoint to update specific products' variation values
+router.post('/variations/update-values/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { variationValues } = req.body; // { "color": "Green", "size": "Large" }
+    
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    console.log(`🎨 Updating variation values for: ${product.name}`);
+    console.log(`🎨 New values:`, variationValues);
+
+    // Update this product's variations to include itself with proper values
+    let updatedVariations = product.variations || [];
+    let hasChanges = false;
+
+    for (const variation of updatedVariations) {
+      if (variationValues[variation.type]) {
+        // Find current product in options and update its value
+        const currentOptionIndex = variation.options.findIndex(opt => 
+          opt.productId && opt.productId.toString() === req.params.id
+        );
+
+        if (currentOptionIndex !== -1) {
+          variation.options[currentOptionIndex].value = variationValues[variation.type];
+          hasChanges = true;
+          console.log(`✅ Updated ${variation.type} value to: ${variationValues[variation.type]}`);
+        } else {
+          // Add current product to its own variations
+          variation.options.push({
+            value: variationValues[variation.type],
+            productId: req.params.id,
+            images: product.images || [],
+            price: product.price || null,
+            stock: product.stock || null
+          });
+          hasChanges = true;
+          console.log(`➕ Added current product to ${variation.type} with value: ${variationValues[variation.type]}`);
+        }
+      }
+    }
+
+    if (hasChanges) {
+      await Product.findByIdAndUpdate(req.params.id, { variations: updatedVariations });
+      
+      // Also update all linked products to reflect the new value
+      for (const variation of updatedVariations) {
+        if (variationValues[variation.type]) {
+          for (const option of variation.options) {
+            if (option.productId && option.productId !== req.params.id) {
+              const linkedProduct = await Product.findById(option.productId);
+              if (linkedProduct && linkedProduct.variations) {
+                let linkedUpdated = false;
+                for (const linkedVariation of linkedProduct.variations) {
+                  if (linkedVariation.type === variation.type) {
+                    const linkedOptionIndex = linkedVariation.options.findIndex(opt => 
+                      opt.productId && opt.productId.toString() === req.params.id
+                    );
+                    if (linkedOptionIndex !== -1) {
+                      linkedVariation.options[linkedOptionIndex].value = variationValues[variation.type];
+                      linkedUpdated = true;
+                    }
+                  }
+                }
+                if (linkedUpdated) {
+                  await Product.findByIdAndUpdate(option.productId, { variations: linkedProduct.variations });
+                  console.log(`🔄 Updated linked product: ${linkedProduct.name}`);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Clear cache
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+
+    res.json({
+      message: 'Variation values updated successfully',
+      product: product.name,
+      updatedValues: variationValues,
+      hasChanges
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating variation values:', error);
+    res.status(500).json({ message: 'Error updating variation values', error: error.message });
+  }
+});
+// Quick fix endpoint for animal variations (Dinosaur/Dolphin example)
+router.post('/variations/fix-animals', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🦕 Fixing animal variations...');
+    
+    // Find products with animal names
+    const animalProducts = await Product.find({
+      $or: [
+        { name: { $regex: 'dinosaur', $options: 'i' } },
+        { name: { $regex: 'dolphin', $options: 'i' } },
+        { name: { $regex: 'shark', $options: 'i' } },
+        { name: { $regex: 'whale', $options: 'i' } }
+      ]
+    });
+
+    let fixedCount = 0;
+
+    for (const product of animalProducts) {
+      const productName = product.name.toLowerCase();
+      let animalType = 'Animal';
+      
+      if (productName.includes('dinosaur')) animalType = 'Dinosaur';
+      else if (productName.includes('dolphin')) animalType = 'Dolphin';
+      else if (productName.includes('shark')) animalType = 'Shark';
+      else if (productName.includes('whale')) animalType = 'Whale';
+
+      // Update variations to have proper animal type
+      if (product.variations && product.variations.length > 0) {
+        let hasChanges = false;
+        
+        for (const variation of product.variations) {
+          // Find current product in its own variations and update value
+          const currentOptionIndex = variation.options.findIndex(opt => 
+            opt.productId && opt.productId.toString() === product._id.toString()
+          );
+
+          if (currentOptionIndex !== -1) {
+            if (variation.options[currentOptionIndex].value === 'Current' || 
+                variation.options[currentOptionIndex].value === product.name) {
+              variation.options[currentOptionIndex].value = animalType;
+              hasChanges = true;
+              console.log(`🔧 Fixed ${product.name}: Current → ${animalType}`);
+            }
+          }
+
+          // Also fix any generic product names in options
+          for (let i = 0; i < variation.options.length; i++) {
+            const option = variation.options[i];
+            if (option.productId && option.productId !== product._id) {
+              const linkedProduct = await Product.findById(option.productId);
+              if (linkedProduct) {
+                const linkedName = linkedProduct.name.toLowerCase();
+                let linkedAnimalType = option.value;
+                
+                if (option.value === 'Current' || option.value === linkedProduct.name) {
+                  if (linkedName.includes('dinosaur')) linkedAnimalType = 'Dinosaur';
+                  else if (linkedName.includes('dolphin')) linkedAnimalType = 'Dolphin';
+                  else if (linkedName.includes('shark')) linkedAnimalType = 'Shark';
+                  else if (linkedName.includes('whale')) linkedAnimalType = 'Whale';
+                  
+                  if (linkedAnimalType !== option.value) {
+                    variation.options[i].value = linkedAnimalType;
+                    hasChanges = true;
+                    console.log(`🔧 Fixed linked option: ${option.value} → ${linkedAnimalType}`);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (hasChanges) {
+          await Product.findByIdAndUpdate(product._id, { variations: product.variations });
+          fixedCount++;
+        }
+      }
+    }
+
+    // Clear cache
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+
+    res.json({
+      message: `Fixed animal variations for ${fixedCount} products`,
+      fixedCount,
+      totalChecked: animalProducts.length,
+      products: animalProducts.map(p => ({ name: p.name, id: p._id }))
+    });
+
+  } catch (error) {
+    console.error('❌ Error fixing animal variations:', error);
+    res.status(500).json({ message: 'Error fixing animal variations', error: error.message });
   }
 });
 

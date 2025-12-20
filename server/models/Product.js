@@ -4,8 +4,8 @@ const productSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    trim: true,
-    index: true // Index for faster search
+    trim: true
+    // Removed index: true to avoid duplicate with compound index below
   },
   description: String,
   features: [String], // Array of feature strings for "About this item" section
@@ -99,8 +99,6 @@ const productSchema = new mongoose.Schema({
   },
   asin: {
     type: String,
-    sparse: true,
-    index: true,
     trim: true,
     uppercase: true,
     validate: {
@@ -227,8 +225,8 @@ const productSchema = new mongoose.Schema({
       default: 0
     }
   },
-  // Save field for displaying savings amount
-  save: {
+  // Savings field for displaying savings amount
+  savings: {
     type: Number,
     default: 0
   },
@@ -276,5 +274,9 @@ productSchema.index({ isBestSeller: 1, status: 1 }); // Best Seller products
 productSchema.index({ price: 1 }); // Price sorting
 productSchema.index({ rating: -1 }); // Rating sorting
 productSchema.index({ createdAt: -1 }); // Latest products
+productSchema.index({ asin: 1 }, { sparse: true }); // ASIN index for Excel uploads (sparse allows nulls)
+productSchema.index({ name: 1 }); // Product title index for Excel uploads
+productSchema.index({ category: 1 }); // Category index for Excel uploads
+productSchema.index({ isAdminProduct: 1, status: 1 }); // Admin products index
 
 export default mongoose.model('Product', productSchema);

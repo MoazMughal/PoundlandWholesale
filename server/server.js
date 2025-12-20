@@ -8,6 +8,7 @@ import productRoutes from './routes/products.js';
 import sellerRoutes from './routes/sellers.js';
 import dashboardRoutes from './routes/dashboard.js';
 import excelRoutes from './routes/excel.js';
+import adminExcelRoutes from './routes/admin-excel.js';
 import buyerRoutes from './routes/buyer.js';
 import easypaisaRoutes from './routes/easypaisa.js';
 import categoriesRoutes from './routes/categories.js';
@@ -33,9 +34,9 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
-// Increase payload limit for image uploads (base64 encoded images can be large)
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Increase payload limit for large Excel uploads and image uploads (base64 encoded images can be large)
+app.use(express.json({ limit: '1gb' }));
+app.use(express.urlencoded({ extended: true, limit: '1gb' }));
 
 // Enhanced MongoDB connection with comprehensive error handling and fallbacks
 console.log('🔄 Attempting to connect to MongoDB...');
@@ -136,6 +137,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/sellers', sellerRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/excel', excelRoutes);
+app.use('/api/admin-excel', adminExcelRoutes);
 app.use('/api/buyer', buyerRoutes);
 app.use('/api/easypaisa', easypaisaRoutes);
 app.use('/api/categories', categoriesRoutes);

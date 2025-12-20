@@ -682,11 +682,17 @@ const AdminProducts = () => {
 
   // Variations management functions
   const handleVariationsClick = async (product) => {
+    console.log('🎨 Opening variations modal for product:', product.name);
+    console.log('🎨 Product variations:', product.variations);
+    
     // Initialize variations if they don't exist
     const productWithVariations = {
       ...product,
       variations: product.variations || []
     };
+    
+    console.log('🎨 Initialized product with variations:', productWithVariations);
+    
     setVariationsEditProduct(productWithVariations);
     setShowVariationsModal(true);
     
@@ -706,24 +712,50 @@ const AdminProducts = () => {
   };
 
   const addVariation = () => {
+    console.log('🎨 Adding new variation');
+    console.log('🎨 Current variationsEditProduct:', variationsEditProduct);
+    
     const newVariation = {
       type: 'color',
-      name: 'Color',
+      name: '', // Start with empty name so user can customize
       options: []
     };
     
-    setVariationsEditProduct({
+    console.log('🎨 New variation to add:', newVariation);
+    
+    const updatedProduct = {
       ...variationsEditProduct,
       variations: [...(variationsEditProduct.variations || []), newVariation]
-    });
+    };
+    
+    console.log('🎨 Updated product with new variation:', updatedProduct);
+    
+    setVariationsEditProduct(updatedProduct);
   };
 
   const updateVariation = (variationIndex, field, value) => {
     const updatedVariations = [...(variationsEditProduct.variations || [])];
-    updatedVariations[variationIndex] = {
-      ...updatedVariations[variationIndex],
-      [field]: value
-    };
+    
+    // Auto-set the name based on the type only when type changes
+    if (field === 'type') {
+      const nameMap = {
+        'color': 'Color',
+        'size': 'Size', 
+        'style': 'Style'
+      };
+      
+      updatedVariations[variationIndex] = {
+        ...updatedVariations[variationIndex],
+        [field]: value,
+        name: nameMap[value] || value // Auto-set name based on type
+      };
+    } else {
+      // For other fields (including 'name'), just update the field directly
+      updatedVariations[variationIndex] = {
+        ...updatedVariations[variationIndex],
+        [field]: value
+      };
+    }
     
     setVariationsEditProduct({
       ...variationsEditProduct,
@@ -733,6 +765,17 @@ const AdminProducts = () => {
 
   const addVariationOption = (variationIndex) => {
     const updatedVariations = [...(variationsEditProduct.variations || [])];
+    
+    // Ensure the variation exists and has an options array
+    if (!updatedVariations[variationIndex]) {
+      console.error('Variation at index', variationIndex, 'does not exist');
+      return;
+    }
+    
+    if (!updatedVariations[variationIndex].options) {
+      updatedVariations[variationIndex].options = [];
+    }
+    
     updatedVariations[variationIndex].options.push({
       value: '',
       productId: null,
@@ -740,6 +783,8 @@ const AdminProducts = () => {
       price: null,
       stock: null
     });
+    
+    console.log('Added variation option. Updated variations:', updatedVariations);
     
     setVariationsEditProduct({
       ...variationsEditProduct,
@@ -749,10 +794,28 @@ const AdminProducts = () => {
 
   const updateVariationOption = (variationIndex, optionIndex, field, value) => {
     const updatedVariations = [...(variationsEditProduct.variations || [])];
+    
+    // Ensure the variation and option exist
+    if (!updatedVariations[variationIndex]) {
+      console.error('Variation at index', variationIndex, 'does not exist');
+      return;
+    }
+    
+    if (!updatedVariations[variationIndex].options) {
+      updatedVariations[variationIndex].options = [];
+    }
+    
+    if (!updatedVariations[variationIndex].options[optionIndex]) {
+      console.error('Option at index', optionIndex, 'does not exist in variation', variationIndex);
+      return;
+    }
+    
     updatedVariations[variationIndex].options[optionIndex] = {
       ...updatedVariations[variationIndex].options[optionIndex],
       [field]: value
     };
+    
+    console.log('Updated variation option:', { variationIndex, optionIndex, field, value });
     
     setVariationsEditProduct({
       ...variationsEditProduct,
@@ -811,60 +874,69 @@ const AdminProducts = () => {
       
       console.log('🎨 Cleaned variations data:', JSON.stringify(cleanedVariations, null, 2));
       
-      // Try simple update first
-      console.log('🔄 Trying simple variations update...');
-      const simpleResponse = await fetch(`http://localhost:5000/api/products/${variationsEditProduct._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          variations: cleanedVariations
-        })
-      });
+      // Check if there are any linked products (productId references)
+      const hasLinkedProducts = cleanedVariations.some(variation => 
+        variation.options.some(option => option.productId)
+      );
 
-      if (simpleResponse.ok) {
-        const result = await simpleResponse.json();
-        console.log('✅ Simple variations update successful:', result);
-        alert('✅ Variations updated successfully!');
-        setShowVariationsModal(false);
-        fetchProducts(); // Refresh the products list
-        return;
-      }
+      if (hasLinkedProducts) {
+        // Use bidirectional endpoint when there are linked products
+        console.log('🔗 Found linked products, using bidirectional endpoint...');
+        const bidirectionalResponse = await fetch(`http://localhost:5000/api/products/variations/bidirectional/${variationsEditProduct._id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            variations: cleanedVariations,
+            currentProduct: {
+              id: variationsEditProduct._id,
+              name: variationsEditProduct.name,
+              category: variationsEditProduct.category
+            }
+          })
+        });
 
-      // If simple update fails, try bidirectional
-      console.log('🔄 Simple update failed, trying bidirectional endpoint...');
-      const bidirectionalResponse = await fetch(`http://localhost:5000/api/products/variations/bidirectional/${variationsEditProduct._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          variations: cleanedVariations,
-          currentProduct: {
-            id: variationsEditProduct._id,
-            name: variationsEditProduct.name,
-            category: variationsEditProduct.category
-          }
-        })
-      });
-
-      if (bidirectionalResponse.ok) {
-        const result = await bidirectionalResponse.json();
-        console.log('✅ Bidirectional variations result:', result);
-        alert(`✅ Variations updated successfully! Updated ${result.linkedProducts} linked products.`);
-        setShowVariationsModal(false);
-        fetchProducts(); // Refresh the products list
-      } else {
-        const errorData = await bidirectionalResponse.text();
-        console.error('❌ Both endpoints failed');
-        
-        if (bidirectionalResponse.status === 401) {
-          alert('❌ Authentication failed. Please log in again.');
+        if (bidirectionalResponse.ok) {
+          const result = await bidirectionalResponse.json();
+          console.log('✅ Bidirectional variations result:', result);
+          alert(`✅ Variations updated successfully! Updated ${result.linkedProducts} linked products.`);
+          setShowVariationsModal(false);
+          fetchProducts(); // Refresh the products list
+          return;
         } else {
+          const errorData = await bidirectionalResponse.text();
+          console.error('❌ Bidirectional update failed:', errorData);
           alert(`❌ Failed to save variations: ${errorData}`);
+          return;
+        }
+      } else {
+        // Use simple update when no linked products
+        console.log('🔄 No linked products, using simple update...');
+        const simpleResponse = await fetch(`http://localhost:5000/api/products/${variationsEditProduct._id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            variations: cleanedVariations
+          })
+        });
+
+        if (simpleResponse.ok) {
+          const result = await simpleResponse.json();
+          console.log('✅ Simple variations update successful:', result);
+          alert('✅ Variations updated successfully!');
+          setShowVariationsModal(false);
+          fetchProducts(); // Refresh the products list
+          return;
+        } else {
+          const errorData = await simpleResponse.text();
+          console.error('❌ Simple update failed:', errorData);
+          alert(`❌ Failed to save variations: ${errorData}`);
+          return;
         }
       }
     } catch (error) {
@@ -971,7 +1043,7 @@ const AdminProducts = () => {
       platformComparison: initPlatformComparison,
       profitCalculations: initProfitCalculations,
       profitEvaluation: initProfitEvaluation,
-      save: safeParseFloat(product.save, 0) // Initialize save field
+      savings: safeParseFloat(product.savings, 0) // Initialize savings field
     });
     setProductCostUpdated(false); // Reset visual indicator
     setShowProfitModal(true);
@@ -1076,9 +1148,9 @@ const AdminProducts = () => {
       console.log('- Yearly Profit:', cleanProfitEvaluation.yearlyProfit);
       console.log('- Net Profit:', cleanProfitEvaluation.netProfit);
       console.log('💰 SAVE FIELD DEBUG:', {
-        rawSave: profitEditProduct.save,
-        saveType: typeof profitEditProduct.save,
-        parsedSave: parseFloat((parseFloat(profitEditProduct.save) || 0).toFixed(2))
+        rawSave: profitEditProduct.savings,
+        saveType: typeof profitEditProduct.savings,
+        parsedSave: parseFloat((parseFloat(profitEditProduct.savings) || 0).toFixed(2))
       });
 
       const updateData = {
@@ -1086,7 +1158,7 @@ const AdminProducts = () => {
         platformUnits: parseInt(selectedUnits) || 200,
         profitCalculations: cleanProfitCalculations,
         profitEvaluation: cleanProfitEvaluation,
-        save: parseFloat((parseFloat(profitEditProduct.save) || 0).toFixed(2)) // Save the single save field
+        savings: parseFloat((parseFloat(profitEditProduct.savings) || 0).toFixed(2)) // Save the single savings field
       };
 
       console.log('🔄 Sending profit update data:', updateData);
@@ -1295,7 +1367,23 @@ const AdminProducts = () => {
               whiteSpace: 'nowrap'
             }}
           >
-            📊 Import
+            📤 Upload
+          </button>
+          <button 
+            onClick={() => navigate('/admin/excel-manager')} 
+            style={{
+              padding: '6px 10px',
+              fontSize: '0.7rem',
+              background: '#667eea',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            📊 Excel Files
           </button>
           <button 
             onClick={async () => {
@@ -2206,10 +2294,10 @@ const AdminProducts = () => {
                           step="1"
                           min="0"
                           max="100"
-                          value={safeFormatNumber(profitEditProduct.save) || ''}
+                          value={safeFormatNumber(profitEditProduct.savings) || ''}
                           onChange={(e) => {
                             const newValue = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
-                            setProfitEditProduct({...profitEditProduct, save: newValue});
+                            setProfitEditProduct({...profitEditProduct, savings: newValue});
                           }}
                           onFocus={(e) => e.target.select()}
                           style={{
@@ -2890,23 +2978,6 @@ const AdminProducts = () => {
               <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9rem' }}>
                 Category: {variationsEditProduct.category} | Price: £{variationsEditProduct.price}
               </p>
-              <div style={{ 
-                backgroundColor: '#e8f4fd', 
-                border: '1px solid #bee5eb', 
-                borderRadius: '6px', 
-                padding: '10px',
-                fontSize: '0.8rem',
-                color: '#0c5460'
-              }}>
-                <strong>💡 How Bidirectional Variations Work:</strong>
-                <ul style={{ margin: '5px 0 0 0', paddingLeft: '20px' }}>
-                  <li>Create variation types (Color, Size, Style)</li>
-                  <li>Add options and link products from the same category</li>
-                  <li><strong>Automatic linking:</strong> When you link Product A → Product B, Product B automatically gets Product A as a variation</li>
-                  <li>Customers see all related products and can navigate between them (like Amazon)</li>
-                  <li>Both products will show each other in their variations section</li>
-                </ul>
-              </div>
             </div>
 
             {/* Existing Variations */}
@@ -2940,34 +3011,64 @@ const AdminProducts = () => {
                     backgroundColor: '#fafbff'
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <select
-                          value={variation.type}
-                          onChange={(e) => updateVariation(variationIndex, 'type', e.target.value)}
-                          style={{
-                            padding: '6px 10px',
-                            border: '1px solid #ddd',
-                            borderRadius: '4px',
-                            fontSize: '0.9rem'
-                          }}
-                        >
-                          <option value="color">Color</option>
-                          <option value="size">Size</option>
-                          <option value="style">Style</option>
-                        </select>
-                        <input
-                          type="text"
-                          value={variation.name}
-                          onChange={(e) => updateVariation(variationIndex, 'name', e.target.value)}
-                          placeholder="Variation name (e.g., Color, Size)"
-                          style={{
-                            padding: '6px 10px',
-                            border: '1px solid #ddd',
-                            borderRadius: '4px',
-                            fontSize: '0.9rem',
-                            minWidth: '150px'
-                          }}
-                        />
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: '600', color: '#555' }}>Type:</label>
+                          <select
+                            value={variation.type || 'color'}
+                            onChange={(e) => {
+                              console.log('🎨 Type change:', { variationIndex, value: e.target.value });
+                              updateVariation(variationIndex, 'type', e.target.value);
+                            }}
+                            style={{
+                              padding: '6px 10px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontSize: '0.9rem'
+                            }}
+                          >
+                            <option value="color">Color</option>
+                            <option value="size">Size</option>
+                            <option value="style">Style</option>
+                          </select>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: '600', color: '#555' }}>
+                            Custom Name: 
+                            <span style={{ fontSize: '0.65rem', color: '#888', fontWeight: '400' }}>
+                              (will show as "{variation.type}: {variation.name || variation.type}: value")
+                            </span>
+                          </label>
+                          <input
+                            type="text"
+                            value={variation.name || ''}
+                            onChange={(e) => {
+                              console.log('🎨 Name change:', { variationIndex, value: e.target.value });
+                              updateVariation(variationIndex, 'name', e.target.value);
+                            }}
+                            placeholder={`Enter custom name (e.g., ${variation.type === 'color' ? 'Product Color, Main Color, Available Colors' : variation.type === 'size' ? 'Product Size, Available Sizes, Size Options' : 'Product Style, Style Options, Available Styles'})`}
+                            style={{
+                              padding: '6px 10px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontSize: '0.9rem',
+                              minWidth: '200px',
+                              backgroundColor: 'white',
+                              color: '#333'
+                            }}
+                          />
+                          {/* Preview of how it will display */}
+                          {variation.name && (
+                            <div style={{ 
+                              fontSize: '0.65rem', 
+                              color: '#28a745', 
+                              fontWeight: '500',
+                              marginTop: '2px'
+                            }}>
+                              Preview: "{variation.type}: {variation.name}: value" and "option: {variation.type}: {variation.name}"
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <button
                         onClick={() => removeVariation(variationIndex)}
@@ -3018,9 +3119,12 @@ const AdminProducts = () => {
                         }}>
                           <input
                             type="text"
-                            value={option.value}
-                            onChange={(e) => updateVariationOption(variationIndex, optionIndex, 'value', e.target.value)}
-                            placeholder="Option value (e.g., Red, Large)"
+                            value={option.value || ''}
+                            onChange={(e) => {
+                              console.log('🎨 Input change:', { variationIndex, optionIndex, value: e.target.value });
+                              updateVariationOption(variationIndex, optionIndex, 'value', e.target.value);
+                            }}
+                            placeholder={`Option value (e.g., ${variation.type === 'color' ? 'Red, Blue, Green' : variation.type === 'size' ? 'Small, Medium, Large' : 'Classic, Modern, Premium'})`}
                             style={{
                               padding: '4px 8px',
                               border: '1px solid #ddd',
@@ -3029,6 +3133,18 @@ const AdminProducts = () => {
                               minWidth: '120px'
                             }}
                           />
+                          {/* Show preview of how this option will display */}
+                          {option.value && (
+                            <div style={{ 
+                              fontSize: '0.65rem', 
+                              color: '#17a2b8', 
+                              fontWeight: '500',
+                              marginTop: '2px',
+                              minWidth: '120px'
+                            }}>
+                              Will show: "{option.value}: {variation.type}: {variation.name || variation.type}"
+                            </div>
+                          )}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                             <select
                               value={option.productId || ''}

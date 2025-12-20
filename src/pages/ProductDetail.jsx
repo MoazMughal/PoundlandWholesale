@@ -344,6 +344,9 @@ const ProductDetail = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       setLoading(true)
+      // Reset selected variations when switching to a new product
+      console.log('🔄 Resetting selected variations for new product:', id)
+      setSelectedVariations({})
       
       // Try to fetch from database first using the product ID
       try {
@@ -362,9 +365,9 @@ const ProductDetail = () => {
           
           // Use database product data
           console.log('💰 SAVE FIELD DEBUG:', {
-            dbProductSave: dbProduct.save,
-            saveType: typeof dbProduct.save,
-            parsedSave: parseFloat(dbProduct.save) || 0
+            dbProductSave: dbProduct.savings,
+            saveType: typeof dbProduct.savings,
+            parsedSave: parseFloat(dbProduct.savings) || 0
           });
           
           console.log('🎨 VARIATIONS DEBUG:', {
@@ -391,7 +394,7 @@ const ProductDetail = () => {
             dealUnits: dbProduct.dealUnits || 1,
             seller: dbProduct.seller,
             sellerInfo: dbProduct.sellerInfo,
-            save: parseFloat(dbProduct.save) || 0, // Add the single save field
+            save: parseFloat(dbProduct.savings) || 0, // Add the single savings field
             variations: dbProduct.variations || [], // Add variations from database
             showEvaluation: dbProduct.name.toLowerCase().includes('nose ring') ||
                            dbProduct.name.toLowerCase().includes('bulb') ||
@@ -969,8 +972,116 @@ const ProductDetail = () => {
           console.log('🎨 Final productData with variations:', {
             hasVariations: !!productData.variations,
             variationsLength: productData.variations?.length || 0,
-            variations: productData.variations
+            variations: productData.variations,
+            productId: productData.id,
+            productName: productData.name
           });
+          
+          // Debug: Log the complete variation structure
+          if (productData.variations && productData.variations.length > 0) {
+            productData.variations.forEach((variation, index) => {
+              console.log(`🎨 Variation ${index + 1}:`, {
+                type: variation.type,
+                name: variation.name,
+                options: variation.options.map(option => ({
+                  value: option.value,
+                  productId: option.productId,
+                  hasProductId: !!option.productId
+                }))
+              });
+            });
+          }
+          
+          // Determine current product's variation values from the variation data
+          if (productData.variations && productData.variations.length > 0) {
+            const currentVariations = {};
+            
+            productData.variations.forEach(variation => {
+              console.log(`🎨 Processing variation: ${variation.type} (${variation.name})`);
+              
+              // Method 1: Check if current product is explicitly linked as one of the variation options
+              const currentProductOption = variation.options.find(option => 
+                option.productId === productData.id
+              );
+              
+              if (currentProductOption) {
+                currentVariations[variation.type] = currentProductOption.value;
+                console.log(`🎨 Method 1 - Found explicit variation ${variation.type}: ${currentProductOption.value} for current product`);
+                return; // Move to next variation
+              }
+              
+              // Method 2: If current product is not linked, it might be the "base" product
+              // In this case, we need to determine what value this base product represents
+              
+              // Check if there's an option without productId (represents the current/base product)
+              const baseOption = variation.options.find(option => !option.productId);
+              if (baseOption) {
+                currentVariations[variation.type] = baseOption.value;
+                console.log(`🎨 Method 2 - Using base variation ${variation.type}: ${baseOption.value} for current product`);
+                return; // Move to next variation
+              }
+              
+              // Method 3: If no base option exists, try to determine from product name or other clues
+              // This is a fallback method when the variation setup isn't complete
+              const productNameLower = productData.name.toLowerCase();
+              let detectedValue = null;
+              
+              if (variation.type === 'color') {
+                // Enhanced color detection to match backend logic
+                if (productNameLower.includes('amber')) detectedValue = 'Orange'; // Amber bulbs are typically orange
+                else if (productNameLower.includes('orange')) detectedValue = 'Orange';
+                else if (productNameLower.includes('clear')) detectedValue = 'Clear';
+                else if (productNameLower.includes('red')) detectedValue = 'Red';
+                else if (productNameLower.includes('blue')) detectedValue = 'Blue';
+                else if (productNameLower.includes('green')) detectedValue = 'Green';
+                else if (productNameLower.includes('black')) detectedValue = 'Black';
+                else if (productNameLower.includes('white')) detectedValue = 'White';
+                else if (productNameLower.includes('yellow')) detectedValue = 'Yellow';
+                else if (productNameLower.includes('pink')) detectedValue = 'Pink';
+                else if (productNameLower.includes('purple')) detectedValue = 'Purple';
+                else if (productNameLower.includes('brown')) detectedValue = 'Brown';
+                else if (productNameLower.includes('grey') || productNameLower.includes('gray')) detectedValue = 'Grey';
+                else if (productNameLower.includes('silver')) detectedValue = 'Silver';
+                else if (productNameLower.includes('gold')) detectedValue = 'Gold';
+              } else if (variation.type === 'size') {
+                if (productNameLower.includes('small')) detectedValue = 'Small';
+                else if (productNameLower.includes('medium')) detectedValue = 'Medium';
+                else if (productNameLower.includes('large')) detectedValue = 'Large';
+                else if (productNameLower.includes('xl')) detectedValue = 'XL';
+                else if (productNameLower.includes('xxl')) detectedValue = 'XXL';
+              } else if (variation.type === 'style') {
+                if (productNameLower.includes('classic')) detectedValue = 'Classic';
+                else if (productNameLower.includes('modern')) detectedValue = 'Modern';
+                else if (productNameLower.includes('vintage')) detectedValue = 'Vintage';
+                else if (productNameLower.includes('premium')) detectedValue = 'Premium';
+                else if (productNameLower.includes('deluxe')) detectedValue = 'Deluxe';
+                else if (productNameLower.includes('basic')) detectedValue = 'Basic';
+              }
+              
+              // If we detected a value, check if it exists in the variation options
+              if (detectedValue) {
+                const matchingOption = variation.options.find(option => 
+                  option.value.toLowerCase() === detectedValue.toLowerCase()
+                );
+                if (matchingOption) {
+                  currentVariations[variation.type] = detectedValue;
+                  console.log(`🎨 Method 3 - Detected variation ${variation.type}: ${detectedValue} from product name`);
+                } else {
+                  console.log(`🎨 Detected value ${detectedValue} not found in options:`, variation.options.map(o => o.value));
+                }
+              } else {
+                console.log(`🎨 Could not detect variation value for ${variation.type} from product name: ${productData.name}`);
+              }
+            });
+            
+            // Set the determined variations as the initial selection
+            if (Object.keys(currentVariations).length > 0) {
+              console.log('🎨 Setting determined variations:', currentVariations);
+              setSelectedVariations(currentVariations);
+            } else {
+              console.log('🎨 No specific variations determined, will show variation names');
+            }
+          }
           
           setProduct(productData)
           setLoading(false)
@@ -2644,9 +2755,9 @@ const ProductDetail = () => {
                             fontWeight: '700'
                           }}>
                             {(() => {
-                              // Use product.save field if available
-                              if (product.save !== undefined && product.save !== null && product.save !== '') {
-                                const saveValue = parseFloat(product.save);
+                              // Use product.savings field if available
+                              if (product.savings !== undefined && product.savings !== null && product.savings !== '') {
+                                const saveValue = parseFloat(product.savings);
                                 if (!isNaN(saveValue) && saveValue > 0) {
                                   return `${Math.round(saveValue)}%`;
                                 }
@@ -2812,16 +2923,74 @@ const ProductDetail = () => {
                           fontSize: '0.7rem',
                           color: '#232f3e',
                           letterSpacing: '0.2px'
-                        }}>{variation.name}: </span>
+                        }}>{variation.type}: {variation.name || variation.type}: </span>
                         <span style={{
                           fontSize: '0.7rem',
                           color: '#565959',
                           fontWeight: '500'
                         }}>
-                          {selectedVariations[variation.type] === 'current' || !selectedVariations[variation.type] ? 
-                            'Current Product' : 
-                            selectedVariations[variation.type] || (variation.options[0]?.value || 'Not selected')
-                          }
+                          {(() => {
+                            // First check if we have a selected variation
+                            const currentValue = selectedVariations[variation.type];
+                            if (currentValue) {
+                              return currentValue;
+                            }
+                            
+                            // Check if current product is explicitly linked as one of the variation options
+                            const currentProductOption = variation.options.find(option => 
+                              option.productId === product.id
+                            );
+                            if (currentProductOption) {
+                              return currentProductOption.value;
+                            }
+                            
+                            // Check for base option (represents the main product)
+                            const baseOption = variation.options.find(option => !option.productId);
+                            if (baseOption) {
+                              return baseOption.value;
+                            }
+                            
+                            // If no explicit linking, try to detect from product name
+                            const productNameLower = product.name?.toLowerCase() || '';
+                            
+                            if (variation.type === 'color') {
+                              if (productNameLower.includes('amber')) return 'Orange'; // Amber bulbs are typically orange
+                              if (productNameLower.includes('orange')) return 'Orange';
+                              if (productNameLower.includes('clear')) return 'Clear';
+                              if (productNameLower.includes('red')) return 'Red';
+                              if (productNameLower.includes('blue')) return 'Blue';
+                              if (productNameLower.includes('green')) return 'Green';
+                              if (productNameLower.includes('black')) return 'Black';
+                              if (productNameLower.includes('white')) return 'White';
+                              if (productNameLower.includes('yellow')) return 'Yellow';
+                              if (productNameLower.includes('pink')) return 'Pink';
+                              if (productNameLower.includes('purple')) return 'Purple';
+                              if (productNameLower.includes('brown')) return 'Brown';
+                              if (productNameLower.includes('grey') || productNameLower.includes('gray')) return 'Grey';
+                              if (productNameLower.includes('silver')) return 'Silver';
+                              if (productNameLower.includes('gold')) return 'Gold';
+                            } else if (variation.type === 'size') {
+                              if (productNameLower.includes('small')) return 'Small';
+                              if (productNameLower.includes('medium')) return 'Medium';
+                              if (productNameLower.includes('large')) return 'Large';
+                              if (productNameLower.includes('xl')) return 'XL';
+                              if (productNameLower.includes('xxl')) return 'XXL';
+                            } else if (variation.type === 'style') {
+                              if (productNameLower.includes('classic')) return 'Classic';
+                              if (productNameLower.includes('modern')) return 'Modern';
+                              if (productNameLower.includes('vintage')) return 'Vintage';
+                              if (productNameLower.includes('premium')) return 'Premium';
+                              if (productNameLower.includes('deluxe')) return 'Deluxe';
+                              if (productNameLower.includes('basic')) return 'Basic';
+                            }
+                            
+                            // Fallback: return the first option value if available
+                            if (variation.options && variation.options.length > 0) {
+                              return variation.options[0].value;
+                            }
+                            
+                            return 'Current Product';
+                          })()}
                         </span>
                       </div>
                       <div className="d-flex gap-2 flex-wrap">
@@ -2830,7 +2999,7 @@ const ProductDetail = () => {
                           onClick={() => {
                             setSelectedVariations({
                               ...selectedVariations, 
-                              [variation.type]: 'current'
+                              [variation.type]: undefined
                             });
                           }}
                           style={{
@@ -2839,25 +3008,25 @@ const ProductDetail = () => {
                             alignItems: 'center',
                             padding: '8px',
                             borderRadius: '8px',
-                            border: selectedVariations[variation.type] === 'current' || (!selectedVariations[variation.type]) ? 
+                            border: !selectedVariations[variation.type] ? 
                               '3px solid #232f3e' : '2px solid #e1e5e9',
                             background: '#ffffff',
                             cursor: 'pointer',
                             transition: 'all 0.2s ease',
-                            boxShadow: selectedVariations[variation.type] === 'current' || (!selectedVariations[variation.type]) ? 
+                            boxShadow: !selectedVariations[variation.type] ? 
                               '0 4px 12px rgba(35, 47, 62, 0.25)' : '0 2px 6px rgba(0,0,0,0.08)',
                             minWidth: '80px',
                             minHeight: '80px'
                           }}
                           onMouseEnter={(e) => {
-                            if (!(selectedVariations[variation.type] === 'current' || (!selectedVariations[variation.type]))) {
+                            if (selectedVariations[variation.type]) {
                               e.currentTarget.style.borderColor = '#232f3e';
                               e.currentTarget.style.transform = 'translateY(-1px)';
                               e.currentTarget.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.1)';
                             }
                           }}
                           onMouseLeave={(e) => {
-                            if (!(selectedVariations[variation.type] === 'current' || (!selectedVariations[variation.type]))) {
+                            if (selectedVariations[variation.type]) {
                               e.currentTarget.style.borderColor = '#e1e5e9';
                               e.currentTarget.style.transform = 'translateY(0)';
                               e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
@@ -2887,7 +3056,64 @@ const ProductDetail = () => {
                             wordBreak: 'break-word',
                             maxWidth: '70px'
                           }}>
-                            {variation.type === 'Silver' ? 'Gold' : 'Current'}
+                            {(() => {
+                              // Show the actual variation value for this product
+                              const currentVariationValue = selectedVariations[variation.type];
+                              if (currentVariationValue) {
+                                return currentVariationValue;
+                              }
+                              
+                              // If no variation is selected, check if current product is linked as an option
+                              const currentProductOption = variation.options.find(option => 
+                                option.productId === product.id
+                              );
+                              
+                              if (currentProductOption) {
+                                return currentProductOption.value;
+                              }
+                              
+                              // Check if there's a base option (no productId) that represents this product
+                              const baseOption = variation.options.find(option => !option.productId);
+                              if (baseOption) {
+                                return baseOption.value;
+                              }
+                              
+                              // Enhanced detection from product name
+                              const productNameLower = product.name?.toLowerCase() || '';
+                              
+                              if (variation.type === 'color') {
+                                if (productNameLower.includes('amber')) return 'Orange'; // Amber bulbs are typically orange
+                                if (productNameLower.includes('orange')) return 'Orange';
+                                if (productNameLower.includes('clear')) return 'Clear';
+                                if (productNameLower.includes('red')) return 'Red';
+                                if (productNameLower.includes('blue')) return 'Blue';
+                                if (productNameLower.includes('green')) return 'Green';
+                                if (productNameLower.includes('black')) return 'Black';
+                                if (productNameLower.includes('white')) return 'White';
+                                if (productNameLower.includes('yellow')) return 'Yellow';
+                                if (productNameLower.includes('pink')) return 'Pink';
+                                if (productNameLower.includes('purple')) return 'Purple';
+                                if (productNameLower.includes('brown')) return 'Brown';
+                                if (productNameLower.includes('grey') || productNameLower.includes('gray')) return 'Grey';
+                                if (productNameLower.includes('silver')) return 'Silver';
+                                if (productNameLower.includes('gold')) return 'Gold';
+                              } else if (variation.type === 'size') {
+                                if (productNameLower.includes('small')) return 'Small';
+                                if (productNameLower.includes('medium')) return 'Medium';
+                                if (productNameLower.includes('large')) return 'Large';
+                                if (productNameLower.includes('xl')) return 'XL';
+                                if (productNameLower.includes('xxl')) return 'XXL';
+                              } else if (variation.type === 'style') {
+                                if (productNameLower.includes('classic')) return 'Classic';
+                                if (productNameLower.includes('modern')) return 'Modern';
+                                if (productNameLower.includes('vintage')) return 'Vintage';
+                                if (productNameLower.includes('premium')) return 'Premium';
+                                if (productNameLower.includes('deluxe')) return 'Deluxe';
+                                if (productNameLower.includes('basic')) return 'Basic';
+                              }
+                              
+                              return 'Current';
+                            })()}
                           </span>
                         </div>
 
@@ -2974,7 +3200,7 @@ const ProductDetail = () => {
                               textAlign: 'center',
                               lineHeight: '1.2'
                             }}>
-                              {option.value}
+                              {option.value}: {variation.type}: {variation.name || variation.type}
                             </span>
                             {/* Link indicator */}
                             {option.productId && (
@@ -3853,8 +4079,8 @@ const ProductDetail = () => {
                         </table>
                       </div>
                       
-                      {/* Single Save Field Display */}
-                      {product.save && product.save > 0 && (
+                      {/* Single Savings Field Display */}
+                      {product.savings && product.savings > 0 && (
                         <div className="mt-3">
                           <div className="card border-0 shadow-sm" style={{background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'}}>
                             <div className="card-body p-2">
@@ -3863,7 +4089,7 @@ const ProductDetail = () => {
                                   💰 Total Savings
                                 </div>
                                 <div className="text-white" style={{fontSize: '1.2rem', fontWeight: 'bold'}}>
-                                  £{safeNumber(product.save).toFixed(2)}
+                                  £{safeNumber(product.savings).toFixed(2)}
                                 </div>
                                 <div className="text-white" style={{fontSize: '0.7rem', opacity: 0.9}}>
                                   Save on your purchase

@@ -30,9 +30,11 @@ export const AdminProvider = ({ children }) => {
 
         // Initialize session if fresh browser session
         if (sessionManager.isFreshSession()) {
-          console.log('🔄 Fresh browser session detected')
+          console.log('🔄 Fresh browser session detected - clearing auth data for security')
           sessionManager.initSession()
-          // Don't clear auth data on fresh session - let token validation handle it
+          clearAuthData() // Clear auth data on fresh session for security
+          setLoading(false)
+          return
         }
 
         const token = localStorage.getItem('adminToken')
@@ -40,6 +42,15 @@ export const AdminProvider = ({ children }) => {
         
         if (!token || !adminData) {
           console.log('🔐 No auth data found')
+          setLoading(false)
+          return
+        }
+
+        // Additional security: Clear auth data if no active session exists
+        // This prevents automatic login when opening new tabs/windows
+        if (!sessionManager.hasSession()) {
+          console.log('🔒 No active session found - clearing auth data for security')
+          clearAuthData()
           setLoading(false)
           return
         }
@@ -178,6 +189,9 @@ export const AdminProvider = ({ children }) => {
       localStorage.removeItem('adminData')
       sessionManager.clearLogoutFlag()
       
+      // Establish new session
+      sessionManager.initSession()
+      
       // Set new auth data
       localStorage.setItem('adminToken', token)
       localStorage.setItem('adminData', JSON.stringify(adminData))
@@ -202,8 +216,9 @@ export const AdminProvider = ({ children }) => {
     localStorage.removeItem('adminToken')
     localStorage.removeItem('adminData')
     
-    // Set logout flag to prevent back button access
+    // Set logout flag and clear session
     sessionManager.setLogoutFlag()
+    sessionManager.clearSession()
     
     // Redirect to login
     window.location.replace('/admin/login')

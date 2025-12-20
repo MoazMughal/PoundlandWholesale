@@ -45,6 +45,9 @@ const AdminSellers = lazy(() => import('./pages/admin/Sellers'))
 const AdminSellerProducts = lazy(() => import('./pages/admin/SellerProducts'))
 const AdminSellerVerifications = lazy(() => import('./pages/admin/SellerVerifications'))
 const ExcelImport = lazy(() => import('./pages/admin/ExcelImport'))
+const ExcelManager = lazy(() => import('./pages/admin/ExcelManager'))
+const AdminExcelProducts = lazy(() => import('./pages/admin/ExcelProducts'))
+const ExcelProductEdit = lazy(() => import('./pages/admin/ExcelProductEdit'))
 const UaeExcelImport = lazy(() => import('./pages/admin/UaeExcelImport'))
 const Amazon10ExcelImport = lazy(() => import('./pages/admin/Amazon10ExcelImport'))
 const AdminBuyers = lazy(() => import('./pages/admin/Buyers'))
@@ -173,6 +176,9 @@ function App() {
           <Route path="/admin/pending-payments" element={<ProtectedRoute><AdminPendingPayments /></ProtectedRoute>} />
           <Route path="/admin/seller-listings" element={<ProtectedRoute><AdminSellerListings /></ProtectedRoute>} />
           <Route path="/admin/excel-import" element={<ProtectedRoute><ExcelImport /></ProtectedRoute>} />
+          <Route path="/admin/excel-manager" element={<ProtectedRoute><ExcelManager /></ProtectedRoute>} />
+          <Route path="/admin/excel-products/:uploadId" element={<ProtectedRoute><AdminExcelProducts /></ProtectedRoute>} />
+          <Route path="/admin/excel-products/:uploadId/edit/:productId" element={<ProtectedRoute><ExcelProductEdit /></ProtectedRoute>} />
           <Route path="/admin/uae-excel-import" element={<ProtectedRoute><UaeExcelImport /></ProtectedRoute>} />
           <Route path="/admin/amazon10-excel-import" element={<ProtectedRoute><Amazon10ExcelImport /></ProtectedRoute>} />
           

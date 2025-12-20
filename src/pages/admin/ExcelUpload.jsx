@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/AdminLayout.css';
 
-const ExcelImport = () => {
+const ExcelUpload = () => {
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadResult, setUploadResult] = useState(null);
   const [updateExisting, setUpdateExisting] = useState(false);
   const [pendingProducts, setPendingProducts] = useState([]);
@@ -14,8 +13,6 @@ const ExcelImport = () => {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalProducts, setTotalProducts] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
@@ -42,8 +39,6 @@ const ExcelImport = () => {
       if (response.ok) {
         const data = await response.json();
         setPendingProducts(data.products);
-        setTotalPages(data.pagination?.totalPages || 1);
-        setTotalProducts(data.pagination?.totalProducts || data.products.length);
       }
     } catch (error) {
       console.error('Error fetching pending products:', error);
@@ -95,34 +90,18 @@ const ExcelImport = () => {
 
     try {
       setUploading(true);
-      setUploadProgress(0);
       const token = localStorage.getItem('adminToken');
       const formData = new FormData();
       formData.append('excelFile', file);
       formData.append('updateExisting', updateExisting);
 
-      // Show file size info for large files
-      const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
-      console.log(`📊 Uploading file: ${file.name} (${fileSizeMB} MB)`);
-
-      const response = await fetch('http://localhost:5000/api/admin-excel/upload-test', {
+      const response = await fetch('http://localhost:5000/api/admin-excel/upload', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
 
-      // Check if response is JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Server returned non-JSON response. Please check server logs.');
-      }
-
       const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.message || `Server error: ${response.status}`);
-      }
-      
       setUploadResult(result);
 
       if (result.success) {
@@ -135,12 +114,10 @@ const ExcelImport = () => {
       console.error('Upload error:', error);
       setUploadResult({
         success: false,
-        message: error.message || 'Upload failed: Unknown error',
-        error: error.name || 'UPLOAD_ERROR'
+        message: 'Upload failed: ' + error.message
       });
     } finally {
       setUploading(false);
-      setUploadProgress(0);
     }
   };
 
@@ -328,10 +305,7 @@ const ExcelImport = () => {
                 <li><strong>Deal Units:</strong> Number of units in deal</li>
                 <li><strong>Rating:</strong> Product rating (0-5)</li>
               </ul>
-              <small>
-                <strong>File Requirements:</strong> Maximum file size: 1GB. 
-                Column names are flexible - the system will automatically detect variations.
-              </small>
+              <small>Column names are flexible - the system will automatically detect variations.</small>
             </div>
           </div>
 
@@ -353,18 +327,6 @@ const ExcelImport = () => {
                   fontSize: '1rem'
                 }}
               />
-              {file && (
-                <div style={{ 
-                  marginTop: '8px', 
-                  fontSize: '0.9rem', 
-                  color: '#666',
-                  display: 'flex',
-                  justifyContent: 'space-between'
-                }}>
-                  <span>📄 {file.name}</span>
-                  <span>📊 {(file.size / 1024 / 1024).toFixed(2)} MB</span>
-                </div>
-              )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
@@ -388,15 +350,10 @@ const ExcelImport = () => {
                 fontSize: '1rem',
                 fontWeight: '600',
                 cursor: file && !uploading ? 'pointer' : 'not-allowed',
-                minWidth: '140px'
+                minWidth: '120px'
               }}
             >
-              {uploading ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>⏳</span>
-                  <span>Processing...</span>
-                </div>
-              ) : '📤 Upload'}
+              {uploading ? '⏳ Uploading...' : '📤 Upload'}
             </button>
           </div>
 
@@ -466,9 +423,7 @@ const ExcelImport = () => {
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-            <h2 style={{ margin: 0, color: '#333' }}>
-              ⏳ Pending Products ({totalProducts} total, showing {pendingProducts.length})
-            </h2>
+            <h2 style={{ margin: 0, color: '#333' }}>⏳ Pending Products ({pendingProducts.length})</h2>
             
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <input
@@ -629,87 +584,10 @@ const ExcelImport = () => {
               </table>
             </div>
           )}
-          
-          {/* Pagination Controls */}
-          {!loading && pendingProducts.length > 0 && totalPages > 1 && (
-            <div style={{
-              padding: '20px',
-              borderTop: '1px solid #e5e7eb',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <div style={{ fontSize: '0.9rem', color: '#666' }}>
-                Page {currentPage} of {totalPages} ({totalProducts} total products)
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  style={{
-                    padding: '8px 12px',
-                    background: currentPage === 1 ? '#f3f4f6' : '#667eea',
-                    color: currentPage === 1 ? '#9ca3af' : 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '0.8rem',
-                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  First
-                </button>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  style={{
-                    padding: '8px 12px',
-                    background: currentPage === 1 ? '#f3f4f6' : '#667eea',
-                    color: currentPage === 1 ? '#9ca3af' : 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '0.8rem',
-                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  ← Previous
-                </button>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  style={{
-                    padding: '8px 12px',
-                    background: currentPage === totalPages ? '#f3f4f6' : '#667eea',
-                    color: currentPage === totalPages ? '#9ca3af' : 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '0.8rem',
-                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Next →
-                </button>
-                <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  style={{
-                    padding: '8px 12px',
-                    background: currentPage === totalPages ? '#f3f4f6' : '#667eea',
-                    color: currentPage === totalPages ? '#9ca3af' : 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '0.8rem',
-                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Last
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
 };
 
-export default ExcelImport;
+export default ExcelUpload;
