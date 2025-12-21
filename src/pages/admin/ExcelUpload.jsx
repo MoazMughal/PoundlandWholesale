@@ -27,7 +27,7 @@ const ExcelUpload = () => {
       const token = localStorage.getItem('adminToken');
       const params = new URLSearchParams({
         page: currentPage,
-        limit: 20,
+        limit: 50,
         ...(searchQuery && { search: searchQuery }),
         ...(categoryFilter !== 'all' && { category: categoryFilter })
       });

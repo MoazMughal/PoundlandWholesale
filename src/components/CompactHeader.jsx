@@ -93,13 +93,22 @@ const CompactHeader = () => {
             !['UAE Products', 'UK Products', 'Amazon10'].includes(cat.value)
           );
           
+          // Get hidden categories from localStorage
+          const hiddenCategories = JSON.parse(localStorage.getItem('hiddenCategories') || '[]');
+          
+          // Filter out hidden categories
+          const visibleCategories = filteredCategories.filter(cat => 
+            !hiddenCategories.includes(cat.value)
+          );
+          
           // Add "All" category at the beginning
           const allCategories = [
             { value: 'all', label: 'All' },
-            ...filteredCategories
+            ...visibleCategories
           ];
           
           console.log('🏠 Header categories loaded:', allCategories.length, 'categories');
+          console.log('🏠 Hidden categories:', hiddenCategories);
           setCategories(allCategories);
         }
       } catch (error) {
@@ -109,6 +118,43 @@ const CompactHeader = () => {
     };
 
     fetchCategories();
+
+    // Listen for category refresh events
+    const handleCategoryRefresh = () => {
+      console.log('🔄 Refreshing header categories...');
+      fetchCategories();
+    };
+
+    // Listen for custom event to refresh categories
+    window.addEventListener('refreshCategories', handleCategoryRefresh);
+    
+    // Listen for storage events (when localStorage changes)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'categoriesUpdated') {
+        handleCategoryRefresh();
+        // Clear the flag
+        localStorage.removeItem('categoriesUpdated');
+      }
+    });
+
+    // Also listen for focus events to refresh categories when returning to the page
+    window.addEventListener('focus', () => {
+      const lastUpdate = localStorage.getItem('categoriesUpdated');
+      if (lastUpdate) {
+        const timeDiff = Date.now() - parseInt(lastUpdate);
+        if (timeDiff < 30000) { // If updated within last 30 seconds
+          handleCategoryRefresh();
+          localStorage.removeItem('categoriesUpdated');
+        }
+      }
+    });
+
+    // Cleanup event listeners
+    return () => {
+      window.removeEventListener('refreshCategories', handleCategoryRefresh);
+      window.removeEventListener('storage', handleCategoryRefresh);
+      window.removeEventListener('focus', handleCategoryRefresh);
+    };
   }, []);
 
   const handleSearch = (e) => {

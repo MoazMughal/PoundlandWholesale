@@ -185,6 +185,10 @@ const EditProduct = () => {
         setNewCategoryName('');
         setShowNewCategoryInput(false);
         
+        // Trigger category refresh in headers
+        localStorage.setItem('categoriesUpdated', Date.now().toString());
+        window.dispatchEvent(new CustomEvent('refreshCategories'));
+        
         alert(`✅ Category "${newCategory.label}" added successfully!`);
       } else {
         const errorData = await response.json();
@@ -507,6 +511,10 @@ const EditProduct = () => {
       // Also clear any other related caches
       cacheManager.clearExpired();
       console.log('✅ Cache cleared - updated product will appear immediately in Amazon\'s Choice');
+      
+      // Trigger category refresh in headers (in case category was changed)
+      localStorage.setItem('categoriesUpdated', Date.now().toString());
+      window.dispatchEvent(new CustomEvent('refreshCategories'));
       
       alert('✅ Product updated successfully! Changes will appear immediately in Amazon\'s Choice products.');
       // Navigate back with category filter preserved

@@ -599,25 +599,50 @@ const AmazonsChoice = () => {
                   }} 
                 />
                 
-                {/* Single Rotating Badge */}
-                <div style={{position: 'absolute', top: '2px', right: '2px', zIndex: 2}}>
+                {/* MOBILE BADGE - CSS Media Query Approach */}
+                <div 
+                  className="mobile-badge-container"
+                  style={{
+                    position: 'absolute',
+                    top: '3px',
+                    right: '3px',
+                    zIndex: 1000,
+                    backgroundColor: '#ff6600',
+                    color: 'white',
+                    padding: '3px 5px',
+                    borderRadius: '4px',
+                    fontSize: '8px',
+                    fontWeight: 'bold',
+                    display: 'block',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                    border: '1px solid rgba(255,255,255,0.5)'
+                  }}
+                >
+                  Amazon's Choice
+                </div>
+                
+                {/* DESKTOP BADGE - Show on Desktop Only */}
+                <div 
+                  className="desktop-badge-container"
+                  style={{position: 'absolute', top: '2px', right: '2px', zIndex: 2}}
+                >
                   {(() => {
                     const badge = getProductBadge(product, index)
                     return (
                       <span 
                         className="product-badge"
                         style={{
-                          padding: windowWidth < 576 ? '1px 3px' : '2px 5px',
+                          padding: '2px 5px',
                           borderRadius: '3px',
                           fontWeight: '700',
-                          fontSize: windowWidth < 576 ? '0.45rem' : '0.5rem',
+                          fontSize: '0.5rem',
                           backgroundColor: badge.color,
                           color: 'white',
                           boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '2px',
-                          transition: 'all 0.3s ease', // Smooth transition between badges
+                          transition: 'all 0.3s ease',
                           whiteSpace: 'nowrap'
                         }}
                       >
@@ -897,8 +922,9 @@ const AmazonsChoice = () => {
                         display: 'flex', 
                         flexDirection: 'column', 
                         alignItems: 'flex-start', // MOVED LEFT - changed from flex-end to flex-start
-                        gap: '1px',
-                        marginLeft: '4px' // Reduced margin for compact layout
+                        gap: '2px', // Increased gap for mobile
+                        marginLeft: '4px', // Reduced margin for compact layout
+                        marginTop: windowWidth < 576 ? '4px' : '0px' // Move down on mobile
                       }}>
                         {/* Profit per unit */}
                         <div style={{
@@ -932,8 +958,8 @@ const AmazonsChoice = () => {
                   })()}
                 </div>
 
-                {/* Deal Units Display */}
-                <div style={{ marginTop: '2px' }}>
+                {/* Deal Units Display - Moved Down for Mobile */}
+                <div style={{ marginTop: windowWidth < 576 ? '6px' : '2px' }}>
                   <div style={{
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)', 
                     padding: '2px 4px', 
@@ -1032,7 +1058,13 @@ const AmazonsChoice = () => {
                       width: '100%',
                       textDecoration: 'none',
                       transition: 'all 0.3s ease',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)'
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                      // Mobile-specific enhancements (will be overridden by CSS for mobile)
+                      ...(windowWidth < 576 && {
+                        minHeight: '22px',
+                        fontSize: '9px',
+                        padding: '6px 8px'
+                      })
                     }}
                     onMouseEnter={(e) => {
                       e.target.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
@@ -1046,6 +1078,19 @@ const AmazonsChoice = () => {
                       e.target.style.transform = 'translateY(0)';
                       e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
                     }}
+                    // Add touch support for mobile without affecting desktop
+                    {...(windowWidth < 576 && {
+                      onTouchStart: (e) => {
+                        e.target.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
+                        e.target.style.borderColor = '#ffffff';
+                      },
+                      onTouchEnd: (e) => {
+                        setTimeout(() => {
+                          e.target.style.background = 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)';
+                          e.target.style.borderColor = '#ff6600';
+                        }, 150);
+                      }
+                    })}
                   >
                     <i className="fab fa-amazon"></i> Verify on Amazon
                   </a>

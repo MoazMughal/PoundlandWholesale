@@ -488,12 +488,15 @@ async function handleExcelUpload(req, res) {
 // Get all Excel uploads
 router.get('/uploads', authenticateAdmin, async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 50 } = req.query;
+    
+    // Validate and cap the limit to prevent performance issues
+    const validatedLimit = Math.min(parseInt(limit) || 50, 200);
     
     const uploads = await ExcelUpload.find({ isActive: true })
       .sort({ uploadedAt: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
+      .limit(validatedLimit)
+      .skip((parseInt(page) - 1) * validatedLimit)
       .lean(); // Remove populate since we don't need admin details for now
 
     const total = await ExcelUpload.countDocuments({ isActive: true });
@@ -503,9 +506,9 @@ router.get('/uploads', authenticateAdmin, async (req, res) => {
       uploads,
       pagination: {
         currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
+        totalPages: Math.ceil(total / validatedLimit),
         totalUploads: total,
-        limit: parseInt(limit)
+        limit: validatedLimit
       }
     });
 
@@ -523,7 +526,10 @@ router.get('/uploads', authenticateAdmin, async (req, res) => {
 router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) => {
   try {
     const { uploadId } = req.params;
-    const { page = 1, limit = 20, search, category, status } = req.query;
+    const { page = 1, limit = 50, search, category, status } = req.query;
+    
+    // Validate and cap the limit to prevent performance issues
+    const validatedLimit = Math.min(parseInt(limit) || 50, 200);
     
     const query = {
       excelUploadId: uploadId
@@ -547,8 +553,8 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
 
     const products = await ExcelProduct.find(query)
       .sort({ rowNumber: 1 }) // Sort by Excel row order
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
+      .limit(validatedLimit)
+      .skip((parseInt(page) - 1) * validatedLimit)
       .lean();
 
     const total = await ExcelProduct.countDocuments(query);
@@ -562,9 +568,9 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
       upload,
       pagination: {
         currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
+        totalPages: Math.ceil(total / validatedLimit),
         totalProducts: total,
-        limit: parseInt(limit)
+        limit: validatedLimit
       }
     });
 
@@ -609,6 +615,73 @@ router.get('/uploads/:uploadId/products/:productId', authenticateAdmin, async (r
     res.status(500).json({
       success: false,
       message: 'Failed to fetch Excel product',
+      error: error.message
+    });
+  }
+});
+
+// Update single field of Excel product (for inline editing)
+router.patch('/uploads/:uploadId/products/:productId/update-field', authenticateAdmin, async (req, res) => {
+  try {
+    const { uploadId, productId } = req.params;
+    const { field, value } = req.body;
+    
+    // Validate allowed fields
+    const allowedFields = ['asin', 'category', 'price', 'rating', 'reviews'];
+    if (!allowedFields.includes(field)) {
+      return res.status(400).json({
+        success: false,
+        message: `Field '${field}' is not allowed for editing`
+      });
+    }
+
+    // Find the Excel product
+    const excelProduct = await ExcelProduct.findOne({
+      _id: productId,
+      excelUploadId: uploadId
+    });
+
+    if (!excelProduct) {
+      return res.status(404).json({
+        success: false,
+        message: 'Excel product not found'
+      });
+    }
+
+    // Update the field
+    const updateData = { [field]: value };
+    
+    await ExcelProduct.updateOne(
+      { _id: productId },
+      { $set: updateData }
+    );
+
+    // If the product is already converted to main products, update the main product too
+    if (excelProduct.isConverted && excelProduct.mainProductId) {
+      try {
+        await Product.updateOne(
+          { _id: excelProduct.mainProductId },
+          { $set: updateData }
+        );
+        console.log(`✅ Updated both Excel product and main product for field: ${field}`);
+      } catch (mainProductError) {
+        console.error('⚠️ Failed to update main product:', mainProductError);
+        // Don't fail the request if main product update fails
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully updated ${field}`,
+      field,
+      value
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating Excel product field:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update product field',
       error: error.message
     });
   }

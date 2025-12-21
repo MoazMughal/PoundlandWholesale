@@ -5,6 +5,7 @@ import { products } from '../data/allProducts'
 import { getImageUrl } from '../utils/imageImports'
 import ScrollToTop from '../components/ScrollToTop'
 import PaymentModal from '../components/PaymentModal'
+import ProductVariations from '../components/ProductVariations'
 import apiConfig from '../config/api.config'
 import { useCurrency } from '../context/CurrencyContext'
 import { useAdmin } from '../context/AdminContext'
@@ -106,6 +107,22 @@ const ProductDetail = () => {
   const [currentSeller, setCurrentSeller] = useState(null)
   const [savingUnits, setSavingUnits] = useState(false) // Loading state for saving units
   const [quantity, setQuantity] = useState(200) // Minimum quantity is 200
+
+  // Variation change handlers
+  const handleVariationChange = (newSelections) => {
+    setSelectedVariations(newSelections);
+  };
+
+  const handleProductChange = (productId) => {
+    // Navigate to the linked product with cache busting
+    const cacheBuster = new Date().getTime();
+    navigate(`/product/${productId}?_=${cacheBuster}`, {
+      state: { 
+        returnTo: location.pathname,
+        category: product?.category 
+      }
+    });
+  };
 
   // Function to get proper image path
   const getImageSrc = (imagePath) => {
@@ -2701,27 +2718,11 @@ const ProductDetail = () => {
                             fontWeight: '700'
                           }}>
                             {(() => {
-                              // Try to get RRP directly from admin panel platform data first
-                              if (product?.platforms && product.platforms.length > 0) {
-                                console.log('🏷️ RRP Display - Checking admin platforms:', product.platforms);
-                                
-                                const adminRRPPlatform = product.platforms.find(p => 
-                                  p.platform && p.platform.toLowerCase() === 'rrp'
-                                );
-                                
-                                console.log('🏷️ RRP Display - Found admin RRP platform:', adminRRPPlatform);
-                                
-                                if (adminRRPPlatform && adminRRPPlatform.rrpPerUnit) {
-                                  console.log('🏷️ RRP Display - Using admin RRP:', adminRRPPlatform.rrpPerUnit);
-                                  return `£${parseFloat(adminRRPPlatform.rrpPerUnit).toFixed(2)}`;
-                                }
-                              }
-                              
-                              // Get platform data exactly like the table does
+                              // CONSISTENT RRP LOGIC: Use the same source as Platform Comparison table
                               const platformData = calculatePlatformData();
                               console.log('🏷️ RRP Display - Platform data:', platformData);
                               
-                              // Find RRP platform using correct property names
+                              // Find RRP platform using the same logic as the table
                               const rrpPlatform = platformData.find(platform => 
                                 (platform.name && platform.name.toLowerCase().includes('rrp')) ||
                                 (platform.platform && platform.platform.toLowerCase().includes('rrp'))
@@ -2732,7 +2733,7 @@ const ProductDetail = () => {
                               if (rrpPlatform) {
                                 // Use EXACTLY the same calculation as the Platform Comparison table
                                 const perUnitPrice = rrpPlatform.perUnitPrice || parseFloat(String(rrpPlatform.price).replace(/[£₨$€]/g, '')) / (rrpPlatform.units || 200);
-                                console.log('🏷️ RRP Display - Calculated perUnitPrice:', perUnitPrice);
+                                console.log('🏷️ RRP Display - Calculated perUnitPrice (SAME AS TABLE):', perUnitPrice);
                                 return `£${parseFloat(perUnitPrice).toFixed(2)}`;
                               }
                               
@@ -2907,326 +2908,15 @@ const ProductDetail = () => {
                     letterSpacing: '0.2px'
                   }}>Product Options</h3>
                   
-                  {/* Dynamic Product Variations */}
-                  {(() => {
-                    console.log('🎨 Rendering variations:', {
-                      hasVariations: !!product.variations,
-                      variationsLength: product.variations?.length || 0,
-                      variations: product.variations
-                    });
-                    return null;
-                  })()}
-                  {product.variations && product.variations.length > 0 && product.variations.map((variation, variationIndex) => (
-                    <div key={variationIndex} className="mb-2">
-                      <div className="mb-1">
-                        <span className="fw-bold" style={{
-                          fontSize: '0.7rem',
-                          color: '#232f3e',
-                          letterSpacing: '0.2px'
-                        }}>{variation.type}: {variation.name || variation.type}: </span>
-                        <span style={{
-                          fontSize: '0.7rem',
-                          color: '#565959',
-                          fontWeight: '500'
-                        }}>
-                          {(() => {
-                            // First check if we have a selected variation
-                            const currentValue = selectedVariations[variation.type];
-                            if (currentValue) {
-                              return currentValue;
-                            }
-                            
-                            // Check if current product is explicitly linked as one of the variation options
-                            const currentProductOption = variation.options.find(option => 
-                              option.productId === product.id
-                            );
-                            if (currentProductOption) {
-                              return currentProductOption.value;
-                            }
-                            
-                            // Check for base option (represents the main product)
-                            const baseOption = variation.options.find(option => !option.productId);
-                            if (baseOption) {
-                              return baseOption.value;
-                            }
-                            
-                            // If no explicit linking, try to detect from product name
-                            const productNameLower = product.name?.toLowerCase() || '';
-                            
-                            if (variation.type === 'color') {
-                              if (productNameLower.includes('amber')) return 'Orange'; // Amber bulbs are typically orange
-                              if (productNameLower.includes('orange')) return 'Orange';
-                              if (productNameLower.includes('clear')) return 'Clear';
-                              if (productNameLower.includes('red')) return 'Red';
-                              if (productNameLower.includes('blue')) return 'Blue';
-                              if (productNameLower.includes('green')) return 'Green';
-                              if (productNameLower.includes('black')) return 'Black';
-                              if (productNameLower.includes('white')) return 'White';
-                              if (productNameLower.includes('yellow')) return 'Yellow';
-                              if (productNameLower.includes('pink')) return 'Pink';
-                              if (productNameLower.includes('purple')) return 'Purple';
-                              if (productNameLower.includes('brown')) return 'Brown';
-                              if (productNameLower.includes('grey') || productNameLower.includes('gray')) return 'Grey';
-                              if (productNameLower.includes('silver')) return 'Silver';
-                              if (productNameLower.includes('gold')) return 'Gold';
-                            } else if (variation.type === 'size') {
-                              if (productNameLower.includes('small')) return 'Small';
-                              if (productNameLower.includes('medium')) return 'Medium';
-                              if (productNameLower.includes('large')) return 'Large';
-                              if (productNameLower.includes('xl')) return 'XL';
-                              if (productNameLower.includes('xxl')) return 'XXL';
-                            } else if (variation.type === 'style') {
-                              if (productNameLower.includes('classic')) return 'Classic';
-                              if (productNameLower.includes('modern')) return 'Modern';
-                              if (productNameLower.includes('vintage')) return 'Vintage';
-                              if (productNameLower.includes('premium')) return 'Premium';
-                              if (productNameLower.includes('deluxe')) return 'Deluxe';
-                              if (productNameLower.includes('basic')) return 'Basic';
-                            }
-                            
-                            // Fallback: return the first option value if available
-                            if (variation.options && variation.options.length > 0) {
-                              return variation.options[0].value;
-                            }
-                            
-                            return 'Current Product';
-                          })()}
-                        </span>
-                      </div>
-                      <div className="d-flex gap-2 flex-wrap">
-                        {/* Current Product Option */}
-                        <div
-                          onClick={() => {
-                            setSelectedVariations({
-                              ...selectedVariations, 
-                              [variation.type]: undefined
-                            });
-                          }}
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            padding: '8px',
-                            borderRadius: '8px',
-                            border: !selectedVariations[variation.type] ? 
-                              '3px solid #232f3e' : '2px solid #e1e5e9',
-                            background: '#ffffff',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                            boxShadow: !selectedVariations[variation.type] ? 
-                              '0 4px 12px rgba(35, 47, 62, 0.25)' : '0 2px 6px rgba(0,0,0,0.08)',
-                            minWidth: '80px',
-                            minHeight: '80px'
-                          }}
-                          onMouseEnter={(e) => {
-                            if (selectedVariations[variation.type]) {
-                              e.currentTarget.style.borderColor = '#232f3e';
-                              e.currentTarget.style.transform = 'translateY(-1px)';
-                              e.currentTarget.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.1)';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (selectedVariations[variation.type]) {
-                              e.currentTarget.style.borderColor = '#e1e5e9';
-                              e.currentTarget.style.transform = 'translateY(0)';
-                              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
-                            }
-                          }}
-                        >
-                          <img 
-                            src={product.image || product.images?.[0]} 
-                            alt="Current"
-                            style={{
-                              width: '50px',
-                              height: '50px',
-                              objectFit: 'contain',
-                              borderRadius: '6px',
-                              marginBottom: '6px'
-                            }}
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                            }}
-                          />
-                          <span style={{
-                            fontSize: '0.7rem',
-                            fontWeight: '600',
-                            color: '#232f3e',
-                            textAlign: 'center',
-                            lineHeight: '1.2',
-                            wordBreak: 'break-word',
-                            maxWidth: '70px'
-                          }}>
-                            {(() => {
-                              // Show the actual variation value for this product
-                              const currentVariationValue = selectedVariations[variation.type];
-                              if (currentVariationValue) {
-                                return currentVariationValue;
-                              }
-                              
-                              // If no variation is selected, check if current product is linked as an option
-                              const currentProductOption = variation.options.find(option => 
-                                option.productId === product.id
-                              );
-                              
-                              if (currentProductOption) {
-                                return currentProductOption.value;
-                              }
-                              
-                              // Check if there's a base option (no productId) that represents this product
-                              const baseOption = variation.options.find(option => !option.productId);
-                              if (baseOption) {
-                                return baseOption.value;
-                              }
-                              
-                              // Enhanced detection from product name
-                              const productNameLower = product.name?.toLowerCase() || '';
-                              
-                              if (variation.type === 'color') {
-                                if (productNameLower.includes('amber')) return 'Orange'; // Amber bulbs are typically orange
-                                if (productNameLower.includes('orange')) return 'Orange';
-                                if (productNameLower.includes('clear')) return 'Clear';
-                                if (productNameLower.includes('red')) return 'Red';
-                                if (productNameLower.includes('blue')) return 'Blue';
-                                if (productNameLower.includes('green')) return 'Green';
-                                if (productNameLower.includes('black')) return 'Black';
-                                if (productNameLower.includes('white')) return 'White';
-                                if (productNameLower.includes('yellow')) return 'Yellow';
-                                if (productNameLower.includes('pink')) return 'Pink';
-                                if (productNameLower.includes('purple')) return 'Purple';
-                                if (productNameLower.includes('brown')) return 'Brown';
-                                if (productNameLower.includes('grey') || productNameLower.includes('gray')) return 'Grey';
-                                if (productNameLower.includes('silver')) return 'Silver';
-                                if (productNameLower.includes('gold')) return 'Gold';
-                              } else if (variation.type === 'size') {
-                                if (productNameLower.includes('small')) return 'Small';
-                                if (productNameLower.includes('medium')) return 'Medium';
-                                if (productNameLower.includes('large')) return 'Large';
-                                if (productNameLower.includes('xl')) return 'XL';
-                                if (productNameLower.includes('xxl')) return 'XXL';
-                              } else if (variation.type === 'style') {
-                                if (productNameLower.includes('classic')) return 'Classic';
-                                if (productNameLower.includes('modern')) return 'Modern';
-                                if (productNameLower.includes('vintage')) return 'Vintage';
-                                if (productNameLower.includes('premium')) return 'Premium';
-                                if (productNameLower.includes('deluxe')) return 'Deluxe';
-                                if (productNameLower.includes('basic')) return 'Basic';
-                              }
-                              
-                              return 'Current';
-                            })()}
-                          </span>
-                        </div>
-
-                        {/* Variation Options */}
-                        {variation.options.map((option, optionIndex) => (
-                          <div
-                            key={optionIndex}
-                            onClick={async () => {
-                              if (option.productId) {
-                                // Navigate to the linked product (like Amazon)
-                                console.log('🎨 Navigating to linked product:', option.productId);
-                                
-                                // Add cache busting to ensure fresh data
-                                const cacheBuster = new Date().getTime();
-                                navigate(`/product/${option.productId}?_=${cacheBuster}`, {
-                                  state: { 
-                                    returnTo: location.pathname,
-                                    category: product.category 
-                                  }
-                                });
-                              } else {
-                                // Just update the selected variation for options without linked products
-                                setSelectedVariations({
-                                  ...selectedVariations, 
-                                  [variation.type]: option.value
-                                });
-                              }
-                            }}
-                            style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              padding: '8px',
-                              borderRadius: '8px',
-                              border: selectedVariations[variation.type] === option.value ? 
-                                '3px solid #232f3e' : '2px solid #e1e5e9',
-                              background: '#ffffff',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              boxShadow: selectedVariations[variation.type] === option.value ? 
-                                '0 4px 12px rgba(35, 47, 62, 0.25)' : '0 2px 6px rgba(0,0,0,0.08)',
-                              minWidth: '80px',
-                              minHeight: '80px',
-                              position: 'relative'
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!(selectedVariations[variation.type] === option.value)) {
-                                e.currentTarget.style.borderColor = '#232f3e';
-                                e.currentTarget.style.transform = 'translateY(-1px)';
-                                e.currentTarget.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.1)';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!(selectedVariations[variation.type] === option.value)) {
-                                e.currentTarget.style.borderColor = '#e1e5e9';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
-                              }
-                            }}
-                          >
-                            {/* Show linked product image if available */}
-                            {option.productId ? (
-                              <LinkedProductImage productId={option.productId} />
-                            ) : (
-                              <div style={{
-                                width: '40px',
-                                height: '40px',
-                                backgroundColor: '#f0f0f0',
-                                borderRadius: '4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                marginBottom: '4px',
-                                fontSize: '0.7rem',
-                                color: '#666'
-                              }}>
-                                {option.value.charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <span style={{
-                              fontSize: '0.6rem',
-                              fontWeight: '600',
-                              color: '#232f3e',
-                              textAlign: 'center',
-                              lineHeight: '1.2'
-                            }}>
-                              {option.value}: {variation.type}: {variation.name || variation.type}
-                            </span>
-                            {/* Link indicator */}
-                            {option.productId && (
-                              <div style={{
-                                position: 'absolute',
-                                top: '2px',
-                                right: '2px',
-                                width: '12px',
-                                height: '12px',
-                                backgroundColor: '#ff9900',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '0.5rem',
-                                color: 'white',
-                                fontWeight: 'bold'
-                              }}>
-                                →
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                  {/* Enhanced Product Variations Component */}
+                  <ProductVariations
+                    product={product}
+                    selectedVariations={selectedVariations}
+                    onVariationChange={handleVariationChange}
+                    onProductChange={handleProductChange}
+                    showImages={true}
+                    compact={false}
+                  />
 
                   {/* Fallback to old specifications-based variations for backward compatibility */}
                   {(!product.variations || product.variations.length === 0) && product.specifications && product.specifications.Color && (
@@ -4058,13 +3748,13 @@ const ProductDetail = () => {
                                       {platform.name}
                                     </td>
                                     <td className="fw-bold text-primary py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
-                                      {safeNumber(perUnitPrice).toFixed(2)}
+                                      £{safeNumber(perUnitPrice).toFixed(2)}
                                     </td>
                                     <td className="fw-bold py-2 px-2 text-center" style={{fontSize: '0.75rem', color: '#2d3748'}}>
                                       ✕ {platformUnits}
                                     </td>
                                     <td className="fw-bold py-2 px-2 text-center" style={{fontSize: '0.75rem', color: '#2d3748'}}>
-                                      = {safeNumber(totalProfit).toFixed(2)}
+                                      = £{safeNumber(totalProfit).toFixed(2)}
                                     </td>
                                     <td className="py-2 px-2 text-center">
                                       <span className="badge bg-info" style={{fontSize: '0.65rem', padding: '3px 6px'}}>

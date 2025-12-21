@@ -1271,6 +1271,209 @@ router.get('/variations/test/:id', authenticateAdmin, async (req, res) => {
   }
 });
 
+// Independent variations update endpoint (each product maintains its own variation settings)
+router.put('/variations/independent/:id', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🎨 Updating independent variations for product:', req.params.id);
+    console.log('🎨 Request body:', JSON.stringify(req.body, null, 2));
+    const { variations } = req.body;
+    
+    // Validate product ID format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid product ID format' });
+    }
+
+    // Clean the variations data before sending
+    const cleanedVariations = (variations || [])
+      .filter(variation => variation.type && variation.name) // Only include valid variations
+      .map(variation => ({
+        type: variation.type,
+        name: variation.name,
+        options: variation.options
+          .filter(option => option.value && option.value.trim() !== '') // Only include options with values
+          .map(option => ({
+            value: option.value.trim(),
+            productId: option.productId && option.productId !== '' && option.productId !== 'null' ? option.productId : null,
+            images: option.images || [],
+            price: option.price || null,
+            stock: option.stock || null
+          }))
+      }))
+      .filter(variation => variation.options.length > 0); // Only include variations with options
+
+    console.log('🎨 Cleaned variations data:', JSON.stringify(cleanedVariations, null, 2));
+
+    // Update only the current product with its own variations
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      { variations: cleanedVariations },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProduct) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    console.log('✅ Product updated with independent variations:', updatedProduct.variations?.length || 0);
+
+    // Clear cache
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+
+    console.log('✅ Independent variations updated successfully');
+    res.json({
+      message: 'Independent variations updated successfully',
+      product: updatedProduct,
+      variationsCount: cleanedVariations.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating independent variations:', error);
+    res.status(500).json({ 
+      message: 'Internal server error', 
+      error: error.message
+    });
+  }
+});
+
+// Enhanced bidirectional variations update endpoint with individual product configurations
+router.put('/variations/enhanced/:id', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🎨 Enhanced bidirectional variations update for product:', req.params.id);
+    console.log('🎨 Request body:', JSON.stringify(req.body, null, 2));
+    const { variations, currentProduct } = req.body;
+    
+    // Validate product ID format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid product ID format' });
+    }
+
+    // Update the current product with variations
+    console.log('💾 Saving variations to current product:', JSON.stringify(variations, null, 2));
+    
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      { variations: variations },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProduct) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    console.log('✅ Current product updated. Variations saved:', updatedProduct.variations?.length || 0);
+
+    // Process linked products with individual configurations
+    let linkedProductsUpdated = 0;
+    
+    for (const variation of variations) {
+      for (const option of variation.options || []) {
+        if (option.productId && option.productId !== req.params.id) {
+          try {
+            console.log(`🔍 Processing linked product: ${option.productId}`);
+            const linkedProduct = await Product.findById(option.productId);
+            
+            if (linkedProduct) {
+              console.log(`✅ Found linked product: ${linkedProduct.name}`);
+              
+              // Create individual variation configuration for this linked product
+              const linkedProductVariations = [{
+                type: option.type || variation.type,
+                name: option.customName || 'Custom',
+                options: [
+                  // Add the current product as an option
+                  {
+                    value: detectVariationValue(updatedProduct.name, option.type || variation.type),
+                    productId: req.params.id,
+                    images: updatedProduct.images || [],
+                    price: updatedProduct.price || null,
+                    stock: updatedProduct.stock || null
+                  }
+                ]
+              }];
+              
+              console.log(`📋 Setting individual variations for ${linkedProduct.name}:`, linkedProductVariations);
+              
+              // Update the linked product with its own variation configuration
+              await Product.findByIdAndUpdate(
+                option.productId,
+                { variations: linkedProductVariations },
+                { new: true, runValidators: true }
+              );
+              
+              linkedProductsUpdated++;
+              console.log(`✅ Updated ${linkedProduct.name} with individual variation settings`);
+            }
+          } catch (error) {
+            console.error(`❌ Error updating linked product ${option.productId}:`, error);
+          }
+        }
+      }
+    }
+
+    // Clear cache
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+
+    console.log(`✅ Enhanced bidirectional variations updated successfully. Updated ${linkedProductsUpdated} linked products.`);
+    res.json({
+      message: 'Enhanced bidirectional variations updated successfully',
+      product: updatedProduct,
+      linkedProducts: linkedProductsUpdated
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating enhanced bidirectional variations:', error);
+    res.status(500).json({ 
+      message: 'Internal server error', 
+      error: error.message
+    });
+  }
+});
+
+// Helper function to detect variation value from product name
+function detectVariationValue(productName, variationType) {
+  const nameLower = productName.toLowerCase();
+  
+  if (variationType === 'color') {
+    if (nameLower.includes('red')) return 'Red';
+    if (nameLower.includes('blue')) return 'Blue';
+    if (nameLower.includes('green')) return 'Green';
+    if (nameLower.includes('black')) return 'Black';
+    if (nameLower.includes('white')) return 'White';
+    if (nameLower.includes('yellow')) return 'Yellow';
+    if (nameLower.includes('orange')) return 'Orange';
+    if (nameLower.includes('pink')) return 'Pink';
+    if (nameLower.includes('purple')) return 'Purple';
+    if (nameLower.includes('brown')) return 'Brown';
+    if (nameLower.includes('grey') || nameLower.includes('gray')) return 'Grey';
+    if (nameLower.includes('silver')) return 'Silver';
+    if (nameLower.includes('gold')) return 'Gold';
+    if (nameLower.includes('clear')) return 'Clear';
+    return 'Default';
+  } else if (variationType === 'size') {
+    if (nameLower.includes('small')) return 'Small';
+    if (nameLower.includes('medium')) return 'Medium';
+    if (nameLower.includes('large')) return 'Large';
+    if (nameLower.includes('xl')) return 'XL';
+    if (nameLower.includes('xxl')) return 'XXL';
+    return 'Standard';
+  } else if (variationType === 'style') {
+    if (nameLower.includes('classic')) return 'Classic';
+    if (nameLower.includes('modern')) return 'Modern';
+    if (nameLower.includes('vintage')) return 'Vintage';
+    if (nameLower.includes('premium')) return 'Premium';
+    if (nameLower.includes('deluxe')) return 'Deluxe';
+    if (nameLower.includes('basic')) return 'Basic';
+    if (nameLower.includes('dinosaur')) return 'Dinosaur';
+    if (nameLower.includes('dolphin')) return 'Dolphin';
+    if (nameLower.includes('shark')) return 'Shark';
+    return 'Default';
+  }
+  
+  return 'Default';
+}
+
 // Bidirectional variations update endpoint
 router.put('/variations/bidirectional/:id', authenticateAdmin, async (req, res) => {
   try {

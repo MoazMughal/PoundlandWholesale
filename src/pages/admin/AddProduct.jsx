@@ -120,6 +120,10 @@ const AddProduct = () => {
         setNewCategoryName('');
         setShowNewCategoryInput(false);
         
+        // Trigger category refresh in headers
+        localStorage.setItem('categoriesUpdated', Date.now().toString());
+        window.dispatchEvent(new CustomEvent('refreshCategories'));
+        
         alert(`✅ Category "${newCategory.label}" added successfully!`);
       } else {
         const errorData = await response.json();
@@ -272,6 +276,10 @@ const AddProduct = () => {
         
         // Clear cache
         cacheManager.clearAll();
+        
+        // Trigger category refresh in headers (in case new category was added)
+        localStorage.setItem('categoriesUpdated', Date.now().toString());
+        window.dispatchEvent(new CustomEvent('refreshCategories'));
         
         // Navigate back to products list
         const returnUrl = returnCategory 

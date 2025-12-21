@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import cacheManager from '../../utils/cacheManager';
 import { getImageUrl } from '../../utils/imageImports';
+import CategoryVisibilityToggle from '../../components/CategoryVisibilityToggle';
 import '../../styles/AdminProducts.css';
 import '../../styles/AdminLayout.css';
 
@@ -77,6 +78,137 @@ const AdminProducts = () => {
   const [availableProducts, setAvailableProducts] = useState([]);
   const [variationSearchQuery, setVariationSearchQuery] = useState('');
   
+  // Helper functions for linked product configuration
+  const getLinkedProductVariationType = (productId) => {
+    // Find if this product is linked in any variation and return its type
+    for (const variation of variationsEditProduct?.variations || []) {
+      const option = variation.options?.find(opt => opt.productId === productId);
+      if (option) {
+        return variation.type;
+      }
+    }
+    return 'style'; // default
+  };
+
+  const getLinkedProductVariationName = (productId) => {
+    // Find if this product is linked in any variation and return its custom name
+    for (const variation of variationsEditProduct?.variations || []) {
+      const option = variation.options?.find(opt => opt.productId === productId);
+      if (option) {
+        return option.customName || '';
+      }
+    }
+    return '';
+  };
+
+  const updateLinkedProductConfig = (productId, field, value) => {
+    // Update the configuration for a linked product
+    const updatedVariations = [...(variationsEditProduct.variations || [])];
+    
+    // Ensure we have at least one variation
+    if (updatedVariations.length === 0) {
+      updatedVariations.push({ type: 'style', name: '', options: [] });
+    }
+    
+    // Find or create the option for this product
+    let optionIndex = updatedVariations[0].options?.findIndex(opt => opt.productId === productId);
+    
+    if (optionIndex === -1) {
+      // Create new option
+      if (!updatedVariations[0].options) {
+        updatedVariations[0].options = [];
+      }
+      updatedVariations[0].options.push({
+        value: availableProducts.find(p => p._id === productId)?.name?.split(' ')[0] || 'Option',
+        productId: productId,
+        type: 'style',
+        customName: '',
+        images: [],
+        price: null,
+        stock: null
+      });
+      optionIndex = updatedVariations[0].options.length - 1;
+    }
+    
+    // Update the field
+    if (field === 'type') {
+      updatedVariations[0].options[optionIndex].type = value;
+    } else if (field === 'name') {
+      updatedVariations[0].options[optionIndex].customName = value;
+    }
+    
+    setVariationsEditProduct({
+      ...variationsEditProduct,
+      variations: updatedVariations
+    });
+  };
+
+  const toggleLinkedProduct = (productId) => {
+    console.log('🔗 Toggling link for product:', productId);
+    
+    // Get current variations or create default
+    let updatedVariations = [...(variationsEditProduct.variations || [])];
+    
+    // Ensure we have at least one variation with proper structure
+    if (updatedVariations.length === 0) {
+      updatedVariations = [{
+        type: 'style',
+        name: 'any',
+        options: []
+      }];
+    }
+    
+    // Ensure the first variation has options array
+    if (!updatedVariations[0].options) {
+      updatedVariations[0].options = [];
+    }
+    
+    const isCurrentlyLinked = updatedVariations[0].options.some(option => option.productId === productId);
+    console.log('🔗 Currently linked?', isCurrentlyLinked);
+
+    if (isCurrentlyLinked) {
+      // Remove the product
+      updatedVariations[0].options = updatedVariations[0].options.filter(option => option.productId !== productId);
+      console.log('🔗 Removed product from links');
+    } else {
+      // Add the product
+      const linkedProduct = availableProducts.find(p => p._id === productId);
+      if (linkedProduct) {
+        updatedVariations[0].options.push({
+          value: linkedProduct.name.split(' ')[0] || 'Option',
+          productId: productId,
+          type: 'style',
+          customName: '',
+          images: linkedProduct.images || [],
+          price: linkedProduct.price,
+          stock: linkedProduct.stock
+        });
+        console.log('🔗 Added product to links:', linkedProduct.name);
+      }
+    }
+    
+    console.log('🔗 Updated variations:', updatedVariations);
+    
+    setVariationsEditProduct({
+      ...variationsEditProduct,
+      variations: updatedVariations
+    });
+  };
+
+  const removeLinkedProduct = (productId) => {
+    // Remove a product from variations
+    const updatedVariations = [...(variationsEditProduct.variations || [])];
+    
+    if (updatedVariations.length > 0 && updatedVariations[0].options) {
+      updatedVariations[0].options = updatedVariations[0].options.filter(option => option.productId !== productId);
+    }
+    
+    setVariationsEditProduct({
+      ...variationsEditProduct,
+      variations: updatedVariations
+    });
+  };
+  
   const currency = 'GBP';
   const currencySymbol = '£';
   const productsPerPage = 50;
@@ -128,15 +260,36 @@ const AdminProducts = () => {
     const urlParams = new URLSearchParams(location.search);
     const categoryFromState = location.state?.category;
     const categoryFromUrl = urlParams.get('category');
+    const statusFromUrl = urlParams.get('status');
     const categoryToRestore = categoryFromState || categoryFromUrl || '';
+    const statusToRestore = statusFromUrl || '';
     const amazonsChoiceFromUrl = urlParams.get('amazonsChoice') === 'true';
+    
+    console.log('🔄 Category restoration:', {
+      categoryFromState,
+      categoryFromUrl,
+      statusFromUrl,
+      categoryToRestore,
+      statusToRestore,
+      amazonsChoiceFromUrl,
+      currentCategory: filters.category,
+      currentStatus: filters.status,
+      locationSearch: location.search,
+      locationState: location.state
+    });
     
     setFilters(prev => {
       const newFilters = { ...prev };
       if (prev.category !== categoryToRestore) {
+        console.log('📂 Updating category from', prev.category, 'to', categoryToRestore);
         newFilters.category = categoryToRestore;
       }
+      if (prev.status !== statusToRestore) {
+        console.log('📊 Updating status from', prev.status, 'to', statusToRestore);
+        newFilters.status = statusToRestore;
+      }
       if (prev.isAmazonsChoice !== amazonsChoiceFromUrl) {
+        console.log('⭐ Updating Amazon\'s Choice from', prev.isAmazonsChoice, 'to', amazonsChoiceFromUrl);
         newFilters.isAmazonsChoice = amazonsChoiceFromUrl;
       }
       return newFilters;
@@ -667,6 +820,13 @@ const AdminProducts = () => {
   };
 
   const handleProductClick = (product) => {
+    console.log('🔗 Navigating to product detail:', {
+      productId: product._id,
+      productName: product.name,
+      currentCategory: filters.category,
+      returnTo: '/admin/products'
+    });
+    
     navigate(`/product/${product._id}`, {
       state: { 
         returnTo: '/admin/products', 
@@ -964,9 +1124,48 @@ const AdminProducts = () => {
     }
   };
 
+  const updateFiltersAndUrl = (newFilters) => {
+    console.log('🔄 Updating filters and URL:', {
+      oldFilters: filters,
+      newFilters,
+      currentUrl: location.pathname + location.search
+    });
+    
+    setFilters(newFilters);
+    
+    // Update URL to reflect all filters
+    const searchParams = new URLSearchParams();
+    if (newFilters.category) {
+      searchParams.set('category', newFilters.category);
+    }
+    if (newFilters.status) {
+      searchParams.set('status', newFilters.status);
+    }
+    if (newFilters.isAmazonsChoice) {
+      searchParams.set('amazonsChoice', 'true');
+    }
+    
+    // Update URL without triggering a full page reload
+    const newUrl = searchParams.toString() 
+      ? `${location.pathname}?${searchParams.toString()}`
+      : location.pathname;
+    
+    console.log('🌐 New URL:', newUrl);
+    
+    navigate(newUrl, { replace: true, state: { category: newFilters.category } });
+  };
+
   const handleCategoryFilter = (categoryValue) => {
     const newCategory = categoryValue === 'all' ? '' : categoryValue;
-    setFilters({ ...filters, category: newCategory });
+    updateFiltersAndUrl({ ...filters, category: newCategory });
+  };
+
+  const handleStatusFilter = (statusValue) => {
+    updateFiltersAndUrl({ ...filters, status: statusValue });
+  };
+
+  const handleAmazonsChoiceFilter = () => {
+    updateFiltersAndUrl({ ...filters, isAmazonsChoice: !filters.isAmazonsChoice });
   };
 
   const startProfitEditing = async (product) => {
@@ -1337,6 +1536,7 @@ const AdminProducts = () => {
               🏷️ ASIN Search
             </small>
           )}
+          <CategoryVisibilityToggle compact={true} />
           <button 
             onClick={() => navigate('/admin/dashboard')} 
             style={{
@@ -1468,7 +1668,7 @@ const AdminProducts = () => {
         <div className="filters" style={{display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap'}}>
           <select
             value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            onChange={(e) => handleStatusFilter(e.target.value)}
             className="filter-select"
             style={{
               padding: '4px 8px',
@@ -1488,7 +1688,7 @@ const AdminProducts = () => {
           </select>
           
           <button
-            onClick={() => setFilters({ ...filters, isAmazonsChoice: !filters.isAmazonsChoice })}
+            onClick={handleAmazonsChoiceFilter}
             style={{
               padding: '4px 8px',
               fontSize: '0.7rem',
@@ -1655,7 +1855,7 @@ const AdminProducts = () => {
           <div className="products-table" style={{fontSize: '0.8rem'}}>
             <table style={{width: '100%'}}>
               <thead>
-                <tr style={{background: '#ff9800'}}>
+                <tr style={{background: '#dc2626'}}>
                   <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', width: '40px', color: 'white'}}>
                     <input
                       type="checkbox"
@@ -2978,310 +3178,339 @@ const AdminProducts = () => {
               <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9rem' }}>
                 Category: {variationsEditProduct.category} | Price: £{variationsEditProduct.price}
               </p>
-            </div>
-
-            {/* Existing Variations */}
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h3 style={{ margin: 0, color: '#333', fontSize: '1.1rem' }}>Current Variations</h3>
-                <button
-                  onClick={addVariation}
-                  style={{
-                    background: 'linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: '600'
-                  }}
-                >
-                  + Add Variation
-                </button>
-              </div>
-
-              {variationsEditProduct.variations && variationsEditProduct.variations.length > 0 ? (
-                variationsEditProduct.variations.map((variation, variationIndex) => (
-                  <div key={variationIndex} style={{
-                    border: '1px solid #e0e6ff',
-                    borderRadius: '8px',
-                    padding: '15px',
-                    marginBottom: '15px',
-                    backgroundColor: '#fafbff'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: '600', color: '#555' }}>Type:</label>
-                          <select
-                            value={variation.type || 'color'}
-                            onChange={(e) => {
-                              console.log('🎨 Type change:', { variationIndex, value: e.target.value });
-                              updateVariation(variationIndex, 'type', e.target.value);
-                            }}
-                            style={{
-                              padding: '6px 10px',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              fontSize: '0.9rem'
-                            }}
-                          >
-                            <option value="color">Color</option>
-                            <option value="size">Size</option>
-                            <option value="style">Style</option>
-                          </select>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: '600', color: '#555' }}>
-                            Custom Name: 
-                            <span style={{ fontSize: '0.65rem', color: '#888', fontWeight: '400' }}>
-                              (will show as "{variation.type}: {variation.name || variation.type}: value")
-                            </span>
-                          </label>
-                          <input
-                            type="text"
-                            value={variation.name || ''}
-                            onChange={(e) => {
-                              console.log('🎨 Name change:', { variationIndex, value: e.target.value });
-                              updateVariation(variationIndex, 'name', e.target.value);
-                            }}
-                            placeholder={`Enter custom name (e.g., ${variation.type === 'color' ? 'Product Color, Main Color, Available Colors' : variation.type === 'size' ? 'Product Size, Available Sizes, Size Options' : 'Product Style, Style Options, Available Styles'})`}
-                            style={{
-                              padding: '6px 10px',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              fontSize: '0.9rem',
-                              minWidth: '200px',
-                              backgroundColor: 'white',
-                              color: '#333'
-                            }}
-                          />
-                          {/* Preview of how it will display */}
-                          {variation.name && (
-                            <div style={{ 
-                              fontSize: '0.65rem', 
-                              color: '#28a745', 
-                              fontWeight: '500',
-                              marginTop: '2px'
-                            }}>
-                              Preview: "{variation.type}: {variation.name}: value" and "option: {variation.type}: {variation.name}"
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => removeVariation(variationIndex)}
-                        style={{
-                          background: '#dc3545',
-                          color: 'white',
-                          border: 'none',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem'
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-
-                    {/* Variation Options */}
-                    <div style={{ marginLeft: '20px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                        <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#555' }}>Options:</h4>
-                        <button
-                          onClick={() => addVariationOption(variationIndex)}
-                          style={{
-                            background: '#28a745',
-                            color: 'white',
-                            border: 'none',
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '0.8rem'
-                          }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      {variation.options.map((option, optionIndex) => (
-                        <div key={optionIndex} style={{
-                          display: 'flex',
-                          gap: '10px',
-                          alignItems: 'center',
-                          marginBottom: '8px',
-                          padding: '8px',
-                          backgroundColor: 'white',
-                          borderRadius: '4px',
-                          border: '1px solid #eee'
-                        }}>
-                          <input
-                            type="text"
-                            value={option.value || ''}
-                            onChange={(e) => {
-                              console.log('🎨 Input change:', { variationIndex, optionIndex, value: e.target.value });
-                              updateVariationOption(variationIndex, optionIndex, 'value', e.target.value);
-                            }}
-                            placeholder={`Option value (e.g., ${variation.type === 'color' ? 'Red, Blue, Green' : variation.type === 'size' ? 'Small, Medium, Large' : 'Classic, Modern, Premium'})`}
-                            style={{
-                              padding: '4px 8px',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              fontSize: '0.8rem',
-                              minWidth: '120px'
-                            }}
-                          />
-                          {/* Show preview of how this option will display */}
-                          {option.value && (
-                            <div style={{ 
-                              fontSize: '0.65rem', 
-                              color: '#17a2b8', 
-                              fontWeight: '500',
-                              marginTop: '2px',
-                              minWidth: '120px'
-                            }}>
-                              Will show: "{option.value}: {variation.type}: {variation.name || variation.type}"
-                            </div>
-                          )}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                            <select
-                              value={option.productId || ''}
-                              onChange={(e) => updateVariationOption(variationIndex, optionIndex, 'productId', e.target.value || null)}
-                              style={{
-                                padding: '4px 8px',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
-                                fontSize: '0.8rem',
-                                minWidth: '200px',
-                                flex: 1
-                              }}
-                            >
-                              <option value="">Select linked product (optional)</option>
-                              {filteredAvailableProducts.map(product => (
-                                <option key={product._id} value={product._id}>
-                                  {product.name} (£{product.price})
-                                </option>
-                              ))}
-                            </select>
-                            {/* Show linked product image preview */}
-                            {option.productId && (
-                              <div style={{
-                                width: '30px',
-                                height: '30px',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
-                                overflow: 'hidden',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: '#f8f9fa'
-                              }}>
-                                <LinkedProductPreview productId={option.productId} />
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => removeVariationOption(variationIndex, optionIndex)}
-                            style={{
-                              background: '#dc3545',
-                              color: 'white',
-                              border: 'none',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '0.7rem'
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div style={{
-                  textAlign: 'center',
-                  padding: '40px',
-                  color: '#666',
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '8px',
-                  border: '2px dashed #ddd'
-                }}>
-                  <p style={{ margin: 0, fontSize: '1rem' }}>No variations added yet.</p>
-                  <p style={{ margin: '5px 0 0 0', fontSize: '0.9rem' }}>Click "Add Variation" to create color, size, or style options.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Available Products Search */}
-            <div style={{ marginBottom: '20px' }}>
-              <h3 style={{ margin: '0 0 10px 0', color: '#333', fontSize: '1rem' }}>
-                Available Products in "{variationsEditProduct.category}" Category
-              </h3>
-              <input
-                type="text"
-                value={variationSearchQuery}
-                onChange={(e) => setVariationSearchQuery(e.target.value)}
-                placeholder="Search products to link as variations..."
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '6px',
-                  fontSize: '0.9rem',
-                  marginBottom: '10px'
-                }}
-              />
+              
               <div style={{
-                maxHeight: '200px',
-                overflow: 'auto',
-                border: '1px solid #eee',
+                padding: '12px',
+                backgroundColor: '#e8f5e9',
+                border: '1px solid #c3e6cb',
                 borderRadius: '6px',
-                backgroundColor: '#fafafa'
+                fontSize: '0.85rem',
+                color: '#155724',
+                marginBottom: '10px'
               }}>
-                {filteredAvailableProducts.length > 0 ? (
-                  filteredAvailableProducts.slice(0, 10).map(product => {
-                    // Check if this product is already linked in current variations
-                    const isLinked = variationsEditProduct.variations?.some(variation =>
-                      variation.options?.some(option => option.productId === product._id)
-                    );
-                    
-                    return (
-                      <div key={product._id} style={{
-                        padding: '8px 12px',
-                        borderBottom: '1px solid #eee',
-                        fontSize: '0.8rem',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        backgroundColor: isLinked ? '#e8f5e9' : 'transparent'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span>{product.name}</span>
-                          {isLinked && (
-                            <span style={{
-                              fontSize: '0.6rem',
-                              backgroundColor: '#28a745',
-                              color: 'white',
-                              padding: '2px 6px',
-                              borderRadius: '10px'
-                            }}>
-                              ↔ Linked
-                            </span>
-                          )}
-                        </div>
-                        <span style={{ color: '#666' }}>£{product.price}</span>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '0.9rem' }}>
-                    No products found in this category
+                <strong>📋 How to Set Up Variations:</strong>
+                <ol style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+                  <li>Configure current product settings (Type & Custom Name)</li>
+                  <li>Search and link related products below</li>
+                  <li>Each linked product gets its own Type & Custom Name</li>
+                  <li>Use "Save All + Link Products" to create bidirectional connections</li>
+                </ol>
+              </div>
+              
+              <div style={{
+                padding: '10px',
+                backgroundColor: '#fff3cd',
+                border: '1px solid #ffeaa7',
+                borderRadius: '4px',
+                fontSize: '0.8rem',
+                color: '#856404'
+              }}>
+                <strong>💡 Tip:</strong> Each product maintains independent variation settings. When you link products, they'll show as options on each other's detail pages.
+              </div>
+            </div>
+
+            {/* Simple Configuration Interface */}
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '1.1rem' }}>
+                1st Product (Current): {variationsEditProduct.name}
+              </h3>
+              
+              <div style={{
+                border: '2px solid #6f42c1',
+                borderRadius: '8px',
+                padding: '15px',
+                marginBottom: '15px',
+                backgroundColor: '#f8f9ff'
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', alignItems: 'end' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#6f42c1', display: 'block', marginBottom: '4px' }}>
+                      Type:
+                    </label>
+                    <select
+                      value={variationsEditProduct.variations?.[0]?.type || 'style'}
+                      onChange={(e) => {
+                        const updatedVariations = [...(variationsEditProduct.variations || [])];
+                        if (updatedVariations.length === 0) {
+                          updatedVariations.push({ type: e.target.value, name: '', options: [] });
+                        } else {
+                          updatedVariations[0].type = e.target.value;
+                        }
+                        setVariationsEditProduct({ ...variationsEditProduct, variations: updatedVariations });
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      <option value="style">Style</option>
+                      <option value="color">Color</option>
+                      <option value="size">Size</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#6f42c1', display: 'block', marginBottom: '4px' }}>
+                      Custom Name:
+                    </label>
+                    <input
+                      type="text"
+                      value={variationsEditProduct.variations?.[0]?.name || ''}
+                      onChange={(e) => {
+                        const updatedVariations = [...(variationsEditProduct.variations || [])];
+                        if (updatedVariations.length === 0) {
+                          updatedVariations.push({ type: 'style', name: e.target.value, options: [] });
+                        } else {
+                          updatedVariations[0].name = e.target.value;
+                        }
+                        setVariationsEditProduct({ ...variationsEditProduct, variations: updatedVariations });
+                      }}
+                      placeholder="e.g., any, custom, etc."
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        fontSize: '0.9rem'
+                      }}
+                    />
+                  </div>
+                </div>
+                
+                {variationsEditProduct.variations?.[0]?.name && (
+                  <div style={{ 
+                    fontSize: '0.75rem', 
+                    color: '#28a745', 
+                    fontWeight: '500',
+                    marginTop: '8px',
+                    padding: '4px 8px',
+                    backgroundColor: '#d4edda',
+                    borderRadius: '4px'
+                  }}>
+                    Will display: "{variationsEditProduct.variations[0].name}: [auto-detected value]"
                   </div>
                 )}
+              </div>
+
+              {/* Linked Products Section */}
+              <h3 style={{ margin: '15px 0 10px 0', color: '#333', fontSize: '1.1rem' }}>
+                Linked Products (2nd, 3rd, etc.)
+              </h3>
+              
+              <div style={{
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                padding: '15px',
+                backgroundColor: '#f8f9fa'
+              }}>
+                <input
+                  type="text"
+                  value={variationSearchQuery}
+                  onChange={(e) => setVariationSearchQuery(e.target.value)}
+                  placeholder="Search products to link as variations..."
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '0.9rem',
+                    marginBottom: '15px'
+                  }}
+                />
+
+                <div style={{ maxHeight: '300px', overflow: 'auto' }}>
+                  {filteredAvailableProducts.length > 0 ? (
+                    filteredAvailableProducts.slice(0, 8).map((product, index) => {
+                      const isLinked = variationsEditProduct.variations?.[0]?.options?.some(option => option.productId === product._id);
+                      const linkedOption = variationsEditProduct.variations?.[0]?.options?.find(option => option.productId === product._id);
+                      
+                      return (
+                        <div key={product._id} style={{
+                          border: '1px solid #e0e0e0',
+                          borderRadius: '6px',
+                          padding: '12px',
+                          marginBottom: '10px',
+                          backgroundColor: 'white'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '10px'
+                          }}>
+                            <div>
+                              <h5 style={{ margin: 0, fontSize: '0.9rem', color: '#333' }}>
+                                {index + 2}nd Product: {product.name}
+                              </h5>
+                              <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#666' }}>
+                                Price: £{product.price}
+                              </p>
+                            </div>
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              overflow: 'hidden',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#f8f9fa'
+                            }}>
+                              <LinkedProductPreview productId={product._id} />
+                            </div>
+                          </div>
+
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr 1fr auto',
+                            gap: '10px',
+                            alignItems: 'end'
+                          }}>
+                            <div>
+                              <label style={{ fontSize: '0.75rem', fontWeight: '600', color: '#555', display: 'block', marginBottom: '4px' }}>
+                                Type:
+                              </label>
+                              <select
+                                value={linkedOption?.type || 'style'}
+                                onChange={(e) => {
+                                  updateLinkedProductConfig(product._id, 'type', e.target.value);
+                                  console.log('🎨 Updated type for', product.name, 'to', e.target.value);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '6px 8px',
+                                  border: '1px solid #ddd',
+                                  borderRadius: '4px',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                <option value="style">Style</option>
+                                <option value="color">Color</option>
+                                <option value="size">Size</option>
+                              </select>
+                            </div>
+                            
+                            <div>
+                              <label style={{ fontSize: '0.75rem', fontWeight: '600', color: '#555', display: 'block', marginBottom: '4px' }}>
+                                Custom Name:
+                              </label>
+                              <input
+                                type="text"
+                                value={linkedOption?.customName || ''}
+                                onChange={(e) => {
+                                  updateLinkedProductConfig(product._id, 'name', e.target.value);
+                                  console.log('🎨 Updated custom name for', product.name, 'to', e.target.value);
+                                }}
+                                placeholder="e.g., custom, shade, etc."
+                                style={{
+                                  width: '100%',
+                                  padding: '6px 8px',
+                                  border: '1px solid #ddd',
+                                  borderRadius: '4px',
+                                  fontSize: '0.8rem'
+                                }}
+                              />
+                            </div>
+                            
+                            <div>
+                              <label style={{ fontSize: '0.75rem', fontWeight: '600', color: '#555', display: 'block', marginBottom: '4px' }}>
+                                Link Status:
+                              </label>
+                              <button
+                                onClick={() => {
+                                  toggleLinkedProduct(product._id);
+                                  // Force re-render to update button states
+                                  setTimeout(() => {
+                                    console.log('🔄 Button state updated');
+                                  }, 100);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '8px 12px',
+                                  border: isLinked ? '2px solid #28a745' : '2px solid #6c757d',
+                                  borderRadius: '6px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: '600',
+                                  backgroundColor: isLinked ? '#28a745' : '#6c757d',
+                                  color: 'white',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease',
+                                  boxShadow: isLinked ? '0 2px 8px rgba(40, 167, 69, 0.3)' : '0 2px 8px rgba(108, 117, 125, 0.3)'
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isLinked) {
+                                    e.target.style.backgroundColor = '#5a6268';
+                                    e.target.style.transform = 'translateY(-1px)';
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isLinked) {
+                                    e.target.style.backgroundColor = '#6c757d';
+                                    e.target.style.transform = 'translateY(0)';
+                                  }
+                                }}
+                              >
+                                {isLinked ? (
+                                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                    <span>✓</span>
+                                    <span>Linked</span>
+                                  </span>
+                                ) : (
+                                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                    <span>🔗</span>
+                                    <span>Link</span>
+                                  </span>
+                                )}
+                              </button>
+                            </div>
+                            
+                            <div>
+                              {isLinked && (
+                                <button
+                                  onClick={() => removeLinkedProduct(product._id)}
+                                  style={{
+                                    padding: '6px 8px',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '0.8rem',
+                                    backgroundColor: '#dc3545',
+                                    color: 'white',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Preview for linked product */}
+                          {isLinked && linkedOption?.customName && (
+                            <div style={{ 
+                              fontSize: '0.7rem', 
+                              color: '#17a2b8', 
+                              fontWeight: '500',
+                              marginTop: '8px',
+                              padding: '4px 8px',
+                              backgroundColor: '#d1ecf1',
+                              borderRadius: '4px'
+                            }}>
+                              This product will display: "{linkedOption.customName}: [auto-detected value]"
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '0.9rem' }}>
+                      No products found in this category
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -3291,77 +3520,10 @@ const AdminProducts = () => {
               justifyContent: 'space-between',
               alignItems: 'center',
               borderTop: '1px solid #eee',
-              paddingTop: '15px'
+              paddingTop: '15px',
+              gap: '15px'
             }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={async () => {
-                    try {
-                      const response = await fetch(`http://localhost:5000/api/products/variations/test/${variationsEditProduct._id}`, {
-                        headers: {
-                          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-                        }
-                      });
-                      
-                      if (response.ok) {
-                        const result = await response.json();
-                        console.log('🔍 Database test result:', result);
-                        alert(`Database Check:\nProduct: ${result.productName}\nHas Variations: ${result.hasVariations}\nVariations Count: ${result.variationsCount}\nCheck console for full data.`);
-                      }
-                    } catch (error) {
-                      console.error('Error testing database:', error);
-                      alert('❌ Failed to test database');
-                    }
-                  }}
-                  style={{
-                    background: '#17a2b8',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem'
-                  }}
-                >
-                  🔍 Check Database
-                </button>
-                
-                <button
-                  onClick={async () => {
-                    if (confirm('Clean up broken variation links across all products?')) {
-                      try {
-                        const response = await fetch('http://localhost:5000/api/products/variations/cleanup', {
-                          method: 'POST',
-                          headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-                          }
-                        });
-                        
-                        if (response.ok) {
-                          const result = await response.json();
-                          alert(`✅ ${result.message}`);
-                        }
-                      } catch (error) {
-                        console.error('Error cleaning up variations:', error);
-                        alert('❌ Failed to clean up variations');
-                      }
-                    }
-                  }}
-                  style={{
-                    background: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem'
-                  }}
-                >
-                  🧹 Cleanup Broken Links
-                </button>
-              </div>
-              
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', flex: 1, flexWrap: 'wrap' }}>
                 <button
                   onClick={() => setShowVariationsModal(false)}
                   style={{
@@ -3376,108 +3538,269 @@ const AdminProducts = () => {
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={async () => {
-                    // Simple save without bidirectional linking for testing
-                    try {
-                      console.log('🔍 Raw variations before cleaning:', variationsEditProduct.variations);
-                      
-                      const step1 = (variationsEditProduct.variations || [])
-                        .filter(variation => {
-                          const isValid = variation.type && variation.name;
-                          console.log('🔍 Step 1 - Variation valid?', { variation, isValid });
-                          return isValid;
-                        });
-                      
-                      console.log('🔍 After step 1 (type & name filter):', step1);
-                      
-                      const step2 = step1.map(variation => {
-                        const filteredOptions = variation.options
-                          .filter(option => {
-                            const isValid = option.value && option.value.trim() !== '';
-                            console.log('🔍 Option valid?', { option, isValid });
-                            return isValid;
-                          })
-                          .map(option => ({
-                            value: option.value.trim(),
-                            productId: option.productId && option.productId !== '' && option.productId !== 'null' ? option.productId : null,
-                            images: option.images || [],
-                            price: option.price || null,
-                            stock: option.stock || null
-                          }));
+                
+                {/* Always show save button, but change based on linked products */}
+                {(() => {
+                  const linkedCount = variationsEditProduct.variations?.[0]?.options?.filter(opt => opt.productId)?.length || 0;
+                  console.log('🔗 Linked products count:', linkedCount);
+                  
+                  if (linkedCount > 0) {
+                    return (
+                      <>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const token = localStorage.getItem('adminToken');
+                              if (!token) {
+                                alert('❌ Authentication token not found. Please log in again.');
+                                return;
+                              }
+                              
+                              const cleanedVariations = (variationsEditProduct.variations || [])
+                                .filter(variation => variation.type && variation.name)
+                                .map(variation => ({
+                                  type: variation.type,
+                                  name: variation.name,
+                                  options: []
+                                }));
+
+                              const response = await fetch(`http://localhost:5000/api/products/variations/independent/${variationsEditProduct._id}`, {
+                                method: 'PUT',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({ variations: cleanedVariations })
+                              });
+
+                              if (response.ok) {
+                                alert('✅ Current product variations saved (links removed)!');
+                                setShowVariationsModal(false);
+                                fetchProducts();
+                              } else {
+                                alert('❌ Failed to save variations.');
+                              }
+                            } catch (error) {
+                              alert('❌ Failed to save variations. Please try again.');
+                            }
+                          }}
+                          style={{
+                            background: '#ffc107',
+                            color: '#212529',
+                            border: 'none',
+                            padding: '10px 20px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: '600'
+                          }}
+                        >
+                          💾 Save Current Only
+                        </button>
                         
-                        console.log('🔍 Filtered options for variation:', filteredOptions);
+                        <button
+                          onClick={async () => {
+                            try {
+                              const token = localStorage.getItem('adminToken');
+                              if (!token) {
+                                alert('❌ Authentication token not found. Please log in again.');
+                                return;
+                              }
+                              
+                              const cleanedVariations = (variationsEditProduct.variations || [])
+                                .filter(variation => variation.type && variation.name)
+                                .map(variation => ({
+                                  type: variation.type,
+                                  name: variation.name,
+                                  options: (variation.options || [])
+                                    .filter(option => option.productId) // Only include linked products
+                                    .map(option => ({
+                                      value: option.value.trim(),
+                                      productId: option.productId,
+                                      type: option.type || variation.type,
+                                      customName: option.customName || '',
+                                      images: option.images || [],
+                                      price: option.price || null,
+                                      stock: option.stock || null
+                                    }))
+                                }));
+
+                              console.log('🎨 Saving variations with linked products:', cleanedVariations);
+
+                              // Use enhanced bidirectional endpoint to update both current and linked products
+                              const response = await fetch(`http://localhost:5000/api/products/variations/enhanced/${variationsEditProduct._id}`, {
+                                method: 'PUT',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({
+                                  variations: cleanedVariations,
+                                  currentProduct: {
+                                    id: variationsEditProduct._id,
+                                    name: variationsEditProduct.name,
+                                    category: variationsEditProduct.category
+                                  }
+                                })
+                              });
+
+                              if (response.ok) {
+                                const result = await response.json();
+                                alert(`✅ All variations saved! Updated ${result.linkedProducts || 0} linked products with their own variation settings.`);
+                                setShowVariationsModal(false);
+                                fetchProducts();
+                              } else {
+                                const errorData = await response.text();
+                                alert(`❌ Failed to save variations: ${errorData}`);
+                              }
+                            } catch (error) {
+                              console.error('Error saving variations:', error);
+                              alert('❌ Failed to save variations. Please try again.');
+                            }
+                          }}
+                          style={{
+                            background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+                            color: 'white',
+                            border: 'none',
+                            padding: '10px 20px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: '600',
+                            boxShadow: '0 2px 8px rgba(40, 167, 69, 0.3)'
+                          }}
+                        >
+                          🔗 Save All + Link {linkedCount} Product{linkedCount > 1 ? 's' : ''}
+                        </button>
                         
-                        return {
-                          type: variation.type,
-                          name: variation.name,
-                          options: filteredOptions
-                        };
-                      });
-                      
-                      console.log('🔍 After step 2 (options mapping):', step2);
-                      
-                      const cleanedVariations = step2.filter(variation => {
-                        const hasOptions = variation.options.length > 0;
-                        console.log('🔍 Step 3 - Variation has options?', { variation: variation.name, hasOptions, optionsCount: variation.options.length });
-                        return hasOptions;
-                      });
+                        <button
+                          onClick={() => {
+                            if (confirm(`Remove all ${linkedCount} linked product(s)? This will only keep the current product configuration.`)) {
+                              const updatedVariations = [...(variationsEditProduct.variations || [])];
+                              if (updatedVariations[0]) {
+                                updatedVariations[0].options = [];
+                              }
+                              setVariationsEditProduct({
+                                ...variationsEditProduct,
+                                variations: updatedVariations
+                              });
+                            }
+                          }}
+                          style={{
+                            background: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            padding: '10px 20px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: '600'
+                          }}
+                        >
+                          🗑️ Remove All Links
+                        </button>
+                      </>
+                    );
+                  } else {
+                    return (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem('adminToken');
+                            if (!token) {
+                              alert('❌ Authentication token not found. Please log in again.');
+                              return;
+                            }
+                            
+                            const cleanedVariations = (variationsEditProduct.variations || [])
+                              .filter(variation => variation.type && variation.name)
+                              .map(variation => ({
+                                type: variation.type,
+                                name: variation.name,
+                                options: []
+                              }));
 
-                      console.log('🧪 Final cleaned variations:', cleanedVariations);
+                            const response = await fetch(`http://localhost:5000/api/products/variations/independent/${variationsEditProduct._id}`, {
+                              method: 'PUT',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                              },
+                              body: JSON.stringify({ variations: cleanedVariations })
+                            });
 
-                      const response = await fetch(`http://localhost:5000/api/products/${variationsEditProduct._id}`, {
-                        method: 'PUT',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-                        },
-                        body: JSON.stringify({ variations: cleanedVariations })
-                      });
-
-                      if (response.ok) {
-                        alert('✅ Simple save successful!');
-                        setShowVariationsModal(false);
-                        fetchProducts();
-                      } else {
-                        const error = await response.text();
-                        console.error('❌ Simple save failed:', error);
-                        alert('❌ Simple save failed: ' + error);
-                      }
-                    } catch (error) {
-                      console.error('❌ Simple save error:', error);
-                      alert('❌ Simple save error: ' + error.message);
-                    }
-                  }}
-                  style={{
-                    background: '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: '600',
-                    marginRight: '10px'
-                  }}
-                >
-                  🧪 Test Simple Save
-                </button>
-                <button
-                  onClick={saveVariations}
-                  style={{
-                    background: 'linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: '600'
-                  }}
-                >
-                  Save Bidirectional Variations
-                </button>
+                            if (response.ok) {
+                              alert('✅ Variations updated successfully!');
+                              setShowVariationsModal(false);
+                              fetchProducts();
+                            } else {
+                              alert('❌ Failed to save variations.');
+                            }
+                          } catch (error) {
+                            alert('❌ Failed to save variations. Please try again.');
+                          }
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '10px 20px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          fontWeight: '600'
+                        }}
+                      >
+                        💾 Save Independent Variations
+                      </button>
+                    );
+                  }
+                })()}
               </div>
+              
+              {/* Show linked products count with better styling */}
+              {(() => {
+                const linkedCount = variationsEditProduct.variations?.[0]?.options?.filter(opt => opt.productId)?.length || 0;
+                if (linkedCount > 0) {
+                  return (
+                    <div style={{
+                      fontSize: '0.85rem',
+                      color: '#28a745',
+                      fontWeight: '700',
+                      padding: '10px 16px',
+                      backgroundColor: '#d4edda',
+                      borderRadius: '6px',
+                      border: '2px solid #28a745',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      <span style={{ fontSize: '1.2rem' }}>🔗</span>
+                      <span>{linkedCount} Product{linkedCount > 1 ? 's' : ''} Linked</span>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div style={{
+                      fontSize: '0.85rem',
+                      color: '#6c757d',
+                      fontWeight: '600',
+                      padding: '10px 16px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '6px',
+                      border: '2px solid #dee2e6',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      <span style={{ fontSize: '1.2rem' }}>ℹ️</span>
+                      <span>No Links Yet</span>
+                    </div>
+                  );
+                }
+              })()}
             </div>
           </div>
         </div>
