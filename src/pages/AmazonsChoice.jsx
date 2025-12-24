@@ -25,6 +25,67 @@ const AmazonsChoice = () => {
         z-index: 10 !important;
         transition: transform 0.2s ease !important;
       }
+      
+      /* CRITICAL: Force mobile badges to show on mobile devices */
+      @media (max-width: 576px) {
+        .mobile-badge-container,
+        .product-card .mobile-badge-container,
+        .product-image-container .mobile-badge-container,
+        [data-mobile-badge="true"] {
+          display: block !important;
+          position: absolute !important;
+          z-index: 1000 !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          top: 2px !important;
+          right: 2px !important;
+          background-color: #ff6600 !important;
+          color: white !important;
+          padding: 4px 6px !important;
+          border-radius: 6px !important;
+          font-size: 9px !important;
+          font-weight: bold !important;
+          box-shadow: 0 3px 8px rgba(0,0,0,0.4) !important;
+          border: 1px solid rgba(255,255,255,0.6) !important;
+        }
+        
+        .desktop-badge-container,
+        .product-card .desktop-badge-container,
+        .product-image-container .desktop-badge-container,
+        [data-desktop-badge="true"] {
+          display: none !important;
+          visibility: hidden !important;
+        }
+      }
+      
+      /* Show desktop badges only on larger screens */
+      @media (min-width: 577px) {
+        .mobile-badge-container,
+        .product-card .mobile-badge-container,
+        .product-image-container .mobile-badge-container,
+        [data-mobile-badge="true"] {
+          display: none !important;
+          visibility: hidden !important;
+        }
+        
+        .desktop-badge-container,
+        .product-card .desktop-badge-container,
+        .product-image-container .desktop-badge-container,
+        [data-desktop-badge="true"] {
+          display: block !important;
+          position: absolute !important;
+          z-index: 1000 !important;
+          visibility: visible !important;
+        }
+      }
+      
+      /* Additional fallback for mobile badges */
+      @media screen and (max-device-width: 576px) {
+        [data-mobile-badge="true"] {
+          display: block !important;
+          opacity: 1 !important;
+        }
+      }
     `
     document.head.appendChild(style)
     
@@ -46,7 +107,6 @@ const AmazonsChoice = () => {
   const [lastFetchKey, setLastFetchKey] = useState('')
   const [badgeRotation, setBadgeRotation] = useState(0) // For rotating badges every 2 seconds
   const [dataSource, setDataSource] = useState('') // Track data source for debugging
-
 
   // Context hooks
   const { formatPrice } = useCurrency()
@@ -80,8 +140,6 @@ const AmazonsChoice = () => {
   // Simplified: just use products directly for now
   const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct)
   const totalPages = Math.ceil(products.length / productsPerPage)
-
-
 
   // Fetch products with server-side filtering
   const fetchProducts = async (category = null, search = null) => {
@@ -502,9 +560,6 @@ const AmazonsChoice = () => {
           </div>
         )}
 
-        
-
-
         {/* Enhanced Products Grid */}
         <div id="products-grid" style={{
           display: 'grid', 
@@ -602,20 +657,27 @@ const AmazonsChoice = () => {
                 {/* MOBILE BADGE - CSS Media Query Approach */}
                 <div 
                   className="mobile-badge-container"
+                  data-mobile-badge="true"
                   style={{
                     position: 'absolute',
-                    top: '3px',
-                    right: '3px',
+                    top: '2px',
+                    right: '2px',
                     zIndex: 1000,
                     backgroundColor: '#ff6600',
                     color: 'white',
-                    padding: '3px 5px',
-                    borderRadius: '4px',
-                    fontSize: '8px',
+                    padding: '4px 6px',
+                    borderRadius: '6px',
+                    fontSize: '9px',
                     fontWeight: 'bold',
                     display: 'block',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                    border: '1px solid rgba(255,255,255,0.5)'
+                    boxShadow: '0 3px 8px rgba(0,0,0,0.4)',
+                    border: '1px solid rgba(255,255,255,0.6)',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                    letterSpacing: '0.2px',
+                    opacity: 1,
+                    visibility: 'visible',
+                    minWidth: 'fit-content',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   Amazon's Choice
@@ -624,6 +686,7 @@ const AmazonsChoice = () => {
                 {/* DESKTOP BADGE - Show on Desktop Only */}
                 <div 
                   className="desktop-badge-container"
+                  data-desktop-badge="true"
                   style={{position: 'absolute', top: '2px', right: '2px', zIndex: 2}}
                 >
                   {(() => {
@@ -652,7 +715,6 @@ const AmazonsChoice = () => {
                     )
                   })()}
                 </div>
-
 
               </div>
               
@@ -871,6 +933,21 @@ const AmazonsChoice = () => {
                         return true;
                       }
 
+                      // For new products, check if they have a valid price to calculate profit from
+                      const productPrice = parseFloat(String(product.price || 0).replace(/[£₨$€]/g, '')) || 0;
+                      if (productPrice > 0) {
+                        console.log(`✅ Showing profit for new product: ${product.name} (price: ${product.price}, extracted: ${productPrice})`);
+                        return true;
+                      }
+
+                      console.log(`❌ No valid profit data found for: ${product.name}`, {
+                        price: product.price,
+                        extractedPrice: productPrice,
+                        hasProfitCalculations: !!product?.profitCalculations,
+                        hasEvaluation: !!product?.evaluation,
+                        showEvaluation: !!product?.showEvaluation
+                      });
+
                       return false;
                     };
 
@@ -892,9 +969,11 @@ const AmazonsChoice = () => {
                         profitPerUnit = parseFloat(product.evaluation.netProfit);
                       }
                       
-                      // Only use hardcoded profits if no database profit data exists
+                      // If no database profit data exists, calculate based on product price
                       if (profitPerUnit === 0) {
                         const productName = product.name?.toLowerCase() || '';
+                        
+                        // First check for hardcoded profits for specific products
                         if (productName.includes('nose ring')) {
                           profitPerUnit = 40.14;
                         } else if (productName.includes('bulb')) {
@@ -905,6 +984,43 @@ const AmazonsChoice = () => {
                           profitPerUnit = 227.80;
                         } else if (productName.includes('leather') && productName.includes('watch')) {
                           profitPerUnit = 586.00;
+                        } else {
+                          // For new products without profit data, calculate based on price and standard markup
+                          const productPrice = parseFloat(String(product.price || 0).replace(/[£₨$€]/g, '')) || 0;
+                          
+                          console.log(`🔍 Calculating profit for new product: ${product.name}`, {
+                            originalPrice: product.price,
+                            extractedPrice: productPrice,
+                            hasValidPrice: productPrice > 0
+                          });
+                          
+                          if (productPrice > 0) {
+                            // Convert price to GBP if it's in other currency
+                            let costPriceGBP = productPrice;
+                            const isPKR = String(product.price).includes('₨') || String(product.price).includes('Rs');
+                            const isGBP = String(product.price).includes('£');
+                            
+                            if (isPKR) {
+                              costPriceGBP = productPrice * 0.00272; // Convert PKR to GBP
+                            } else if (!isGBP) {
+                              // If no currency symbol, assume it's GBP
+                              costPriceGBP = productPrice;
+                            }
+                            
+                            // Calculate profit assuming 200% markup (selling price = cost * 3)
+                            // So profit per unit = cost * 2
+                            profitPerUnit = costPriceGBP * 2;
+                            
+                            console.log(`💰 Calculated profit for ${product.name}:`, {
+                              originalPrice: product.price,
+                              costPriceGBP: costPriceGBP.toFixed(2),
+                              profitPerUnit: profitPerUnit.toFixed(2),
+                              markup: '200%',
+                              currency: isPKR ? 'PKR->GBP' : isGBP ? 'GBP' : 'Assumed GBP'
+                            });
+                          } else {
+                            console.log(`❌ No valid price found for ${product.name}, cannot calculate profit`);
+                          }
                         }
                       }
                       
@@ -914,6 +1030,19 @@ const AmazonsChoice = () => {
                     const profitPerUnit = getProfitPerUnit();
                     const dealUnits = product.dealUnits || 1;
                     const totalProfit = profitPerUnit * dealUnits;
+
+                    console.log(`📊 Final profit calculation for ${product.name}:`, {
+                      profitPerUnit: profitPerUnit.toFixed(2),
+                      dealUnits: dealUnits,
+                      totalProfit: totalProfit.toFixed(2),
+                      willShow: profitPerUnit > 0
+                    });
+
+                    // Don't show if profit is 0 or invalid
+                    if (profitPerUnit <= 0) {
+                      console.log(`❌ Not showing profit for ${product.name} - profit is ${profitPerUnit}`);
+                      return null;
+                    }
 
                     // Calculated profit for product
 
@@ -981,14 +1110,6 @@ const AmazonsChoice = () => {
                             const unitPrice = product.rawPrice || 0;
                             const dealUnits = product.dealUnits || 1;
                             const totalPrice = unitPrice * dealUnits;
-                            
-                            console.log('💰 Deal calculation:', {
-                              productName: product.name?.substring(0, 20),
-                              unitPrice,
-                              dealUnits,
-                              totalPrice,
-                              formatted: `£${totalPrice.toFixed(2)}`
-                            });
                             
                             if (isNaN(totalPrice)) return product.price;
                             

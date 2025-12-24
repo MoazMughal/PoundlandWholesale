@@ -33,9 +33,9 @@ const LinkedProductPreview = ({ productId }) => {
   }
 
   const imageUrl = productData.images?.[0] || productData.image;
-  
+
   return imageUrl ? (
-    <img 
+    <img
       src={getImageUrl(imageUrl)}
       alt="Preview"
       style={{
@@ -53,9 +53,11 @@ const LinkedProductPreview = ({ productId }) => {
 };
 
 const AdminProducts = () => {
+  console.log('🔍 AdminProducts component loading...');
+  
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,13 +73,90 @@ const AdminProducts = () => {
   const [selectedUnits, setSelectedUnits] = useState(200);
   const [productCostUpdated, setProductCostUpdated] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [editingInput, setEditingInput] = useState(null); // Track which input is being edited
+  const [inputValues, setInputValues] = useState({}); // Store raw input values during editing
+
+  // Add global CSS to hide number input spinners
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      /* Hide number input spinners in Chrome, Safari, Edge */
+      input[type="number"]::-webkit-outer-spin-button,
+      input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      
+      /* Hide number input spinners in Firefox */
+      input[type="number"] {
+        -moz-appearance: textfield;
+      }
+      
+      /* Ensure text selection works properly */
+      input[type="number"]:focus,
+      input[type="text"]:focus {
+        outline: 2px solid #007bff;
+        outline-offset: -2px;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // Debug useEffect to monitor profitEditProduct changes
+  useEffect(() => {
+    if (profitEditProduct) {
+      const rrpPlatform = profitEditProduct.platformComparison?.find(p => p.platform === 'RRP');
+      console.log('🔍 State Debug:', {
+        rrpPlatformValue: rrpPlatform?.rrpPerUnit,
+        salesProceeds: profitEditProduct.profitEvaluation?.salesProceeds,
+        synced: rrpPlatform?.rrpPerUnit === profitEditProduct.profitEvaluation?.salesProceeds
+      });
+    }
+  }, [profitEditProduct?.profitEvaluation?.salesProceeds, profitEditProduct?.platformComparison]);
+
+  // Helper function to calculate markup percentage (moved to component level)
+  const calculateMarkupPercentage = (rrpPerUnit, productCost) => {
+    try {
+      const rrp = parseFloat(rrpPerUnit) || 0;
+      const cost = parseFloat(productCost) || 0;
+      
+      if (cost === 0 || rrp === 0) {
+        return '0%';
+      }
+      
+      const markupPercentage = ((rrp - cost) / cost) * 100;
+      
+      // Ensure the result is a valid number
+      if (isNaN(markupPercentage) || !isFinite(markupPercentage)) {
+        return '0%';
+      }
+      
+      return `${markupPercentage.toFixed(1)}%`;
+    } catch (error) {
+      console.error('Error calculating markup percentage:', error);
+      return '0%';
+    }
+  };
+
+  // Effect to calculate markup - temporarily disabled to fix page loading
+  /*
+  useEffect(() => {
+    // Markup calculation logic here
+  }, []);
+  */
+
   // Variations management state
   const [showVariationsModal, setShowVariationsModal] = useState(false);
   const [variationsEditProduct, setVariationsEditProduct] = useState(null);
   const [availableProducts, setAvailableProducts] = useState([]);
   const [variationSearchQuery, setVariationSearchQuery] = useState('');
-  
+
   // Helper functions for linked product configuration
   const getLinkedProductVariationType = (productId) => {
     // Find if this product is linked in any variation and return its type
@@ -104,15 +183,15 @@ const AdminProducts = () => {
   const updateLinkedProductConfig = (productId, field, value) => {
     // Update the configuration for a linked product
     const updatedVariations = [...(variationsEditProduct.variations || [])];
-    
+
     // Ensure we have at least one variation
     if (updatedVariations.length === 0) {
       updatedVariations.push({ type: 'style', name: '', options: [] });
     }
-    
+
     // Find or create the option for this product
     let optionIndex = updatedVariations[0].options?.findIndex(opt => opt.productId === productId);
-    
+
     if (optionIndex === -1) {
       // Create new option
       if (!updatedVariations[0].options) {
@@ -129,14 +208,14 @@ const AdminProducts = () => {
       });
       optionIndex = updatedVariations[0].options.length - 1;
     }
-    
+
     // Update the field
     if (field === 'type') {
       updatedVariations[0].options[optionIndex].type = value;
     } else if (field === 'name') {
       updatedVariations[0].options[optionIndex].customName = value;
     }
-    
+
     setVariationsEditProduct({
       ...variationsEditProduct,
       variations: updatedVariations
@@ -145,10 +224,10 @@ const AdminProducts = () => {
 
   const toggleLinkedProduct = (productId) => {
     console.log('🔗 Toggling link for product:', productId);
-    
+
     // Get current variations or create default
     let updatedVariations = [...(variationsEditProduct.variations || [])];
-    
+
     // Ensure we have at least one variation with proper structure
     if (updatedVariations.length === 0) {
       updatedVariations = [{
@@ -157,12 +236,12 @@ const AdminProducts = () => {
         options: []
       }];
     }
-    
+
     // Ensure the first variation has options array
     if (!updatedVariations[0].options) {
       updatedVariations[0].options = [];
     }
-    
+
     const isCurrentlyLinked = updatedVariations[0].options.some(option => option.productId === productId);
     console.log('🔗 Currently linked?', isCurrentlyLinked);
 
@@ -186,9 +265,9 @@ const AdminProducts = () => {
         console.log('🔗 Added product to links:', linkedProduct.name);
       }
     }
-    
+
     console.log('🔗 Updated variations:', updatedVariations);
-    
+
     setVariationsEditProduct({
       ...variationsEditProduct,
       variations: updatedVariations
@@ -198,17 +277,17 @@ const AdminProducts = () => {
   const removeLinkedProduct = (productId) => {
     // Remove a product from variations
     const updatedVariations = [...(variationsEditProduct.variations || [])];
-    
+
     if (updatedVariations.length > 0 && updatedVariations[0].options) {
       updatedVariations[0].options = updatedVariations[0].options.filter(option => option.productId !== productId);
     }
-    
+
     setVariationsEditProduct({
       ...variationsEditProduct,
       variations: updatedVariations
     });
   };
-  
+
   const currency = 'GBP';
   const currencySymbol = '£';
   const productsPerPage = 50;
@@ -256,6 +335,46 @@ const AdminProducts = () => {
     return isNaN(parsed) ? 0 : parsed;
   };
 
+  // Temporarily removed to fix page loading issue
+  // const [isManuallyEditing, setIsManuallyEditing] = useState(false);
+
+  // Helper functions for input handling
+  const getInputValue = (inputKey, fallbackValue) => {
+    // If this input is being edited, return the raw input value
+    if (editingInput === inputKey && inputValues[inputKey] !== undefined) {
+      return inputValues[inputKey];
+    }
+    // Otherwise return the formatted fallback value
+    return safeFormatNumber(fallbackValue) || '';
+  };
+
+  const handleInputFocus = (inputKey, currentValue) => {
+    setEditingInput(inputKey);
+    // setIsManuallyEditing(true); // Temporarily disabled
+    setInputValues(prev => ({
+      ...prev,
+      [inputKey]: safeFormatNumber(currentValue) || ''
+    }));
+  };
+
+  const handleInputChange = (inputKey, newValue) => {
+    setInputValues(prev => ({
+      ...prev,
+      [inputKey]: newValue
+    }));
+  };
+
+  const handleInputBlur = (inputKey) => {
+    setEditingInput(null);
+    // setIsManuallyEditing(false); // Temporarily disabled
+    // Clean up the input value from state
+    setInputValues(prev => {
+      const newValues = { ...prev };
+      delete newValues[inputKey];
+      return newValues;
+    });
+  };
+
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const categoryFromState = location.state?.category;
@@ -264,7 +383,7 @@ const AdminProducts = () => {
     const categoryToRestore = categoryFromState || categoryFromUrl || '';
     const statusToRestore = statusFromUrl || '';
     const amazonsChoiceFromUrl = urlParams.get('amazonsChoice') === 'true';
-    
+
     console.log('🔄 Category restoration:', {
       categoryFromState,
       categoryFromUrl,
@@ -277,7 +396,7 @@ const AdminProducts = () => {
       locationSearch: location.search,
       locationState: location.state
     });
-    
+
     setFilters(prev => {
       const newFilters = { ...prev };
       if (prev.category !== categoryToRestore) {
@@ -319,18 +438,18 @@ const AdminProducts = () => {
       const response = await fetch('http://localhost:5000/api/categories?includeExcel=true');
       if (response.ok) {
         const data = await response.json();
-        
+
         // Merge with default categories (keeping icons)
         const defaultCategories = [
           { value: 'all', label: 'All Products', icon: '📦' }
         ];
-        
+
         const dynamicCategories = data.categories.map(cat => ({
           value: cat.value,
           label: cat.label,
           icon: getCategoryIcon(cat.value)
         }));
-        
+
         setCategories([...defaultCategories, ...dynamicCategories]);
       }
     } catch (error) {
@@ -364,19 +483,19 @@ const AdminProducts = () => {
 
   useEffect(() => {
     let filtered = [...products];
-    
+
     if (filters.category) {
       filtered = filtered.filter(p => p.category === filters.category);
     }
-    
+
     if (filters.status) {
       filtered = filtered.filter(p => p.status === filters.status);
     }
-    
+
     if (filters.isAmazonsChoice) {
       filtered = filtered.filter(p => p.isAmazonsChoice === true);
     }
-    
+
     setFilteredProducts(filtered);
   }, [products, filters.category, filters.status, filters.isAmazonsChoice]);
 
@@ -384,7 +503,7 @@ const AdminProducts = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      
+
       const params = new URLSearchParams({
         ...(search && { search }),
         ...(filters.category && { category: filters.category }),
@@ -395,15 +514,15 @@ const AdminProducts = () => {
       });
 
       const useFastEndpoint = !search && !filters.category && !filters.status && !filters.isAmazonsChoice;
-      
+
       // Add cache buster to ensure fresh data
       const cacheBuster = `_t=${Date.now()}`;
-      const url = useFastEndpoint 
+      const url = useFastEndpoint
         ? `http://localhost:5000/api/products/admin/fast?${cacheBuster}`
         : `http://localhost:5000/api/products?${params}&${cacheBuster}`;
 
       const response = await fetch(url, {
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Cache-Control': 'no-cache',
           'Pragma': 'no-cache'
@@ -415,7 +534,7 @@ const AdminProducts = () => {
         console.error('❌ API Error:', response.status, errorData);
         throw new Error('Failed to fetch products');
       }
-      
+
       const data = await response.json();
       setProducts(data.products);
       setTotalProducts(data.total || data.products.length);
@@ -556,7 +675,7 @@ const AdminProducts = () => {
   const handleSaveEdit = async (productId, field) => {
     const cellKey = `${productId}-${field}`;
     const newValue = editValues[cellKey];
-    
+
     // Allow empty values for ASIN field, but not for price/stock
     if (newValue === undefined || (newValue === '' && field !== 'asin')) {
       return;
@@ -565,7 +684,7 @@ const AdminProducts = () => {
     try {
       const token = localStorage.getItem('adminToken');
       let parsedValue;
-      
+
       if (field === 'price' || field === 'stock') {
         parsedValue = parseFloat(newValue);
       } else if (field === 'asin') {
@@ -574,12 +693,12 @@ const AdminProducts = () => {
       } else {
         parsedValue = newValue;
       }
-      
+
       const updateData = { [field]: parsedValue };
       if (field === 'price') {
         updateData.currency = 'GBP';
       }
-      
+
       // Debug logging for ASIN updates
       if (field === 'asin') {
         console.log('🏷️ Saving ASIN:', {
@@ -589,7 +708,7 @@ const AdminProducts = () => {
           updateData
         });
       }
-      
+
       const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
         method: 'PUT',
         headers: {
@@ -604,17 +723,17 @@ const AdminProducts = () => {
         if (field === 'price') {
           updateObject.currency = 'GBP';
         }
-        
-        const updatedProducts = products.map(p => 
+
+        const updatedProducts = products.map(p =>
           p._id === productId ? { ...p, ...updateObject } : p
         );
-        
+
         setProducts(updatedProducts);
-        setFilteredProducts(filteredProducts.map(p => 
+        setFilteredProducts(filteredProducts.map(p =>
           p._id === productId ? { ...p, ...updateObject } : p
         ));
         setEditingCell(null);
-        
+
         // Log successful ASIN update
         if (field === 'asin') {
           console.log('✅ ASIN updated successfully:', {
@@ -623,118 +742,119 @@ const AdminProducts = () => {
             productName: updatedProducts.find(p => p._id === productId)?.name
           });
         }
-        
+
         // If price was updated, check if we need to update profit data
         if (field === 'price') {
           // Update profit modal if it's open for this product
           if (profitEditProduct && profitEditProduct._id === productId) {
-          console.log('🔄 Price updated, updating product cost in profit modal from', profitEditProduct.profitEvaluation.productCost, 'to', parsedValue);
-          
-          // Update the product cost in the profit evaluation
-          const updatedProfitEvaluation = {
-            ...profitEditProduct.profitEvaluation,
-            productCost: parsedValue
-          };
-          
-          // Recalculate net profit with new product cost
-          const balanceChange = updatedProfitEvaluation.balanceChange || 0;
-          const newNetProfit = parseFloat((balanceChange - parsedValue).toFixed(2));
-          updatedProfitEvaluation.netProfit = newNetProfit;
-          
-          // Update profit calculations
-          const updatedProfitCalculations = {
-            ...profitEditProduct.profitCalculations,
-            costPrice: parsedValue,
-            profitPerUnit: newNetProfit
-          };
-          
-          // Update platform comparison profits with new net profit
-          const updatedPlatformComparison = profitEditProduct.platformComparison.map(platform => ({
-            ...platform,
-            profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2))
-          }));
-          
-          // Update the profit edit product state
-          setProfitEditProduct({
-            ...profitEditProduct,
-            profitEvaluation: updatedProfitEvaluation,
-            profitCalculations: updatedProfitCalculations,
-            platformComparison: updatedPlatformComparison
-          });
-          
-          // Set visual indicator that product cost was updated
-          setProductCostUpdated(true);
-          setTimeout(() => setProductCostUpdated(false), 3000); // Clear after 3 seconds
-          
-          // Automatically save the updated profit data to the database
-          try {
-            const profitUpdateData = {
-              platformComparison: updatedPlatformComparison.map(platform => ({
-                platform: platform.platform || 'Platform',
-                rrpPerUnit: parseFloat((parseFloat(platform.rrpPerUnit) || 0).toFixed(2)),
-                units: parseInt(platform.units) || 200,
-                profitFor200Units: parseFloat((parseFloat(platform.profitFor200Units) || 0).toFixed(2)),
-                markup: platform.markup || '0%'
-              })),
-              platformUnits: parseInt(selectedUnits) || 200,
-              profitCalculations: {
-                profitPerUnit: parseFloat((parseFloat(updatedProfitCalculations.profitPerUnit) || 0).toFixed(2)),
-                profitFor200Units: parseFloat((parseFloat(updatedProfitCalculations.profitPerUnit) * 200 || 0).toFixed(2)),
-                dealUnitsProfit: parseFloat((parseFloat(updatedProfitCalculations.dealUnitsProfit) || 0).toFixed(2)),
-                profitForDealUnits: parseFloat((parseFloat(updatedProfitCalculations.profitForDealUnits) || 0).toFixed(2))
-              },
-              profitEvaluation: {
-                salesProceeds: parseFloat((parseFloat(updatedProfitEvaluation.salesProceeds) || 0).toFixed(2)),
-                commission: parseFloat((parseFloat(updatedProfitEvaluation.commission) || 0).toFixed(2)),
-                commissionTax: parseFloat((parseFloat(updatedProfitEvaluation.commissionTax) || 0).toFixed(2)),
-                digitalServicesFee: parseFloat((parseFloat(updatedProfitEvaluation.digitalServicesFee) || 0).toFixed(2)),
-                digitalServicesTax: parseFloat((parseFloat(updatedProfitEvaluation.digitalServicesTax) || 0).toFixed(2)),
-                fbaFulfilmentFee: parseFloat((parseFloat(updatedProfitEvaluation.fbaFulfilmentFee) || 0).toFixed(2)),
-                fbaFulfilmentTax: parseFloat((parseFloat(updatedProfitEvaluation.fbaFulfilmentTax) || 0).toFixed(2)),
-                balanceChange: parseFloat((parseFloat(updatedProfitEvaluation.balanceChange) || 0).toFixed(2)),
-                productCost: parseFloat((parseFloat(updatedProfitEvaluation.productCost) || 0).toFixed(2)),
-                netProfit: parseFloat((parseFloat(updatedProfitEvaluation.netProfit) || 0).toFixed(2)),
-                monthlyProfit: parseFloat((parseFloat(updatedProfitEvaluation.monthlyProfit) || 0).toFixed(2)),
-                yearlyProfit: parseFloat((parseFloat(updatedProfitEvaluation.yearlyProfit) || 0).toFixed(2))
-              }
+            console.log('🔄 Price updated, updating product cost in profit modal from', profitEditProduct.profitEvaluation.productCost, 'to', parsedValue);
+
+            // Update the product cost in the profit evaluation
+            const updatedProfitEvaluation = {
+              ...profitEditProduct.profitEvaluation,
+              productCost: parsedValue
             };
 
-            const profitResponse = await fetch(`http://localhost:5000/api/products/${productId}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify(profitUpdateData)
+            // Recalculate net profit with new product cost
+            const balanceChange = updatedProfitEvaluation.balanceChange || 0;
+            const newNetProfit = parseFloat((balanceChange - parsedValue).toFixed(2));
+            updatedProfitEvaluation.netProfit = newNetProfit;
+
+            // Update profit calculations
+            const updatedProfitCalculations = {
+              ...profitEditProduct.profitCalculations,
+              costPrice: parsedValue,
+              profitPerUnit: newNetProfit
+            };
+
+            // Update platform comparison profits with new net profit
+            const updatedPlatformComparison = profitEditProduct.platformComparison.map(platform => ({
+              ...platform,
+              profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2)),
+              markup: calculateMarkupPercentage(platform.rrpPerUnit, parsedValue) // Recalculate markup with new product cost
+            }));
+
+            // Update the profit edit product state
+            setProfitEditProduct({
+              ...profitEditProduct,
+              profitEvaluation: updatedProfitEvaluation,
+              profitCalculations: updatedProfitCalculations,
+              platformComparison: updatedPlatformComparison
             });
 
-            if (profitResponse.ok) {
-              console.log('✅ Profit data automatically updated in database after price change');
-            } else {
-              console.log('⚠️ Failed to auto-update profit data in database');
+            // Set visual indicator that product cost was updated
+            setProductCostUpdated(true);
+            setTimeout(() => setProductCostUpdated(false), 3000); // Clear after 3 seconds
+
+            // Automatically save the updated profit data to the database
+            try {
+              const profitUpdateData = {
+                platformComparison: updatedPlatformComparison.map(platform => ({
+                  platform: platform.platform || 'Platform',
+                  rrpPerUnit: parseFloat((parseFloat(platform.rrpPerUnit) || 0).toFixed(2)),
+                  units: parseInt(platform.units) || 200,
+                  profitFor200Units: parseFloat((parseFloat(platform.profitFor200Units) || 0).toFixed(2)),
+                  markup: platform.markup || '0%'
+                })),
+                platformUnits: parseInt(selectedUnits) || 200,
+                profitCalculations: {
+                  profitPerUnit: parseFloat((parseFloat(updatedProfitCalculations.profitPerUnit) || 0).toFixed(2)),
+                  profitFor200Units: parseFloat((parseFloat(updatedProfitCalculations.profitPerUnit) * 200 || 0).toFixed(2)),
+                  dealUnitsProfit: parseFloat((parseFloat(updatedProfitCalculations.dealUnitsProfit) || 0).toFixed(2)),
+                  profitForDealUnits: parseFloat((parseFloat(updatedProfitCalculations.profitForDealUnits) || 0).toFixed(2))
+                },
+                profitEvaluation: {
+                  salesProceeds: parseFloat((parseFloat(updatedProfitEvaluation.salesProceeds) || 0).toFixed(2)),
+                  commission: parseFloat((parseFloat(updatedProfitEvaluation.commission) || 0).toFixed(2)),
+                  commissionTax: parseFloat((parseFloat(updatedProfitEvaluation.commissionTax) || 0).toFixed(2)),
+                  digitalServicesFee: parseFloat((parseFloat(updatedProfitEvaluation.digitalServicesFee) || 0).toFixed(2)),
+                  digitalServicesTax: parseFloat((parseFloat(updatedProfitEvaluation.digitalServicesTax) || 0).toFixed(2)),
+                  fbaFulfilmentFee: parseFloat((parseFloat(updatedProfitEvaluation.fbaFulfilmentFee) || 0).toFixed(2)),
+                  fbaFulfilmentTax: parseFloat((parseFloat(updatedProfitEvaluation.fbaFulfilmentTax) || 0).toFixed(2)),
+                  balanceChange: parseFloat((parseFloat(updatedProfitEvaluation.balanceChange) || 0).toFixed(2)),
+                  productCost: parseFloat((parseFloat(updatedProfitEvaluation.productCost) || 0).toFixed(2)),
+                  netProfit: parseFloat((parseFloat(updatedProfitEvaluation.netProfit) || 0).toFixed(2)),
+                  monthlyProfit: parseFloat((parseFloat(updatedProfitEvaluation.monthlyProfit) || 0).toFixed(2)),
+                  yearlyProfit: parseFloat((parseFloat(updatedProfitEvaluation.yearlyProfit) || 0).toFixed(2))
+                }
+              };
+
+              const profitResponse = await fetch(`http://localhost:5000/api/products/${productId}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(profitUpdateData)
+              });
+
+              if (profitResponse.ok) {
+                console.log('✅ Profit data automatically updated in database after price change');
+              } else {
+                console.log('⚠️ Failed to auto-update profit data in database');
+              }
+            } catch (error) {
+              console.error('❌ Error auto-updating profit data:', error);
             }
-          } catch (error) {
-            console.error('❌ Error auto-updating profit data:', error);
-          }
-          
-          console.log('✅ Profit modal updated with new product cost and recalculated profits');
+
+            console.log('✅ Profit modal updated with new product cost and recalculated profits');
           } else {
             // Even if modal is not open, update profit data in database if it exists
             const productToUpdate = updatedProducts.find(p => p._id === productId);
             if (productToUpdate && (productToUpdate.profitEvaluation || productToUpdate.profitCalculations)) {
               console.log('🔄 Price updated for product with existing profit data, updating product cost in database');
-              
+
               // Update product cost in existing profit evaluation
               const existingEvaluation = productToUpdate.profitEvaluation || {};
               const balanceChange = existingEvaluation.balanceChange || 0;
               const newNetProfit = parseFloat((balanceChange - parsedValue).toFixed(2));
-              
+
               const updatedProfitEvaluation = {
                 ...existingEvaluation,
                 productCost: parsedValue,
                 netProfit: newNetProfit
               };
-              
+
               // Update profit calculations
               const existingCalculations = productToUpdate.profitCalculations || {};
               const updatedProfitCalculations = {
@@ -742,23 +862,23 @@ const AdminProducts = () => {
                 costPrice: parsedValue,
                 profitPerUnit: newNetProfit
               };
-              
+
               // Update platform comparison if it exists
               const updatedPlatformComparison = (productToUpdate.platformComparison || []).map(platform => ({
                 ...platform,
                 profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2))
               }));
-              
+
               // Save to database
               const profitUpdateData = {
                 profitEvaluation: updatedProfitEvaluation,
                 profitCalculations: updatedProfitCalculations
               };
-              
+
               if (updatedPlatformComparison.length > 0) {
                 profitUpdateData.platformComparison = updatedPlatformComparison;
               }
-              
+
               fetch(`http://localhost:5000/api/products/${productId}`, {
                 method: 'PUT',
                 headers: {
@@ -778,9 +898,9 @@ const AdminProducts = () => {
             }
           }
         }
-        
+
         cacheManager.clearAll();
-        
+
         const cell = document.querySelector(`[data-cell="${cellKey}"]`);
         if (cell) {
           cell.style.background = '#d4edda';
@@ -789,7 +909,7 @@ const AdminProducts = () => {
       } else {
         const errorData = await response.json();
         console.error('Update failed:', errorData);
-        
+
         // Specific error message for ASIN updates
         if (field === 'asin') {
           console.error('❌ ASIN update failed:', {
@@ -804,7 +924,7 @@ const AdminProducts = () => {
       }
     } catch (error) {
       console.error('Error updating product:', error);
-      
+
       // Specific error message for ASIN updates
       if (field === 'asin') {
         console.error('❌ ASIN update error:', {
@@ -826,10 +946,10 @@ const AdminProducts = () => {
       currentCategory: filters.category,
       returnTo: '/admin/products'
     });
-    
+
     navigate(`/product/${product._id}`, {
-      state: { 
-        returnTo: '/admin/products', 
+      state: {
+        returnTo: '/admin/products',
         category: filters.category,
         productPreview: {
           name: product.name,
@@ -844,18 +964,18 @@ const AdminProducts = () => {
   const handleVariationsClick = async (product) => {
     console.log('🎨 Opening variations modal for product:', product.name);
     console.log('🎨 Product variations:', product.variations);
-    
+
     // Initialize variations if they don't exist
     const productWithVariations = {
       ...product,
       variations: product.variations || []
     };
-    
+
     console.log('🎨 Initialized product with variations:', productWithVariations);
-    
+
     setVariationsEditProduct(productWithVariations);
     setShowVariationsModal(true);
-    
+
     // Fetch available products from the same category for variations
     try {
       const response = await fetch(`http://localhost:5000/api/products/public?category=${encodeURIComponent(product.category)}&limit=100`);
@@ -874,36 +994,36 @@ const AdminProducts = () => {
   const addVariation = () => {
     console.log('🎨 Adding new variation');
     console.log('🎨 Current variationsEditProduct:', variationsEditProduct);
-    
+
     const newVariation = {
       type: 'color',
       name: '', // Start with empty name so user can customize
       options: []
     };
-    
+
     console.log('🎨 New variation to add:', newVariation);
-    
+
     const updatedProduct = {
       ...variationsEditProduct,
       variations: [...(variationsEditProduct.variations || []), newVariation]
     };
-    
+
     console.log('🎨 Updated product with new variation:', updatedProduct);
-    
+
     setVariationsEditProduct(updatedProduct);
   };
 
   const updateVariation = (variationIndex, field, value) => {
     const updatedVariations = [...(variationsEditProduct.variations || [])];
-    
+
     // Auto-set the name based on the type only when type changes
     if (field === 'type') {
       const nameMap = {
         'color': 'Color',
-        'size': 'Size', 
+        'size': 'Size',
         'style': 'Style'
       };
-      
+
       updatedVariations[variationIndex] = {
         ...updatedVariations[variationIndex],
         [field]: value,
@@ -916,7 +1036,7 @@ const AdminProducts = () => {
         [field]: value
       };
     }
-    
+
     setVariationsEditProduct({
       ...variationsEditProduct,
       variations: updatedVariations
@@ -925,17 +1045,17 @@ const AdminProducts = () => {
 
   const addVariationOption = (variationIndex) => {
     const updatedVariations = [...(variationsEditProduct.variations || [])];
-    
+
     // Ensure the variation exists and has an options array
     if (!updatedVariations[variationIndex]) {
       console.error('Variation at index', variationIndex, 'does not exist');
       return;
     }
-    
+
     if (!updatedVariations[variationIndex].options) {
       updatedVariations[variationIndex].options = [];
     }
-    
+
     updatedVariations[variationIndex].options.push({
       value: '',
       productId: null,
@@ -943,9 +1063,9 @@ const AdminProducts = () => {
       price: null,
       stock: null
     });
-    
+
     console.log('Added variation option. Updated variations:', updatedVariations);
-    
+
     setVariationsEditProduct({
       ...variationsEditProduct,
       variations: updatedVariations
@@ -954,29 +1074,29 @@ const AdminProducts = () => {
 
   const updateVariationOption = (variationIndex, optionIndex, field, value) => {
     const updatedVariations = [...(variationsEditProduct.variations || [])];
-    
+
     // Ensure the variation and option exist
     if (!updatedVariations[variationIndex]) {
       console.error('Variation at index', variationIndex, 'does not exist');
       return;
     }
-    
+
     if (!updatedVariations[variationIndex].options) {
       updatedVariations[variationIndex].options = [];
     }
-    
+
     if (!updatedVariations[variationIndex].options[optionIndex]) {
       console.error('Option at index', optionIndex, 'does not exist in variation', variationIndex);
       return;
     }
-    
+
     updatedVariations[variationIndex].options[optionIndex] = {
       ...updatedVariations[variationIndex].options[optionIndex],
       [field]: value
     };
-    
+
     console.log('Updated variation option:', { variationIndex, optionIndex, field, value });
-    
+
     setVariationsEditProduct({
       ...variationsEditProduct,
       variations: updatedVariations
@@ -986,7 +1106,7 @@ const AdminProducts = () => {
   const removeVariation = (variationIndex) => {
     const updatedVariations = [...(variationsEditProduct.variations || [])];
     updatedVariations.splice(variationIndex, 1);
-    
+
     setVariationsEditProduct({
       ...variationsEditProduct,
       variations: updatedVariations
@@ -996,7 +1116,7 @@ const AdminProducts = () => {
   const removeVariationOption = (variationIndex, optionIndex) => {
     const updatedVariations = [...(variationsEditProduct.variations || [])];
     updatedVariations[variationIndex].options.splice(optionIndex, 1);
-    
+
     setVariationsEditProduct({
       ...variationsEditProduct,
       variations: updatedVariations
@@ -1006,14 +1126,14 @@ const AdminProducts = () => {
   const saveVariations = async () => {
     try {
       console.log('🎨 Saving variations for product:', variationsEditProduct._id);
-      
+
       // Check if token exists
       const token = localStorage.getItem('adminToken');
       if (!token) {
         alert('❌ Authentication token not found. Please log in again.');
         return;
       }
-      
+
       // Clean the variations data before sending
       const cleanedVariations = (variationsEditProduct.variations || [])
         .filter(variation => variation.type && variation.name) // Only include valid variations
@@ -1031,11 +1151,11 @@ const AdminProducts = () => {
             }))
         }))
         .filter(variation => variation.options.length > 0); // Only include variations with options
-      
+
       console.log('🎨 Cleaned variations data:', JSON.stringify(cleanedVariations, null, 2));
-      
+
       // Check if there are any linked products (productId references)
-      const hasLinkedProducts = cleanedVariations.some(variation => 
+      const hasLinkedProducts = cleanedVariations.some(variation =>
         variation.options.some(option => option.productId)
       );
 
@@ -1062,6 +1182,11 @@ const AdminProducts = () => {
           const result = await bidirectionalResponse.json();
           console.log('✅ Bidirectional variations result:', result);
           alert(`✅ Variations updated successfully! Updated ${result.linkedProducts} linked products.`);
+
+          // Trigger refresh for product detail pages
+          localStorage.setItem('variationsUpdated', variationsEditProduct._id);
+          setTimeout(() => localStorage.removeItem('variationsUpdated'), 1000);
+
           setShowVariationsModal(false);
           fetchProducts(); // Refresh the products list
           return;
@@ -1089,6 +1214,11 @@ const AdminProducts = () => {
           const result = await simpleResponse.json();
           console.log('✅ Simple variations update successful:', result);
           alert('✅ Variations updated successfully!');
+
+          // Trigger refresh for product detail pages
+          localStorage.setItem('variationsUpdated', variationsEditProduct._id);
+          setTimeout(() => localStorage.removeItem('variationsUpdated'), 1000);
+
           setShowVariationsModal(false);
           fetchProducts(); // Refresh the products list
           return;
@@ -1130,9 +1260,9 @@ const AdminProducts = () => {
       newFilters,
       currentUrl: location.pathname + location.search
     });
-    
+
     setFilters(newFilters);
-    
+
     // Update URL to reflect all filters
     const searchParams = new URLSearchParams();
     if (newFilters.category) {
@@ -1144,14 +1274,14 @@ const AdminProducts = () => {
     if (newFilters.isAmazonsChoice) {
       searchParams.set('amazonsChoice', 'true');
     }
-    
+
     // Update URL without triggering a full page reload
-    const newUrl = searchParams.toString() 
+    const newUrl = searchParams.toString()
       ? `${location.pathname}?${searchParams.toString()}`
       : location.pathname;
-    
+
     console.log('🌐 New URL:', newUrl);
-    
+
     navigate(newUrl, { replace: true, state: { category: newFilters.category } });
   };
 
@@ -1174,7 +1304,7 @@ const AdminProducts = () => {
       const response = await fetch(`http://localhost:5000/api/products/${product._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
+
       if (response.ok) {
         const latestProduct = await response.json();
         product = latestProduct;
@@ -1182,33 +1312,33 @@ const AdminProducts = () => {
     } catch (error) {
       console.error('Error fetching latest product data:', error);
     }
-    
+
     const productPrice = parseFloat(product.price) || 0;
     const initialUnits = product.platformUnits || 200;
     setSelectedUnits(initialUnits);
-    
+
     const profitPerUnit = product.profitCalculations?.profitPerUnit || 0;
     const defaultMonthlyProfit = profitPerUnit * 30;
     const defaultYearlyProfit = profitPerUnit * 365;
-    
+
     const safeParseFloat = (value, defaultValue = 0) => {
       const parsed = parseFloat(value);
       return isNaN(parsed) ? defaultValue : parsed;
     };
 
-    const initPlatformComparison = product.platformComparison && Array.isArray(product.platformComparison) 
+    const initPlatformComparison = product.platformComparison && Array.isArray(product.platformComparison)
       ? product.platformComparison.map(platform => ({
-          platform: platform.platform || 'Platform',
-          rrpPerUnit: safeParseFloat(platform.rrpPerUnit, 0),
-          units: safeParseFloat(platform.units, 200),
-          profitFor200Units: safeParseFloat(platform.profitFor200Units, 0),
-          markup: platform.markup || '0%'
-        }))
+        platform: platform.platform || 'Platform',
+        rrpPerUnit: safeParseFloat(platform.rrpPerUnit, 0),
+        units: safeParseFloat(platform.units, 200),
+        profitFor200Units: safeParseFloat(platform.profitFor200Units, 0),
+        markup: calculateMarkupPercentage(platform.rrpPerUnit, productPrice) // Calculate markup with current product price
+      }))
       : [
-          { platform: 'RRP', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: '0%' },
-          { platform: 'Amazon', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: '0%' },
-          { platform: 'eBay', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: '0%' }
-        ];
+        { platform: 'RRP', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: calculateMarkupPercentage(0, productPrice) },
+        { platform: 'Amazon', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: calculateMarkupPercentage(0, productPrice) },
+        { platform: 'eBay', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: calculateMarkupPercentage(0, productPrice) }
+      ];
 
     const initProfitCalculations = {
       profitPerUnit: safeParseFloat(product.profitCalculations?.profitPerUnit, 0),
@@ -1218,8 +1348,25 @@ const AdminProducts = () => {
     };
 
     const existingEvaluation = product.profitEvaluation;
+    
+    // Get the RRP platform's RRP/Unit value for syncing with Sales Proceeds
+    const rrpPlatform = initPlatformComparison.find(platform => platform.platform === 'RRP');
+    const rrpPlatformValue = rrpPlatform ? rrpPlatform.rrpPerUnit : 0;
+    const existingSalesProceeds = safeParseFloat(existingEvaluation?.salesProceeds, 0);
+    
+    // Use the higher value between existing Sales Proceeds and RRP platform RRP/Unit
+    // This ensures they stay in sync
+    const syncedSalesProceeds = Math.max(rrpPlatformValue, existingSalesProceeds);
+    
+    // Update only the RRP platform's RRP/Unit to match Sales Proceeds
+    if (rrpPlatform) {
+      rrpPlatform.rrpPerUnit = syncedSalesProceeds;
+      rrpPlatform.markup = calculateMarkupPercentage(syncedSalesProceeds, productPrice); // Recalculate markup after sync
+      console.log('🔧 Initialization sync: RRP Platform RRP/Unit set to', syncedSalesProceeds, 'Sales Proceeds set to', syncedSalesProceeds, 'Markup:', rrpPlatform.markup);
+    }
+    
     const initProfitEvaluation = {
-      salesProceeds: safeParseFloat(existingEvaluation?.salesProceeds, 0),
+      salesProceeds: syncedSalesProceeds, // Use synced value
       commission: safeParseFloat(existingEvaluation?.commission, 0),
       commissionTax: safeParseFloat(existingEvaluation?.commissionTax, 0),
       digitalServicesFee: safeParseFloat(existingEvaluation?.digitalServicesFee, 0),
@@ -1228,10 +1375,64 @@ const AdminProducts = () => {
       fbaFulfilmentTax: safeParseFloat(existingEvaluation?.fbaFulfilmentTax, 0),
       balanceChange: safeParseFloat(existingEvaluation?.balanceChange, 0),
       productCost: productPrice,
-      netProfit: safeParseFloat(existingEvaluation?.balanceChange, 0) - productPrice,
+      netProfit: 0, // Will be calculated below
       monthlyProfit: safeParseFloat(existingEvaluation?.monthlyProfit, defaultMonthlyProfit),
       yearlyProfit: safeParseFloat(existingEvaluation?.yearlyProfit, defaultYearlyProfit)
     };
+
+    // Calculate netProfit properly: prioritize existing netProfit if valid, then use balance change calculation
+    const existingNetProfit = safeParseFloat(existingEvaluation?.netProfit, 0);
+    
+    if (existingNetProfit !== 0) {
+      // Use existing net profit if it's valid
+      initProfitEvaluation.netProfit = existingNetProfit;
+      console.log('🔄 Using existing netProfit:', existingNetProfit);
+    } else if (initProfitEvaluation.balanceChange !== 0) {
+      // Use existing balance change
+      initProfitEvaluation.netProfit = initProfitEvaluation.balanceChange - productPrice;
+      console.log('🔄 Calculating netProfit from existing balanceChange:', initProfitEvaluation.balanceChange, '-', productPrice, '=', initProfitEvaluation.netProfit);
+    } else {
+      // Calculate balance change from sales proceeds and fees, then calculate net profit
+      const calculatedBalanceChange = syncedSalesProceeds - 
+        initProfitEvaluation.commission - 
+        initProfitEvaluation.commissionTax - 
+        initProfitEvaluation.digitalServicesFee - 
+        initProfitEvaluation.digitalServicesTax - 
+        initProfitEvaluation.fbaFulfilmentFee - 
+        initProfitEvaluation.fbaFulfilmentTax;
+      
+      initProfitEvaluation.balanceChange = calculatedBalanceChange;
+      initProfitEvaluation.netProfit = calculatedBalanceChange - productPrice;
+      console.log('🔄 Calculating netProfit from fees:', calculatedBalanceChange, '-', productPrice, '=', initProfitEvaluation.netProfit);
+    }
+
+    console.log('🔍 Profit Initialization Debug:', {
+      productName: product.name,
+      isAmazonsChoice: product.isAmazonsChoice,
+      productPrice,
+      syncedSalesProceeds,
+      balanceChange: initProfitEvaluation.balanceChange,
+      netProfit: initProfitEvaluation.netProfit,
+      existingBalanceChange: existingEvaluation?.balanceChange,
+      existingNetProfit: existingEvaluation?.netProfit,
+      existingProfitCalculations: product.profitCalculations,
+      calculatedFromFees: syncedSalesProceeds - 
+        initProfitEvaluation.commission - 
+        initProfitEvaluation.commissionTax - 
+        initProfitEvaluation.digitalServicesFee - 
+        initProfitEvaluation.digitalServicesTax - 
+        initProfitEvaluation.fbaFulfilmentFee - 
+        initProfitEvaluation.fbaFulfilmentTax
+    });
+
+    // Update profitPerUnit to match netProfit (always use calculated netProfit, not stored profitPerUnit)
+    initProfitCalculations.profitPerUnit = initProfitEvaluation.netProfit;
+    
+    console.log('🔄 Setting profitPerUnit to netProfit:', initProfitEvaluation.netProfit, 'was:', safeParseFloat(product.profitCalculations?.profitPerUnit, 0));
+
+    // Calculate auto-savings percentage: (Balance Change - Product Cost) / Product Cost * 100
+    const autoCalculatedSavings = initProfitEvaluation.productCost === 0 ? 0 : 
+      ((initProfitEvaluation.balanceChange - initProfitEvaluation.productCost) / initProfitEvaluation.productCost) * 100;
 
     setProfitEditProduct({
       _id: product._id,
@@ -1242,7 +1443,7 @@ const AdminProducts = () => {
       platformComparison: initPlatformComparison,
       profitCalculations: initProfitCalculations,
       profitEvaluation: initProfitEvaluation,
-      savings: safeParseFloat(product.savings, 0) // Initialize savings field
+      savings: parseFloat(autoCalculatedSavings.toFixed(2)) // Use auto-calculated savings
     });
     setProductCostUpdated(false); // Reset visual indicator
     setShowProfitModal(true);
@@ -1267,13 +1468,13 @@ const AdminProducts = () => {
 
   const verifyProductData = async () => {
     if (!profitEditProduct) return;
-    
+
     try {
       const token = localStorage.getItem('adminToken');
       const response = await fetch(`http://localhost:5000/api/products/${profitEditProduct._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
+
       if (response.ok) {
         const productData = await response.json();
         console.log('🔍 Current product data in database:');
@@ -1282,7 +1483,7 @@ const AdminProducts = () => {
         console.log('- Platform Comparison:', productData.platformComparison);
         console.log('- Profit Calculations:', productData.profitCalculations);
         console.log('- Profit Evaluation:', productData.profitEvaluation);
-        
+
         // Also test the public API endpoint that the product detail page uses
         const publicResponse = await fetch(`http://localhost:5000/api/products/public/${productData._id}`);
         if (publicResponse.ok) {
@@ -1292,7 +1493,7 @@ const AdminProducts = () => {
           console.log('- Profit Calculations:', publicData.profitCalculations);
           console.log('- Profit Evaluation:', publicData.profitEvaluation);
         }
-        
+
         alert('✅ Product data fetched! Check browser console for details.');
       } else {
         alert('❌ Failed to fetch product data');
@@ -1308,23 +1509,41 @@ const AdminProducts = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      
+
       const calculatedProfitFor200Units = (profitEditProduct.profitCalculations.profitPerUnit || 0) * 200;
-      
+
       // Validate and clean the data before sending
       const cleanPlatformComparison = profitEditProduct.platformComparison.map(platform => ({
         platform: platform.platform || 'Platform',
         rrpPerUnit: parseFloat((parseFloat(platform.rrpPerUnit) || 0).toFixed(2)),
         units: parseInt(platform.units) || 200,
         profitFor200Units: parseFloat((parseFloat(platform.profitFor200Units) || 0).toFixed(2)),
-        markup: platform.markup || '0%'
+        markup: platform.markup // Don't override with '0%', use the calculated value
       }));
+
+      // Auto-calculate yearly profit based on platform units (move this calculation first)
+      const profitPerUnit = parseFloat(profitEditProduct.profitEvaluation.netProfit) || 0;
+      const platformUnits = profitEditProduct.platformComparison && profitEditProduct.platformComparison.length > 0 
+        ? (profitEditProduct.platformComparison[0].units || 200)
+        : 200;
+      const autoCalculatedYearlyProfit = profitPerUnit * platformUnits;
+      const autoCalculatedMonthlyProfit = (platformUnits / 12) * profitPerUnit;
+      
+      console.log('📊 Auto-calculating Profit Values:', {
+        profitPerUnit: profitPerUnit,
+        platformUnits: platformUnits,
+        autoCalculatedMonthlyProfit: autoCalculatedMonthlyProfit,
+        autoCalculatedYearlyProfit: autoCalculatedYearlyProfit,
+        monthlyFormula: `(${platformUnits} ÷ 12) × £${profitPerUnit.toFixed(2)} = £${autoCalculatedMonthlyProfit.toFixed(2)}`,
+        yearlyFormula: `${platformUnits} × £${profitPerUnit.toFixed(2)} = £${autoCalculatedYearlyProfit.toFixed(2)}`
+      });
 
       const cleanProfitCalculations = {
         profitPerUnit: parseFloat((parseFloat(profitEditProduct.profitCalculations.profitPerUnit) || 0).toFixed(2)),
         profitFor200Units: parseFloat(calculatedProfitFor200Units.toFixed(2)),
         dealUnitsProfit: parseFloat((parseFloat(profitEditProduct.profitCalculations.dealUnitsProfit) || 0).toFixed(2)),
-        profitForDealUnits: parseFloat((parseFloat(profitEditProduct.profitCalculations.profitForDealUnits) || 0).toFixed(2))
+        profitForDealUnits: parseFloat((parseFloat(profitEditProduct.profitCalculations.profitForDealUnits) || 0).toFixed(2)),
+        yearlyProfit: parseFloat(autoCalculatedYearlyProfit.toFixed(2)) // Add auto-calculated yearly profit here too
       };
 
       const cleanProfitEvaluation = {
@@ -1338,18 +1557,24 @@ const AdminProducts = () => {
         balanceChange: parseFloat((parseFloat(profitEditProduct.profitEvaluation.balanceChange) || 0).toFixed(2)),
         productCost: parseFloat((parseFloat(profitEditProduct.profitEvaluation.productCost) || 0).toFixed(2)),
         netProfit: parseFloat((parseFloat(profitEditProduct.profitEvaluation.netProfit) || 0).toFixed(2)),
-        monthlyProfit: parseFloat((parseFloat(profitEditProduct.profitEvaluation.monthlyProfit) || 0).toFixed(2)),
-        yearlyProfit: parseFloat((parseFloat(profitEditProduct.profitEvaluation.yearlyProfit) || 0).toFixed(2))
+        monthlyProfit: parseFloat(autoCalculatedMonthlyProfit.toFixed(2)), // Use auto-calculated monthly profit
+        yearlyProfit: parseFloat(autoCalculatedYearlyProfit.toFixed(2)) // Use auto-calculated yearly profit
       };
 
       console.log('💰 PROFIT VALUES BEING SAVED:');
       console.log('- Monthly Profit:', cleanProfitEvaluation.monthlyProfit);
       console.log('- Yearly Profit:', cleanProfitEvaluation.yearlyProfit);
       console.log('- Net Profit:', cleanProfitEvaluation.netProfit);
+      // Calculate auto-savings percentage: (Balance Change - Product Cost) / Product Cost * 100
+      const balanceChange = cleanProfitEvaluation.balanceChange || 0;
+      const productCost = cleanProfitEvaluation.productCost || 0;
+      const autoCalculatedSavings = productCost === 0 ? 0 : ((balanceChange - productCost) / productCost) * 100;
+      
       console.log('💰 SAVE FIELD DEBUG:', {
-        rawSave: profitEditProduct.savings,
-        saveType: typeof profitEditProduct.savings,
-        parsedSave: parseFloat((parseFloat(profitEditProduct.savings) || 0).toFixed(2))
+        balanceChange,
+        productCost,
+        autoCalculatedSavings: autoCalculatedSavings.toFixed(2),
+        formula: `(${balanceChange} - ${productCost}) / ${productCost} * 100 = ${autoCalculatedSavings.toFixed(2)}%`
       });
 
       const updateData = {
@@ -1357,7 +1582,7 @@ const AdminProducts = () => {
         platformUnits: parseInt(selectedUnits) || 200,
         profitCalculations: cleanProfitCalculations,
         profitEvaluation: cleanProfitEvaluation,
-        savings: parseFloat((parseFloat(profitEditProduct.savings) || 0).toFixed(2)) // Save the single savings field
+        savings: parseFloat(autoCalculatedSavings.toFixed(2)) // Save the auto-calculated savings percentage
       };
 
       console.log('🔄 Sending profit update data:', updateData);
@@ -1380,13 +1605,13 @@ const AdminProducts = () => {
       if (response.ok) {
         const responseData = await response.json();
         console.log('✅ Update successful:', responseData);
-        
+
         // Verify the data was saved correctly
         console.log('🔍 Verifying saved data:');
         console.log('- Platform Comparison:', responseData.platformComparison);
         console.log('- Profit Calculations:', responseData.profitCalculations);
         console.log('- Profit Evaluation:', responseData.profitEvaluation);
-        
+
         // Specifically check monthly and yearly profit values
         if (responseData.profitEvaluation) {
           console.log('💰 SAVED PROFIT VALUES VERIFICATION:');
@@ -1394,10 +1619,10 @@ const AdminProducts = () => {
           console.log('- Yearly Profit saved:', responseData.profitEvaluation.yearlyProfit);
           console.log('- Net Profit saved:', responseData.profitEvaluation.netProfit);
         }
-        
+
         // Clear all caches to ensure fresh data
         cacheManager.clearAll();
-        
+
         // Clear browser cache for this product
         if ('caches' in window) {
           caches.keys().then(names => {
@@ -1406,24 +1631,32 @@ const AdminProducts = () => {
             });
           });
         }
-        
+
         // Clear localStorage cache if any
         const cacheKeys = Object.keys(localStorage).filter(key => key.includes('product') || key.includes('cache'));
         cacheKeys.forEach(key => localStorage.removeItem(key));
-        
+
         // Force reload product data
         await fetchProducts();
-        
+
         console.log('🔄 All caches cleared and product data refreshed');
+
+        // Show modern success toast instead of basic alert
+        setSuccessMessage('Profit data updated successfully! The product detail page will now show the updated data.');
+        setShowSuccessToast(true);
         
-        alert('✅ Profit data updated successfully! The product detail page will now show the updated data.');
+        // Auto-hide toast after 5 seconds
+        setTimeout(() => {
+          setShowSuccessToast(false);
+        }, 5000);
+        
         setShowProfitModal(false);
         setProfitEditProduct(null);
       } else {
         const errorData = await response.text();
         console.error('❌ Save failed with status:', response.status);
         console.error('❌ Error response:', errorData);
-        
+
         if (response.status === 401) {
           alert('❌ Authentication failed. Please refresh the page.');
         } else if (response.status === 404) {
@@ -1444,23 +1677,24 @@ const AdminProducts = () => {
   };
 
   return (
-    <div className="admin-products" style={{fontSize: '0.85rem'}}>
+    <div className="admin-products" style={{ fontSize: '0.85rem' }}>
+      
       {/* Header Section */}
       <div style={{
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        padding: '12px 16px', 
-        marginBottom: '12px', 
-        background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)', 
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '12px 16px',
+        marginBottom: '12px',
+        background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
         borderRadius: '8px',
         color: 'white'
       }}>
         <div>
-          <h1 style={{margin: 0, fontSize: '1.4rem', fontWeight: 'bold'}}>
+          <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>
             📦 Products Management
           </h1>
-          <p style={{margin: '4px 0 0 0', fontSize: '0.9rem', opacity: 0.9}}>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', opacity: 0.9 }}>
             Manage your product catalog
           </p>
         </div>
@@ -1490,15 +1724,15 @@ const AdminProducts = () => {
             e.target.style.transform = 'translateY(0)';
           }}
         >
-          <span style={{fontSize: '1.1rem'}}>➕</span>
+          <span style={{ fontSize: '1.1rem' }}>➕</span>
           Add New Product
         </button>
       </div>
 
-  
 
-      <div className="filters-section" style={{padding: '6px 8px', marginBottom: '6px', background: 'white', borderRadius: '6px'}}>
-        <div style={{display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center'}}>
+
+      <div className="filters-section" style={{ padding: '6px 8px', marginBottom: '6px', background: 'white', borderRadius: '6px' }}>
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
           <input
             type="text"
             placeholder="🔍 Search by name, ID, category, brand, ASIN..."
@@ -1518,8 +1752,8 @@ const AdminProducts = () => {
           />
           {search && search.length >= 3 && /^[a-fA-F0-9]+$/.test(search) && (
             <small style={{
-              fontSize: '0.65rem', 
-              color: '#667eea', 
+              fontSize: '0.65rem',
+              color: '#667eea',
               fontWeight: '500',
               whiteSpace: 'nowrap'
             }}>
@@ -1528,8 +1762,8 @@ const AdminProducts = () => {
           )}
           {search && search.length >= 3 && /^[A-Z0-9]{10}$/.test(search.toUpperCase()) && (
             <small style={{
-              fontSize: '0.65rem', 
-              color: '#ff9800', 
+              fontSize: '0.65rem',
+              color: '#ff9800',
               fontWeight: '500',
               whiteSpace: 'nowrap'
             }}>
@@ -1537,8 +1771,8 @@ const AdminProducts = () => {
             </small>
           )}
           <CategoryVisibilityToggle compact={true} />
-          <button 
-            onClick={() => navigate('/admin/dashboard')} 
+          <button
+            onClick={() => navigate('/admin/dashboard')}
             style={{
               padding: '6px 10px',
               fontSize: '0.7rem',
@@ -1553,8 +1787,8 @@ const AdminProducts = () => {
           >
             🏠 Dashboard
           </button>
-          <button 
-            onClick={() => navigate('/admin/excel-import')} 
+          <button
+            onClick={() => navigate('/admin/excel-import')}
             style={{
               padding: '6px 10px',
               fontSize: '0.7rem',
@@ -1569,8 +1803,8 @@ const AdminProducts = () => {
           >
             📤 Upload
           </button>
-          <button 
-            onClick={() => navigate('/admin/excel-manager')} 
+          <button
+            onClick={() => navigate('/admin/excel-manager')}
             style={{
               padding: '6px 10px',
               fontSize: '0.7rem',
@@ -1585,7 +1819,7 @@ const AdminProducts = () => {
           >
             📊 Excel Files
           </button>
-          <button 
+          <button
             onClick={async () => {
               if (confirm('Mark ALL active products as Amazon Choice? This will make all products appear on the Amazon Choice page.')) {
                 try {
@@ -1617,13 +1851,13 @@ const AdminProducts = () => {
             🏆 Mark All Amazon Choice
           </button>
         </div>
-        
+
         {/* Category Quick Filter Buttons */}
-        <div style={{marginBottom: '6px'}}>
-          <div style={{fontSize: '0.7rem', fontWeight: '600', marginBottom: '4px', color: '#374151'}}>
+        <div style={{ marginBottom: '6px' }}>
+          <div style={{ fontSize: '0.7rem', fontWeight: '600', marginBottom: '4px', color: '#374151' }}>
             📂 Categories:
           </div>
-          <div style={{display: 'flex', gap: '4px', flexWrap: 'wrap'}}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
             {categories.map(cat => {
               const isActive = (filters.category === cat.value || (cat.value === 'all' && !filters.category));
               return (
@@ -1646,7 +1880,7 @@ const AdminProducts = () => {
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  <span style={{fontSize: '0.7rem'}}>{cat.icon}</span>
+                  <span style={{ fontSize: '0.7rem' }}>{cat.icon}</span>
                   <span>{cat.label}</span>
                   {isActive && (
                     <span style={{
@@ -1664,8 +1898,8 @@ const AdminProducts = () => {
             })}
           </div>
         </div>
-        
-        <div className="filters" style={{display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap'}}>
+
+        <div className="filters" style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
           <select
             value={filters.status}
             onChange={(e) => handleStatusFilter(e.target.value)}
@@ -1686,7 +1920,7 @@ const AdminProducts = () => {
             <option value="inactive">❌ Inactive</option>
             <option value="pending">⏳ Pending</option>
           </select>
-          
+
           <button
             onClick={handleAmazonsChoiceFilter}
             style={{
@@ -1718,7 +1952,7 @@ const AdminProducts = () => {
               </span>
             )}
           </button>
-          
+
           <div style={{
             fontSize: '0.65rem',
             color: '#6b7280',
@@ -1751,7 +1985,7 @@ const AdminProducts = () => {
             borderRadius: '50%',
             animation: 'spin 1s linear infinite'
           }}></div>
-          <div style={{fontSize: '1rem', color: '#666'}}>
+          <div style={{ fontSize: '1rem', color: '#666' }}>
             Loading products{filters.category ? ` in ${categories.find(c => c.value === filters.category)?.label}` : ''}
             {filters.isAmazonsChoice ? ` (Amazon's Choice)` : ''}...
           </div>
@@ -1776,42 +2010,42 @@ const AdminProducts = () => {
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
-              <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {filters.isAmazonsChoice && (
                   <>
-                    <span style={{fontSize: '0.9rem'}}>🏆</span>
-                    <span style={{fontSize: '0.8rem', fontWeight: '700'}}>
+                    <span style={{ fontSize: '0.9rem' }}>🏆</span>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700' }}>
                       Amazon's Choice Products
                     </span>
                   </>
                 )}
                 {filters.category && (
                   <>
-                    <span style={{fontSize: '0.9rem'}}>
+                    <span style={{ fontSize: '0.9rem' }}>
                       {categories.find(c => c.value === filters.category)?.icon}
                     </span>
-                    <span style={{fontSize: '0.8rem', fontWeight: '700'}}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700' }}>
                       {categories.find(c => c.value === filters.category)?.label}
                     </span>
                   </>
                 )}
               </div>
-              <div style={{fontSize: '0.75rem', fontWeight: '600'}}>
+              <div style={{ fontSize: '0.75rem', fontWeight: '600' }}>
                 {filteredProducts.length} products
               </div>
             </div>
           )}
-          
-          <div className="table-info" style={{padding: '4px 8px', fontSize: '0.7rem', color: '#374151', background: '#f9fafb', borderRadius: '4px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-            <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-              <span style={{fontWeight: '600'}}>
+
+          <div className="table-info" style={{ padding: '4px 8px', fontSize: '0.7rem', color: '#374151', background: '#f9fafb', borderRadius: '4px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontWeight: '600' }}>
                 {filters.isAmazonsChoice && filters.category
                   ? `🏆 Amazon's Choice - ${categories.find(c => c.value === filters.category)?.label}: ${filteredProducts.length}`
                   : filters.isAmazonsChoice
-                  ? `🏆 Amazon's Choice: ${filteredProducts.length}`
-                  : filters.category 
-                  ? `📂 ${categories.find(c => c.value === filters.category)?.label}: ${filteredProducts.length}` 
-                  : `📦 Showing: ${filteredProducts.length}`}
+                    ? `🏆 Amazon's Choice: ${filteredProducts.length}`
+                    : filters.category
+                      ? `📂 ${categories.find(c => c.value === filters.category)?.label}: ${filteredProducts.length}`
+                      : `📦 Showing: ${filteredProducts.length}`}
               </span>
               {selectedProducts.size > 0 && (
                 <>
@@ -1847,53 +2081,53 @@ const AdminProducts = () => {
                 </>
               )}
             </div>
-            <span style={{fontSize: '0.65rem', color: '#6b7280'}}>
+            <span style={{ fontSize: '0.65rem', color: '#6b7280' }}>
               Page {currentPage}/{Math.ceil(filteredProducts.length / productsPerPage)}
             </span>
           </div>
-          
-          <div className="products-table" style={{fontSize: '0.8rem'}}>
-            <table style={{width: '100%'}}>
+
+          <div className="products-table" style={{ fontSize: '0.8rem' }}>
+            <table style={{ width: '100%' }}>
               <thead>
-                <tr style={{background: '#dc2626'}}>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', width: '40px', color: 'white'}}>
+                <tr style={{ background: '#dc2626' }}>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', width: '40px', color: 'white' }}>
                     <input
                       type="checkbox"
                       checked={selectedProducts.size > 0 && selectedProducts.size === filteredProducts.slice((currentPage - 1) * productsPerPage, currentPage * productsPerPage).length}
                       onChange={handleSelectAll}
-                      style={{cursor: 'pointer'}}
+                      style={{ cursor: 'pointer' }}
                       title="Select all on this page"
                     />
                   </th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Product</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>ASIN</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Category</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Price</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Stock</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Status</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Seller</th>
-                  <th style={{padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white'}}>Actions</th>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Product</th>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>ASIN</th>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Category</th>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Price</th>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Stock</th>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Status</th>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Seller</th>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredProducts.slice((currentPage - 1) * productsPerPage, currentPage * productsPerPage).map(product => (
-                  <tr key={product._id} style={{borderBottom: '1px solid #e5e7eb', background: selectedProducts.has(product._id) ? '#f0f9ff' : 'transparent'}}>
-                    <td style={{padding: '4px 8px', textAlign: 'center'}}>
+                  <tr key={product._id} style={{ borderBottom: '1px solid #e5e7eb', background: selectedProducts.has(product._id) ? '#f0f9ff' : 'transparent' }}>
+                    <td style={{ padding: '4px 8px', textAlign: 'center' }}>
                       <input
                         type="checkbox"
                         checked={selectedProducts.has(product._id)}
                         onChange={() => handleSelectProduct(product._id)}
-                        style={{cursor: 'pointer'}}
+                        style={{ cursor: 'pointer' }}
                         onClick={(e) => e.stopPropagation()}
                       />
                     </td>
-                    <td className="product-info" style={{padding: '4px 8px'}}>
-                      <div 
-                        className="product-name" 
+                    <td className="product-info" style={{ padding: '4px 8px' }}>
+                      <div
+                        className="product-name"
                         onClick={() => handleProductClick(product)}
                         style={{
-                          fontSize: '0.75rem', 
-                          fontWeight: '500', 
+                          fontSize: '0.75rem',
+                          fontWeight: '500',
                           marginBottom: '1px',
                           cursor: 'pointer',
                           color: '#667eea',
@@ -1905,13 +2139,13 @@ const AdminProducts = () => {
                         title="Click to view product details"
                       >
                         {product.name}
-                        {product.isAmazonsChoice && <span style={{fontSize: '0.7rem'}}>🏆</span>}
+                        {product.isAmazonsChoice && <span style={{ fontSize: '0.7rem' }}>🏆</span>}
                       </div>
-                      <div className="product-id" style={{fontSize: '0.6rem', color: '#6b7280'}}>ID: {product._id.slice(-6)}</div>
+                      <div className="product-id" style={{ fontSize: '0.6rem', color: '#6b7280' }}>ID: {product._id.slice(-6)}</div>
                     </td>
-                    <td 
-                      className="asin" 
-                      style={{padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s'}}
+                    <td
+                      className="asin"
+                      style={{ padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s' }}
                       data-cell={`${product._id}-asin`}
                       onClick={() => handleCellClick(product._id, 'asin', product.asin)}
                       onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
@@ -1946,16 +2180,16 @@ const AdminProducts = () => {
                           fontWeight: product.asin ? '600' : '400'
                         }}>
                           {product.asin || 'No ASIN'}
-                          <span style={{marginLeft: '3px', fontSize: '0.55rem', color: '#999'}}>✏️</span>
+                          <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
                         </span>
                       )}
                     </td>
-                    <td style={{padding: '4px 8px'}}>
-                      <span className="category-badge" style={{fontSize: '0.65rem', padding: '2px 6px'}}>{product.category}</span>
+                    <td style={{ padding: '4px 8px' }}>
+                      <span className="category-badge" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>{product.category}</span>
                     </td>
-                    <td 
-                      className="price" 
-                      style={{padding: '4px 8px', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s'}}
+                    <td
+                      className="price"
+                      style={{ padding: '4px 8px', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s' }}
                       data-cell={`${product._id}-price`}
                       onClick={() => handleCellClick(product._id, 'price', product.price)}
                       onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
@@ -1983,13 +2217,13 @@ const AdminProducts = () => {
                       ) : (
                         <span>
                           {formatPrice(product.price)}
-                          <span style={{marginLeft: '3px', fontSize: '0.55rem', color: '#999'}}>✏️</span>
+                          <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
                         </span>
                       )}
                     </td>
-                    <td 
-                      className="stock" 
-                      style={{padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s'}}
+                    <td
+                      className="stock"
+                      style={{ padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s' }}
                       data-cell={`${product._id}-stock`}
                       onClick={() => handleCellClick(product._id, 'stock', product.stock)}
                       onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
@@ -2014,28 +2248,28 @@ const AdminProducts = () => {
                           }}
                         />
                       ) : (
-                        <span className={product.stock > 10 ? 'in-stock' : 'low-stock'} style={{fontSize: '0.7rem', padding: '2px 4px'}}>
+                        <span className={product.stock > 10 ? 'in-stock' : 'low-stock'} style={{ fontSize: '0.7rem', padding: '2px 4px' }}>
                           {product.stock}
-                          <span style={{marginLeft: '3px', fontSize: '0.55rem', color: '#999'}}>✏️</span>
+                          <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
                         </span>
                       )}
                     </td>
-                    <td style={{padding: '4px 8px'}}>
+                    <td style={{ padding: '4px 8px' }}>
                       <select
                         value={product.status}
                         onChange={(e) => handleStatusChange(product._id, e.target.value)}
                         className={`status-select ${product.status}`}
-                        style={{fontSize: '0.65rem', padding: '2px 4px'}}
+                        style={{ fontSize: '0.65rem', padding: '2px 4px' }}
                       >
                         <option value="active">✅</option>
                         <option value="inactive">❌</option>
                         <option value="pending">⏳</option>
                       </select>
                     </td>
-                    <td className="seller-info" style={{padding: '4px 8px', fontSize: '0.7rem'}}>
+                    <td className="seller-info" style={{ padding: '4px 8px', fontSize: '0.7rem' }}>
                       {product.seller?.businessName || 'Direct'}
                     </td>
-                    <td className="actions" style={{padding: '4px 8px'}}>
+                    <td className="actions" style={{ padding: '4px 8px' }}>
                       <button
                         onClick={() => {
                           const editUrl = `/admin/products/edit/${product._id}${filters.category ? `?returnCategory=${filters.category}` : ''}`;
@@ -2045,7 +2279,7 @@ const AdminProducts = () => {
                         }}
                         className="edit-btn"
                         title="Edit Product"
-                        style={{padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px'}}
+                        style={{ padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px' }}
                       >
                         ✏️
                       </button>
@@ -2053,7 +2287,7 @@ const AdminProducts = () => {
                         onClick={() => startProfitEditing(product)}
                         className="profit-btn"
                         title="Manage Profit Details"
-                        style={{padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px', background: '#ff9800', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer'}}
+                        style={{ padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px', background: '#ff9800', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
                       >
                         💰
                       </button>
@@ -2061,7 +2295,7 @@ const AdminProducts = () => {
                         onClick={() => handleVariationsClick(product)}
                         className="variations-btn"
                         title="Manage Product Variations"
-                        style={{padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px', background: '#6f42c1', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer'}}
+                        style={{ padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px', background: '#6f42c1', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
                       >
                         🎨
                       </button>
@@ -2069,7 +2303,7 @@ const AdminProducts = () => {
                         onClick={() => handleDelete(product._id)}
                         className="delete-btn"
                         title="Delete Product"
-                        style={{padding: '2px 6px', fontSize: '0.65rem'}}
+                        style={{ padding: '2px 6px', fontSize: '0.65rem' }}
                       >
                         🗑️
                       </button>
@@ -2081,19 +2315,19 @@ const AdminProducts = () => {
           </div>
 
           {filteredProducts.length === 0 && (
-            <div className="no-products" style={{padding: '30px', textAlign: 'center'}}>
-              <h3 style={{fontSize: '1rem', marginBottom: '8px'}}>No products found</h3>
-              <p style={{fontSize: '0.8rem', marginBottom: '12px'}}>Try adjusting your search or filters</p>
-              <button 
-                onClick={() => navigate('/admin/excel-import')} 
+            <div className="no-products" style={{ padding: '30px', textAlign: 'center' }}>
+              <h3 style={{ fontSize: '1rem', marginBottom: '8px' }}>No products found</h3>
+              <p style={{ fontSize: '0.8rem', marginBottom: '12px' }}>Try adjusting your search or filters</p>
+              <button
+                onClick={() => navigate('/admin/excel-import')}
                 className="add-first-product"
-                style={{padding: '6px 12px', fontSize: '0.8rem'}}
+                style={{ padding: '6px 12px', fontSize: '0.8rem' }}
               >
                 ➕ Add from Excel
               </button>
             </div>
           )}
-          
+
           {/* Pagination */}
           {filteredProducts.length > productsPerPage && (
             <div style={{
@@ -2122,7 +2356,7 @@ const AdminProducts = () => {
               >
                 ⏮
               </button>
-              
+
               <button
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
@@ -2139,7 +2373,7 @@ const AdminProducts = () => {
               >
                 ←
               </button>
-              
+
               <div style={{
                 padding: '4px 12px',
                 fontSize: '0.7rem',
@@ -2153,7 +2387,7 @@ const AdminProducts = () => {
               }}>
                 {currentPage} / {Math.ceil(filteredProducts.length / productsPerPage)}
               </div>
-              
+
               <button
                 onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredProducts.length / productsPerPage), prev + 1))}
                 disabled={currentPage === Math.ceil(filteredProducts.length / productsPerPage)}
@@ -2170,7 +2404,7 @@ const AdminProducts = () => {
               >
                 →
               </button>
-              
+
               <button
                 onClick={() => setCurrentPage(Math.ceil(filteredProducts.length / productsPerPage))}
                 disabled={currentPage === Math.ceil(filteredProducts.length / productsPerPage)}
@@ -2191,8 +2425,8 @@ const AdminProducts = () => {
           )}
         </div>
       )}
-  
-    {/* Profit Details Modal */}
+
+      {/* Profit Details Modal */}
       {showProfitModal && profitEditProduct && (
         <div style={{
           position: 'fixed',
@@ -2231,17 +2465,17 @@ const AdminProducts = () => {
               alignItems: windowWidth <= 768 ? 'flex-start' : 'center',
               gap: windowWidth <= 768 ? '15px' : '0'
             }}>
-              <div style={{flex: 1, minWidth: 0}}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <h2 style={{
-                  margin: 0, 
-                  fontSize: window.innerWidth <= 768 ? '1.2rem' : '1.5rem', 
+                  margin: 0,
+                  fontSize: window.innerWidth <= 768 ? '1.2rem' : '1.5rem',
                   fontWeight: 'bold',
                   lineHeight: '1.2'
                 }}>
                   💰 Profit Details Management
                 </h2>
                 <p style={{
-                  margin: '5px 0 0 0', 
+                  margin: '5px 0 0 0',
                   opacity: 0.9,
                   fontSize: window.innerWidth <= 768 ? '0.85rem' : '1rem',
                   wordBreak: 'break-word'
@@ -2250,19 +2484,19 @@ const AdminProducts = () => {
                 </p>
               </div>
               <div style={{
-                display: 'flex', 
-                alignItems: 'center', 
+                display: 'flex',
+                alignItems: 'center',
                 gap: window.innerWidth <= 768 ? '10px' : '15px',
                 flexShrink: 0
               }}>
                 <div style={{
-                  display: 'flex', 
-                  flexDirection: 'column', 
+                  display: 'flex',
+                  flexDirection: 'column',
                   alignItems: window.innerWidth <= 768 ? 'flex-start' : 'flex-end'
                 }}>
                   <label style={{
-                    fontSize: window.innerWidth <= 768 ? '0.7rem' : '0.75rem', 
-                    marginBottom: '4px', 
+                    fontSize: window.innerWidth <= 768 ? '0.7rem' : '0.75rem',
+                    marginBottom: '4px',
                     opacity: 0.9
                   }}>
                     Currency
@@ -2279,7 +2513,7 @@ const AdminProducts = () => {
                     GBP (£)
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowProfitModal(false)}
                   style={{
                     background: 'rgba(255,255,255,0.2)',
@@ -2299,28 +2533,28 @@ const AdminProducts = () => {
               </div>
             </div>
 
-            <div style={{padding: window.innerWidth <= 768 ? '15px' : '25px'}}>
+            <div style={{ padding: window.innerWidth <= 768 ? '15px' : '25px' }}>
               {/* Platform Comparison Section */}
               <div style={{
-                marginBottom: window.innerWidth <= 768 ? '20px' : '30px', 
-                padding: window.innerWidth <= 768 ? '15px' : '20px', 
-                backgroundColor: '#e8f5e9', 
-                borderRadius: '8px', 
+                marginBottom: window.innerWidth <= 768 ? '20px' : '30px',
+                padding: window.innerWidth <= 768 ? '15px' : '20px',
+                backgroundColor: '#e8f5e9',
+                borderRadius: '8px',
                 border: '2px solid #28a745'
               }}>
                 <h3 style={{
-                  color: '#28a745', 
-                  marginBottom: window.innerWidth <= 768 ? '15px' : '20px', 
+                  color: '#28a745',
+                  marginBottom: window.innerWidth <= 768 ? '15px' : '20px',
                   fontSize: window.innerWidth <= 768 ? '1.1rem' : '1.3rem'
                 }}>
                   📊 Platform Comparison
                 </h3>
                 {profitEditProduct.platformComparison.map((platform, index) => (
                   <div key={index} style={{
-                    marginBottom: window.innerWidth <= 768 ? '15px' : '20px', 
-                    padding: window.innerWidth <= 768 ? '12px' : '15px', 
-                    backgroundColor: 'white', 
-                    borderRadius: '8px', 
+                    marginBottom: window.innerWidth <= 768 ? '15px' : '20px',
+                    padding: window.innerWidth <= 768 ? '12px' : '15px',
+                    backgroundColor: 'white',
+                    borderRadius: '8px',
                     border: '1px solid #ddd'
                   }}>
                     <div style={{
@@ -2331,15 +2565,15 @@ const AdminProducts = () => {
                       alignItems: window.innerWidth <= 768 ? 'stretch' : 'center'
                     }}>
                       <div>
-                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Platform</label>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>Platform</label>
                         <select
                           value={platform.platform}
                           onChange={(e) => {
                             const newPlatforms = [...profitEditProduct.platformComparison];
                             newPlatforms[index].platform = e.target.value;
-                            setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                            setProfitEditProduct({ ...profitEditProduct, platformComparison: newPlatforms });
                           }}
-                          style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                          style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem' }}
                         >
                           <option value="RRP">RRP</option>
                           <option value="Amazon">Amazon</option>
@@ -2349,43 +2583,151 @@ const AdminProducts = () => {
                         </select>
                       </div>
                       <div>
-                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>RRP/Unit (£)</label>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                          RRP/Unit (£)
+                          {platform.platform === 'RRP' && (
+                            <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#007bff', marginLeft: '8px' }}>
+                              (Auto-syncs with Sales Proceeds)
+                            </span>
+                          )}
+                        </label>
                         <input
                           type="number"
                           step="0.01"
                           min="0"
-                          value={safeFormatNumber(platform.rrpPerUnit) || ''}
+                          key={`rrp-${index}-${platform.rrpPerUnit}`}
+                          value={getInputValue(`rrp-${index}`, platform.rrpPerUnit)}
+                          onFocus={() => handleInputFocus(`rrp-${index}`, platform.rrpPerUnit)}
                           onChange={(e) => {
-                            const newPlatforms = [...profitEditProduct.platformComparison];
-                            newPlatforms[index].rrpPerUnit = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
-                            setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                            const inputKey = `rrp-${index}`;
+                            handleInputChange(inputKey, e.target.value);
+                            
+                            const newValue = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                            console.log(`🔧 Platform ${platform.platform} RRP/Unit changed to:`, newValue);
+                            
+                            // Use functional state update to ensure we get the latest state
+                            setProfitEditProduct(prevState => {
+                              const newPlatforms = [...prevState.platformComparison];
+                              newPlatforms[index].rrpPerUnit = newValue;
+                              
+                              // Calculate and update markup for this platform
+                              const productCost = prevState.profitEvaluation?.productCost || 0;
+                              if (productCost > 0) {
+                                try {
+                                  newPlatforms[index].markup = calculateMarkupPercentage(newValue, productCost);
+                                  console.log(`🔧 Updated markup for ${platform.platform}: ${newPlatforms[index].markup}`);
+                                } catch (error) {
+                                  console.error('Error calculating markup:', error);
+                                  newPlatforms[index].markup = '0%';
+                                }
+                              } else {
+                                newPlatforms[index].markup = '0%';
+                              }
+                              
+                              let updatedEvaluation = { ...prevState.profitEvaluation };
+                              
+                              // Only auto-sync with Sales Proceeds if this is the Amazon platform
+                              if (platform.platform === 'Amazon') {
+                                console.log(`🔄 AMAZON SYNC: RRP/Unit ${newValue} → Sales Proceeds ${newValue}`);
+                                updatedEvaluation.salesProceeds = newValue;
+                                
+                                // Also update Balance Change when Sales Proceeds changes
+                                const commission = Math.abs(updatedEvaluation.commission || 0);
+                                const commissionTax = Math.abs(updatedEvaluation.commissionTax || 0);
+                                const digitalServicesFee = Math.abs(updatedEvaluation.digitalServicesFee || 0);
+                                const digitalServicesTax = Math.abs(updatedEvaluation.digitalServicesTax || 0);
+                                const fbaFulfilmentFee = Math.abs(updatedEvaluation.fbaFulfilmentFee || 0);
+                                const fbaFulfilmentTax = Math.abs(updatedEvaluation.fbaFulfilmentTax || 0);
+                                
+                                const calculatedBalance = newValue - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
+                                updatedEvaluation.balanceChange = calculatedBalance;
+                                
+                                // Also recalculate Net Profit (Balance Change - Product Cost)
+                                const productCost = updatedEvaluation.productCost || 0;
+                                updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
+                                
+                                console.log(`🧮 Balance Change auto-calculated: ${newValue} - ${commission} - ${commissionTax} - ${digitalServicesFee} - ${digitalServicesTax} - ${fbaFulfilmentFee} - ${fbaFulfilmentTax} = ${calculatedBalance}`);
+                                console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
+                              }
+                              
+                              // Update profit calculations with new net profit
+                              const updatedProfitCalculations = {
+                                ...prevState.profitCalculations,
+                                profitPerUnit: updatedEvaluation.netProfit
+                              };
+                              
+                              // Calculate auto-savings percentage
+                              const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
+                                ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
+                              
+                              return {
+                                ...prevState,
+                                platformComparison: newPlatforms,
+                                profitEvaluation: updatedEvaluation,
+                                profitCalculations: updatedProfitCalculations,
+                                savings: parseFloat(autoCalculatedSavings.toFixed(2))
+                              };
+                            });
                           }}
-                          onFocus={(e) => e.target.select()}
-                          style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                          onBlur={() => handleInputBlur(`rrp-${index}`)}
+                          style={{ 
+                            width: '100%', 
+                            padding: '10px', 
+                            border: '1px solid #ddd', 
+                            borderRadius: '6px', 
+                            fontSize: '0.9rem',
+                            // Hide number input spinners
+                            MozAppearance: 'textfield',
+                            WebkitAppearance: 'none',
+                            appearance: 'none'
+                          }}
+                          onWheel={(e) => e.target.blur()} // Prevent scroll wheel changing values
                           placeholder="0.00"
                         />
                       </div>
                       <div>
-                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Units</label>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>Units</label>
                         <input
                           type="number"
                           step="1"
                           min="1"
                           value={platform.units || 200}
                           onChange={(e) => {
-                            const newPlatforms = [...profitEditProduct.platformComparison];
                             const newUnits = parseInt(e.target.value) || 200;
-                            newPlatforms[index].units = newUnits;
-                            const profitPerUnit = profitEditProduct.profitEvaluation?.netProfit || 0;
-                            newPlatforms[index].profitFor200Units = profitPerUnit * newUnits;
-                            setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                            const newPlatforms = [...profitEditProduct.platformComparison];
+                            
+                            // Auto-sync units to ALL platforms
+                            newPlatforms.forEach((plt, idx) => {
+                              plt.units = newUnits;
+                              // Recalculate profit for each platform
+                              const profitPerUnit = profitEditProduct.profitEvaluation?.netProfit || 0;
+                              plt.profitFor200Units = profitPerUnit * newUnits;
+                            });
+                            
+                            // Also update the selected units state
+                            setSelectedUnits(newUnits);
+                            
+                            setProfitEditProduct({ ...profitEditProduct, platformComparison: newPlatforms });
                           }}
-                          style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                          style={{ 
+                            width: '100%', 
+                            padding: '10px', 
+                            border: '1px solid #ddd', 
+                            borderRadius: '6px', 
+                            fontSize: '0.9rem',
+                            MozAppearance: 'textfield',
+                            WebkitAppearance: 'none',
+                            appearance: 'none'
+                          }}
+                          onWheel={(e) => e.target.blur()}
                           placeholder="200"
                         />
+                        <small style={{ color: '#28a745', fontSize: '0.75rem', display: 'block', marginTop: '4px', fontWeight: '600' }}>
+                          ✓ Auto-syncs to all platforms
+                        </small>
                       </div>
                       <div>
-                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                           Total Profit ({platform.units || 200} units) (£)
                         </label>
                         <input
@@ -2404,17 +2746,69 @@ const AdminProducts = () => {
                         />
                       </div>
                       <div>
-                        <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>Markup</label>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                          Markup %
+                         
+                        </label>
                         <input
                           type="text"
-                          value={platform.markup}
-                          onChange={(e) => {
-                            const newPlatforms = [...profitEditProduct.platformComparison];
-                            newPlatforms[index].markup = e.target.value;
-                            setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                          key={`markup-${index}-${platform.rrpPerUnit}-${profitEditProduct.profitEvaluation?.productCost}`}
+                          value={(() => {
+                            // Auto-calculate Markup percentage using EXACT same logic as Product Cost field
+                            const rrpPerUnit = platform.rrpPerUnit || 0;
+                            
+                            // Use the EXACT same logic as the Product Cost field display
+                            const productCostFormatted = safeFormatNumber(profitEditProduct.profitEvaluation?.productCost || 0);
+                            const productCost = parseFloat(productCostFormatted) || 0;
+                            
+                            // Comprehensive debugging
+                            console.log(`🔍 Markup Debug for ${platform.platform}:`, {
+                              rrpPerUnit: rrpPerUnit,
+                              rawProductCost: profitEditProduct.profitEvaluation?.productCost,
+                              formattedProductCost: productCostFormatted,
+                              parsedProductCost: productCost,
+                              profitEvaluationExists: !!profitEditProduct.profitEvaluation,
+                              calculation: `((${rrpPerUnit} - ${productCost}) / ${productCost}) × 100`,
+                              testCalculation: rrpPerUnit > 0 && productCost > 0 ? ((rrpPerUnit - productCost) / productCost) * 100 : 'N/A'
+                            });
+                            
+                            // Additional debugging for the exact values
+                            if (platform.platform === 'Amazon') {
+                              console.log(`🎯 Amazon Platform Specific Debug:`, {
+                                platformObject: platform,
+                                profitEditProductKeys: Object.keys(profitEditProduct),
+                                profitEvaluationKeys: profitEditProduct.profitEvaluation ? Object.keys(profitEditProduct.profitEvaluation) : 'No profitEvaluation'
+                              });
+                            }
+                            
+                            if (productCost === 0 || isNaN(productCost)) {
+                              console.log(`⚠️ Product cost is ${productCost} for ${platform.platform}, returning 0%`);
+                              return '0%';
+                            }
+                            
+                            if (rrpPerUnit === 0) {
+                              console.log(`⚠️ RRP/Unit is 0 for ${platform.platform}, returning 0%`);
+                              return '0%';
+                            }
+                            
+                            const markupPercentage = ((rrpPerUnit - productCost) / productCost) * 100;
+                            
+                            console.log(`🧮 Markup result for ${platform.platform}: ${markupPercentage.toFixed(1)}%`);
+                            
+                            return `${markupPercentage.toFixed(1)}%`;
+                          })()}
+                          readOnly
+                          style={{
+                            width: '100%',
+                            padding: '10px',
+                            border: '1px solid #17a2b8',
+                            borderRadius: '6px',
+                            fontSize: '0.9rem',
+                            backgroundColor: '#e7f3ff',
+                            cursor: 'not-allowed',
+                            color: '#0056b3'
                           }}
-                          style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                          placeholder="e.g., 25%"
+                          title="Auto-calculated: ((RRP/Unit - Product Cost) / Product Cost) × 100"
                         />
                       </div>
                       <div>
@@ -2422,7 +2816,7 @@ const AdminProducts = () => {
                           onClick={() => {
                             const newPlatforms = [...profitEditProduct.platformComparison];
                             newPlatforms.splice(index, 1);
-                            setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                            setProfitEditProduct({ ...profitEditProduct, platformComparison: newPlatforms });
                           }}
                           style={{
                             background: '#dc3545',
@@ -2440,7 +2834,7 @@ const AdminProducts = () => {
                     </div>
                   </div>
                 ))}
-                
+
                 <button
                   onClick={() => {
                     const newPlatforms = [...profitEditProduct.platformComparison, {
@@ -2450,7 +2844,7 @@ const AdminProducts = () => {
                       profitFor200Units: 0,
                       markup: '0%'
                     }];
-                    setProfitEditProduct({...profitEditProduct, platformComparison: newPlatforms});
+                    setProfitEditProduct({ ...profitEditProduct, platformComparison: newPlatforms });
                   }}
                   style={{
                     background: '#28a745',
@@ -2465,7 +2859,7 @@ const AdminProducts = () => {
                 >
                   + Add Platform
                 </button>
-                
+
                 {/* Single Save Field */}
                 <div style={{
                   marginTop: window.innerWidth <= 768 ? '15px' : '20px',
@@ -2482,33 +2876,35 @@ const AdminProducts = () => {
                     alignItems: window.innerWidth <= 768 ? 'stretch' : 'center'
                   }}>
                     <div>
-                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#28a745'}}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#28a745' }}>
                         Save (%)
-                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
-                          (Percentage savings - % will be auto-added)
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
+                          (Auto-calculated: (Balance Change - Product Cost) / Product Cost × 100)
                         </span>
                       </label>
-                      <div style={{position: 'relative', display: 'flex', alignItems: 'center'}}>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                         <input
                           type="number"
-                          step="1"
-                          min="0"
-                          max="100"
-                          value={safeFormatNumber(profitEditProduct.savings) || ''}
-                          onChange={(e) => {
-                            const newValue = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
-                            setProfitEditProduct({...profitEditProduct, savings: newValue});
-                          }}
-                          onFocus={(e) => e.target.select()}
+                          step="0.01"
+                          value={(() => {
+                            const balanceChange = profitEditProduct.profitEvaluation?.balanceChange || 0;
+                            const productCost = profitEditProduct.profitEvaluation?.productCost || 0;
+                            
+                            if (productCost === 0) return '0.00';
+                            
+                            const savePercentage = ((balanceChange - productCost) / productCost) * 100;
+                            return isNaN(savePercentage) ? '0.00' : savePercentage.toFixed(2);
+                          })()}
+                          readOnly
                           style={{
                             width: '100%',
                             padding: '10px 35px 10px 10px',
                             border: '2px solid #28a745',
                             borderRadius: '6px',
                             fontSize: '0.9rem',
-                            backgroundColor: 'white'
+                            backgroundColor: '#e7f3ff',
+                            cursor: 'not-allowed'
                           }}
-                          placeholder="20"
                         />
                         <span style={{
                           position: 'absolute',
@@ -2529,7 +2925,7 @@ const AdminProducts = () => {
                       borderRadius: '6px',
                       border: '1px solid rgba(40, 167, 69, 0.3)'
                     }}>
-                      💡 Enter the percentage value (e.g., 20 for 20%). This will be displayed as "Save: 20%" on the product detail page to show customers their savings.
+                      💡 Auto-calculated based on profit margin. This percentage will be displayed as "Save: X%" on the product detail page to show customers their savings.
                     </div>
                   </div>
                 </div>
@@ -2537,15 +2933,15 @@ const AdminProducts = () => {
 
               {/* Profit Calculations Section */}
               <div style={{
-                marginBottom: window.innerWidth <= 768 ? '20px' : '30px', 
-                padding: window.innerWidth <= 768 ? '15px' : '20px', 
-                backgroundColor: '#fff3cd', 
-                borderRadius: '8px', 
+                marginBottom: window.innerWidth <= 768 ? '20px' : '30px',
+                padding: window.innerWidth <= 768 ? '15px' : '20px',
+                backgroundColor: '#fff3cd',
+                borderRadius: '8px',
                 border: '2px solid #ffc107'
               }}>
                 <h3 style={{
-                  color: '#856404', 
-                  marginBottom: window.innerWidth <= 768 ? '15px' : '20px', 
+                  color: '#856404',
+                  marginBottom: window.innerWidth <= 768 ? '15px' : '20px',
                   fontSize: window.innerWidth <= 768 ? '1.1rem' : '1.3rem'
                 }}>
                   🧮 Profit Calculations
@@ -2553,11 +2949,11 @@ const AdminProducts = () => {
                 <div style={{
                   display: window.innerWidth <= 768 ? 'flex' : 'grid',
                   flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
-                  gridTemplateColumns: window.innerWidth <= 768 ? 'none' : '1fr 1fr',
+                  gridTemplateColumns: window.innerWidth <= 768 ? 'none' : '1fr',
                   gap: window.innerWidth <= 768 ? '15px' : '20px'
                 }}>
                   <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                       Profit Per Unit (£)
                     </label>
                     <input
@@ -2576,89 +2972,98 @@ const AdminProducts = () => {
                       }}
                     />
                   </div>
-                  <div>
-                    <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
-                      Profit for 200 Units (£)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={safeFormatNumber(profitEditProduct.profitCalculations.profitFor200Units)}
-                      readOnly
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        border: '1px solid #17a2b8',
-                        borderRadius: '6px',
-                        fontSize: '0.9rem',
-                        backgroundColor: '#e7f3ff',
-                        cursor: 'not-allowed'
-                      }}
-                    />
-                  </div>
                 </div>
               </div>
 
               {/* Amazon FBA Revenue Calculator Section */}
               <div style={{
-                marginBottom: window.innerWidth <= 768 ? '20px' : '30px', 
-                padding: window.innerWidth <= 768 ? '15px' : '20px', 
-                backgroundColor: '#f8d7da', 
-                borderRadius: '8px', 
+                marginBottom: window.innerWidth <= 768 ? '20px' : '30px',
+                padding: window.innerWidth <= 768 ? '15px' : '20px',
+                backgroundColor: '#f8d7da',
+                borderRadius: '8px',
                 border: '2px solid #dc3545'
               }}>
                 <h3 style={{
-                  color: '#721c24', 
-                  marginBottom: window.innerWidth <= 768 ? '12px' : '15px', 
+                  color: '#721c24',
+                  marginBottom: window.innerWidth <= 768 ? '12px' : '15px',
                   fontSize: window.innerWidth <= 768 ? '1.1rem' : '1.3rem'
                 }}>
                   💼 Amazon FBA Revenue Calculator
                 </h3>
                 <p style={{
-                  color: '#721c24', 
-                  marginBottom: window.innerWidth <= 768 ? '15px' : '20px', 
-                  fontSize: window.innerWidth <= 768 ? '0.8rem' : '0.9rem', 
+                  color: '#721c24',
+                  marginBottom: window.innerWidth <= 768 ? '15px' : '20px',
+                  fontSize: window.innerWidth <= 768 ? '0.8rem' : '0.9rem',
                   fontStyle: 'italic'
                 }}>
                   Complete Amazon FBA profit analysis - all fields will be displayed in the product detail page
                 </p>
-                
+
                 {/* Revenue Section */}
-                <div style={{marginBottom: '25px'}}>
-                  <h4 style={{color: '#721c24', marginBottom: '15px', fontSize: '1.1rem', borderBottom: '2px solid #dc3545', paddingBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                <div style={{ marginBottom: '25px' }}>
+                  <h4 style={{ color: '#721c24', marginBottom: '15px', fontSize: '1.1rem', borderBottom: '2px solid #dc3545', paddingBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     📈 Revenue
                   </h4>
-                  <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                     Sales Proceeds (£)
-                    <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
-                      (Total revenue from Amazon sales)
+                    <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#007bff', marginLeft: '8px' }}>
+                      (Auto-populated from Amazon Platform RRP/Unit)
                     </span>
                   </label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
+                    key={`sales-proceeds-${profitEditProduct.profitEvaluation.salesProceeds}`}
                     value={safeFormatNumber(profitEditProduct.profitEvaluation.salesProceeds) || ''}
-                    onChange={(e) => {
-                      const newValue = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
-                      const updatedEvaluation = {
-                        ...profitEditProduct.profitEvaluation,
-                        salesProceeds: newValue
-                      };
-                      setProfitEditProduct({
-                        ...profitEditProduct,
-                        profitEvaluation: updatedEvaluation
-                      });
+                    readOnly
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #17a2b8',
+                      borderRadius: '6px',
+                      fontSize: '0.9rem',
+                      backgroundColor: '#e7f3ff',
+                      cursor: 'not-allowed',
+                      color: '#0056b3'
                     }}
-                    onFocus={(e) => e.target.select()}
-                    style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                    placeholder="0.00"
+                    title="This value is automatically populated from Amazon Platform RRP/Unit"
                   />
+                  
+                  {/* Debug sync button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const rrpPlatform = profitEditProduct.platformComparison?.find(p => p.platform === 'RRP');
+                      if (rrpPlatform) {
+                        console.log('🔧 Manual sync test: RRP Platform has', rrpPlatform.rrpPerUnit, 'Sales Proceeds has', profitEditProduct.profitEvaluation.salesProceeds);
+                        setProfitEditProduct(prevState => ({
+                          ...prevState,
+                          profitEvaluation: {
+                            ...prevState.profitEvaluation,
+                            salesProceeds: rrpPlatform.rrpPerUnit
+                          }
+                        }));
+                      }
+                    }}
+                    style={{
+                      marginTop: '5px',
+                      padding: '5px 10px',
+                      background: '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🔄 Sync from RRP (Debug)
+                  </button>
                 </div>
 
                 {/* Amazon Fees Section */}
-                <div style={{marginBottom: '25px'}}>
-                  <h4 style={{color: '#721c24', marginBottom: '15px', fontSize: '1.1rem', borderBottom: '2px solid #dc3545', paddingBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                <div style={{ marginBottom: '25px' }}>
+                  <h4 style={{ color: '#721c24', marginBottom: '15px', fontSize: '1.1rem', borderBottom: '2px solid #dc3545', paddingBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     💸 Amazon Fees & Taxes
                   </h4>
                   <div style={{
@@ -2669,9 +3074,9 @@ const AdminProducts = () => {
                     marginBottom: window.innerWidth <= 768 ? '12px' : '15px'
                   }}>
                     <div>
-                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         Commission (£)
-                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
                           (Amazon referral fee)
                         </span>
                       </label>
@@ -2679,26 +3084,74 @@ const AdminProducts = () => {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={safeFormatNumber(profitEditProduct.profitEvaluation.commission)}
+                        value={getInputValue('commission', profitEditProduct.profitEvaluation.commission)}
+                        onFocus={() => handleInputFocus('commission', profitEditProduct.profitEvaluation.commission)}
                         onChange={(e) => {
+                          handleInputChange('commission', e.target.value);
                           const newValue = safeParseInput(e.target.value);
-                          const updatedEvaluation = {
-                            ...profitEditProduct.profitEvaluation,
-                            commission: newValue
-                          };
-                          setProfitEditProduct({
-                            ...profitEditProduct,
-                            profitEvaluation: updatedEvaluation
+                          
+                          setProfitEditProduct(prevState => {
+                            const updatedEvaluation = {
+                              ...prevState.profitEvaluation,
+                              commission: newValue
+                            };
+                            
+                            // Auto-calculate Balance Change
+                            const salesProceeds = updatedEvaluation.salesProceeds || 0;
+                            const commission = Math.abs(newValue);
+                            const commissionTax = Math.abs(updatedEvaluation.commissionTax || 0);
+                            const digitalServicesFee = Math.abs(updatedEvaluation.digitalServicesFee || 0);
+                            const digitalServicesTax = Math.abs(updatedEvaluation.digitalServicesTax || 0);
+                            const fbaFulfilmentFee = Math.abs(updatedEvaluation.fbaFulfilmentFee || 0);
+                            const fbaFulfilmentTax = Math.abs(updatedEvaluation.fbaFulfilmentTax || 0);
+                            
+                            const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
+                            updatedEvaluation.balanceChange = calculatedBalance;
+                            
+                            // Also recalculate Net Profit (Balance Change - Product Cost)
+                            const productCost = updatedEvaluation.productCost || 0;
+                            updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
+                            
+                            console.log(`🧮 Balance Change recalculated (Commission changed): ${calculatedBalance}`);
+                            console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
+                            
+                            // Update profit calculations with new net profit
+                            const updatedProfitCalculations = {
+                              ...prevState.profitCalculations,
+                              profitPerUnit: updatedEvaluation.netProfit
+                            };
+                            
+                            // Calculate auto-savings percentage
+                            const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
+                              ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
+                            
+                            return {
+                              ...prevState,
+                              profitEvaluation: updatedEvaluation,
+                              profitCalculations: updatedProfitCalculations,
+                              savings: parseFloat(autoCalculatedSavings.toFixed(2))
+                            };
                           });
                         }}
-                        style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                        onBlur={() => handleInputBlur('commission')}
+                        style={{ 
+                          width: '100%', 
+                          padding: '10px', 
+                          border: '1px solid #ddd', 
+                          borderRadius: '6px', 
+                          fontSize: '0.9rem',
+                          MozAppearance: 'textfield',
+                          WebkitAppearance: 'none',
+                          appearance: 'none'
+                        }}
+                        onWheel={(e) => e.target.blur()}
                         placeholder="0.00"
                       />
                     </div>
                     <div>
-                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         Commission Tax (£)
-                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
                           (VAT on commission)
                         </span>
                       </label>
@@ -2706,19 +3159,67 @@ const AdminProducts = () => {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={safeFormatNumber(profitEditProduct.profitEvaluation.commissionTax)}
+                        value={getInputValue('commissionTax', profitEditProduct.profitEvaluation.commissionTax)}
+                        onFocus={() => handleInputFocus('commissionTax', profitEditProduct.profitEvaluation.commissionTax)}
                         onChange={(e) => {
+                          handleInputChange('commissionTax', e.target.value);
                           const newValue = safeParseInput(e.target.value);
-                          const updatedEvaluation = {
-                            ...profitEditProduct.profitEvaluation,
-                            commissionTax: newValue
-                          };
-                          setProfitEditProduct({
-                            ...profitEditProduct,
-                            profitEvaluation: updatedEvaluation
+                          
+                          setProfitEditProduct(prevState => {
+                            const updatedEvaluation = {
+                              ...prevState.profitEvaluation,
+                              commissionTax: newValue
+                            };
+                            
+                            // Auto-calculate Balance Change
+                            const salesProceeds = updatedEvaluation.salesProceeds || 0;
+                            const commission = Math.abs(updatedEvaluation.commission || 0);
+                            const commissionTax = Math.abs(newValue);
+                            const digitalServicesFee = Math.abs(updatedEvaluation.digitalServicesFee || 0);
+                            const digitalServicesTax = Math.abs(updatedEvaluation.digitalServicesTax || 0);
+                            const fbaFulfilmentFee = Math.abs(updatedEvaluation.fbaFulfilmentFee || 0);
+                            const fbaFulfilmentTax = Math.abs(updatedEvaluation.fbaFulfilmentTax || 0);
+                            
+                            const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
+                            updatedEvaluation.balanceChange = calculatedBalance;
+                            
+                            // Also recalculate Net Profit (Balance Change - Product Cost)
+                            const productCost = updatedEvaluation.productCost || 0;
+                            updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
+                            
+                            console.log(`🧮 Balance Change recalculated (Commission Tax changed): ${calculatedBalance}`);
+                            console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
+                            
+                            // Update profit calculations with new net profit
+                            const updatedProfitCalculations = {
+                              ...prevState.profitCalculations,
+                              profitPerUnit: updatedEvaluation.netProfit
+                            };
+                            
+                            // Calculate auto-savings percentage
+                            const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
+                              ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
+                            
+                            return {
+                              ...prevState,
+                              profitEvaluation: updatedEvaluation,
+                              profitCalculations: updatedProfitCalculations,
+                              savings: parseFloat(autoCalculatedSavings.toFixed(2))
+                            };
                           });
                         }}
-                        style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                        onBlur={() => handleInputBlur('commissionTax')}
+                        style={{ 
+                          width: '100%', 
+                          padding: '10px', 
+                          border: '1px solid #ddd', 
+                          borderRadius: '6px', 
+                          fontSize: '0.9rem',
+                          MozAppearance: 'textfield',
+                          WebkitAppearance: 'none',
+                          appearance: 'none'
+                        }}
+                        onWheel={(e) => e.target.blur()}
                         placeholder="0.00"
                       />
                     </div>
@@ -2732,9 +3233,9 @@ const AdminProducts = () => {
                     marginBottom: window.innerWidth <= 768 ? '12px' : '15px'
                   }}>
                     <div>
-                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         Digital Services Fee (£)
-                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
                           (UK digital services tax)
                         </span>
                       </label>
@@ -2742,26 +3243,74 @@ const AdminProducts = () => {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={safeFormatNumber(profitEditProduct.profitEvaluation.digitalServicesFee)}
+                        value={getInputValue('digitalServicesFee', profitEditProduct.profitEvaluation.digitalServicesFee)}
+                        onFocus={() => handleInputFocus('digitalServicesFee', profitEditProduct.profitEvaluation.digitalServicesFee)}
                         onChange={(e) => {
+                          handleInputChange('digitalServicesFee', e.target.value);
                           const newValue = safeParseInput(e.target.value);
-                          const updatedEvaluation = {
-                            ...profitEditProduct.profitEvaluation,
-                            digitalServicesFee: newValue
-                          };
-                          setProfitEditProduct({
-                            ...profitEditProduct,
-                            profitEvaluation: updatedEvaluation
+                          
+                          setProfitEditProduct(prevState => {
+                            const updatedEvaluation = {
+                              ...prevState.profitEvaluation,
+                              digitalServicesFee: newValue
+                            };
+                            
+                            // Auto-calculate Balance Change
+                            const salesProceeds = updatedEvaluation.salesProceeds || 0;
+                            const commission = Math.abs(updatedEvaluation.commission || 0);
+                            const commissionTax = Math.abs(updatedEvaluation.commissionTax || 0);
+                            const digitalServicesFee = Math.abs(newValue);
+                            const digitalServicesTax = Math.abs(updatedEvaluation.digitalServicesTax || 0);
+                            const fbaFulfilmentFee = Math.abs(updatedEvaluation.fbaFulfilmentFee || 0);
+                            const fbaFulfilmentTax = Math.abs(updatedEvaluation.fbaFulfilmentTax || 0);
+                            
+                            const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
+                            updatedEvaluation.balanceChange = calculatedBalance;
+                            
+                            // Also recalculate Net Profit (Balance Change - Product Cost)
+                            const productCost = updatedEvaluation.productCost || 0;
+                            updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
+                            
+                            console.log(`🧮 Balance Change recalculated (Digital Services Fee changed): ${calculatedBalance}`);
+                            console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
+                            
+                            // Update profit calculations with new net profit
+                            const updatedProfitCalculations = {
+                              ...prevState.profitCalculations,
+                              profitPerUnit: updatedEvaluation.netProfit
+                            };
+                            
+                            // Calculate auto-savings percentage
+                            const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
+                              ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
+                            
+                            return {
+                              ...prevState,
+                              profitEvaluation: updatedEvaluation,
+                              profitCalculations: updatedProfitCalculations,
+                              savings: parseFloat(autoCalculatedSavings.toFixed(2))
+                            };
                           });
                         }}
-                        style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                        onBlur={() => handleInputBlur('digitalServicesFee')}
+                        style={{ 
+                          width: '100%', 
+                          padding: '10px', 
+                          border: '1px solid #ddd', 
+                          borderRadius: '6px', 
+                          fontSize: '0.9rem',
+                          MozAppearance: 'textfield',
+                          WebkitAppearance: 'none',
+                          appearance: 'none'
+                        }}
+                        onWheel={(e) => e.target.blur()}
                         placeholder="0.00"
                       />
                     </div>
                     <div>
-                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         Digital Services Tax (£)
-                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
                           (VAT on digital services)
                         </span>
                       </label>
@@ -2769,19 +3318,67 @@ const AdminProducts = () => {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={safeFormatNumber(profitEditProduct.profitEvaluation.digitalServicesTax)}
+                        value={getInputValue('digitalServicesTax', profitEditProduct.profitEvaluation.digitalServicesTax)}
+                        onFocus={() => handleInputFocus('digitalServicesTax', profitEditProduct.profitEvaluation.digitalServicesTax)}
                         onChange={(e) => {
+                          handleInputChange('digitalServicesTax', e.target.value);
                           const newValue = safeParseInput(e.target.value);
-                          const updatedEvaluation = {
-                            ...profitEditProduct.profitEvaluation,
-                            digitalServicesTax: newValue
-                          };
-                          setProfitEditProduct({
-                            ...profitEditProduct,
-                            profitEvaluation: updatedEvaluation
+                          
+                          setProfitEditProduct(prevState => {
+                            const updatedEvaluation = {
+                              ...prevState.profitEvaluation,
+                              digitalServicesTax: newValue
+                            };
+                            
+                            // Auto-calculate Balance Change
+                            const salesProceeds = updatedEvaluation.salesProceeds || 0;
+                            const commission = Math.abs(updatedEvaluation.commission || 0);
+                            const commissionTax = Math.abs(updatedEvaluation.commissionTax || 0);
+                            const digitalServicesFee = Math.abs(updatedEvaluation.digitalServicesFee || 0);
+                            const digitalServicesTax = Math.abs(newValue);
+                            const fbaFulfilmentFee = Math.abs(updatedEvaluation.fbaFulfilmentFee || 0);
+                            const fbaFulfilmentTax = Math.abs(updatedEvaluation.fbaFulfilmentTax || 0);
+                            
+                            const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
+                            updatedEvaluation.balanceChange = calculatedBalance;
+                            
+                            // Also recalculate Net Profit (Balance Change - Product Cost)
+                            const productCost = updatedEvaluation.productCost || 0;
+                            updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
+                            
+                            console.log(`🧮 Balance Change recalculated (Digital Services Tax changed): ${calculatedBalance}`);
+                            console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
+                            
+                            // Update profit calculations with new net profit
+                            const updatedProfitCalculations = {
+                              ...prevState.profitCalculations,
+                              profitPerUnit: updatedEvaluation.netProfit
+                            };
+                            
+                            // Calculate auto-savings percentage
+                            const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
+                              ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
+                            
+                            return {
+                              ...prevState,
+                              profitEvaluation: updatedEvaluation,
+                              profitCalculations: updatedProfitCalculations,
+                              savings: parseFloat(autoCalculatedSavings.toFixed(2))
+                            };
                           });
                         }}
-                        style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                        onBlur={() => handleInputBlur('digitalServicesTax')}
+                        style={{ 
+                          width: '100%', 
+                          padding: '10px', 
+                          border: '1px solid #ddd', 
+                          borderRadius: '6px', 
+                          fontSize: '0.9rem',
+                          MozAppearance: 'textfield',
+                          WebkitAppearance: 'none',
+                          appearance: 'none'
+                        }}
+                        onWheel={(e) => e.target.blur()}
                         placeholder="0.00"
                       />
                     </div>
@@ -2794,9 +3391,9 @@ const AdminProducts = () => {
                     gap: window.innerWidth <= 768 ? '12px' : '15px'
                   }}>
                     <div>
-                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         FBA Fulfilment Fee (£)
-                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
                           (Amazon FBA storage & shipping)
                         </span>
                       </label>
@@ -2804,26 +3401,74 @@ const AdminProducts = () => {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={safeFormatNumber(profitEditProduct.profitEvaluation.fbaFulfilmentFee)}
+                        value={getInputValue('fbaFulfilmentFee', profitEditProduct.profitEvaluation.fbaFulfilmentFee)}
+                        onFocus={() => handleInputFocus('fbaFulfilmentFee', profitEditProduct.profitEvaluation.fbaFulfilmentFee)}
                         onChange={(e) => {
+                          handleInputChange('fbaFulfilmentFee', e.target.value);
                           const newValue = safeParseInput(e.target.value);
-                          const updatedEvaluation = {
-                            ...profitEditProduct.profitEvaluation,
-                            fbaFulfilmentFee: newValue
-                          };
-                          setProfitEditProduct({
-                            ...profitEditProduct,
-                            profitEvaluation: updatedEvaluation
+                          
+                          setProfitEditProduct(prevState => {
+                            const updatedEvaluation = {
+                              ...prevState.profitEvaluation,
+                              fbaFulfilmentFee: newValue
+                            };
+                            
+                            // Auto-calculate Balance Change
+                            const salesProceeds = updatedEvaluation.salesProceeds || 0;
+                            const commission = Math.abs(updatedEvaluation.commission || 0);
+                            const commissionTax = Math.abs(updatedEvaluation.commissionTax || 0);
+                            const digitalServicesFee = Math.abs(updatedEvaluation.digitalServicesFee || 0);
+                            const digitalServicesTax = Math.abs(updatedEvaluation.digitalServicesTax || 0);
+                            const fbaFulfilmentFee = Math.abs(newValue);
+                            const fbaFulfilmentTax = Math.abs(updatedEvaluation.fbaFulfilmentTax || 0);
+                            
+                            const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
+                            updatedEvaluation.balanceChange = calculatedBalance;
+                            
+                            // Also recalculate Net Profit (Balance Change - Product Cost)
+                            const productCost = updatedEvaluation.productCost || 0;
+                            updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
+                            
+                            console.log(`🧮 Balance Change recalculated (FBA Fulfilment Fee changed): ${calculatedBalance}`);
+                            console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
+                            
+                            // Update profit calculations with new net profit
+                            const updatedProfitCalculations = {
+                              ...prevState.profitCalculations,
+                              profitPerUnit: updatedEvaluation.netProfit
+                            };
+                            
+                            // Calculate auto-savings percentage
+                            const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
+                              ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
+                            
+                            return {
+                              ...prevState,
+                              profitEvaluation: updatedEvaluation,
+                              profitCalculations: updatedProfitCalculations,
+                              savings: parseFloat(autoCalculatedSavings.toFixed(2))
+                            };
                           });
                         }}
-                        style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                        onBlur={() => handleInputBlur('fbaFulfilmentFee')}
+                        style={{ 
+                          width: '100%', 
+                          padding: '10px', 
+                          border: '1px solid #ddd', 
+                          borderRadius: '6px', 
+                          fontSize: '0.9rem',
+                          MozAppearance: 'textfield',
+                          WebkitAppearance: 'none',
+                          appearance: 'none'
+                        }}
+                        onWheel={(e) => e.target.blur()}
                         placeholder="0.00"
                       />
                     </div>
                     <div>
-                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         FBA Fulfilment Tax (£)
-                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
                           (VAT on FBA fees)
                         </span>
                       </label>
@@ -2831,19 +3476,67 @@ const AdminProducts = () => {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={safeFormatNumber(profitEditProduct.profitEvaluation.fbaFulfilmentTax)}
+                        value={getInputValue('fbaFulfilmentTax', profitEditProduct.profitEvaluation.fbaFulfilmentTax)}
+                        onFocus={() => handleInputFocus('fbaFulfilmentTax', profitEditProduct.profitEvaluation.fbaFulfilmentTax)}
                         onChange={(e) => {
+                          handleInputChange('fbaFulfilmentTax', e.target.value);
                           const newValue = safeParseInput(e.target.value);
-                          const updatedEvaluation = {
-                            ...profitEditProduct.profitEvaluation,
-                            fbaFulfilmentTax: newValue
-                          };
-                          setProfitEditProduct({
-                            ...profitEditProduct,
-                            profitEvaluation: updatedEvaluation
+                          
+                          setProfitEditProduct(prevState => {
+                            const updatedEvaluation = {
+                              ...prevState.profitEvaluation,
+                              fbaFulfilmentTax: newValue
+                            };
+                            
+                            // Auto-calculate Balance Change
+                            const salesProceeds = updatedEvaluation.salesProceeds || 0;
+                            const commission = Math.abs(updatedEvaluation.commission || 0);
+                            const commissionTax = Math.abs(updatedEvaluation.commissionTax || 0);
+                            const digitalServicesFee = Math.abs(updatedEvaluation.digitalServicesFee || 0);
+                            const digitalServicesTax = Math.abs(updatedEvaluation.digitalServicesTax || 0);
+                            const fbaFulfilmentFee = Math.abs(updatedEvaluation.fbaFulfilmentFee || 0);
+                            const fbaFulfilmentTax = Math.abs(newValue);
+                            
+                            const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
+                            updatedEvaluation.balanceChange = calculatedBalance;
+                            
+                            // Also recalculate Net Profit (Balance Change - Product Cost)
+                            const productCost = updatedEvaluation.productCost || 0;
+                            updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
+                            
+                            console.log(`🧮 Balance Change recalculated (FBA Fulfilment Tax changed): ${calculatedBalance}`);
+                            console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
+                            
+                            // Update profit calculations with new net profit
+                            const updatedProfitCalculations = {
+                              ...prevState.profitCalculations,
+                              profitPerUnit: updatedEvaluation.netProfit
+                            };
+                            
+                            // Calculate auto-savings percentage
+                            const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
+                              ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
+                            
+                            return {
+                              ...prevState,
+                              profitEvaluation: updatedEvaluation,
+                              profitCalculations: updatedProfitCalculations,
+                              savings: parseFloat(autoCalculatedSavings.toFixed(2))
+                            };
                           });
                         }}
-                        style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
+                        onBlur={() => handleInputBlur('fbaFulfilmentTax')}
+                        style={{ 
+                          width: '100%', 
+                          padding: '10px', 
+                          border: '1px solid #ddd', 
+                          borderRadius: '6px', 
+                          fontSize: '0.9rem',
+                          MozAppearance: 'textfield',
+                          WebkitAppearance: 'none',
+                          appearance: 'none'
+                        }}
+                        onWheel={(e) => e.target.blur()}
                         placeholder="0.00"
                       />
                     </div>
@@ -2851,8 +3544,8 @@ const AdminProducts = () => {
                 </div>
 
                 {/* Summary Section */}
-                <div style={{marginBottom: '25px'}}>
-                  <h4 style={{color: '#721c24', marginBottom: '15px', fontSize: '1.1rem', borderBottom: '2px solid #dc3545', paddingBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                <div style={{ marginBottom: '25px' }}>
+                  <h4 style={{ color: '#721c24', marginBottom: '15px', fontSize: '1.1rem', borderBottom: '2px solid #dc3545', paddingBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     📊 Financial Summary
                   </h4>
                   <div style={{
@@ -2863,62 +3556,57 @@ const AdminProducts = () => {
                     marginBottom: window.innerWidth <= 768 ? '12px' : '15px'
                   }}>
                     <div>
-                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         Balance Change (£)
-                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
-                          (Net amount received from Amazon)
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
+                          (Auto-calculated: Sales Proceeds - All Fees)
                         </span>
                       </label>
                       <input
                         type="number"
                         step="0.01"
                         min="0"
-                        value={safeFormatNumber(profitEditProduct.profitEvaluation.balanceChange)}
-                        onChange={(e) => {
-                          const newValue = safeParseInput(e.target.value);
-                          const productCost = profitEditProduct.profitEvaluation.productCost || 0;
-                          const netProfit = newValue - productCost;
+                        value={(() => {
+                          // Auto-calculate Balance Change
+                          const salesProceeds = profitEditProduct.profitEvaluation.salesProceeds || 0;
+                          const commission = Math.abs(profitEditProduct.profitEvaluation.commission || 0);
+                          const commissionTax = Math.abs(profitEditProduct.profitEvaluation.commissionTax || 0);
+                          const digitalServicesFee = Math.abs(profitEditProduct.profitEvaluation.digitalServicesFee || 0);
+                          const digitalServicesTax = Math.abs(profitEditProduct.profitEvaluation.digitalServicesTax || 0);
+                          const fbaFulfilmentFee = Math.abs(profitEditProduct.profitEvaluation.fbaFulfilmentFee || 0);
+                          const fbaFulfilmentTax = Math.abs(profitEditProduct.profitEvaluation.fbaFulfilmentTax || 0);
                           
-                          const updatedEvaluation = {
-                            ...profitEditProduct.profitEvaluation,
-                            balanceChange: newValue,
-                            netProfit: parseFloat(netProfit.toFixed(2))
-                          };
+                          const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
                           
-                          const updatedCalculations = {
-                            ...profitEditProduct.profitCalculations,
-                            profitPerUnit: parseFloat(netProfit.toFixed(2)),
-                            profitFor200Units: parseFloat((netProfit * 200).toFixed(2))
-                          };
+                          console.log(`🧮 Balance Change Display: ${salesProceeds} - ${commission} - ${commissionTax} - ${digitalServicesFee} - ${digitalServicesTax} - ${fbaFulfilmentFee} - ${fbaFulfilmentTax} = ${calculatedBalance}`);
                           
-                          // Update platform comparison profits
-                          const updatedPlatforms = profitEditProduct.platformComparison.map(platform => ({
-                            ...platform,
-                            profitFor200Units: parseFloat((netProfit * (platform.units || 200)).toFixed(2))
-                          }));
-                          
-                          setProfitEditProduct({
-                            ...profitEditProduct,
-                            profitEvaluation: updatedEvaluation,
-                            profitCalculations: updatedCalculations,
-                            platformComparison: updatedPlatforms
-                          });
+                          return safeFormatNumber(calculatedBalance);
+                        })()}
+                        readOnly
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          border: '1px solid #17a2b8',
+                          borderRadius: '6px',
+                          fontSize: '0.9rem',
+                          backgroundColor: '#e7f3ff',
+                          cursor: 'not-allowed',
+                          color: '#0056b3'
                         }}
-                        style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem'}}
-                        placeholder="0.00"
+                        title="Auto-calculated: Sales Proceeds - Commission - Commission Tax - Digital Services Fee - Digital Services Tax - FBA Fulfilment Fee - FBA Fulfilment Tax"
                       />
                     </div>
                     <div>
-                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         Product Cost (£)
-                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px'}}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
                           (Auto-filled from product price)
                         </span>
                         {productCostUpdated && (
                           <span style={{
-                            fontSize: '0.7rem', 
-                            fontWeight: 'bold', 
-                            color: '#28a745', 
+                            fontSize: '0.7rem',
+                            fontWeight: 'bold',
+                            color: '#28a745',
                             marginLeft: '8px',
                             animation: 'pulse 1s infinite'
                           }}>
@@ -2947,8 +3635,8 @@ const AdminProducts = () => {
                 </div>
 
                 {/* Profit Results Section */}
-                <div style={{marginBottom: '25px'}}>
-                  <h4 style={{color: '#155724', marginBottom: '15px', fontSize: '1.1rem', borderBottom: '2px solid #28a745', paddingBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                <div style={{ marginBottom: '25px' }}>
+                  <h4 style={{ color: '#155724', marginBottom: '15px', fontSize: '1.1rem', borderBottom: '2px solid #28a745', paddingBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     💰 Profit Analysis
                   </h4>
                   <div style={{
@@ -2962,9 +3650,9 @@ const AdminProducts = () => {
                     border: '1px solid #28a745'
                   }}>
                     <div>
-                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#155724'}}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#155724' }}>
                         Net Profit (£)
-                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#155724', marginLeft: '8px'}}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#155724', marginLeft: '8px' }}>
                           (Balance Change - Product Cost)
                         </span>
                       </label>
@@ -2986,64 +3674,130 @@ const AdminProducts = () => {
                       />
                     </div>
                     <div>
-                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#155724'}}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#155724' }}>
                         Monthly Profit (£)
-                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#155724', marginLeft: '8px'}}>
-                          (Projected monthly earnings)
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#155724', marginLeft: '8px' }}>
+                          (Auto-calculated: (Units ÷ 12) × Profit per Unit)
                         </span>
                       </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={safeFormatNumber(profitEditProduct.profitEvaluation.monthlyProfit)}
-                        onChange={(e) => {
-                          const newValue = safeParseInput(e.target.value);
-                          const updatedEvaluation = {
-                            ...profitEditProduct.profitEvaluation,
-                            monthlyProfit: newValue
-                          };
-                          setProfitEditProduct({
-                            ...profitEditProduct,
-                            profitEvaluation: updatedEvaluation
-                          });
-                        }}
-                        style={{width: '100%', padding: '10px', border: '1px solid #28a745', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: 'white'}}
-                        placeholder="0.00"
-                      />
+                      {(() => {
+                        const profitPerUnit = parseFloat(profitEditProduct.profitEvaluation.netProfit) || 0;
+                        const platformUnits = profitEditProduct.platformComparison && profitEditProduct.platformComparison.length > 0 
+                          ? (profitEditProduct.platformComparison[0].units || 2400)
+                          : 2400;
+                        const autoCalculatedMonthlyProfit = (platformUnits / 12) * profitPerUnit;
+                        
+                        return (
+                          <div style={{
+                            position: 'relative',
+                            border: '2px solid #28a745',
+                            borderRadius: '8px',
+                            background: 'linear-gradient(135deg, #d4edda, #c3e6cb)',
+                            padding: '15px',
+                            textAlign: 'center'
+                          }}>
+                            <div style={{
+                              fontSize: '20px',
+                              fontWeight: 'bold',
+                              color: '#155724',
+                              marginBottom: '8px'
+                            }}>
+                              £{autoCalculatedMonthlyProfit.toFixed(2)}
+                            </div>
+                            <div style={{
+                              fontSize: '11px',
+                              color: '#155724',
+                              fontWeight: 'bold',
+                              background: 'rgba(255, 255, 255, 0.7)',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              display: 'inline-block'
+                            }}>
+                              ({platformUnits} ÷ 12) × £{profitPerUnit.toFixed(2)} = £{autoCalculatedMonthlyProfit.toFixed(2)}
+                            </div>
+                            <input
+                              type="hidden"
+                              value={autoCalculatedMonthlyProfit}
+                              onChange={(e) => {
+                                const updatedEvaluation = {
+                                  ...profitEditProduct.profitEvaluation,
+                                  monthlyProfit: autoCalculatedMonthlyProfit
+                                };
+                                setProfitEditProduct({
+                                  ...profitEditProduct,
+                                  profitEvaluation: updatedEvaluation
+                                });
+                              }}
+                            />
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div>
-                      <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#155724'}}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#155724' }}>
                         Yearly Profit (£)
-                        <span style={{fontSize: '0.75rem', fontWeight: 'normal', color: '#155724', marginLeft: '8px'}}>
-                          (Projected annual earnings)
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#155724', marginLeft: '8px' }}>
+                          (Auto-calculated: Platform Units × Profit per Unit)
                         </span>
                       </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={safeFormatNumber(profitEditProduct.profitEvaluation.yearlyProfit)}
-                        onChange={(e) => {
-                          const newValue = safeParseInput(e.target.value);
-                          const updatedEvaluation = {
-                            ...profitEditProduct.profitEvaluation,
-                            yearlyProfit: newValue
-                          };
-                          setProfitEditProduct({
-                            ...profitEditProduct,
-                            profitEvaluation: updatedEvaluation
-                          });
-                        }}
-                        style={{width: '100%', padding: '10px', border: '1px solid #28a745', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: 'white'}}
-                        placeholder="0.00"
-                      />
+                      {(() => {
+                        const profitPerUnit = parseFloat(profitEditProduct.profitEvaluation.netProfit) || 0;
+                        const platformUnits = profitEditProduct.platformComparison && profitEditProduct.platformComparison.length > 0 
+                          ? (profitEditProduct.platformComparison[0].units || 2400)
+                          : 2400;
+                        const autoCalculatedYearlyProfit = profitPerUnit * platformUnits;
+                        
+                        return (
+                          <div style={{
+                            position: 'relative',
+                            border: '3px solid #ffc107',
+                            borderRadius: '8px',
+                            background: 'linear-gradient(135deg, #fff3cd, #ffeaa7)',
+                            padding: '15px',
+                            textAlign: 'center'
+                          }}>
+                            <div style={{
+                              fontSize: '24px',
+                              fontWeight: 'bold',
+                              color: '#856404',
+                              marginBottom: '8px'
+                            }}>
+                              £{autoCalculatedYearlyProfit.toFixed(2)}
+                            </div>
+                            <div style={{
+                              fontSize: '12px',
+                              color: '#856404',
+                              fontWeight: 'bold',
+                              background: 'rgba(255, 255, 255, 0.7)',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              display: 'inline-block'
+                            }}>
+                              {platformUnits} × £{profitPerUnit.toFixed(2)} = £{autoCalculatedYearlyProfit.toFixed(2)}
+                            </div>
+                            <input
+                              type="hidden"
+                              value={autoCalculatedYearlyProfit}
+                              onChange={(e) => {
+                                const updatedEvaluation = {
+                                  ...profitEditProduct.profitEvaluation,
+                                  yearlyProfit: autoCalculatedYearlyProfit
+                                };
+                                setProfitEditProduct({
+                                  ...profitEditProduct,
+                                  profitEvaluation: updatedEvaluation
+                                });
+                              }}
+                            />
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
 
                 {/* Help Section */}
-               
+
               </div>
 
               {/* Action Buttons */}
@@ -3178,35 +3932,7 @@ const AdminProducts = () => {
               <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9rem' }}>
                 Category: {variationsEditProduct.category} | Price: £{variationsEditProduct.price}
               </p>
-              
-              <div style={{
-                padding: '12px',
-                backgroundColor: '#e8f5e9',
-                border: '1px solid #c3e6cb',
-                borderRadius: '6px',
-                fontSize: '0.85rem',
-                color: '#155724',
-                marginBottom: '10px'
-              }}>
-                <strong>📋 How to Set Up Variations:</strong>
-                <ol style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-                  <li>Configure current product settings (Type & Custom Name)</li>
-                  <li>Search and link related products below</li>
-                  <li>Each linked product gets its own Type & Custom Name</li>
-                  <li>Use "Save All + Link Products" to create bidirectional connections</li>
-                </ol>
-              </div>
-              
-              <div style={{
-                padding: '10px',
-                backgroundColor: '#fff3cd',
-                border: '1px solid #ffeaa7',
-                borderRadius: '4px',
-                fontSize: '0.8rem',
-                color: '#856404'
-              }}>
-                <strong>💡 Tip:</strong> Each product maintains independent variation settings. When you link products, they'll show as options on each other's detail pages.
-              </div>
+
             </div>
 
             {/* Simple Configuration Interface */}
@@ -3214,7 +3940,7 @@ const AdminProducts = () => {
               <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '1.1rem' }}>
                 1st Product (Current): {variationsEditProduct.name}
               </h3>
-              
+
               <div style={{
                 border: '2px solid #6f42c1',
                 borderRadius: '8px',
@@ -3251,7 +3977,7 @@ const AdminProducts = () => {
                       <option value="size">Size</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#6f42c1', display: 'block', marginBottom: '4px' }}>
                       Custom Name:
@@ -3279,11 +4005,11 @@ const AdminProducts = () => {
                     />
                   </div>
                 </div>
-                
+
                 {variationsEditProduct.variations?.[0]?.name && (
-                  <div style={{ 
-                    fontSize: '0.75rem', 
-                    color: '#28a745', 
+                  <div style={{
+                    fontSize: '0.75rem',
+                    color: '#28a745',
                     fontWeight: '500',
                     marginTop: '8px',
                     padding: '4px 8px',
@@ -3299,7 +4025,7 @@ const AdminProducts = () => {
               <h3 style={{ margin: '15px 0 10px 0', color: '#333', fontSize: '1.1rem' }}>
                 Linked Products (2nd, 3rd, etc.)
               </h3>
-              
+
               <div style={{
                 border: '1px solid #ddd',
                 borderRadius: '8px',
@@ -3326,7 +4052,7 @@ const AdminProducts = () => {
                     filteredAvailableProducts.slice(0, 8).map((product, index) => {
                       const isLinked = variationsEditProduct.variations?.[0]?.options?.some(option => option.productId === product._id);
                       const linkedOption = variationsEditProduct.variations?.[0]?.options?.find(option => option.productId === product._id);
-                      
+
                       return (
                         <div key={product._id} style={{
                           border: '1px solid #e0e0e0',
@@ -3393,7 +4119,7 @@ const AdminProducts = () => {
                                 <option value="size">Size</option>
                               </select>
                             </div>
-                            
+
                             <div>
                               <label style={{ fontSize: '0.75rem', fontWeight: '600', color: '#555', display: 'block', marginBottom: '4px' }}>
                                 Custom Name:
@@ -3415,7 +4141,7 @@ const AdminProducts = () => {
                                 }}
                               />
                             </div>
-                            
+
                             <div>
                               <label style={{ fontSize: '0.75rem', fontWeight: '600', color: '#555', display: 'block', marginBottom: '4px' }}>
                                 Link Status:
@@ -3467,7 +4193,7 @@ const AdminProducts = () => {
                                 )}
                               </button>
                             </div>
-                            
+
                             <div>
                               {isLinked && (
                                 <button
@@ -3490,9 +4216,9 @@ const AdminProducts = () => {
 
                           {/* Preview for linked product */}
                           {isLinked && linkedOption?.customName && (
-                            <div style={{ 
-                              fontSize: '0.7rem', 
-                              color: '#17a2b8', 
+                            <div style={{
+                              fontSize: '0.7rem',
+                              color: '#17a2b8',
                               fontWeight: '500',
                               marginTop: '8px',
                               padding: '4px 8px',
@@ -3538,12 +4264,12 @@ const AdminProducts = () => {
                 >
                   Cancel
                 </button>
-                
+
                 {/* Always show save button, but change based on linked products */}
                 {(() => {
                   const linkedCount = variationsEditProduct.variations?.[0]?.options?.filter(opt => opt.productId)?.length || 0;
                   console.log('🔗 Linked products count:', linkedCount);
-                  
+
                   if (linkedCount > 0) {
                     return (
                       <>
@@ -3555,7 +4281,7 @@ const AdminProducts = () => {
                                 alert('❌ Authentication token not found. Please log in again.');
                                 return;
                               }
-                              
+
                               const cleanedVariations = (variationsEditProduct.variations || [])
                                 .filter(variation => variation.type && variation.name)
                                 .map(variation => ({
@@ -3597,7 +4323,7 @@ const AdminProducts = () => {
                         >
                           💾 Save Current Only
                         </button>
-                        
+
                         <button
                           onClick={async () => {
                             try {
@@ -3606,7 +4332,7 @@ const AdminProducts = () => {
                                 alert('❌ Authentication token not found. Please log in again.');
                                 return;
                               }
-                              
+
                               const cleanedVariations = (variationsEditProduct.variations || [])
                                 .filter(variation => variation.type && variation.name)
                                 .map(variation => ({
@@ -3672,7 +4398,7 @@ const AdminProducts = () => {
                         >
                           🔗 Save All + Link {linkedCount} Product{linkedCount > 1 ? 's' : ''}
                         </button>
-                        
+
                         <button
                           onClick={() => {
                             if (confirm(`Remove all ${linkedCount} linked product(s)? This will only keep the current product configuration.`)) {
@@ -3711,7 +4437,7 @@ const AdminProducts = () => {
                               alert('❌ Authentication token not found. Please log in again.');
                               return;
                             }
-                            
+
                             const cleanedVariations = (variationsEditProduct.variations || [])
                               .filter(variation => variation.type && variation.name)
                               .map(variation => ({
@@ -3757,7 +4483,7 @@ const AdminProducts = () => {
                   }
                 })()}
               </div>
-              
+
               {/* Show linked products count with better styling */}
               {(() => {
                 const linkedCount = variationsEditProduct.variations?.[0]?.options?.filter(opt => opt.productId)?.length || 0;
@@ -3805,6 +4531,145 @@ const AdminProducts = () => {
           </div>
         </div>
       )}
+
+      {/* Success Toast Notification */}
+      {showSuccessToast && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+          color: 'white',
+          padding: '20px 25px',
+          borderRadius: '12px',
+          boxShadow: '0 8px 32px rgba(40, 167, 69, 0.3)',
+          zIndex: 9999,
+          minWidth: '350px',
+          maxWidth: '500px',
+          animation: 'slideInRight 0.5s ease-out',
+          border: '2px solid rgba(255, 255, 255, 0.2)',
+          backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '15px'
+          }}>
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.2)',
+              borderRadius: '50%',
+              width: '50px',
+              height: '50px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '24px',
+              animation: 'bounce 0.6s ease-in-out'
+            }}>
+              ✅
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{
+                margin: '0 0 5px 0',
+                fontSize: '18px',
+                fontWeight: 'bold',
+                textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+              }}>
+                Success!
+              </h3>
+              <p style={{
+                margin: 0,
+                fontSize: '14px',
+                opacity: 0.9,
+                lineHeight: '1.4'
+              }}>
+                {successMessage}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowSuccessToast(false)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: 'none',
+                color: 'white',
+                borderRadius: '50%',
+                width: '30px',
+                height: '30px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => {
+                e.target.style.background = 'rgba(255, 255, 255, 0.3)';
+                e.target.style.transform = 'scale(1.1)';
+              }}
+              onMouseOut={(e) => {
+                e.target.style.background = 'rgba(255, 255, 255, 0.2)';
+                e.target.style.transform = 'scale(1)';
+              }}
+            >
+              ×
+            </button>
+          </div>
+          
+          {/* Progress bar */}
+          <div style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            height: '3px',
+            background: 'rgba(255, 255, 255, 0.3)',
+            borderRadius: '0 0 12px 12px',
+            width: '100%',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              height: '100%',
+              background: 'rgba(255, 255, 255, 0.8)',
+              animation: 'progressBar 5s linear forwards',
+              borderRadius: '0 0 12px 12px'
+            }}></div>
+          </div>
+        </div>
+      )}
+
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        @keyframes bounce {
+          0%, 20%, 50%, 80%, 100% {
+            transform: translateY(0);
+          }
+          40% {
+            transform: translateY(-10px);
+          }
+          60% {
+            transform: translateY(-5px);
+          }
+        }
+
+        @keyframes progressBar {
+          from {
+            width: 100%;
+          }
+          to {
+            width: 0%;
+          }
+        }
+      `}</style>
     </div>
   );
 };
