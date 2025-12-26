@@ -78,7 +78,6 @@ router.post('/initiate', authenticateBuyer, async (req, res) => {
  */
 router.post('/callback', async (req, res) => {
   try {
-    console.log('Easypaisa callback received:', req.body);
     
     const verification = verifyEasypaisaCallback(req.body);
     

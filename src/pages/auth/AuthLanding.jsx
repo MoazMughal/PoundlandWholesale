@@ -138,7 +138,6 @@ const AuthLanding = () => {
         </div>
       </div>
 
-
     </div>
   )
 }

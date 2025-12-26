@@ -219,8 +219,6 @@ const ForgotPassword = () => {
         </div>
       </div>
 
-
-
       <button 
         type="submit" 
         className="btn btn-warning w-100 mb-3 py-2"
@@ -237,8 +235,6 @@ const ForgotPassword = () => {
           </>
         )}
       </button>
-
-
 
       <div className="text-center">
         <Link to="/auth" className="text-decoration-none small">
@@ -395,8 +391,6 @@ const ForgotPassword = () => {
                     </div>
                   </div>
                 )}
-
-
 
                 {error && (
                   <div className="alert alert-danger alert-dismissible fade show mb-3" role="alert">

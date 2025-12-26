@@ -7,6 +7,9 @@ const AdminSellerVerifications = () => {
   const [loading, setLoading] = useState(true)
   const [selectedSeller, setSelectedSeller] = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejectingSeller, setRejectingSeller] = useState(null)
 
   useEffect(() => {
     fetchPendingVerifications()
@@ -58,22 +61,29 @@ const AdminSellerVerifications = () => {
   }
 
   const handleReject = async (id) => {
-    const reason = prompt('Enter rejection reason:')
-    if (!reason) return
+    setRejectingSeller(id)
+    setShowRejectModal(true)
+  }
+
+  const confirmReject = async () => {
+    if (!rejectingSeller) return
 
     try {
       const token = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:5000/api/sellers/admin/verification/${id}/reject`, {
+      const response = await fetch(`http://localhost:5000/api/sellers/admin/verification/${rejectingSeller}/reject`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ reason })
+        body: JSON.stringify({ reason: rejectReason.trim() || null })
       })
 
       if (response.ok) {
         alert('✅ Seller verification rejected')
+        setShowRejectModal(false)
+        setRejectReason('')
+        setRejectingSeller(null)
         fetchPendingVerifications()
       } else {
         const data = await response.json()
@@ -83,6 +93,12 @@ const AdminSellerVerifications = () => {
       console.error('Reject error:', error)
       alert('❌ Failed to reject verification')
     }
+  }
+
+  const cancelReject = () => {
+    setShowRejectModal(false)
+    setRejectReason('')
+    setRejectingSeller(null)
   }
 
   const viewDocuments = (seller) => {
@@ -336,6 +352,61 @@ const AdminSellerVerifications = () => {
                   }}
                 >
                   <i className="fas fa-check"></i> Approve
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Reason Modal */}
+      {showRejectModal && (
+        <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <i className="fas fa-times-circle text-danger"></i> Reject Verification
+                </h5>
+              </div>
+              <div className="modal-body">
+                <p className="mb-3">
+                  <i className="fas fa-info-circle text-info"></i> 
+                  You are about to reject this seller's verification. You can optionally provide a reason that will be shown to the seller.
+                </p>
+                <div className="mb-3">
+                  <label className="form-label">Rejection Reason (Optional):</label>
+                  <textarea
+                    className="form-control"
+                    rows="4"
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Enter reason for rejection (optional)..."
+                    maxLength="500"
+                  />
+                  <small className="text-muted">
+                    {rejectReason.length}/500 characters. This reason will be shown to the seller in their dashboard.
+                  </small>
+                </div>
+                <div className="alert alert-warning">
+                  <i className="fas fa-exclamation-triangle"></i> 
+                  <strong>Note:</strong> The seller will be able to resubmit their documents after rejection.
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  onClick={cancelReject}
+                >
+                  <i className="fas fa-times"></i> Cancel
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-danger"
+                  onClick={confirmReject}
+                >
+                  <i className="fas fa-times-circle"></i> Reject Verification
                 </button>
               </div>
             </div>

@@ -126,7 +126,7 @@ const SellerDashboard = () => {
         
         if (response.ok) {
           const freshSellerData = await response.json()
-          console.log('Fresh seller data:', freshSellerData)
+          
           updateSeller(freshSellerData)
           alert('✅ Profile refreshed successfully!')
         } else {
@@ -972,7 +972,6 @@ const SellerDashboard = () => {
                     </div>
                   )}
                 </div>
-
 
                 <div className="alert alert-info">
                   <small>

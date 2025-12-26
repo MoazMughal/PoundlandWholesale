@@ -1383,7 +1383,7 @@ router.put('/variations/enhanced/:id', authenticateAdmin, async (req, res) => {
                 options: [
                   // Add the current product as an option
                   {
-                    value: detectVariationValue(updatedProduct.name, option.type || variation.type),
+                    value: option.value || 'Default', // Use user input or simple default
                     productId: req.params.id,
                     images: updatedProduct.images || [],
                     price: updatedProduct.price || null,
@@ -1549,56 +1549,9 @@ router.put('/variations/bidirectional/:id', authenticateAdmin, async (req, res) 
           );
 
           if (existingOptionIndex === -1) {
-            // Add current product as an option with proper variation value
-            const currentProductName = currentProduct.name.toLowerCase();
-            let optionValue = currentProduct.name; // fallback
+            // Add current product as an option with user-provided value
+            let optionValue = linkedInfo.optionValue || 'Default'; // Use user input or simple default
             
-            // Derive proper variation value based on type
-            if (linkedInfo.variationType === 'color') {
-              if (currentProductName.includes('red')) optionValue = 'Red';
-              else if (currentProductName.includes('blue')) optionValue = 'Blue';
-              else if (currentProductName.includes('green')) optionValue = 'Green';
-              else if (currentProductName.includes('black')) optionValue = 'Black';
-              else if (currentProductName.includes('white')) optionValue = 'White';
-              else if (currentProductName.includes('yellow')) optionValue = 'Yellow';
-              else if (currentProductName.includes('pink')) optionValue = 'Pink';
-              else if (currentProductName.includes('purple')) optionValue = 'Purple';
-              else if (currentProductName.includes('orange')) optionValue = 'Orange';
-              else if (currentProductName.includes('brown')) optionValue = 'Brown';
-              else if (currentProductName.includes('grey') || currentProductName.includes('gray')) optionValue = 'Grey';
-              else optionValue = 'Default Color';
-            } else if (linkedInfo.variationType === 'size') {
-              if (currentProductName.includes('small')) optionValue = 'Small';
-              else if (currentProductName.includes('medium')) optionValue = 'Medium';
-              else if (currentProductName.includes('large')) optionValue = 'Large';
-              else if (currentProductName.includes('xl')) optionValue = 'XL';
-              else if (currentProductName.includes('xxl')) optionValue = 'XXL';
-              else optionValue = 'Default Size';
-            } else if (linkedInfo.variationType === 'style') {
-              if (currentProductName.includes('classic')) optionValue = 'Classic';
-              else if (currentProductName.includes('modern')) optionValue = 'Modern';
-              else if (currentProductName.includes('vintage')) optionValue = 'Vintage';
-              else if (currentProductName.includes('premium')) optionValue = 'Premium';
-              else if (currentProductName.includes('deluxe')) optionValue = 'Deluxe';
-              else if (currentProductName.includes('basic')) optionValue = 'Basic';
-              else optionValue = 'Default Style';
-            } else {
-              // For other variation types, try to extract meaningful value
-              if (currentProductName.includes('dinosaur')) optionValue = 'Dinosaur';
-              else if (currentProductName.includes('dolphin')) optionValue = 'Dolphin';
-              else if (currentProductName.includes('shark')) optionValue = 'Shark';
-              else if (currentProductName.includes('whale')) optionValue = 'Whale';
-              else if (currentProductName.includes('fish')) optionValue = 'Fish';
-              else {
-                // Use first meaningful word from product name
-                const words = currentProduct.name.split(' ').filter(word => 
-                  word.length > 3 && 
-                  !['the', 'and', 'for', 'with', 'from'].includes(word.toLowerCase())
-                );
-                optionValue = words[0] || 'Default';
-              }
-            }
-
             console.log(`🎨 Setting variation value: ${currentProduct.name} → ${optionValue}`);
 
             linkedVariations[variationIndex].options.push({
@@ -1661,6 +1614,133 @@ router.put('/variations/bidirectional/:id', authenticateAdmin, async (req, res) 
       message: 'Internal server error', 
       error: error.message,
       stack: error.stack 
+    });
+  }
+});
+
+// Get categories that have products with profit data (admin only)
+router.get('/admin/categories-with-profit', authenticateAdmin, async (req, res) => {
+  try {
+    const { excludeId } = req.query;
+    
+    console.log('🔍 Fetching categories with profit data, excluding:', excludeId);
+    
+    // Build aggregation pipeline to find categories with profit data
+    const pipeline = [
+      {
+        $match: {
+          $or: [
+            { profitEvaluation: { $exists: true, $ne: null } },
+            { profitCalculations: { $exists: true, $ne: null } },
+            { platformComparison: { $exists: true, $ne: null, $not: { $size: 0 } } }
+          ],
+          ...(excludeId && { _id: { $ne: excludeId } })
+        }
+      },
+      {
+        $group: {
+          _id: '$category',
+          count: { $sum: 1 },
+          sampleProducts: { $push: { name: '$name', price: '$price' } }
+        }
+      },
+      {
+        $project: {
+          category: '$_id',
+          count: 1,
+          sampleProducts: { $slice: ['$sampleProducts', 3] },
+          _id: 0
+        }
+      },
+      { $sort: { count: -1 } }
+    ];
+    
+    const categories = await Product.aggregate(pipeline);
+    
+    console.log(`✅ Found ${categories.length} categories with profit data`);
+    
+    res.json({
+      categories,
+      total: categories.length,
+      success: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching categories with profit data:', error);
+    res.status(500).json({ 
+      message: 'Error fetching categories', 
+      error: error.message,
+      success: false
+    });
+  }
+});
+
+// Get products by category with profit data (admin only)
+router.get('/admin/category/:category/with-profit', authenticateAdmin, async (req, res) => {
+  try {
+    const { category } = req.params;
+    const { excludeId, exactMatch = 'true' } = req.query;
+    
+    console.log('🔍 Fetching products with profit data from category:', category, 'exactMatch:', exactMatch, 'excluding:', excludeId);
+    
+    // Build query to find products with profit data
+    let query = {
+      $or: [
+        { profitEvaluation: { $exists: true, $ne: null } },
+        { profitCalculations: { $exists: true, $ne: null } },
+        { platformComparison: { $exists: true, $ne: null, $not: { $size: 0 } } }
+      ]
+    };
+    
+    // Add category filter
+    if (category !== 'all') {
+      if (exactMatch === 'true') {
+        // Exact category match (case-insensitive)
+        query.category = { $regex: `^${category}$`, $options: 'i' };
+      } else {
+        // Partial category match (case-insensitive)
+        query.category = { $regex: category, $options: 'i' };
+      }
+    }
+    
+    // Exclude specific product if provided
+    if (excludeId) {
+      query._id = { $ne: excludeId };
+    }
+    
+    const products = await Product.find(query)
+      .select('name price category brand profitEvaluation profitCalculations platformComparison')
+      .limit(50)
+      .sort({ category: 1, updatedAt: -1 }) // Sort by category first, then by update time
+      .lean();
+    
+    console.log(`✅ Found ${products.length} products with profit data in category: ${category} (exactMatch: ${exactMatch})`);
+    
+    // Group products by category for better organization
+    const productsByCategory = products.reduce((acc, product) => {
+      const cat = product.category || 'Uncategorized';
+      if (!acc[cat]) {
+        acc[cat] = [];
+      }
+      acc[cat].push(product);
+      return acc;
+    }, {});
+    
+    res.json({
+      products,
+      productsByCategory,
+      total: products.length,
+      category,
+      exactMatch: exactMatch === 'true',
+      success: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching category products with profit data:', error);
+    res.status(500).json({ 
+      message: 'Error fetching products', 
+      error: error.message,
+      success: false
     });
   }
 });

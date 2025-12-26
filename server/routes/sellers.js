@@ -292,19 +292,69 @@ router.get('/profile', authenticateSeller, async (req, res) => {
 // Update seller profile
 router.put('/profile', authenticateSeller, async (req, res) => {
   try {
-    const { whatsappNo, contactNo, country, city, productCategory } = req.body;
+    const { whatsappNo, contactNo, country, city, productCategory, password } = req.body;
     
-    const seller = await Seller.findByIdAndUpdate(
+    // Require password for profile updates
+    if (!password) {
+      return res.status(400).json({ message: 'Password is required to update profile' });
+    }
+    
+    // Find seller and verify password
+    const seller = await Seller.findById(req.seller._id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+    
+    // Verify password
+    const isPasswordValid = await seller.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid password. Please enter your correct password to update profile.' });
+    }
+    
+    // Update profile
+    const updatedSeller = await Seller.findByIdAndUpdate(
       req.seller._id,
       { whatsappNo, contactNo, country, city, productCategory },
       { new: true }
     ).select('-password');
 
+    res.json({ message: 'Profile updated successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Change seller password
+router.put('/change-password', authenticateSeller, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required' });
+    }
+    
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'New password must be at least 8 characters long' });
+    }
+    
+    // Find seller and verify current password
+    const seller = await Seller.findById(req.seller._id);
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
+    
+    // Verify current password
+    const isCurrentPasswordValid = await seller.comparePassword(currentPassword);
+    if (!isCurrentPasswordValid) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+    
+    // Update password (will be hashed by pre-save middleware)
+    seller.password = newPassword;
+    await seller.save();
 
-    res.json({ message: 'Profile updated successfully', seller });
+    res.json({ message: 'Password changed successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

@@ -46,7 +46,6 @@ const AmazonsChoice = () => {
   const [badgeRotation, setBadgeRotation] = useState(0) // For rotating badges every 2 seconds
   const [dataSource, setDataSource] = useState('') // Track data source for debugging
 
-
   // Context hooks
   const { formatPrice } = useCurrency()
   const { addToBasket, isInBasket } = useBasket()
@@ -80,8 +79,6 @@ const AmazonsChoice = () => {
   const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct)
   const totalPages = Math.ceil(products.length / productsPerPage)
 
-
-
   // Fetch products with server-side filtering
   const fetchProducts = async (category = null, search = null) => {
     try {
@@ -90,7 +87,7 @@ const AmazonsChoice = () => {
       
       // Skip if we just fetched the same data
       if (fetchKey === lastFetchKey && products.length > 0) {
-        console.log('🔄 Skipping duplicate fetch for:', fetchKey)
+        
         return
       }
       
@@ -98,8 +95,7 @@ const AmazonsChoice = () => {
       if (products.length === 0) {
         setLoading(true)
       }
-      console.log('🔄 Fetching products from database...', { category, search, fetchKey })
-      
+
       // No timeout - let database take as long as it needs
       
       // Optimize API calls for better performance
@@ -128,49 +124,23 @@ const AmazonsChoice = () => {
         apiUrl = `products/public?${params.toString()}`
       }
       
-      console.log('🌐 API URL:', getApiUrl(apiUrl))
-      console.log('🏆 Amazon Choice Filter Applied - Category:', category || 'all')
-      
+      )
+
       const response = await fetch(getApiUrl(apiUrl), {
         headers: { 'Accept': 'application/json' }
       })
-      
-      console.log('📊 Response received after long wait')
-      console.log('📊 Response status:', response.status)
-      console.log('📊 Response ok:', response.ok)
-      
+
       if (response.ok) {
-        console.log('�  Parsing JSON response...')
-        const data = await response.json()
-        console.log('📦 Raw data received:', {
-          hasProducts: !!data.products,
-          productsCount: data.products?.length || 0,
-          source: data.source,
-          responseTime: data.responseTime
-        })
         
+        const data = await response.json()
+
         if (data.products && data.products.length > 0) {
-          console.log('✅ Database fetch successful:', data.products.length, 'products')
-          console.log('📋 Sample product:', data.products[0])
-          console.log('💰 Price fields in sample:', {
-            price: data.products[0]?.price,
-            originalPrice: data.products[0]?.originalPrice,
-            dealUnits: data.products[0]?.dealUnits,
-            profitCalculations: data.products[0]?.profitCalculations,
-            profitEvaluation: data.products[0]?.profitEvaluation
-          })
-          
+
           // Simplified: All prices in GBP (£) only - use actual database price
           const transformedProducts = data.products.map(p => {
             // Debug amber bulb specifically
             if (p.name && p.name.toLowerCase().includes('amber') && p.name.toLowerCase().includes('bulb')) {
-              console.log('🔍 AMBER BULB DEBUG:', {
-                id: p._id,
-                name: p.name,
-                profitCalculations: p.profitCalculations,
-                profitEvaluation: p.profitEvaluation,
-                evaluation: p.evaluation
-              });
+              
             }
             
             return {
@@ -197,13 +167,7 @@ const AmazonsChoice = () => {
               profitEvaluation: p.profitEvaluation || null
             };
           })
-          
-          console.log('🎯 Setting products state:', {
-            originalCount: data.products.length,
-            transformedCount: transformedProducts.length,
-            sampleTransformed: transformedProducts[0]
-          })
-          
+
           setProducts(transformedProducts)
           // Initialize filtered products with all products
           setFilteredProducts(transformedProducts)
@@ -211,25 +175,13 @@ const AmazonsChoice = () => {
           setHasLoadedOnce(true)
           setLastFetchKey(fetchKey)
           setDataSource(data.source || 'unknown')
-          
-          console.log('✅ Products loaded successfully!')
-          console.log('🔍 Final state check:', {
-            productsLength: transformedProducts.length,
-            firstProduct: transformedProducts[0]?.name,
-            loading: false,
-            dataSource: data.source
-          })
-          
+
           // Show notification if using fallback data
           if (data.source && data.source !== 'database' && data.source !== 'fast') {
             console.warn('⚠️ Using fallback data source:', data.source);
           }
         } else {
-          console.log('⚠️ No Amazon Choice products found in database')
-          console.log('🔍 This might mean:')
-          console.log('  1. No products are marked as isAmazonsChoice: true')
-          console.log('  2. Database connection issues')
-          console.log('  3. All Amazon Choice products are inactive')
+
           setProducts([])
           setLoading(false)
         }
@@ -246,25 +198,20 @@ const AmazonsChoice = () => {
 
   // Server-side filtering - fetch products with filters
   const applyFilters = async (category, search) => {
-    console.log('🔍 Applying filters:', { category, search })
+    
     await fetchProducts(category, search)
   }
 
   // Force refresh for admin
   const forceRefresh = async () => {
-    console.log('🔄 Force refreshing products from database...')
+    
     setLoading(true)
     await Promise.all([fetchProducts(), fetchCategories()])
   }
 
   // Debug: Track products state changes
   useEffect(() => {
-    console.log('🔍 Products state changed:', {
-      productsCount: products.length,
-      currentProductsCount: currentProducts.length,
-      loading: loading,
-      hasLoadedOnce: hasLoadedOnce
-    })
+    
   }, [products, currentProducts, loading, hasLoadedOnce])
 
   // Check admin status
@@ -292,14 +239,7 @@ const AmazonsChoice = () => {
   useEffect(() => {
     const catParam = searchParams.get('cat') || 'all'
     const searchParam = searchParams.get('search') || ''
-    
-    console.log('📍 URL params changed:', { catParam, searchParam })
-    console.log('🌍 Environment info:', {
-      isDev: import.meta.env.DEV,
-      apiUrl: import.meta.env.VITE_API_URL,
-      mode: import.meta.env.MODE
-    })
-    
+
     // Log device info for debugging mobile issues
     logDeviceInfo()
     
@@ -316,10 +256,10 @@ const AmazonsChoice = () => {
     const checkApiHealth = async () => {
       try {
         const healthUrl = getApiUrl('../health');
-        console.log('🏥 Checking API health:', healthUrl);
+        
         const response = await fetch(healthUrl);
         const health = await response.json();
-        console.log('🏥 API Health:', health);
+        
       } catch (error) {
         console.error('❌ API Health check failed:', error);
       }
@@ -429,12 +369,6 @@ const AmazonsChoice = () => {
   }
 
   // Debug: Log render state
-  console.log('🎨 Rendering with state:', {
-    loading,
-    productsLength: products.length,
-    currentProductsLength: currentProducts.length,
-    hasLoadedOnce
-  })
 
   return (
     <div>
@@ -481,9 +415,6 @@ const AmazonsChoice = () => {
             </button>
           </div>
         )}
-
-        
-
 
         {/* Products Grid */}
         <div id="products-grid" style={{
@@ -583,7 +514,6 @@ const AmazonsChoice = () => {
                   })()}
                 </div>
 
-
               </div>
               
               <div className="product-info" style={{padding: '3px 5px', display: 'flex', flexDirection: 'column', gap: '2px'}}>
@@ -605,7 +535,7 @@ const AmazonsChoice = () => {
                   {/* Right side - Profit Information */}
                   {(() => {
                     // Debug: Log what profit data is available
-                    console.log('🔍 Profit Debug for', product.name?.substring(0, 30), ':', {
+                    , ':', {
                       hasProfitCalculations: !!product?.profitCalculations,
                       profitCalculations: product?.profitCalculations,
                       hasEvaluation: !!product?.evaluation,
@@ -656,11 +586,11 @@ const AmazonsChoice = () => {
 
                     // Only show profit information if it's valid
                     if (!hasValidProfitData()) {
-                      console.log('❌ No valid profit data for', product.name?.substring(0, 30));
+                      );
                       return null;
                     }
 
-                    console.log('✅ Valid profit data found for', product.name?.substring(0, 30));
+                    );
 
                     // Get the exact same profit value as ProductDetail page
                     const getProfitPerUnit = () => {
@@ -698,7 +628,7 @@ const AmazonsChoice = () => {
                     const dealUnits = product.dealUnits || 1;
                     const totalProfit = profitPerUnit * dealUnits;
 
-                    console.log('💰 Calculated profit for', product.name?.substring(0, 30), ':', {
+                    , ':', {
                       profitPerUnit,
                       dealUnits,
                       totalProfit
@@ -744,8 +674,7 @@ const AmazonsChoice = () => {
                             const dealUnits = product.dealUnits || 1;
                             const totalPrice = unitPrice * dealUnits;
                             
-                            console.log('💰 Deal calculation:', {
-                              productName: product.name?.substring(0, 20),
+                            ,
                               unitPrice,
                               dealUnits,
                               totalPrice,

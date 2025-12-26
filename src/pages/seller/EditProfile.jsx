@@ -6,6 +6,16 @@ const EditProfile = () => {
   const navigate = useNavigate()
   const { seller, isLoggedIn, updateSeller } = useSeller()
   const [loading, setLoading] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false)
+  const [password, setPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [changePasswordData, setChangePasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [changePasswordError, setChangePasswordError] = useState('')
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -44,7 +54,18 @@ const EditProfile = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    // Show password modal instead of directly submitting
+    setShowPasswordModal(true)
+  }
+
+  const handlePasswordSubmit = async () => {
+    if (!password.trim()) {
+      setPasswordError('Please enter your password')
+      return
+    }
+
     setLoading(true)
+    setPasswordError('')
 
     try {
       const token = localStorage.getItem('sellerToken')
@@ -59,7 +80,8 @@ const EditProfile = () => {
           contactNo: formData.contactNo,
           country: formData.country,
           city: formData.city,
-          productCategory: formData.productCategory
+          productCategory: formData.productCategory,
+          password: password
         })
       })
 
@@ -68,16 +90,117 @@ const EditProfile = () => {
       if (response.ok) {
         updateSeller(data.seller)
         alert('✅ Profile updated successfully!')
+        setShowPasswordModal(false)
+        setPassword('')
+        setPasswordError('')
         navigate('/seller/dashboard')
       } else {
-        alert('❌ ' + data.message)
+        // Handle different error cases
+        if (response.status === 401) {
+          setPasswordError('Incorrect password. Please try again.')
+          setPassword('') // Clear the password field
+        } else if (response.status === 400) {
+          setPasswordError(data.message || 'Invalid request')
+        } else {
+          setPasswordError(data.message || 'Failed to update profile')
+        }
       }
     } catch (error) {
-      console.error('Update error:', error)
-      alert('❌ Failed to update profile')
+      setPasswordError('Network error. Please check your connection and try again.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handlePasswordCancel = () => {
+    setShowPasswordModal(false)
+    setPassword('')
+    setPasswordError('')
+    setLoading(false)
+  }
+
+  const handleChangePasswordClick = () => {
+    setShowChangePasswordModal(true)
+  }
+
+  const handleChangePasswordSubmit = async () => {
+    const { currentPassword, newPassword, confirmPassword } = changePasswordData
+    
+    // Validation
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setChangePasswordError('All fields are required')
+      return
+    }
+    
+    if (newPassword.length < 8) {
+      setChangePasswordError('New password must be at least 8 characters long')
+      return
+    }
+    
+    if (newPassword !== confirmPassword) {
+      setChangePasswordError('New passwords do not match')
+      return
+    }
+    
+    setLoading(true)
+    setChangePasswordError('')
+
+    try {
+      const token = localStorage.getItem('sellerToken')
+      const response = await fetch('http://localhost:5000/api/sellers/change-password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert('✅ Password changed successfully!')
+        setShowChangePasswordModal(false)
+        setChangePasswordData({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        })
+        setChangePasswordError('')
+      } else {
+        if (response.status === 401) {
+          setChangePasswordError('Current password is incorrect')
+        } else {
+          setChangePasswordError(data.message || 'Failed to change password')
+        }
+      }
+    } catch (error) {
+      setChangePasswordError('Network error. Please check your connection and try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleChangePasswordCancel = () => {
+    setShowChangePasswordModal(false)
+    setChangePasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    })
+    setChangePasswordError('')
+    setLoading(false)
+  }
+
+  const handleChangePasswordInputChange = (field, value) => {
+    setChangePasswordData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+    setChangePasswordError('') // Clear error when user types
   }
 
   if (!seller) {
@@ -202,7 +325,7 @@ const EditProfile = () => {
                   </select>
                 </div>
 
-                <div className="d-flex gap-2">
+                <div className="d-flex gap-2 flex-wrap">
                   <button 
                     type="submit" 
                     className="btn btn-primary"
@@ -221,6 +344,14 @@ const EditProfile = () => {
                   </button>
                   <button 
                     type="button" 
+                    className="btn btn-warning"
+                    onClick={handleChangePasswordClick}
+                    disabled={loading}
+                  >
+                    <i className="fas fa-key"></i> Change Password
+                  </button>
+                  <button 
+                    type="button" 
                     className="btn btn-secondary"
                     onClick={() => navigate('/seller/dashboard')}
                   >
@@ -232,6 +363,172 @@ const EditProfile = () => {
           </div>
         </div>
       </div>
+
+      {/* Password Confirmation Modal */}
+      {showPasswordModal && (
+        <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <i className="fas fa-lock text-warning"></i> Confirm Password
+                </h5>
+              </div>
+              <div className="modal-body">
+                <p className="mb-3">
+                  <i className="fas fa-info-circle text-info"></i> 
+                  For security reasons, please enter your password to confirm profile changes.
+                </p>
+                {passwordError && (
+                  <div className="alert alert-danger py-2" role="alert">
+                    <i className="fas fa-exclamation-triangle"></i> {passwordError}
+                  </div>
+                )}
+                <div className="mb-3">
+                  <label className="form-label">Enter your password:</label>
+                  <input
+                    type="password"
+                    className={`form-control ${passwordError ? 'is-invalid' : ''}`}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      setPasswordError('') // Clear error when user types
+                    }}
+                    placeholder="Enter your current password"
+                    autoFocus
+                    autoComplete="current-password"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handlePasswordSubmit()
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  onClick={handlePasswordCancel}
+                  disabled={loading}
+                >
+                  <i className="fas fa-times"></i> Cancel
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-primary"
+                  onClick={handlePasswordSubmit}
+                  disabled={loading || !password.trim()}
+                >
+                  {loading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-check"></i> Confirm & Update
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showChangePasswordModal && (
+        <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <i className="fas fa-key text-warning"></i> Change Password
+                </h5>
+              </div>
+              <div className="modal-body">
+                <p className="mb-3">
+                  <i className="fas fa-info-circle text-info"></i> 
+                  Enter your current password and choose a new secure password.
+                </p>
+                {changePasswordError && (
+                  <div className="alert alert-danger py-2" role="alert">
+                    <i className="fas fa-exclamation-triangle"></i> {changePasswordError}
+                  </div>
+                )}
+                
+                <div className="mb-3">
+                  <label className="form-label">Current Password:</label>
+                  <input
+                    type="password"
+                    className={`form-control ${changePasswordError && changePasswordError.includes('Current password') ? 'is-invalid' : ''}`}
+                    value={changePasswordData.currentPassword}
+                    onChange={(e) => handleChangePasswordInputChange('currentPassword', e.target.value)}
+                    placeholder="Enter your current password"
+                    autoFocus
+                  />
+                </div>
+                
+                <div className="mb-3">
+                  <label className="form-label">New Password:</label>
+                  <input
+                    type="password"
+                    className={`form-control ${changePasswordError && (changePasswordError.includes('8 characters') || changePasswordError.includes('do not match')) ? 'is-invalid' : ''}`}
+                    value={changePasswordData.newPassword}
+                    onChange={(e) => handleChangePasswordInputChange('newPassword', e.target.value)}
+                    placeholder="Enter new password (min 8 characters)"
+                  />
+                  <small className="text-muted">Password must be at least 8 characters long</small>
+                </div>
+                
+                <div className="mb-3">
+                  <label className="form-label">Confirm New Password:</label>
+                  <input
+                    type="password"
+                    className={`form-control ${changePasswordError && changePasswordError.includes('do not match') ? 'is-invalid' : ''}`}
+                    value={changePasswordData.confirmPassword}
+                    onChange={(e) => handleChangePasswordInputChange('confirmPassword', e.target.value)}
+                    placeholder="Confirm your new password"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleChangePasswordSubmit()
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  onClick={handleChangePasswordCancel}
+                  disabled={loading}
+                >
+                  <i className="fas fa-times"></i> Cancel
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-warning"
+                  onClick={handleChangePasswordSubmit}
+                  disabled={loading || !changePasswordData.currentPassword || !changePasswordData.newPassword || !changePasswordData.confirmPassword}
+                >
+                  {loading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                      Changing...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-key"></i> Change Password
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

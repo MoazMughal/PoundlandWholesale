@@ -40,7 +40,6 @@ async function getProductsWithFallback(query = {}, options = {}) {
     
     // Try cache first
     if (productCache.isFresh()) {
-      console.log('📦 Using fresh cache data');
       const cacheResult = productCache.getProducts({
         ...query,
         page: options.page,
@@ -61,7 +60,6 @@ async function getProductsWithFallback(query = {}, options = {}) {
     });
     
     if (cacheResult.products.length > 0) {
-      console.log('📦 Using stale cache data');
       return {
         ...cacheResult,
         source: 'stale_cache',
@@ -70,7 +68,6 @@ async function getProductsWithFallback(query = {}, options = {}) {
     }
     
     // Final fallback to hardcoded data
-    console.log('🆘 Using fallback data');
     let fallbackFiltered = [...fallbackProducts];
     
     // Apply basic filtering to fallback data
@@ -175,7 +172,6 @@ router.get('/public', async (req, res) => {
       
       // Debug logging for ID searches (public route)
       if (search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
-        console.log('🔍 Public ID Search Debug:', {
           searchTerm: search,
           isValidObjectId,
           route: 'public'
@@ -279,8 +275,6 @@ router.get('/public', async (req, res) => {
       count = products.length; // Fallback to products array length
     }
 
-
-
     res.json({
       products: processedProducts,
       totalPages: Math.ceil(count / parseInt(limit)),
@@ -301,7 +295,6 @@ router.get('/public/:id', async (req, res) => {
     // Check if the ID is a valid MongoDB ObjectId
     const mongoose = await import('mongoose');
     if (!mongoose.default.Types.ObjectId.isValid(id)) {
-      console.log(`Invalid ObjectId format: ${id} - this might be a hardcoded product ID`);
       return res.status(400).json({ 
         message: 'Product not found in database',
         error: `ID "${id}" is not a valid database ObjectId. This might be a hardcoded product.`,
@@ -467,7 +460,6 @@ router.get('/', authenticateAdmin, async (req, res) => {
       
       // Debug logging for ID searches
       if (search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
-        console.log('🔍 ID Search Debug:', {
           searchTerm: search,
           isValidObjectId,
           queryStructure: JSON.stringify(searchQuery, null, 2)
@@ -480,8 +472,6 @@ router.get('/', authenticateAdmin, async (req, res) => {
     
     if (category) query.category = category;
     if (status) query.status = status;
-
-    console.log('🔍 Final Query:', JSON.stringify(query, null, 2));
 
     let products;
     try {
@@ -576,10 +566,6 @@ router.post('/', authenticateAdmin, async (req, res) => {
 
 router.put('/:id', authenticateAdmin, async (req, res) => {
   try {
-    console.log('📝 Updating product:', req.params.id);
-    console.log('📝 Update data:', req.body);
-    console.log('📝 Features in request:', req.body.features);
-    console.log('📝 Features type:', typeof req.body.features, 'isArray:', Array.isArray(req.body.features));
     
     const product = await Product.findByIdAndUpdate(
       req.params.id,
@@ -588,12 +574,10 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     );
 
     if (!product) {
-      console.log('❌ Product not found:', req.params.id);
       return res.status(404).json({ message: 'Product not found' });
     }
 
     console.log('✅ Product updated successfully:', product.name);
-    console.log('📝 Updated product features:', product.features);
     res.json(product);
   } catch (error) {
     console.error('❌ Error updating product:', error);
@@ -610,9 +594,7 @@ router.patch('/:id/platform-units', authenticateAdmin, async (req, res) => {
     if (!platformUnits || isNaN(platformUnits) || platformUnits < 1) {
       return res.status(400).json({ message: 'Invalid platform units value' });
     }
-    
-    console.log('📝 Updating platform units for product:', req.params.id, 'to:', platformUnits);
-    
+
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       { platformUnits: parseInt(platformUnits) },
@@ -620,7 +602,6 @@ router.patch('/:id/platform-units', authenticateAdmin, async (req, res) => {
     );
 
     if (!product) {
-      console.log('❌ Product not found:', req.params.id);
       return res.status(404).json({ message: 'Product not found' });
     }
 
@@ -992,7 +973,6 @@ router.put('/admin/approve/:id', authenticateAdmin, async (req, res) => {
 router.post('/seller/bulk-list', authenticateSeller, async (req, res) => {
   try {
     const { products } = req.body;
-    console.log('Bulk list request from seller:', req.seller.username, 'Products count:', products?.length);
     
     if (!Array.isArray(products) || products.length === 0) {
       return res.status(400).json({ message: 'Invalid products array' });
@@ -1004,14 +984,8 @@ router.post('/seller/bulk-list', authenticateSeller, async (req, res) => {
 
     for (const productData of products) {
       try {
-        console.log('Processing product:', productData.name, 'ASIN:', productData.asin);
-        console.log('Product data marketplace:', productData.marketplace);
-        console.log('Product data has rawData:', !!productData.rawData);
         if (productData.rawData && productData.rawData.marketplace) {
-          console.log('RawData marketplace:', productData.rawData.marketplace);
         }
-        console.log('All product data keys:', Object.keys(productData));
-        console.log('Seller info:', { 
           username: req.seller.username, 
           city: req.seller.city, 
           country: req.seller.country,
@@ -1033,7 +1007,6 @@ router.post('/seller/bulk-list', authenticateSeller, async (req, res) => {
         }
         
         const exists = await Product.findOne(existsQuery);
-        console.log('Product exists check:', !!exists);
         
         if (exists) {
           console.log('Product already exists, skipping:', productData.name);
@@ -1066,9 +1039,6 @@ router.post('/seller/bulk-list', authenticateSeller, async (req, res) => {
 
         await product.save();
         console.log('Product saved successfully:', productData.name);
-        console.log('Saved product sellerInfo:', product.sellerInfo);
-        console.log('Saved product seller ID:', product.seller);
-        console.log('Saved product marketplace:', product.marketplace);
         imported++;
       } catch (err) {
         console.error('Error saving product:', productData.name, err.message);

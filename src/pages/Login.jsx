@@ -53,7 +53,7 @@ const Login = () => {
 
       if (response.ok) {
         if (formData.userType === 'seller') {
-          console.log('Seller login successful:', data.seller.username) // Debug log
+           // Debug log
           sellerLogin(data.seller, data.token)
         } else {
           localStorage.setItem(tokenKey, data.token)

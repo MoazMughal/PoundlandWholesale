@@ -71,7 +71,7 @@ const SellerProducts = () => {
 
       if (response.ok) {
         const data = await response.json()
-        console.log('All Excel products fetched:', data.products.length)
+        
         setAdminProducts(data.products)
       } else {
         const errorData = await response.json()

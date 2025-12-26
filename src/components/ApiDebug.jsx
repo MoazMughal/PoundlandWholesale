@@ -8,7 +8,7 @@ const ApiDebug = () => {
   const testEndpoint = async (endpoint, label) => {
     setLoading(true);
     try {
-      console.log(`🧪 Testing ${label}:`, getApiUrl(endpoint));
+      );
       const response = await fetch(getApiUrl(endpoint));
       const data = await response.json();
       

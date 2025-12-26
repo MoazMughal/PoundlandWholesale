@@ -47,8 +47,7 @@ const ForgotPasswordToken = () => {
         
         // Log development info if available
         if (data.developmentUrl) {
-          console.log('Development Reset URL:', data.developmentUrl);
-          console.log('Development Token:', data.developmentToken);
+
         }
       } else {
         setError(data.message || 'Failed to send reset link');

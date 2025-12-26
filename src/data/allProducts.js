@@ -2,7 +2,6 @@
 import extractedProducts from './extracted-products.json';
 import { processProductImages } from '../utils/imageImports';
 
-
 // Remove duplicate products based on ID and keep only unique ones
 const removeDuplicates = (products) => {
   const seen = new Set();

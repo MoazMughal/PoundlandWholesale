@@ -12,9 +12,57 @@ const Product = () => {
   const { id } = useParams()
   const [selectedImage, setSelectedImage] = useState(0)
   const [quantity, setQuantity] = useState(1)
+  const [product, setProduct] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  // Mock product data - in real app, this would come from API
-  const product = {
+  useEffect(() => {
+    fetchProduct()
+  }, [id])
+
+  const fetchProduct = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/products/${id}`)
+      if (response.ok) {
+        const productData = await response.json()
+        console.log('🔍 Full Product Data Loaded:', productData);
+        console.log('📊 Key Fields:', {
+          dealUnits: productData.dealUnits,
+          name: productData.name,
+          profitEvaluation: productData.profitEvaluation,
+          hasAllFields: !!(productData.dealUnits && productData.profitEvaluation)
+        });
+        
+        // Ensure we have all required fields, merge with defaults if needed
+        const completeProduct = {
+          ...getMockProduct(), // Start with mock data as base
+          ...productData, // Override with real data
+          // Ensure critical fields are present
+          dealUnits: productData.dealUnits || 1,
+          profitEvaluation: productData.profitEvaluation || getMockProduct().profitEvaluation
+        };
+        
+        console.log('✅ Final Product Data:', {
+          dealUnits: completeProduct.dealUnits,
+          hasProfitEvaluation: !!completeProduct.profitEvaluation
+        });
+        
+        setProduct(completeProduct)
+      } else {
+        // Fallback to mock data if product not found
+        console.log('📦 Using Mock Product Data (Not Found)');
+        setProduct(getMockProduct())
+      }
+    } catch (error) {
+      console.error('Error fetching product:', error)
+      // Fallback to mock data
+      console.log('📦 Using Mock Product Data (Error)');
+      setProduct(getMockProduct())
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getMockProduct = () => ({
     id: parseInt(id),
     name: "Premium Surgical Steel Nose Ring Set - 20 Pieces",
     price: "Rs. 299",
@@ -47,8 +95,16 @@ const Product = () => {
       rating: 4.8,
       location: "Karachi, Pakistan",
       verified: true
+    },
+    dealUnits: 180, // Deal of 180 units (matches Amazon's Choice)
+    platformUnits: 2400, // Units for yearly profit calculation
+    profitEvaluation: {
+      netProfit: 0.61,
+      monthlyProfit: 122.00, // (2400 ÷ 12) × 0.61 = 200 × 0.61 = 122.00
+      yearlyProfit: 1464.00, // 2400 × 0.61
+      productCost: 178.20 // Total cost for the deal (matches £178.20 from image)
     }
-  }
+  })
 
   const relatedProducts = [
     {
@@ -102,6 +158,31 @@ const Product = () => {
     }
 
     return stars
+  }
+
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '400px' }}>
+        <div className="text-center">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <p className="mt-3">Loading product details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!product) {
+    return (
+      <div className="container py-5">
+        <div className="text-center">
+          <h2>Product not found</h2>
+          <p>The product you're looking for doesn't exist.</p>
+          <Link to="/" className="btn btn-primary">Go Home</Link>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -292,6 +373,339 @@ const Product = () => {
           </div>
         </div>
       </section>
+
+      {/* Profit Analysis Section */}
+      {product?.profitEvaluation && (
+        <section className="section-padding">
+          <div className="container">
+            <div className="row justify-content-center">
+              <div className="col-lg-10">
+                <div style={{
+                  background: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%)',
+                  borderRadius: '15px',
+                  padding: '25px',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: '20px'
+                  }}>
+                    <span style={{
+                      fontSize: '24px',
+                      marginRight: '10px'
+                    }}>💰</span>
+                    <h3 style={{
+                      color: '#2c3e50',
+                      margin: 0,
+                      fontWeight: 'bold'
+                    }}>Profit Analysis</h3>
+                  </div>
+
+                  <div className="row">
+                    <div className="col-md-4 mb-3">
+                      <div style={{
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        borderRadius: '10px',
+                        padding: '20px',
+                        textAlign: 'center',
+                        height: '100%'
+                      }}>
+                        <div style={{
+                          color: '#7f8c8d',
+                          fontSize: '14px',
+                          marginBottom: '5px'
+                        }}>Net Profit (£)</div>
+                        <div style={{
+                          color: '#2c3e50',
+                          fontSize: '12px',
+                          marginBottom: '10px'
+                        }}>(Balance Change - Product Cost)</div>
+                        <div style={{
+                          background: 'rgba(200, 230, 201, 0.8)',
+                          borderRadius: '8px',
+                          padding: '15px',
+                          border: '2px solid #4caf50'
+                        }}>
+                          <div style={{
+                            fontSize: '28px',
+                            fontWeight: 'bold',
+                            color: '#2e7d32'
+                          }}>{(product.profitEvaluation.netProfit || 0).toFixed(2)}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-md-4 mb-3">
+                      <div style={{
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        borderRadius: '10px',
+                        padding: '20px',
+                        textAlign: 'center',
+                        height: '100%'
+                      }}>
+                        <div style={{
+                          color: '#7f8c8d',
+                          fontSize: '14px',
+                          marginBottom: '5px'
+                        }}>Monthly Profit (£)</div>
+                        <div style={{
+                          color: '#2c3e50',
+                          fontSize: '12px',
+                          marginBottom: '10px'
+                        }}>(Projected monthly earnings)</div>
+                        <div style={{
+                          background: 'rgba(255, 255, 255, 0.8)',
+                          borderRadius: '8px',
+                          padding: '15px',
+                          border: '1px solid #ddd'
+                        }}>
+                          <div style={{
+                            fontSize: '28px',
+                            fontWeight: 'bold',
+                            color: '#5d4e75'
+                          }}>{(product.profitEvaluation.monthlyProfit || 0).toFixed(2)}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-md-4 mb-3">
+                      <div style={{
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        borderRadius: '10px',
+                        padding: '20px',
+                        textAlign: 'center',
+                        height: '100%',
+                        position: 'relative'
+                      }}>
+                        <div style={{
+                          color: '#7f8c8d',
+                          fontSize: '14px',
+                          marginBottom: '5px'
+                        }}>Yearly Profit (£)</div>
+                        <div style={{
+                          color: '#2c3e50',
+                          fontSize: '12px',
+                          marginBottom: '10px'
+                        }}>(Projected annual earnings)</div>
+                        
+                        {/* Highlighted circle for yearly profit */}
+                        <div style={{
+                          position: 'absolute',
+                          top: '-10px',
+                          right: '-10px',
+                          left: '-10px',
+                          bottom: '-10px',
+                          border: '4px solid #000',
+                          borderRadius: '15px',
+                          zIndex: 1,
+                          pointerEvents: 'none'
+                        }}></div>
+                        
+                        <div style={{
+                          background: 'linear-gradient(135deg, #ffd700, #ffed4e)',
+                          borderRadius: '8px',
+                          padding: '15px',
+                          border: '2px solid #f39c12',
+                          position: 'relative',
+                          zIndex: 2
+                        }}>
+                          <div style={{
+                            fontSize: '28px',
+                            fontWeight: 'bold',
+                            color: '#d68910'
+                          }}>{(product.profitEvaluation.yearlyProfit || 0).toFixed(2)}</div>
+                          <div style={{
+                            fontSize: '10px',
+                            color: '#b7950b',
+                            marginTop: '5px',
+                            fontWeight: 'bold'
+                          }}>
+                            RRP Units × Profit per Unit<br/>
+                            {product.platformUnits || 2400} × £{((product.profitEvaluation.netProfit || 0) / (product.dealUnits || 1)).toFixed(2)} = £{((product.platformUnits || 2400) * ((product.profitEvaluation.netProfit || 0) / (product.dealUnits || 1))).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Profit Calculator Section */}
+      {product?.profitEvaluation && (
+        <section className="section-padding bg-light">
+          <div className="container">
+            <div className="row justify-content-center">
+              <div className="col-lg-8">
+                <div style={{
+                  background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)',
+                  borderRadius: '15px',
+                  padding: '25px',
+                  boxShadow: '0 8px 25px rgba(0,0,0,0.1)',
+                  border: '2px solid #4caf50'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: '20px',
+                    justifyContent: 'center'
+                  }}>
+                    <span style={{
+                      fontSize: '24px',
+                      marginRight: '10px'
+                    }}>🧮</span>
+                    <h3 style={{
+                      color: '#2e7d32',
+                      margin: 0,
+                      fontWeight: 'bold'
+                    }}>Profit Calculator</h3>
+                  </div>
+
+                  <div style={{
+                    textAlign: 'center',
+                    marginBottom: '20px',
+                    background: 'rgba(255, 255, 255, 0.8)',
+                    padding: '10px',
+                    borderRadius: '8px'
+                  }}>
+                    <div style={{
+                      fontSize: '16px',
+                      color: '#2e7d32',
+                      fontWeight: 'bold'
+                    }}>
+                      Deal of {product.dealUnits || 1} units
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      color: '#666',
+                      marginTop: '5px'
+                    }}>
+                      Per-unit calculations based on deal size from database
+                    </div>
+                    {/* Temporary debug info */}
+                    <div style={{
+                      fontSize: '10px',
+                      color: '#ff0000',
+                      marginTop: '5px',
+                      fontWeight: 'bold',
+                      background: '#ffeeee',
+                      padding: '5px',
+                      borderRadius: '3px'
+                    }}>
+                      DEBUG: dealUnits = {product.dealUnits || 'undefined'} | 
+                      netProfit = {product.profitEvaluation?.netProfit || 'undefined'} | 
+                      productCost = {product.profitEvaluation?.productCost || 'undefined'}
+                    </div>
+                  </div>
+
+                  <div className="row">
+                    <div className="col-md-6 mb-3">
+                      <div style={{
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        borderRadius: '10px',
+                        padding: '20px',
+                        textAlign: 'center',
+                        height: '100%',
+                        border: '2px solid #4caf50'
+                      }}>
+                        <div style={{
+                          color: '#2e7d32',
+                          fontSize: '14px',
+                          marginBottom: '5px',
+                          fontWeight: 'bold'
+                        }}>✅ Profit per Unit</div>
+                        <div style={{
+                          fontSize: '24px',
+                          fontWeight: 'bold',
+                          color: '#2e7d32',
+                          marginBottom: '8px'
+                        }}>
+                          £{((product.profitEvaluation.netProfit || 0) / (product.dealUnits || 1)).toFixed(2)}
+                        </div>
+                        <div style={{
+                          fontSize: '11px',
+                          color: '#666',
+                          background: 'rgba(76, 175, 80, 0.1)',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          display: 'inline-block'
+                        }}>
+                          Deal of {product.dealUnits || 1} units
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-md-6 mb-3">
+                      <div style={{
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        borderRadius: '10px',
+                        padding: '20px',
+                        textAlign: 'center',
+                        height: '100%',
+                        border: '2px solid #ff9800'
+                      }}>
+                        <div style={{
+                          color: '#f57c00',
+                          fontSize: '14px',
+                          marginBottom: '5px',
+                          fontWeight: 'bold'
+                        }}>💰 Cost per Unit</div>
+                        <div style={{
+                          fontSize: '24px',
+                          fontWeight: 'bold',
+                          color: '#f57c00',
+                          marginBottom: '8px'
+                        }}>
+                          £{((product.profitEvaluation.productCost || 0) / (product.dealUnits || 1)).toFixed(2)}
+                        </div>
+                        <div style={{
+                          fontSize: '11px',
+                          color: '#666',
+                          background: 'rgba(255, 152, 0, 0.1)',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          display: 'inline-block'
+                        }}>
+                          Deal of {product.dealUnits || 1} units
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: '8px',
+                    padding: '15px',
+                    marginTop: '15px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#2e7d32',
+                      fontWeight: 'bold',
+                      marginBottom: '5px'
+                    }}>
+                      📊 Deal Summary
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      color: '#666'
+                    }}>
+                      Total Deal Value: £{((product.profitEvaluation.netProfit || 0) + (product.profitEvaluation.productCost || 0)).toFixed(2)} | 
+                      Total Profit: £{(product.profitEvaluation.netProfit || 0).toFixed(2)} | 
+                      Total Cost: £{(product.profitEvaluation.productCost || 0).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Related Products */}
       <section className="section-padding">

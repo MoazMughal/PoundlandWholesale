@@ -5,32 +5,22 @@ import Seller from '../models/Seller.js';
 
 export const authenticateAdmin = async (req, res, next) => {
   try {
-    console.log('🔐 Admin authentication called');
-    console.log('🔐 Authorization header:', req.headers.authorization ? 'Present' : 'Missing');
-    
     const token = req.headers.authorization?.split(' ')[1];
     
     if (!token) {
-      console.log('🔐 No token provided');
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    console.log('🔐 Token found, verifying...');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('🔐 Token decoded, admin ID:', decoded.id);
-    
     const admin = await Admin.findById(decoded.id).select('-password');
     
     if (!admin) {
-      console.log('🔐 Admin not found in database');
       return res.status(401).json({ message: 'Admin not found' });
     }
 
-    console.log('🔐 Admin found:', admin.username);
     req.admin = admin;
     next();
   } catch (error) {
-    console.log('🔐 Token verification failed:', error.message);
     res.status(401).json({ message: 'Invalid token' });
   }
 };

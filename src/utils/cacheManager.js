@@ -96,7 +96,6 @@ export const cacheManager = {
         }
       })
 
-      console.log(`Cleared ${clearedCount} expired cache entries`)
       return clearedCount
     } catch (error) {
       console.error('Clear expired cache error:', error)
@@ -119,7 +118,6 @@ export const cacheManager = {
         }
       })
 
-      console.log(`Cleared all ${clearedCount} cache entries`)
       return clearedCount
     } catch (error) {
       console.error('Clear all cache error:', error)

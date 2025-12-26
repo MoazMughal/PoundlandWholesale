@@ -103,7 +103,7 @@ const ExcelImport = () => {
 
       // Show file size info for large files
       const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
-      console.log(`📊 Uploading file: ${file.name} (${fileSizeMB} MB)`);
+      `);
 
       const response = await fetch('http://localhost:5000/api/admin-excel/upload-test', {
         method: 'POST',

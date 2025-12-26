@@ -42,8 +42,7 @@ const SupplierLogin = () => {
       const data = await response.json()
 
       if (response.ok) {
-        console.log('Seller login successful:', data.seller.username)
-        
+
         // Use seller context to login
         sellerLogin(data.seller, data.token)
         

@@ -131,6 +131,45 @@ const ProductDetail = () => {
 
   // Currency rates and symbols are now from context
 
+  // Function to calculate markup fallback when admin markup is missing or 0
+  const calculateMarkupFallback = (perUnitPrice, totalProfit, units) => {
+    try {
+      console.log('🔧 calculateMarkupFallback called with:', {
+        perUnitPrice,
+        totalProfit,
+        units,
+        productPrice: product?.price
+      });
+      
+      // Get product cost price in GBP
+      const costPriceRaw = parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0);
+      const isPKR = product?.price?.includes('₨') || product?.price?.includes('Rs');
+      const costPriceGBP = isPKR ? costPriceRaw * 0.00272 : costPriceRaw;
+      const totalCost = costPriceGBP * units;
+      
+      console.log('🔧 Markup calculation details:', {
+        costPriceRaw,
+        isPKR,
+        costPriceGBP,
+        totalCost,
+        perUnitPrice,
+        units
+      });
+      
+      // Calculate markup as (Revenue - Cost) / Cost * 100
+      const totalRevenue = perUnitPrice * units;
+      if (totalCost > 0) {
+        const markup = (((totalRevenue - totalCost) / totalCost) * 100).toFixed(2);
+        console.log('✅ Calculated markup:', markup + '%');
+        return `${markup}%`;
+      }
+    } catch (error) {
+      console.error('Error calculating markup fallback:', error);
+    }
+    console.log('❌ Returning 0% markup');
+    return '0%';
+  };
+
   const convertPrice = (priceStr) => {
     // Extract the price number and detect original currency
     const price = parseFloat(String(priceStr).replace(/[₨£$€Rs]/g, '').trim())
@@ -369,6 +408,7 @@ const ProductDetail = () => {
       try {
         // Add cache busting to ensure fresh data
         const cacheBuster = new Date().getTime();
+        console.log('🔄 Fetching product with cache buster:', cacheBuster);
         const response = await fetch(apiConfig.getApiUrl(`products/public/${id}?_=${cacheBuster}`), {
           cache: 'no-cache',
           headers: {
@@ -428,15 +468,15 @@ const ProductDetail = () => {
               'Bulk Orders Welcome'
             ],
             dealInfo: {
-              location: 'Pakistan',
-              flag: '????',
+              location: 'International',
+              flag: '🌍',
               minOrder: '200 Unit',
               condition: 'New'
             },
             specifications: {
               'Material': 'Premium Quality',
               'Condition': 'New',
-              'Origin': 'Pakistan'
+              'Origin': 'International'
             },
             platforms: [
               { name: 'RRP', price: '?420.99', grossProfit: '?328.39', markup: '354.63%' },
@@ -446,7 +486,7 @@ const ProductDetail = () => {
             testimonials: [
               {
                 name: 'Ahmed K.',
-                location: 'Karachi, Pakistan',
+                location: 'Karachi',
                 rating: 5,
                 comment: 'Excellent quality product! Received exactly as described. Great for reselling on Amazon.',
                 date: '2 weeks ago'
@@ -532,11 +572,20 @@ const ProductDetail = () => {
                 totalProfitGBP: totalProfitGBP.toFixed(2)
               });
               
+              console.log(`🔍 Platform ${platform.platform} markup debug:`, {
+                originalMarkup: platform.markup,
+                markupType: typeof platform.markup,
+                isEmpty: !platform.markup,
+                isZeroPercent: platform.markup === '0%',
+                isZero: platform.markup === '0',
+                willUseFallback: !(platform.markup && platform.markup !== '0%' && platform.markup !== '0')
+              });
+              
               return {
                 name: platform.platform,
                 price: parseFloat(totalPriceGBP.toFixed(2)), // Total price for specified units in GBP
                 grossProfit: parseFloat(totalProfitGBP.toFixed(2)), // Use stored profit calculation in GBP
-                markup: platform.markup,
+                markup: (platform.markup && platform.markup !== '0%' && platform.markup !== '0') ? platform.markup : calculateMarkupFallback(perUnitPriceGBP, totalProfitGBP, units),
                 units: units, // Store the unit quantity
                 perUnitPrice: parseFloat(perUnitPriceGBP.toFixed(2)), // Store per unit price in GBP
                 isPKR: false // Mark as GBP data for proper display
@@ -728,7 +777,7 @@ const ProductDetail = () => {
                     name: platform.platform,
                     price: parseFloat(totalPriceGBP.toFixed(2)),
                     grossProfit: parseFloat(totalProfitGBP.toFixed(2)),
-                    markup: platform.markup,
+                    markup: (platform.markup && platform.markup !== '0%' && platform.markup !== '0') ? platform.markup : calculateMarkupFallback(perUnitPriceGBP, totalProfitGBP, units),
                     units: units,
                     perUnitPrice: parseFloat(perUnitPriceGBP.toFixed(2)),
                     isPKR: false // Already in GBP
@@ -1165,17 +1214,17 @@ const ProductDetail = () => {
             { name: 'eBay', price: '?199.00', grossProfit: '?106.40', markup: '114.90%' }
           ],
           dealInfo: {
-            location: 'Pakistan',
-            flag: '????',
+            location: 'International',
+            flag: '🌍',
             minOrder: '200 Unit',
             condition: 'New'
           },
           specifications: {
             'Material': 'Premium Quality',
             'Condition': 'New',
-            'Origin': 'Pakistan'
+            'Origin': 'International'
           },
-          description: `High-quality ${nameParam} available at wholesale prices. Perfect for Amazon FBA sellers and retailers. This product has excellent reviews and consistent sales performance. Sourced from verified Pakistani suppliers with quality assurance.`,
+          description: `High-quality ${nameParam} available at wholesale prices. Perfect for Amazon FBA sellers and retailers. This product has excellent reviews and consistent sales performance. Sourced from verified international suppliers with quality assurance.`,
           features: [
             'Amazon\'s Choice Product',
             'Fast Shipping Available',
@@ -1186,7 +1235,7 @@ const ProductDetail = () => {
           testimonials: [
             {
               name: 'Ahmed K.',
-              location: 'Karachi, Pakistan',
+              location: 'Karachi',
               rating: 5,
               comment: 'Excellent quality product! Received exactly as described. Great for reselling on Amazon.',
               date: '2 weeks ago'
@@ -1553,17 +1602,17 @@ const ProductDetail = () => {
                 { name: 'eBay', price: '?199.00', grossProfit: '?106.40', markup: '114.90%' }
               ],
               dealInfo: {
-                location: 'Pakistan',
-                flag: '????',
+                location: 'International',
+                flag: '🌍',
                 minOrder: '200 Unit',
                 condition: 'New'
               },
               specifications: {
                 'Material': 'Premium Quality',
                 'Condition': 'New',
-                'Origin': 'Pakistan'
+                'Origin': 'International'
               },
-              description: foundProduct.description || `High-quality ${foundProduct.name} available at wholesale prices. Perfect for Amazon FBA sellers and retailers. This product has excellent reviews and consistent sales performance. Sourced from verified Pakistani suppliers with quality assurance.`,
+              description: foundProduct.description || `High-quality ${foundProduct.name} available at wholesale prices. Perfect for Amazon FBA sellers and retailers. This product has excellent reviews and consistent sales performance. Sourced from verified international suppliers with quality assurance.`,
               features: foundProduct.features && foundProduct.features.length > 0 ? foundProduct.features : [
                 'Amazon\'s Choice Product',
                 'Fast Shipping Available',
@@ -1895,15 +1944,15 @@ const ProductDetail = () => {
                   { name: 'eBay', price: '?199.00', grossProfit: '?106.40', markup: '114.90%' }
                 ],
                 dealInfo: {
-                  location: 'Pakistan',
-                  flag: '????',
+                  location: 'International',
+                  flag: '🌍',
                   minOrder: '200 Unit',
                   condition: 'New'
                 },
                 specifications: {
                   'Material': 'Premium Quality',
                   'Condition': 'New',
-                  'Origin': 'Pakistan'
+                  'Origin': 'International'
                 },
                 description: foundProduct.description || `High-quality ${foundProduct.name} available at wholesale prices.`,
                 features: foundProduct.features && foundProduct.features.length > 0 ? foundProduct.features : [
@@ -2002,6 +2051,50 @@ const ProductDetail = () => {
     
     fetchProduct()
   }, [id, searchParams])
+
+  // Listen for variation updates from admin panel
+  useEffect(() => {
+    const handleVariationUpdate = (event) => {
+      if (event.key === 'variationsUpdated' && event.newValue === id) {
+        console.log('🔄 Variations updated for current product, refreshing...');
+        // Force refresh the product data
+        const fetchProduct = async () => {
+          try {
+            const cacheBuster = new Date().getTime();
+            const response = await fetch(apiConfig.getApiUrl(`products/public/${id}?_=${cacheBuster}`), {
+              cache: 'no-cache',
+              headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              }
+            });
+            
+            if (response.ok) {
+              const dbProduct = await response.json();
+              console.log('✅ Product refreshed after variation update:', dbProduct.variations);
+              // Update the product state with fresh data
+              setProduct(prevProduct => ({
+                ...prevProduct,
+                variations: dbProduct.variations
+              }));
+            }
+          } catch (error) {
+            console.error('❌ Error refreshing product after variation update:', error);
+          }
+        };
+        
+        fetchProduct();
+        // Clear the flag
+        localStorage.removeItem('variationsUpdated');
+      }
+    };
+
+    window.addEventListener('storage', handleVariationUpdate);
+    
+    return () => {
+      window.removeEventListener('storage', handleVariationUpdate);
+    };
+  }, [id])
 
   // Check if buyer is logged in and if supplier is unlocked
   useEffect(() => {
@@ -2191,32 +2284,35 @@ const ProductDetail = () => {
     return isValid;
   };
 
-  // Helper function to get RRP markup from Platform Comparison data
-  const getRRPMarkupFromPlatforms = () => {
+  // Helper function to get Amazon markup from Platform Comparison data
+  const getAmazonMarkupFromPlatforms = () => {
     try {
       const platformData = calculatePlatformData();
       if (platformData && platformData.length > 0) {
-        const rrpPlatform = platformData.find(platform => 
-          platform.name && platform.name.toLowerCase().includes('rrp')
+        // Look for Amazon platform
+        const amazonPlatform = platformData.find(platform => 
+          platform.name && platform.name.toLowerCase().includes('amazon')
         );
-        if (rrpPlatform && rrpPlatform.markup) {
-          console.log('✅ Found RRP markup from platforms:', rrpPlatform.markup);
-          return rrpPlatform.markup;
+        
+        if (amazonPlatform && amazonPlatform.markup) {
+          console.log('✅ Found Amazon markup from platforms:', amazonPlatform.markup);
+          return amazonPlatform.markup;
         }
       }
       
       // Backup: try direct platform data
       if (product.platforms && product.platforms.length > 0) {
-        const rrpPlatform = product.platforms.find(platform => 
-          platform.name && platform.name.toLowerCase().includes('rrp')
+        const amazonPlatform = product.platforms.find(platform => 
+          platform.name && platform.name.toLowerCase().includes('amazon')
         );
-        if (rrpPlatform && rrpPlatform.markup) {
-          console.log('✅ Found RRP markup from direct platforms:', rrpPlatform.markup);
-          return rrpPlatform.markup;
+        
+        if (amazonPlatform && amazonPlatform.markup) {
+          console.log('✅ Found Amazon markup from direct platforms:', amazonPlatform.markup);
+          return amazonPlatform.markup;
         }
       }
     } catch (error) {
-      console.error('❌ Error getting RRP markup:', error);
+      console.error('❌ Error getting Amazon markup:', error);
     }
     return null;
   };
@@ -2659,12 +2755,12 @@ const ProductDetail = () => {
                     {product.reviews} ratings
                   </Link>
                   {(() => {
-                    // Use admin-set RRP markup from Platform Comparison, fallback to product.markup
-                    const adminRRPMarkup = getRRPMarkupFromPlatforms();
-                    const displayMarkup = adminRRPMarkup || product.markup;
+                    // Use Amazon markup from Platform Comparison, fallback to product.markup
+                    const amazonMarkup = getAmazonMarkupFromPlatforms();
+                    const displayMarkup = amazonMarkup || product.markup;
                     
                     if (displayMarkup) {
-                      console.log('🏷️ Badge markup - Admin RRP:', adminRRPMarkup, 'Product markup:', product.markup, 'Using:', displayMarkup);
+                      console.log('🏷️ Badge markup - Amazon:', amazonMarkup, 'Product markup:', product.markup, 'Using:', displayMarkup);
                       return (
                         <span className="badge px-2 py-1 me-2" style={{
                           fontSize: '0.6rem',
@@ -2718,26 +2814,39 @@ const ProductDetail = () => {
                             fontWeight: '700'
                           }}>
                             {(() => {
-                              // CONSISTENT RRP LOGIC: Use the same source as Platform Comparison table
-                              const platformData = calculatePlatformData();
-                              console.log('🏷️ RRP Display - Platform data:', platformData);
+                              // FIXED RRP LOGIC: Use Amazon Platform RRP values from admin panel
+                              console.log('🏷️ RRP Display - Checking saved platform data');
+                              console.log('🏷️ Product platforms:', product?.platforms);
                               
-                              // Find RRP platform using the same logic as the table
-                              const rrpPlatform = platformData.find(platform => 
-                                (platform.name && platform.name.toLowerCase().includes('rrp')) ||
-                                (platform.platform && platform.platform.toLowerCase().includes('rrp'))
-                              );
-                              
-                              console.log('🏷️ RRP Display - Found RRP platform:', rrpPlatform);
-                              
-                              if (rrpPlatform) {
-                                // Use EXACTLY the same calculation as the Platform Comparison table
-                                const perUnitPrice = rrpPlatform.perUnitPrice || parseFloat(String(rrpPlatform.price).replace(/[£₨$€]/g, '')) / (rrpPlatform.units || 200);
-                                console.log('🏷️ RRP Display - Calculated perUnitPrice (SAME AS TABLE):', perUnitPrice);
-                                return `£${parseFloat(perUnitPrice).toFixed(2)}`;
+                              // First, check if we have saved platform data from admin panel
+                              if (product?.platforms && product.platforms.length > 0) {
+                                // Find Amazon platform from saved admin data (prioritize Amazon over RRP)
+                                const amazonPlatform = product.platforms.find(platform => 
+                                  platform.name && platform.name.toLowerCase().includes('amazon')
+                                );
+                                
+                                console.log('🏷️ RRP Display - Found saved Amazon platform:', amazonPlatform);
+                                
+                                if (amazonPlatform && amazonPlatform.perUnitPrice) {
+                                  // Use the saved Amazon per unit price from admin panel
+                                  const amazonRRPPerUnit = parseFloat(amazonPlatform.perUnitPrice);
+                                  console.log('🏷️ RRP Display - Using Amazon RRP per unit:', amazonRRPPerUnit);
+                                  return `£${amazonRRPPerUnit.toFixed(2)}`;
+                                }
+                                
+                                // Fallback to RRP platform if Amazon not found
+                                const rrpPlatform = product.platforms.find(platform => 
+                                  platform.name && platform.name.toLowerCase().includes('rrp')
+                                );
+                                
+                                if (rrpPlatform && rrpPlatform.perUnitPrice) {
+                                  const savedRRPPerUnit = parseFloat(rrpPlatform.perUnitPrice);
+                                  console.log('🏷️ RRP Display - Using fallback RRP per unit:', savedRRPPerUnit);
+                                  return `£${savedRRPPerUnit.toFixed(2)}`;
+                                }
                               }
                               
-                              // Final fallback to product.rrp
+                              // Fallback to product.rrp if no saved platform data
                               const fallbackRRP = parseFloat(product.rrp.replace(/[₨£$€Rs]/g, '')).toFixed(2);
                               console.log('🏷️ RRP Display - Using fallback RRP:', fallbackRRP);
                               return `£${fallbackRRP}`;
@@ -2756,23 +2865,75 @@ const ProductDetail = () => {
                             fontWeight: '700'
                           }}>
                             {(() => {
-                              // Use product.savings field if available
+                              // FIXED SAVE % LOGIC: Use saved values from admin panel
+                              console.log('💰 Save % Display - Checking saved data');
+                              console.log('💰 Product savings field:', product.savings);
+                              console.log('💰 Product save field:', product.save);
+                              
+                              // First priority: Use the saved savings field from admin panel
                               if (product.savings !== undefined && product.savings !== null && product.savings !== '') {
                                 const saveValue = parseFloat(product.savings);
                                 if (!isNaN(saveValue) && saveValue > 0) {
+                                  console.log('💰 Save % Display - Using saved savings field:', saveValue);
                                   return `${Math.round(saveValue)}%`;
                                 }
                               }
                               
-                              // Fallback calculation
+                              // Second priority: Use the save field from admin panel
+                              if (product.save !== undefined && product.save !== null && product.save !== '') {
+                                const saveValue = parseFloat(product.save);
+                                if (!isNaN(saveValue) && saveValue > 0) {
+                                  console.log('💰 Save % Display - Using saved save field:', saveValue);
+                                  return `${Math.round(saveValue)}%`;
+                                }
+                              }
+                              
+                              // Third priority: Calculate from saved platform RRP if available (prioritize Amazon)
+                              if (product?.platforms && product.platforms.length > 0) {
+                                // First try Amazon platform
+                                const amazonPlatform = product.platforms.find(platform => 
+                                  platform.name && platform.name.toLowerCase().includes('amazon')
+                                );
+                                
+                                if (amazonPlatform && amazonPlatform.perUnitPrice) {
+                                  const amazonRRPPerUnit = parseFloat(amazonPlatform.perUnitPrice);
+                                  const wholesalePerUnit = parseFloat(product.price.replace(/[₨£$€Rs]/g, '')) || 0;
+                                  
+                                  if (amazonRRPPerUnit > 0 && wholesalePerUnit > 0 && amazonRRPPerUnit > wholesalePerUnit) {
+                                    const savings = ((amazonRRPPerUnit - wholesalePerUnit) / amazonRRPPerUnit * 100);
+                                    console.log('💰 Save % Display - Calculated from Amazon RRP:', savings);
+                                    return `${Math.round(savings)}%`;
+                                  }
+                                }
+                                
+                                // Fallback to RRP platform
+                                const rrpPlatform = product.platforms.find(platform => 
+                                  platform.name && platform.name.toLowerCase().includes('rrp')
+                                );
+                                
+                                if (rrpPlatform && rrpPlatform.perUnitPrice) {
+                                  const rrpPerUnit = parseFloat(rrpPlatform.perUnitPrice);
+                                  const wholesalePerUnit = parseFloat(product.price.replace(/[₨£$€Rs]/g, '')) || 0;
+                                  
+                                  if (rrpPerUnit > 0 && wholesalePerUnit > 0 && rrpPerUnit > wholesalePerUnit) {
+                                    const savings = ((rrpPerUnit - wholesalePerUnit) / rrpPerUnit * 100);
+                                    console.log('💰 Save % Display - Calculated from platform RRP:', savings);
+                                    return `${Math.round(savings)}%`;
+                                  }
+                                }
+                              }
+                              
+                              // Fallback calculation using product.rrp
                               const wholesale = parseFloat(product.price.replace(/[₨£$€Rs]/g, '')) || 0;
                               const rrp = parseFloat(product.rrp.replace(/[₨£$€Rs]/g, '')) || 0;
                               
                               if (wholesale > 0 && rrp > 0 && rrp > wholesale) {
-                                const savings = ((rrp - wholesale) / rrp * 100).toFixed(0);
-                                return `${savings}%`;
+                                const savings = ((rrp - wholesale) / rrp * 100);
+                                console.log('💰 Save % Display - Fallback calculation:', savings);
+                                return `${Math.round(savings)}%`;
                               }
                               
+                              console.log('💰 Save % Display - No valid data found, returning 0%');
                               return '0%';
                             })()}
                           </span>
@@ -2851,20 +3012,25 @@ const ProductDetail = () => {
                             £{safeNumber(product.profitCalculations.profitPerUnit).toFixed(2)}
                           </span>
                         </div>
+                       
                         <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>📈 Profit/{quantity || 200}:</span>
+                          <span style={{color: '#565959'}}>📈 Profit/{product.dealUnits || 1}:</span>
                           <span style={{color: '#059669', fontWeight: '700', fontSize: '0.7rem'}}>
-                            £{(safeNumber(product.profitCalculations.profitPerUnit) * (quantity || 200)).toFixed(2)}
+                            £{(product.profitEvaluation?.netProfit || (safeNumber(product.profitCalculations.profitPerUnit) * (product.dealUnits || 1))).toFixed(2)}
                           </span>
                         </div>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>💰 Total cost/{quantity || 200}:</span>
+                          <span style={{color: '#565959'}}>💰 Total cost/{product.dealUnits || 1}:</span>
                           <span style={{color: '#B12704', fontWeight: '700', fontSize: '0.7rem'}}>{(() => {
-                            // Calculate total cost: quantity × unit price
-                            // Extract the numeric price from the product price string
+                            // Use profitEvaluation productCost if available, otherwise calculate from price
+                            if (product.profitEvaluation?.productCost) {
+                              return `£${(product.profitEvaluation.productCost).toFixed(2)}`;
+                            }
+                            
+                            // Fallback calculation: quantity × unit price
                             const priceString = product.price || '£0';
                             const unitPrice = parseFloat(priceString.replace(/[₨£$€]/g, '').trim()) || 0;
-                            const units = quantity || 200;
+                            const units = product.dealUnits || 1;
                             const totalCost = unitPrice * units;
                             
                             console.log('💰 Cost Calculation:', {
@@ -2875,7 +3041,6 @@ const ProductDetail = () => {
                               formula: `${units} × ${unitPrice} = ${totalCost}`
                             });
                             
-                            // Return formatted price in GBP (like the image example)
                             return `£${totalCost.toFixed(2)}`;
                           })()}</span>
                         </div>
@@ -3212,7 +3377,7 @@ const ProductDetail = () => {
                     </div>
                     <small style={{fontSize: '0.6rem', color: '#0369a1', fontWeight: '500'}}>
                       <i className="fas fa-shipping-fast me-1"></i>
-                      Ships from {product.dealInfo?.location || 'Pakistan'} 🇵🇰
+                      Fast Shipping Available
                     </small>
                   </div>
 
@@ -3717,7 +3882,7 @@ const ProductDetail = () => {
                               <th className="fw-bold py-2 px-2" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Platform</th>
                               <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>RRP/Unit (£)</th>
                               <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Units</th>
-                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Total Profit ({quantity} units) (£)</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Total Profit </th>
                               <th className="fw-bold py-2 px-2 text-center">Markup</th>
                             </tr>
                           </thead>
@@ -3732,9 +3897,34 @@ const ProductDetail = () => {
                                   isPKR: platform.isPKR,
                                   units: platform.units,
                                   markup: platform.markup,
+                                  markupType: typeof platform.markup,
+                                  markupEmpty: !platform.markup,
+                                  markupIsZero: platform.markup === '0%' || platform.markup === '0',
                                   convertedPrice: platform.isPKR ? convertFromPKR(platform.price) : convertPrice(platform.price),
                                   convertedProfit: platform.isPKR ? convertFromPKR(platform.grossProfit) : convertPrice(platform.grossProfit)
                                 });
+                                
+                                // Enhanced markup debugging
+                                if (!platform.markup || platform.markup === '0%' || platform.markup === '0') {
+                                  console.log(`⚠️ Platform ${platform.name} has no/zero markup:`, {
+                                    markup: platform.markup,
+                                    willUseFallback: true,
+                                    productPrice: product?.price,
+                                    hasProduct: !!product
+                                  });
+                                }
+                                
+                                // Special debugging for Amazon markup
+                                if (platform.name === 'Amazon') {
+                                  console.log(`🔍 AMAZON MARKUP DETAILED DEBUG:`, {
+                                    platformMarkup: platform.markup,
+                                    rrpPerUnit: platform.perUnitPrice || parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) / (platform.units || 200),
+                                    productCost: parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0),
+                                    productPrice: product?.price,
+                                    calculationFormula: `((${platform.perUnitPrice || 'RRP'} - ${parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0)}) / ${parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0)}) × 100`,
+                                    expectedResult: platform.perUnitPrice ? (((platform.perUnitPrice - parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0)) / parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0)) * 100).toFixed(1) + '%' : 'N/A'
+                                  });
+                                }
                                 
                                 // Calculate per unit price and total profit correctly
                                 const perUnitPrice = platform.perUnitPrice || parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) / (platform.units || 200);
@@ -3758,8 +3948,13 @@ const ProductDetail = () => {
                                     </td>
                                     <td className="py-2 px-2 text-center">
                                       <span className="badge bg-info" style={{fontSize: '0.65rem', padding: '3px 6px'}}>
-                                        {platform.markup}
+                                        {platform.markup || 'N/A'}
                                       </span>
+                                      {(!platform.markup || platform.markup === '0%') && (
+                                        <div style={{fontSize: '0.5rem', color: '#666', marginTop: '2px'}}>
+                                          (No data)
+                                        </div>
+                                      )}
                                     </td>
                                   </tr>
                                 );
@@ -3830,14 +4025,58 @@ const ProductDetail = () => {
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Yearly Profit</div>
                                   <div className="fw-bold text-warning" style={{fontSize: '0.9rem'}}>
                                     £{(() => {
-                                      const yearlyValue = product.evaluation?.yearlyProfit || product.profitCalculations?.yearlyProfit || (product.profitCalculations?.profitPerUnit * 365) || 0;
-                                      console.log('📊 Yearly Profit Display Debug:', {
-                                        evaluationYearly: product.evaluation?.yearlyProfit,
-                                        calculationsYearly: product.profitCalculations?.yearlyProfit,
-                                        fallbackCalculation: product.profitCalculations?.profitPerUnit * 365,
-                                        finalValue: yearlyValue
+                                      // PRIORITY 1: Auto-calculate yearly profit based on platform units
+                                      const platformData = calculatePlatformData();
+                                      const profitPerUnit = product.profitCalculations?.profitPerUnit || product.evaluation?.netProfit || 0;
+                                      
+                                      console.log('📊 Yearly Profit Calculation Debug:', {
+                                        hasPlatformData: !!platformData,
+                                        platformDataLength: platformData?.length,
+                                        profitPerUnit: profitPerUnit,
+                                        platformData: platformData
                                       });
-                                      return safeNumber(yearlyValue).toFixed(2);
+                                      
+                                      // If we have platform data with units, use it for calculation
+                                      if (platformData && platformData.length > 0) {
+                                        // Use the first platform's units (they should all be the same due to auto-sync)
+                                        const units = platformData[0].units || quantity || 200;
+                                        
+                                        if (profitPerUnit > 0 && units > 0) {
+                                          const yearlyProfit = profitPerUnit * units;
+                                          console.log('✅ Using Platform Units Calculation:', {
+                                            profitPerUnit: profitPerUnit,
+                                            units: units,
+                                            yearlyProfit: yearlyProfit,
+                                            formula: `${units} × £${profitPerUnit.toFixed(2)} = £${yearlyProfit.toFixed(2)}`
+                                          });
+                                          return safeNumber(yearlyProfit).toFixed(2);
+                                        }
+                                      }
+                                      
+                                      // PRIORITY 2: Use saved yearly profit values
+                                      if (product.evaluation?.yearlyProfit && product.evaluation.yearlyProfit > 0) {
+                                        console.log('📊 Using Saved Evaluation Yearly Profit:', product.evaluation.yearlyProfit);
+                                        return safeNumber(product.evaluation.yearlyProfit).toFixed(2);
+                                      }
+                                      
+                                      if (product.profitCalculations?.yearlyProfit && product.profitCalculations.yearlyProfit > 0) {
+                                        console.log('📊 Using Saved Calculations Yearly Profit:', product.profitCalculations.yearlyProfit);
+                                        return safeNumber(product.profitCalculations.yearlyProfit).toFixed(2);
+                                      }
+                                      
+                                      // PRIORITY 3: Fallback calculation (365 days)
+                                      if (profitPerUnit > 0) {
+                                        const fallbackYearly = profitPerUnit * 365;
+                                        console.log('📊 Using Fallback Calculation (365 days):', {
+                                          profitPerUnit: profitPerUnit,
+                                          fallbackYearly: fallbackYearly,
+                                          formula: `${profitPerUnit.toFixed(2)} × 365 = £${fallbackYearly.toFixed(2)}`
+                                        });
+                                        return safeNumber(fallbackYearly).toFixed(2);
+                                      }
+                                      
+                                      console.log('❌ No valid data for yearly profit calculation');
+                                      return '0.00';
                                     })()}
                                   </div>
                                 </div>
@@ -4049,6 +4288,317 @@ const ProductDetail = () => {
                   </div>
                 )}
               </div>
+              
+              {/* Profit Analysis Section */}
+              {product?.profitEvaluation && (
+                <div className="row g-3" style={{marginTop: '20px'}}>
+                  <div className="col-12">
+                    <div style={{
+                      background: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%)',
+                      borderRadius: '15px',
+                      padding: '25px',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        marginBottom: '20px'
+                      }}>
+                        <span style={{
+                          fontSize: '24px',
+                          marginRight: '10px'
+                        }}>💰</span>
+                        <h3 style={{
+                          color: '#2c3e50',
+                          margin: 0,
+                          fontWeight: 'bold'
+                        }}>Profit Analysis</h3>
+                      </div>
+
+                      <div className="row">
+                        <div className="col-md-4 mb-3">
+                          <div style={{
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            borderRadius: '10px',
+                            padding: '20px',
+                            textAlign: 'center',
+                            height: '100%'
+                          }}>
+                            <div style={{
+                              color: '#7f8c8d',
+                              fontSize: '14px',
+                              marginBottom: '5px'
+                            }}>Net Profit (£)</div>
+                            <div style={{
+                              color: '#2c3e50',
+                              fontSize: '12px',
+                              marginBottom: '10px'
+                            }}>(Balance Change - Product Cost)</div>
+                            <div style={{
+                              background: 'rgba(200, 230, 201, 0.8)',
+                              borderRadius: '8px',
+                              padding: '15px',
+                              border: '2px solid #4caf50'
+                            }}>
+                              <div style={{
+                                fontSize: '28px',
+                                fontWeight: 'bold',
+                                color: '#2e7d32'
+                              }}>{(product.profitEvaluation.netProfit || 0).toFixed(2)}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="col-md-4 mb-3">
+                          <div style={{
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            borderRadius: '10px',
+                            padding: '20px',
+                            textAlign: 'center',
+                            height: '100%'
+                          }}>
+                            <div style={{
+                              color: '#7f8c8d',
+                              fontSize: '14px',
+                              marginBottom: '5px'
+                            }}>Monthly Profit (£)</div>
+                            <div style={{
+                              color: '#2c3e50',
+                              fontSize: '12px',
+                              marginBottom: '10px'
+                            }}>(Projected monthly earnings)</div>
+                            <div style={{
+                              background: 'rgba(255, 255, 255, 0.8)',
+                              borderRadius: '8px',
+                              padding: '15px',
+                              border: '1px solid #ddd'
+                            }}>
+                              <div style={{
+                                fontSize: '28px',
+                                fontWeight: 'bold',
+                                color: '#5d4e75'
+                              }}>{(product.profitEvaluation.monthlyProfit || 0).toFixed(2)}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="col-md-4 mb-3">
+                          <div style={{
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            borderRadius: '10px',
+                            padding: '20px',
+                            textAlign: 'center',
+                            height: '100%',
+                            position: 'relative'
+                          }}>
+                            <div style={{
+                              color: '#7f8c8d',
+                              fontSize: '14px',
+                              marginBottom: '5px'
+                            }}>Yearly Profit (£)</div>
+                            <div style={{
+                              color: '#2c3e50',
+                              fontSize: '12px',
+                              marginBottom: '10px'
+                            }}>(Projected annual earnings)</div>
+                            
+                            {/* Highlighted circle for yearly profit */}
+                            <div style={{
+                              position: 'absolute',
+                              top: '-10px',
+                              right: '-10px',
+                              left: '-10px',
+                              bottom: '-10px',
+                              border: '4px solid #000',
+                              borderRadius: '15px',
+                              zIndex: 1,
+                              pointerEvents: 'none'
+                            }}></div>
+                            
+                            <div style={{
+                              background: 'linear-gradient(135deg, #ffd700, #ffed4e)',
+                              borderRadius: '8px',
+                              padding: '15px',
+                              border: '2px solid #f39c12',
+                              position: 'relative',
+                              zIndex: 2
+                            }}>
+                              <div style={{
+                                fontSize: '28px',
+                                fontWeight: 'bold',
+                                color: '#d68910'
+                              }}>{(product.profitEvaluation.yearlyProfit || 0).toFixed(2)}</div>
+                              <div style={{
+                                fontSize: '10px',
+                                color: '#b7950b',
+                                marginTop: '5px',
+                                fontWeight: 'bold'
+                              }}>
+                                RRP Units × Profit per Unit<br/>
+                                {product.platformUnits || 2400} × £{((product.profitEvaluation.netProfit || 0) / (product.dealUnits || 1)).toFixed(2)} = £{((product.platformUnits || 2400) * ((product.profitEvaluation.netProfit || 0) / (product.dealUnits || 1))).toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Profit Calculator Section */}
+              {product?.profitEvaluation && (
+                <div className="row g-3" style={{marginTop: '20px'}}>
+                  <div className="col-12">
+                    <div style={{
+                      background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)',
+                      borderRadius: '15px',
+                      padding: '25px',
+                      boxShadow: '0 8px 25px rgba(0,0,0,0.1)',
+                      border: '2px solid #4caf50'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        marginBottom: '20px',
+                        justifyContent: 'center'
+                      }}>
+                        <span style={{
+                          fontSize: '24px',
+                          marginRight: '10px'
+                        }}>🧮</span>
+                        <h3 style={{
+                          color: '#2e7d32',
+                          margin: 0,
+                          fontWeight: 'bold'
+                        }}>Profit Calculator</h3>
+                      </div>
+
+                      <div style={{
+                        textAlign: 'center',
+                        marginBottom: '20px',
+                        background: 'rgba(255, 255, 255, 0.8)',
+                        padding: '10px',
+                        borderRadius: '8px'
+                      }}>
+                        <div style={{
+                          fontSize: '16px',
+                          color: '#2e7d32',
+                          fontWeight: 'bold'
+                        }}>
+                          Deal of {product.dealUnits || 1} units
+                        </div>
+                        <div style={{
+                          fontSize: '12px',
+                          color: '#666',
+                          marginTop: '5px'
+                        }}>
+                          Per-unit calculations based on deal size from database
+                        </div>
+                      </div>
+
+                      <div className="row">
+                        <div className="col-md-6 mb-3">
+                          <div style={{
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            borderRadius: '10px',
+                            padding: '20px',
+                            textAlign: 'center',
+                            height: '100%',
+                            border: '2px solid #4caf50'
+                          }}>
+                            <div style={{
+                              color: '#2e7d32',
+                              fontSize: '14px',
+                              marginBottom: '5px',
+                              fontWeight: 'bold'
+                            }}>✅ Profit per Unit</div>
+                            <div style={{
+                              fontSize: '24px',
+                              fontWeight: 'bold',
+                              color: '#2e7d32',
+                              marginBottom: '8px'
+                            }}>
+                              £{((product.profitEvaluation.netProfit || 0) / (product.dealUnits || 1)).toFixed(2)}
+                            </div>
+                            <div style={{
+                              fontSize: '11px',
+                              color: '#666',
+                              background: 'rgba(76, 175, 80, 0.1)',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              display: 'inline-block'
+                            }}>
+                              Deal of {product.dealUnits || 1} units
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="col-md-6 mb-3">
+                          <div style={{
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            borderRadius: '10px',
+                            padding: '20px',
+                            textAlign: 'center',
+                            height: '100%',
+                            border: '2px solid #ff9800'
+                          }}>
+                            <div style={{
+                              color: '#f57c00',
+                              fontSize: '14px',
+                              marginBottom: '5px',
+                              fontWeight: 'bold'
+                            }}>💰 Cost per Unit</div>
+                            <div style={{
+                              fontSize: '24px',
+                              fontWeight: 'bold',
+                              color: '#f57c00',
+                              marginBottom: '8px'
+                            }}>
+                              £{((product.profitEvaluation.productCost || 0) / (product.dealUnits || 1)).toFixed(2)}
+                            </div>
+                            <div style={{
+                              fontSize: '11px',
+                              color: '#666',
+                              background: 'rgba(255, 152, 0, 0.1)',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              display: 'inline-block'
+                            }}>
+                              Deal of {product.dealUnits || 1} units
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{
+                        background: 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: '8px',
+                        padding: '15px',
+                        marginTop: '15px',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{
+                          fontSize: '14px',
+                          color: '#2e7d32',
+                          fontWeight: 'bold',
+                          marginBottom: '5px'
+                        }}>
+                          📊 Deal Summary
+                        </div>
+                        <div style={{
+                          fontSize: '12px',
+                          color: '#666'
+                        }}>
+                          Total Deal Value: £{((product.profitEvaluation.netProfit || 0) + (product.profitEvaluation.productCost || 0)).toFixed(2)} | 
+                          Total Profit: £{(product.profitEvaluation.netProfit || 0).toFixed(2)} | 
+                          Total Cost: £{(product.profitEvaluation.productCost || 0).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             
             {/* Related Products */}
           {relatedProducts.length > 0 && (

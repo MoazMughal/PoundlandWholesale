@@ -11,8 +11,6 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-
-
 // Cache for Amazon images to avoid repeated requests
 const imageCache = new Map();
 
@@ -529,8 +527,6 @@ router.get('/amazon10-products', async (req, res) => {
     }
     
     const allKeys = Object.keys(data[0]);
-    console.log('Amazon10 Excel columns:', allKeys);
-    console.log('Has marketplace column:', allKeys.includes('marketplace') || allKeys.includes('Marketplace'));
     
     // Process each row
     const products = data.map((row, index) => {
@@ -614,8 +610,6 @@ router.get('/amazon10-products', async (req, res) => {
     });
   }
 });
-
-
 
 // Get Amazon 10 Excel file info
 router.get('/amazon10-info', async (req, res) => {
@@ -780,6 +774,5 @@ router.get('/uae-info', async (req, res) => {
     });
   }
 });
-
 
 export default router;

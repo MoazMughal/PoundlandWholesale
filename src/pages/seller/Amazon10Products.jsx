@@ -55,7 +55,7 @@ const SellerAmazon10Products = () => {
       const data = await response.json();
       
       if (data.success) {
-        console.log('Loaded Amazon10 products:', data.products.slice(0, 2).map(p => ({ name: p.name, marketplace: p.marketplace })));
+        .map(p => ({ name: p.name, marketplace: p.marketplace })));
         setProducts(data.products);
         setFilteredProducts(data.products);
         // Initialize edited data
@@ -110,9 +110,8 @@ const SellerAmazon10Products = () => {
     const productsToList = Array.from(selectedProducts).map(index => {
       const product = filteredProducts[index];
       const edited = editedData[index] || {};
-      
-      console.log('Original product marketplace:', product.marketplace);
-      console.log('Original product keys:', Object.keys(product));
+
+      );
       
       // Create product data without spreading original product to avoid conflicts
       const productData = {
@@ -145,7 +144,7 @@ const SellerAmazon10Products = () => {
       setLoading(true);
       const token = localStorage.getItem('sellerToken');
       
-      console.log('Sending products to list:', productsToList.map(p => ({ name: p.name, marketplace: p.marketplace })));
+      ));
       
       const response = await fetch(getApiUrl('products/seller/bulk-list'), {
         method: 'POST',
@@ -157,7 +156,6 @@ const SellerAmazon10Products = () => {
       });
 
       const data = await response.json();
-      console.log('Bulk list response:', data);
 
       if (response.ok) {
         const message = seller?.verificationStatus === 'approved' 

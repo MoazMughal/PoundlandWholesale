@@ -34,7 +34,7 @@ const AddProducts = () => {
 
       if (response.ok) {
         const data = await response.json()
-        console.log('Excel products fetched:', data.products.length)
+        
         setProducts(data.products)
       } else {
         console.error('Error fetching Excel products')

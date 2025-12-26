@@ -7,10 +7,24 @@ const router = express.Router();
 // Get all unique categories from products
 router.get('/', async (req, res) => {
   try {
-    const { includeExcel } = req.query; // Query parameter to include Excel categories
+    const { includeExcel, includeCounts } = req.query; // Query parameters
     
     // Get distinct categories from products
     const categories = await Product.distinct('category', { status: 'active' });
+    
+    // Get product counts by category if requested
+    let categoryCounts = {};
+    if (includeCounts === 'true') {
+      const countPipeline = [
+        { $match: { status: 'active' } },
+        { $group: { _id: '$category', count: { $sum: 1 } } }
+      ];
+      const counts = await Product.aggregate(countPipeline);
+      categoryCounts = counts.reduce((acc, item) => {
+        acc[item._id] = item.count;
+        return acc;
+      }, {});
+    }
     
     // Filter out empty categories and sort
     const validCategories = categories
@@ -18,7 +32,8 @@ router.get('/', async (req, res) => {
       .sort()
       .map(cat => ({
         value: cat,
-        label: cat.charAt(0).toUpperCase() + cat.slice(1)
+        label: cat.charAt(0).toUpperCase() + cat.slice(1),
+        ...(includeCounts === 'true' && { count: categoryCounts[cat] || 0 })
       }));
     
     // Excel categories that should be hidden from public header
@@ -45,13 +60,29 @@ router.get('/', async (req, res) => {
       { value: 'health', label: 'Health' }
     ];
     
+    // Add counts to default categories if requested
+    if (includeCounts === 'true') {
+      defaultCategories = defaultCategories.map(cat => ({
+        ...cat,
+        count: categoryCounts[cat.value] || 0
+      }));
+    }
+    
     // Include Excel categories only if requested (for admin use)
     if (includeExcel === 'true') {
-      defaultCategories.push(
+      const excelCats = [
         { value: 'UAE Products', label: 'UAE Products' },
         { value: 'UK Products', label: 'UK Products' },
         { value: 'Amazon10', label: 'Amazon 10' }
-      );
+      ];
+      
+      if (includeCounts === 'true') {
+        excelCats.forEach(cat => {
+          cat.count = categoryCounts[cat.value] || 0;
+        });
+      }
+      
+      defaultCategories.push(...excelCats);
     }
     
     // Merge default categories with dynamic ones, avoiding duplicates
@@ -71,7 +102,8 @@ router.get('/', async (req, res) => {
     res.json({
       categories: allCategories,
       total: allCategories.length,
-      includeExcel: includeExcel === 'true'
+      includeExcel: includeExcel === 'true',
+      includeCounts: includeCounts === 'true'
     });
     
   } catch (error) {

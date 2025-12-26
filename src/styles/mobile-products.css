@@ -36,6 +36,156 @@
   flex-direction: column !important;
 }
 
+/* Mobile Badge Visibility Fixes - CRITICAL */
+@media screen and (max-width: 576px) {
+  /* Force mobile badges to show with maximum specificity */
+  .mobile-badge-container,
+  .product-card .mobile-badge-container,
+  .product-image-container .mobile-badge-container,
+  div[data-mobile-badge="true"],
+  .product-card div[data-mobile-badge="true"],
+  .product-image-container div[data-mobile-badge="true"],
+  #products-grid .product-card .mobile-badge-container,
+  #products-grid .product-card div[data-mobile-badge="true"] {
+    display: block !important;
+    position: absolute !important;
+    z-index: 1000 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    top: 4px !important; /* Move down slightly */
+    right: 4px !important; /* Move more to the right */
+    /* Remove all color overrides to allow JavaScript dynamic styling */
+    padding: 3px 5px !important; /* Reduce padding */
+    border-radius: 4px !important; /* Smaller border radius */
+    font-size: 8px !important; /* Smaller font */
+    font-weight: bold !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important; /* Lighter shadow */
+    border: none !important; /* Remove white border */
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+    letter-spacing: 0.1px !important; /* Reduce letter spacing */
+    min-width: fit-content !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  
+  /* Force dynamic badge colors with maximum specificity */
+  .dynamic-mobile-badge,
+  .mobile-badge-container .dynamic-mobile-badge,
+  .product-card .mobile-badge-container .dynamic-mobile-badge,
+  div[data-mobile-badge="true"] .dynamic-mobile-badge,
+  #products-grid .product-card .mobile-badge-container .dynamic-mobile-badge {
+    background: var(--badge-bg) !important;
+    background-color: var(--badge-bg) !important;
+    color: white !important;
+  }
+  
+  /* Specific color overrides for each badge type */
+  .dynamic-mobile-badge[data-badge-color="#e74c3c"] {
+    background-color: #e74c3c !important;
+  }
+  .dynamic-mobile-badge[data-badge-color="#f39c12"] {
+    background-color: #f39c12 !important;
+  }
+  .dynamic-mobile-badge[data-badge-color="#e67e22"] {
+    background-color: #e67e22 !important;
+  }
+  .dynamic-mobile-badge[data-badge-color="#9b59b6"] {
+    background-color: #9b59b6 !important;
+  }
+  .dynamic-mobile-badge[data-badge-color="#3498db"] {
+    background-color: #3498db !important;
+  }
+  .dynamic-mobile-badge[data-badge-color="#e91e63"] {
+    background-color: #e91e63 !important;
+  }
+  .dynamic-mobile-badge[data-badge-color="#1abc9c"] {
+    background-color: #1abc9c !important;
+  }
+  .dynamic-mobile-badge[data-badge-color="#27ae60"] {
+    background-color: #27ae60 !important;
+  }
+  
+  /* Allow mobile badge inner content to have dynamic colors */
+  .mobile-badge-container span,
+  div[data-mobile-badge="true"] span {
+    background-color: inherit !important;
+    color: inherit !important;
+  }
+  
+  /* Force desktop badges to hide on mobile */
+  .desktop-badge-container,
+  .product-card .desktop-badge-container,
+  .product-image-container .desktop-badge-container,
+  div[data-desktop-badge="true"],
+  .product-card div[data-desktop-badge="true"],
+  .product-image-container div[data-desktop-badge="true"],
+  #products-grid .product-card .desktop-badge-container,
+  #products-grid .product-card div[data-desktop-badge="true"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+}
+
+/* Desktop Badge Visibility */
+@media screen and (min-width: 577px) {
+  /* Hide mobile badges on desktop */
+  .mobile-badge-container,
+  .product-card .mobile-badge-container,
+  .product-image-container .mobile-badge-container,
+  div[data-mobile-badge="true"],
+  .product-card div[data-mobile-badge="true"],
+  .product-image-container div[data-mobile-badge="true"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+  
+  /* Show desktop badges */
+  .desktop-badge-container,
+  .product-card .desktop-badge-container,
+  .product-image-container .desktop-badge-container,
+  div[data-desktop-badge="true"],
+  .product-card div[data-desktop-badge="true"],
+  .product-image-container div[data-desktop-badge="true"] {
+    display: block !important;
+    position: absolute !important;
+    z-index: 1000 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}
+
+/* Touch device detection */
+@media (hover: none) and (pointer: coarse) {
+  div[data-mobile-badge="true"] {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  div[data-desktop-badge="true"] {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+}
+
+/* Device width fallback */
+@media screen and (max-device-width: 576px) {
+  div[data-mobile-badge="true"] {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  div[data-desktop-badge="true"] {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+}
+
 /* Mobile phones - 2 columns */
 @media (max-width: 576px) {
   #products-grid {

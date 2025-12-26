@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { adminGet, adminPut, adminDelete } from '../../utils/adminApi';
 import { uploadMultipleImages, validateImageFile } from '../../utils/imageUpload';
@@ -20,6 +20,8 @@ const EditProduct = () => {
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     price: 0,
@@ -30,11 +32,27 @@ const EditProduct = () => {
     reviews: 0,
     stock: 0,
     dealUnits: 1,
+    platformUnits: 2400, // Units for yearly profit calculation
     seller: '',
     isAmazonsChoice: false,
     status: 'active',
     description: '',
-    features: []
+    features: [],
+    // Profit Analysis fields
+    profitEvaluation: {
+      salesProceeds: 0,
+      commission: 0,
+      commissionTax: 0,
+      digitalServicesFee: 0,
+      digitalServicesTax: 0,
+      fbaFulfilmentFee: 0,
+      fbaFulfilmentTax: 0,
+      balanceChange: 0,
+      productCost: 0,
+      netProfit: 0,
+      monthlyProfit: 0,
+      yearlyProfit: 0
+    }
   });
 
   const [imageFiles, setImageFiles] = useState([]);
@@ -80,15 +98,28 @@ const EditProduct = () => {
         reviews: product.reviews || 0,
         stock: product.stock || 0,
         dealUnits: product.dealUnits !== undefined && product.dealUnits !== null ? product.dealUnits : 1,
+        platformUnits: product.platformUnits !== undefined && product.platformUnits !== null ? product.platformUnits : 2400,
         seller: product.seller?._id || '',
         isAmazonsChoice: product.isAmazonsChoice || false,
         status: product.status || 'active',
         description: product.description || '',
-        features: product.features || []
+        features: product.features || [],
+        // Load profit evaluation data
+        profitEvaluation: {
+          salesProceeds: product.profitEvaluation?.salesProceeds || 0,
+          commission: product.profitEvaluation?.commission || 0,
+          commissionTax: product.profitEvaluation?.commissionTax || 0,
+          digitalServicesFee: product.profitEvaluation?.digitalServicesFee || 0,
+          digitalServicesTax: product.profitEvaluation?.digitalServicesTax || 0,
+          fbaFulfilmentFee: product.profitEvaluation?.fbaFulfilmentFee || 0,
+          fbaFulfilmentTax: product.profitEvaluation?.fbaFulfilmentTax || 0,
+          balanceChange: product.profitEvaluation?.balanceChange || 0,
+          productCost: product.profitEvaluation?.productCost || 0,
+          netProfit: product.profitEvaluation?.netProfit || 0,
+          monthlyProfit: product.profitEvaluation?.monthlyProfit || 0,
+          yearlyProfit: product.profitEvaluation?.yearlyProfit || 0
+        }
       });
-
-      console.log('📝 Loaded product features:', product.features);
-      console.log('📝 Features type:', typeof product.features, 'isArray:', Array.isArray(product.features));
 
       // Set existing image URLs for display and store original images
       if (product.images && product.images.length > 0) {
@@ -107,13 +138,12 @@ const EditProduct = () => {
         setImageFiles(imageFilesArray);
         setOriginalImages(product.images); // Store original images as backup
         setRemovedImages(new Set()); // Reset removed images when loading product
-        console.log('📸 Loaded existing images:', product.images);
+        
       } else {
         setImageUrls(new Array(5).fill(undefined));
         setImageFiles(new Array(5).fill(undefined));
         setOriginalImages([]);
         setRemovedImages(new Set()); // Reset removed images
-        console.log('📸 No existing images found');
       }
     } catch (error) {
       console.error('Error loading product:', error);
@@ -271,8 +301,7 @@ const EditProduct = () => {
         });
       };
       reader.readAsDataURL(file);
-      
-      console.log(`📸 Replaced image at position ${imageIndex}`);
+
     } else {
       // Bulk upload - fill available slots starting from main image
       let fileIndex = 0;
@@ -324,8 +353,7 @@ const EditProduct = () => {
       if (fileIndex < validFiles.length) {
         alert(`📸 Only ${fileIndex} images were added. Maximum 5 images allowed (1 main + 4 additional).`);
       }
-      
-      console.log('📸 Bulk added image files:', fileIndex);
+
     }
   };
 
@@ -348,9 +376,7 @@ const EditProduct = () => {
     
     // Mark this slot as explicitly removed by the user
     setRemovedImages(prev => new Set([...prev, index]));
-    
-    console.log('📸 Removed image at index:', index, 'URL:', imageUrl);
-    console.log('📸 Removed images set:', [...removedImages, index]);
+
   };
 
   const uploadImages = async () => {
@@ -379,7 +405,7 @@ const EditProduct = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('🚀 Save button clicked - starting handleSubmit');
+    
     setSaving(true);
 
     let productData = null; // Declare outside try block for error handling
@@ -450,27 +476,11 @@ const EditProduct = () => {
       // Final safety check - if we somehow lost all images and had original images, restore them
       if (finalImageUrls.length === 0 && originalImages.length > 0) {
         finalImageUrls.push(...originalImages);
-        console.log('📸 Safety fallback: Restored original images:', originalImages);
       }
-      
-      console.log('📸 Final image URLs to save:', finalImageUrls);
-      console.log('📸 Image processing details:');
-      console.log('  - imageUrls state:', imageUrls);
-      console.log('  - imageFiles state:', imageFiles);
-      console.log('  - originalImages from DB:', originalImages);
-      console.log('  - removedImages (user deleted):', Array.from(removedImages));
-      console.log('  - validFiles to upload:', validFiles.length);
-      console.log('  - newImageUrls uploaded:', newImageUrls);
-      console.log('  - allImageUrls (before filter):', allImageUrls);
 
       // Save price in GBP
       const currentPrice = isNaN(parseFloat(formData.price)) ? 0 : parseFloat(formData.price);
-      
-      console.log('💰 Price saving:', {
-        currentPrice,
-        currentCurrency: 'GBP'
-      });
-      
+
       productData = {
         name: formData.name.trim(),
         price: currentPrice, // Save price as entered in GBP
@@ -486,7 +496,15 @@ const EditProduct = () => {
         isAmazonsChoice: formData.isAmazonsChoice || false,
         status: formData.status || 'active',
         description: formData.description || '',
-        features: Array.isArray(formData.features) ? formData.features : []
+        features: Array.isArray(formData.features) ? formData.features : [],
+        // Include profit evaluation data
+        profitEvaluation: {
+          ...formData.profitEvaluation,
+          // Ensure yearly profit is calculated with the formula: platformUnits × netProfit
+          yearlyProfit: (formData.platformUnits || 2400) * (formData.profitEvaluation.netProfit || 0)
+        },
+        // Include platformUnits for yearly profit calculation
+        platformUnits: formData.platformUnits || 2400
       };
       
       // Only include seller if it's not empty
@@ -494,34 +512,34 @@ const EditProduct = () => {
         productData.seller = formData.seller;
       }
 
-      console.log('📤 Sending product data:', productData);
-      console.log('📝 Features being sent:', productData.features);
-      console.log('📝 Features type:', typeof productData.features, 'isArray:', Array.isArray(productData.features));
-      console.log('📝 Form data features:', formData.features);
-      console.log('📸 Image URLs being sent:', finalImageUrls);
-      console.log('📸 Original imageUrls state:', imageUrls);
-      
-      console.log('🌐 Making API call to update product...');
       const response = await adminPut(`http://localhost:5000/api/products/${id}`, productData);
-      console.log('✅ API call successful:', response);
-      
+
       // Clear cache to ensure updated product appears immediately in Amazon's Choice
       cacheManager.remove('amazons_choice_products');
       cacheManager.clearAll(); // Clear all cache entries
       // Also clear any other related caches
       cacheManager.clearExpired();
-      console.log('✅ Cache cleared - updated product will appear immediately in Amazon\'s Choice');
-      
+
       // Trigger category refresh in headers (in case category was changed)
       localStorage.setItem('categoriesUpdated', Date.now().toString());
       window.dispatchEvent(new CustomEvent('refreshCategories'));
       
-      alert('✅ Product updated successfully! Changes will appear immediately in Amazon\'s Choice products.');
-      // Navigate back with category filter preserved
-      const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
-      navigate(backUrl, {
-        state: { category: returnCategory }
-      });
+      // Show modern success toast instead of basic alert
+      setSuccessMessage('Product updated successfully! Changes will appear immediately in Amazon\'s Choice products.');
+      setShowSuccessToast(true);
+      
+      // Auto-hide toast after 5 seconds
+      setTimeout(() => {
+        setShowSuccessToast(false);
+      }, 5000);
+      
+      // Navigate back with category filter preserved after a short delay
+      setTimeout(() => {
+        const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
+        navigate(backUrl, {
+          state: { category: returnCategory }
+        });
+      }, 1500); // Give user time to see the success message
     } catch (error) {
       console.error('Error updating product:', error);
       if (productData) {
@@ -573,7 +591,6 @@ const EditProduct = () => {
             🗑️ Delete Product
           </button>
           <button onClick={() => {
-            console.log('🔙 Back button clicked, returnCategory:', returnCategory);
             const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
             navigate(backUrl, {
               state: { category: returnCategory }
@@ -1137,8 +1154,6 @@ const EditProduct = () => {
               value={Array.isArray(formData.features) ? formData.features.join('\n') : ''}
               onChange={(e) => {
                 const featuresArray = e.target.value.split('\n').filter(line => line.trim() !== '');
-                console.log('📝 Features onChange - raw value:', e.target.value);
-                console.log('📝 Features onChange - parsed array:', featuresArray);
                 setFormData({
                   ...formData,
                   features: featuresArray
@@ -1207,10 +1222,6 @@ const EditProduct = () => {
             type="submit" 
             className="submit-btn" 
             disabled={saving || uploadingImages}
-            onClick={(e) => {
-              console.log('🔘 Submit button clicked!');
-              // Let the form's onSubmit handle it
-            }}
           >
             {uploadingImages ? '📤 Uploading Images...' : 
              saving ? '⏳ Saving Changes...' : 
@@ -1226,6 +1237,145 @@ const EditProduct = () => {
           </button>
         </div>
       </form>
+
+      {/* Success Toast Notification */}
+      {showSuccessToast && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+          color: 'white',
+          padding: '20px 25px',
+          borderRadius: '12px',
+          boxShadow: '0 8px 32px rgba(40, 167, 69, 0.3)',
+          zIndex: 9999,
+          minWidth: '350px',
+          maxWidth: '500px',
+          animation: 'slideInRight 0.5s ease-out',
+          border: '2px solid rgba(255, 255, 255, 0.2)',
+          backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '15px'
+          }}>
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.2)',
+              borderRadius: '50%',
+              width: '50px',
+              height: '50px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '24px',
+              animation: 'bounce 0.6s ease-in-out'
+            }}>
+              ✅
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{
+                margin: '0 0 5px 0',
+                fontSize: '18px',
+                fontWeight: 'bold',
+                textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+              }}>
+                Success!
+              </h3>
+              <p style={{
+                margin: 0,
+                fontSize: '14px',
+                opacity: 0.9,
+                lineHeight: '1.4'
+              }}>
+                {successMessage}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowSuccessToast(false)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: 'none',
+                color: 'white',
+                borderRadius: '50%',
+                width: '30px',
+                height: '30px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => {
+                e.target.style.background = 'rgba(255, 255, 255, 0.3)';
+                e.target.style.transform = 'scale(1.1)';
+              }}
+              onMouseOut={(e) => {
+                e.target.style.background = 'rgba(255, 255, 255, 0.2)';
+                e.target.style.transform = 'scale(1)';
+              }}
+            >
+              ×
+            </button>
+          </div>
+          
+          {/* Progress bar */}
+          <div style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            height: '3px',
+            background: 'rgba(255, 255, 255, 0.3)',
+            borderRadius: '0 0 12px 12px',
+            width: '100%',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              height: '100%',
+              background: 'rgba(255, 255, 255, 0.8)',
+              animation: 'progressBar 5s linear forwards',
+              borderRadius: '0 0 12px 12px'
+            }}></div>
+          </div>
+        </div>
+      )}
+
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        @keyframes bounce {
+          0%, 20%, 50%, 80%, 100% {
+            transform: translateY(0);
+          }
+          40% {
+            transform: translateY(-10px);
+          }
+          60% {
+            transform: translateY(-5px);
+          }
+        }
+
+        @keyframes progressBar {
+          from {
+            width: 100%;
+          }
+          to {
+            width: 0%;
+          }
+        }
+      `}</style>
     </div>
   );
 };

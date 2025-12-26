@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { adminPost } from '../../utils/adminApi';
 import { uploadMultipleImages, validateImageFile } from '../../utils/imageUpload';
@@ -19,6 +19,8 @@ const AddProduct = () => {
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [createdProductName, setCreatedProductName] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     price: 0,
@@ -29,11 +31,27 @@ const AddProduct = () => {
     reviews: 0,
     stock: 0,
     dealUnits: 1,
+    platformUnits: 2400, // Units for yearly profit calculation
     seller: '',
     isAmazonsChoice: false,
     status: 'active',
     description: '',
-    features: []
+    features: [],
+    // Profit Analysis fields
+    profitEvaluation: {
+      salesProceeds: 0,
+      commission: 0,
+      commissionTax: 0,
+      digitalServicesFee: 0,
+      digitalServicesTax: 0,
+      fbaFulfilmentFee: 0,
+      fbaFulfilmentTax: 0,
+      balanceChange: 0,
+      productCost: 0,
+      netProfit: 0,
+      monthlyProfit: 0,
+      yearlyProfit: 0
+    }
   });
 
   const [imageFiles, setImageFiles] = useState([]);
@@ -195,15 +213,13 @@ const AddProduct = () => {
 
       // Upload new images if any
       const filesToUpload = imageFiles.filter(file => file !== null);
-      console.log('📤 Files to upload:', filesToUpload.length);
-      
+
       if (filesToUpload.length > 0) {
         setUploadingImages(true);
         try {
-          console.log('📤 Starting image upload...');
-          const uploadResult = await uploadMultipleImages(filesToUpload);
-          console.log('📤 Upload result:', uploadResult);
           
+          const uploadResult = await uploadMultipleImages(filesToUpload);
+
           if (!uploadResult.success) {
             throw new Error(uploadResult.error);
           }
@@ -229,15 +245,9 @@ const AddProduct = () => {
 
       // Filter out empty slots
       finalImageUrls = finalImageUrls.filter(url => url && url.trim() !== '');
-      
-      console.log('📝 Final processed image URLs:', finalImageUrls);
 
       // Save price in GBP - no conversion needed
       const priceInGBP = parseFloat(formData.price) || 0;
-      
-      console.log('💰 Price saving in GBP:', {
-        priceInGBP: priceInGBP.toFixed(2)
-      });
 
       const productData = {
         name: formData.name.trim(),
@@ -264,15 +274,19 @@ const AddProduct = () => {
         images: finalImageUrls
       };
 
-      console.log('📝 Creating product with data:', productData);
-      console.log('📝 Final image URLs:', finalImageUrls);
-
       const response = await adminPost('http://localhost:5000/api/products', productData);
       
       if (response.ok) {
         const createdProduct = await response.json();
-        console.log('✅ Product created successfully:', createdProduct);
-        alert('✅ Product created successfully!');
+        
+        // Show modern success toast instead of basic alert
+        setCreatedProductName(createdProduct.name || formData.name);
+        setShowSuccessToast(true);
+        
+        // Auto-hide toast after 5 seconds
+        setTimeout(() => {
+          setShowSuccessToast(false);
+        }, 5000);
         
         // Clear cache
         cacheManager.clearAll();
@@ -827,6 +841,145 @@ const AddProduct = () => {
           </button>
         </div>
       </form>
+
+      {/* Success Toast Notification */}
+      {showSuccessToast && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+          color: 'white',
+          padding: '20px 25px',
+          borderRadius: '12px',
+          boxShadow: '0 8px 32px rgba(40, 167, 69, 0.3)',
+          zIndex: 9999,
+          minWidth: '350px',
+          maxWidth: '500px',
+          animation: 'slideInRight 0.5s ease-out',
+          border: '2px solid rgba(255, 255, 255, 0.2)',
+          backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '15px'
+          }}>
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.2)',
+              borderRadius: '50%',
+              width: '50px',
+              height: '50px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '24px',
+              animation: 'bounce 0.6s ease-in-out'
+            }}>
+              ✅
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{
+                margin: '0 0 5px 0',
+                fontSize: '18px',
+                fontWeight: 'bold',
+                textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+              }}>
+                Product Created Successfully!
+              </h3>
+              <p style={{
+                margin: 0,
+                fontSize: '14px',
+                opacity: 0.9,
+                lineHeight: '1.4'
+              }}>
+                "{createdProductName}" has been added to your product catalog.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowSuccessToast(false)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: 'none',
+                color: 'white',
+                borderRadius: '50%',
+                width: '30px',
+                height: '30px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => {
+                e.target.style.background = 'rgba(255, 255, 255, 0.3)';
+                e.target.style.transform = 'scale(1.1)';
+              }}
+              onMouseOut={(e) => {
+                e.target.style.background = 'rgba(255, 255, 255, 0.2)';
+                e.target.style.transform = 'scale(1)';
+              }}
+            >
+              ×
+            </button>
+          </div>
+          
+          {/* Progress bar */}
+          <div style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            height: '3px',
+            background: 'rgba(255, 255, 255, 0.3)',
+            borderRadius: '0 0 12px 12px',
+            width: '100%',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              height: '100%',
+              background: 'rgba(255, 255, 255, 0.8)',
+              animation: 'progressBar 5s linear forwards',
+              borderRadius: '0 0 12px 12px'
+            }}></div>
+          </div>
+        </div>
+      )}
+
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        @keyframes bounce {
+          0%, 20%, 50%, 80%, 100% {
+            transform: translateY(0);
+          }
+          40% {
+            transform: translateY(-10px);
+          }
+          60% {
+            transform: translateY(-5px);
+          }
+        }
+
+        @keyframes progressBar {
+          from {
+            width: 100%;
+          }
+          to {
+            width: 0%;
+          }
+        }
+      `}</style>
     </div>
   );
 };

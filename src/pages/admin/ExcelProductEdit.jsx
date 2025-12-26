@@ -104,13 +104,13 @@ const ExcelProductEdit = () => {
           setImageFiles(imageFilesArray);
           setOriginalImages(data.product.images); // Store original images as backup
           setRemovedImages(new Set()); // Reset removed images when loading product
-          console.log('📸 Loaded existing images:', data.product.images);
+          
         } else {
           setImageUrls(new Array(5).fill(undefined));
           setImageFiles(new Array(5).fill(undefined));
           setOriginalImages([]);
           setRemovedImages(new Set()); // Reset removed images
-          console.log('📸 No existing images found');
+          
         }
       } else {
         alert('Failed to fetch product details');
@@ -248,8 +248,7 @@ const ExcelProductEdit = () => {
         });
       };
       reader.readAsDataURL(file);
-      
-      console.log(`📸 Replaced image at position ${imageIndex}`);
+
     } else {
       // Bulk upload - fill available slots starting from main image
       let fileIndex = 0;
@@ -301,8 +300,7 @@ const ExcelProductEdit = () => {
       if (fileIndex < validFiles.length) {
         alert(`📸 Only ${fileIndex} images were added. Maximum 5 images allowed (1 main + 4 additional).`);
       }
-      
-      console.log('📸 Bulk added image files:', fileIndex);
+
     }
   };
 
@@ -325,9 +323,7 @@ const ExcelProductEdit = () => {
     
     // Mark this slot as explicitly removed by the user
     setRemovedImages(prev => new Set([...prev, index]));
-    
-    console.log('📸 Removed image at index:', index, 'URL:', imageUrl);
-    console.log('📸 Removed images set:', [...removedImages, index]);
+
   };
 
   const uploadImages = async () => {
@@ -413,11 +409,9 @@ const ExcelProductEdit = () => {
       // Final safety check - if we somehow lost all images and had original images, restore them
       if (finalImageUrls.length === 0 && originalImages.length > 0) {
         finalImageUrls.push(...originalImages);
-        console.log('📸 Safety fallback: Restored original images:', originalImages);
+        
       }
-      
-      console.log('📸 Final image URLs to save:', finalImageUrls);
-      
+
       const token = localStorage.getItem('adminToken');
       
       const saveData = {

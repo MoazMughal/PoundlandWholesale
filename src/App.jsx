@@ -101,9 +101,7 @@ function App() {
     // 2. Monitor user activity
     // 3. Auto-logout after 24 hours of inactivity
     // 4. Clear sessions when browser closes
-    
-    console.log('✅ Auth session manager initialized');
-    
+
     // Cleanup on unmount
     return () => {
       // Session manager will persist across component remounts

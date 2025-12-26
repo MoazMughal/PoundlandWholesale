@@ -59,7 +59,6 @@ export const SellerProvider = ({ children }) => {
               localStorage.setItem('sellerData', JSON.stringify(freshSellerData))
             } else if (response.status === 401) {
               // Only clear on 401 (unauthorized) - token is definitely invalid
-              console.log('Token is invalid (401), clearing localStorage')
               localStorage.removeItem('sellerToken')
               localStorage.removeItem('sellerData')
               setSeller(null)
@@ -67,7 +66,6 @@ export const SellerProvider = ({ children }) => {
             }
             // For other errors (500, network issues), keep existing auth state
           } catch (networkError) {
-            console.log('Network error during token validation, keeping existing auth state')
             // Keep the seller logged in if it's just a network issue
           }
         } catch (parseError) {

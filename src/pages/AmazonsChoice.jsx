@@ -16,9 +16,10 @@ const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
-  // Add CSS for badge hover effects only
+  // Add CSS for badge hover effects and mobile badge fixes
   useEffect(() => {
     const style = document.createElement('style')
+    style.id = 'amazons-choice-mobile-badges'
     style.textContent = `
       .product-badge:hover {
         transform: scale(1.1) !important;
@@ -26,71 +27,146 @@ const AmazonsChoice = () => {
         transition: transform 0.2s ease !important;
       }
       
-      /* CRITICAL: Force mobile badges to show on mobile devices */
-      @media (max-width: 576px) {
+      /* CRITICAL: Force mobile badges to show on mobile devices with higher specificity */
+      @media screen and (max-width: 576px) {
         .mobile-badge-container,
         .product-card .mobile-badge-container,
         .product-image-container .mobile-badge-container,
-        [data-mobile-badge="true"] {
+        div[data-mobile-badge="true"],
+        .product-card div[data-mobile-badge="true"],
+        .product-image-container div[data-mobile-badge="true"] {
           display: block !important;
           position: absolute !important;
           z-index: 1000 !important;
           opacity: 1 !important;
           visibility: visible !important;
-          top: 2px !important;
-          right: 2px !important;
-          background-color: #ff6600 !important;
-          color: white !important;
-          padding: 4px 6px !important;
-          border-radius: 6px !important;
-          font-size: 9px !important;
+          top: 4px !important; /* Move down slightly */
+          right: 4px !important; /* Move more to the right */
+          /* Remove all color overrides to allow dynamic styling */
+          padding: 3px 5px !important; /* Reduce padding */
+          border-radius: 4px !important; /* Smaller border radius */
+          font-size: 8px !important; /* Smaller font */
           font-weight: bold !important;
-          box-shadow: 0 3px 8px rgba(0,0,0,0.4) !important;
-          border: 1px solid rgba(255,255,255,0.6) !important;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important; /* Lighter shadow */
+          border: none !important; /* Remove white border */
+          text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+          letter-spacing: 0.1px !important; /* Reduce letter spacing */
+          min-width: fit-content !important;
+          white-space: nowrap !important;
+          pointer-events: none !important;
         }
+        
+        /* Force dynamic badge colors with maximum specificity */
+        .dynamic-mobile-badge,
+        .mobile-badge-container .dynamic-mobile-badge,
+        .product-card .mobile-badge-container .dynamic-mobile-badge,
+        div[data-mobile-badge="true"] .dynamic-mobile-badge {
+          background: var(--badge-bg) !important;
+          background-color: var(--badge-bg) !important;
+          color: white !important;
+        }
+        
+        /* Specific color overrides for each badge type */
+        .dynamic-mobile-badge[data-badge-color="#e74c3c"] {
+          background-color: #e74c3c !important;
+        }
+        .dynamic-mobile-badge[data-badge-color="#f39c12"] {
+          background-color: #f39c12 !important;
+        }
+        .dynamic-mobile-badge[data-badge-color="#e67e22"] {
+          background-color: #e67e22 !important;
+        }
+        .dynamic-mobile-badge[data-badge-color="#9b59b6"] {
+          background-color: #9b59b6 !important;
+        }
+        .dynamic-mobile-badge[data-badge-color="#3498db"] {
+          background-color: #3498db !important;
+        }
+        .dynamic-mobile-badge[data-badge-color="#e91e63"] {
+          background-color: #e91e63 !important;
+        }
+        .dynamic-mobile-badge[data-badge-color="#1abc9c"] {
+          background-color: #1abc9c !important;
+        }
+        .dynamic-mobile-badge[data-badge-color="#27ae60"] {
+          background-color: #27ae60 !important;
+        }
+      }
         
         .desktop-badge-container,
         .product-card .desktop-badge-container,
         .product-image-container .desktop-badge-container,
-        [data-desktop-badge="true"] {
+        div[data-desktop-badge="true"],
+        .product-card div[data-desktop-badge="true"],
+        .product-image-container div[data-desktop-badge="true"] {
           display: none !important;
           visibility: hidden !important;
+          opacity: 0 !important;
         }
       }
       
       /* Show desktop badges only on larger screens */
-      @media (min-width: 577px) {
+      @media screen and (min-width: 577px) {
         .mobile-badge-container,
         .product-card .mobile-badge-container,
         .product-image-container .mobile-badge-container,
-        [data-mobile-badge="true"] {
+        div[data-mobile-badge="true"],
+        .product-card div[data-mobile-badge="true"],
+        .product-image-container div[data-mobile-badge="true"] {
           display: none !important;
           visibility: hidden !important;
+          opacity: 0 !important;
         }
         
         .desktop-badge-container,
         .product-card .desktop-badge-container,
         .product-image-container .desktop-badge-container,
-        [data-desktop-badge="true"] {
+        div[data-desktop-badge="true"],
+        .product-card div[data-desktop-badge="true"],
+        .product-image-container div[data-desktop-badge="true"] {
           display: block !important;
           position: absolute !important;
           z-index: 1000 !important;
           visibility: visible !important;
+          opacity: 1 !important;
         }
       }
       
-      /* Additional fallback for mobile badges */
+      /* Additional fallback for mobile devices using device-width */
       @media screen and (max-device-width: 576px) {
-        [data-mobile-badge="true"] {
+        div[data-mobile-badge="true"] {
           display: block !important;
           opacity: 1 !important;
+          visibility: visible !important;
+        }
+        div[data-desktop-badge="true"] {
+          display: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
+        }
+      }
+      
+      /* Force mobile badges on touch devices */
+      @media (hover: none) and (pointer: coarse) {
+        div[data-mobile-badge="true"] {
+          display: block !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        div[data-desktop-badge="true"] {
+          display: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
         }
       }
     `
     document.head.appendChild(style)
     
     return () => {
-      document.head.removeChild(style)
+      const existingStyle = document.getElementById('amazons-choice-mobile-badges')
+      if (existingStyle) {
+        document.head.removeChild(existingStyle)
+      }
     }
   }, [])
   
@@ -291,6 +367,51 @@ const AmazonsChoice = () => {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  // Debug mobile badge visibility
+  useEffect(() => {
+    if (windowWidth <= 576) {
+      console.log('🔍 Mobile Badge Debug:', {
+        windowWidth,
+        isMobile: windowWidth <= 576,
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        touchSupport: 'ontouchstart' in window,
+        devicePixelRatio: window.devicePixelRatio
+      })
+      
+      // Check if badges are visible after component renders
+      setTimeout(() => {
+        const mobileBadges = document.querySelectorAll('[data-mobile-badge="true"]')
+        const desktopBadges = document.querySelectorAll('[data-desktop-badge="true"]')
+        
+        console.log('📱 Mobile Badges Found:', mobileBadges.length)
+        console.log('🖥️ Desktop Badges Found:', desktopBadges.length)
+        
+        mobileBadges.forEach((badge, index) => {
+          const styles = window.getComputedStyle(badge)
+          console.log(`📱 Mobile Badge ${index + 1}:`, {
+            display: styles.display,
+            visibility: styles.visibility,
+            opacity: styles.opacity,
+            zIndex: styles.zIndex,
+            position: styles.position,
+            top: styles.top,
+            right: styles.right
+          })
+        })
+        
+        desktopBadges.forEach((badge, index) => {
+          const styles = window.getComputedStyle(badge)
+          console.log(`🖥️ Desktop Badge ${index + 1}:`, {
+            display: styles.display,
+            visibility: styles.visibility,
+            opacity: styles.opacity
+          })
+        })
+      }, 1000)
+    }
+  }, [windowWidth, products])
 
   // Badge rotation timer - change badges every 2 seconds
   useEffect(() => {
@@ -654,40 +775,80 @@ const AmazonsChoice = () => {
                   }} 
                 />
                 
-                {/* MOBILE BADGE - CSS Media Query Approach */}
+                {/* MOBILE BADGE - Enhanced with same dynamic badges as desktop */}
                 <div 
                   className="mobile-badge-container"
                   data-mobile-badge="true"
                   style={{
                     position: 'absolute',
-                    top: '2px',
-                    right: '2px',
+                    top: '4px', // Move down slightly
+                    right: '4px', // Move more to the right to avoid overlapping product
                     zIndex: 1000,
-                    backgroundColor: '#ff6600',
-                    color: 'white',
-                    padding: '4px 6px',
-                    borderRadius: '6px',
-                    fontSize: '9px',
+                    fontSize: windowWidth <= 576 ? '8px' : '8px', // Slightly smaller
                     fontWeight: 'bold',
-                    display: 'block',
-                    boxShadow: '0 3px 8px rgba(0,0,0,0.4)',
-                    border: '1px solid rgba(255,255,255,0.6)',
-                    textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                    letterSpacing: '0.2px',
-                    opacity: 1,
-                    visibility: 'visible',
+                    display: windowWidth <= 576 ? 'block' : 'none',
+                    opacity: windowWidth <= 576 ? 1 : 0,
+                    visibility: windowWidth <= 576 ? 'visible' : 'hidden',
                     minWidth: 'fit-content',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    pointerEvents: 'none',
+                    // Force mobile display with additional properties
+                    ...(windowWidth <= 576 && {
+                      display: 'block !important',
+                      opacity: '1 !important',
+                      visibility: 'visible !important'
+                    })
                   }}
                 >
-                  Amazon's Choice
+                  {(() => {
+                    const badge = getProductBadge(product, index)
+                    return (
+                      <span 
+                        className="dynamic-mobile-badge"
+                        style={{
+                          backgroundColor: `${badge.color} !important`,
+                          color: 'white !important',
+                          display: 'flex !important',
+                          alignItems: 'center',
+                          gap: '1px', // Reduce gap
+                          padding: '3px 5px', // Reduce padding
+                          borderRadius: '4px', // Smaller border radius
+                          fontSize: windowWidth <= 576 ? '8px' : '8px',
+                          fontWeight: 'bold',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.3)', // Lighter shadow
+                          border: 'none',
+                          textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                          letterSpacing: '0.1px', // Reduce letter spacing
+                          // Force the background color with CSS custom property
+                          '--badge-bg': badge.color,
+                          background: `var(--badge-bg, ${badge.color})`,
+                          // Additional fallbacks
+                          WebkitBackgroundColor: badge.color,
+                          MozBackgroundColor: badge.color
+                        }}
+                        data-badge-color={badge.color}
+                        data-badge-text={badge.text}
+                      >
+                        <span style={{fontSize: windowWidth <= 576 ? '6px' : '6px'}}>{badge.icon}</span>
+                        <span>{badge.text}</span>
+                      </span>
+                    )
+                  })()}
                 </div>
                 
                 {/* DESKTOP BADGE - Show on Desktop Only */}
                 <div 
                   className="desktop-badge-container"
                   data-desktop-badge="true"
-                  style={{position: 'absolute', top: '2px', right: '2px', zIndex: 2}}
+                  style={{
+                    position: 'absolute', 
+                    top: '2px', 
+                    right: '2px', 
+                    zIndex: 2,
+                    display: windowWidth > 576 ? 'block' : 'none',
+                    opacity: windowWidth > 576 ? 1 : 0,
+                    visibility: windowWidth > 576 ? 'visible' : 'hidden'
+                  }}
                 >
                   {(() => {
                     const badge = getProductBadge(product, index)
@@ -718,17 +879,18 @@ const AmazonsChoice = () => {
 
               </div>
               
-              <div className="product-info" style={{padding: '3px 5px', display: 'flex', flexDirection: 'column', gap: '2px'}}>
+              <div className="product-info" style={{padding: '4px 6px', display: 'flex', flexDirection: 'column', gap: '3px'}}>
                 <h5 style={{
                   fontSize: '10px', 
                   fontWeight: '700', 
                   margin: 0, 
                   lineHeight: '1.2', 
-                  height: '24px', 
+                  height: '22px', // Reduce height slightly
                   overflow: 'hidden',
                   color: '#1a1a1a',
                   textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-                  transition: 'color 0.3s ease'
+                  transition: 'color 0.3s ease',
+                  marginBottom: '2px' // Add small margin
                 }}
                 onMouseEnter={(e) => e.target.style.color = '#ff6600'}
                 onMouseLeave={(e) => e.target.style.color = '#1a1a1a'}
@@ -869,18 +1031,18 @@ const AmazonsChoice = () => {
                   </div>
                 )}
                 
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '4px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '3px', marginTop: '1px'}}>
                   {/* Left side - Compact Enhanced Price */}
                   <div style={{
                     fontWeight: '800', 
-                    fontSize: '10px', 
+                    fontSize: '9px', // Slightly smaller
                     color: '#ff3300',
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
-                    padding: '2px 4px',
-                    borderRadius: '4px',
+                    padding: '1px 3px', // Reduce padding
+                    borderRadius: '3px', // Smaller border radius
                     border: '1px solid #ff6600',
                     textShadow: '0 1px 2px rgba(255, 51, 0, 0.3)',
-                    boxShadow: '0 1px 4px rgba(255, 102, 0, 0.15)',
+                    boxShadow: '0 1px 3px rgba(255, 102, 0, 0.15)', // Lighter shadow
                     whiteSpace: 'nowrap',
                     maxWidth: 'fit-content'
                   }}>
@@ -1050,18 +1212,18 @@ const AmazonsChoice = () => {
                       <div style={{
                         display: 'flex', 
                         flexDirection: 'column', 
-                        alignItems: 'flex-start', // MOVED LEFT - changed from flex-end to flex-start
-                        gap: '2px', // Increased gap for mobile
-                        marginLeft: '4px', // Reduced margin for compact layout
-                        marginTop: windowWidth < 576 ? '4px' : '0px' // Move down on mobile
+                        alignItems: 'flex-start',
+                        gap: '1px', // Reduce gap
+                        marginLeft: '2px', // Reduce margin
+                        marginTop: windowWidth < 576 ? '6px' : '2px' // Move down more on mobile
                       }}>
                         {/* Profit per unit */}
                         <div style={{
-                          fontSize: '7px', 
+                          fontSize: '6px', // Smaller font
                           color: '#ff6600',
                           fontWeight: '700',
                           background: 'rgba(255, 102, 0, 0.1)',
-                          padding: '1px 3px',
+                          padding: '1px 2px', // Reduce padding
                           borderRadius: '2px',
                           border: '1px solid rgba(255, 102, 0, 0.3)',
                           whiteSpace: 'nowrap'
@@ -1071,11 +1233,11 @@ const AmazonsChoice = () => {
                         
                         {/* Profit for deal units */}
                         <div style={{
-                          fontSize: '7px', 
+                          fontSize: '6px', // Smaller font
                           color: '#ff6600',
                           fontWeight: '700',
                           background: 'rgba(255, 102, 0, 0.1)',
-                          padding: '1px 3px',
+                          padding: '1px 2px', // Reduce padding
                           borderRadius: '2px',
                           border: '1px solid rgba(255, 102, 0, 0.3)',
                           whiteSpace: 'nowrap'
@@ -1088,22 +1250,22 @@ const AmazonsChoice = () => {
                 </div>
 
                 {/* Deal Units Display - Moved Down for Mobile */}
-                <div style={{ marginTop: windowWidth < 576 ? '6px' : '2px' }}>
+                <div style={{ marginTop: windowWidth < 576 ? '4px' : '3px' }}>
                   <div style={{
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)', 
-                    padding: '2px 4px', 
-                    borderRadius: '6px', 
+                    padding: '2px 3px', // Reduce padding
+                    borderRadius: '4px', // Smaller border radius
                     border: '1px solid #ff6600', 
-                    boxShadow: '0 2px 6px rgba(255, 102, 0, 0.15)',
+                    boxShadow: '0 1px 4px rgba(255, 102, 0, 0.15)', // Lighter shadow
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center'
                   }}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '3px'}}>
-                      <span style={{fontSize: '9px', color: '#cc3300', fontWeight: '700'}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '2px'}}>
+                      <span style={{fontSize: '8px', color: '#cc3300', fontWeight: '700'}}>
                         💰 Deal of {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
-                      <span style={{fontSize: '9px', fontWeight: '800', color: '#ff3300'}}>
+                      <span style={{fontSize: '8px', fontWeight: '800', color: '#ff3300'}}>
                         {(() => {
                           try {
                             // Use raw price (per unit) from database
@@ -1134,14 +1296,14 @@ const AmazonsChoice = () => {
                           'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
                         color: 'white',
                         border: 'none',
-                        padding: '2px 4px',
-                        borderRadius: '4px',
-                        fontSize: '8px',
+                        padding: '2px 3px', // Reduce padding
+                        borderRadius: '3px', // Smaller border radius
+                        fontSize: '7px', // Smaller font
                         cursor: 'pointer',
-                        boxShadow: '0 1px 4px rgba(255, 102, 0, 0.3)',
+                        boxShadow: '0 1px 3px rgba(255, 102, 0, 0.3)', // Lighter shadow
                         transition: 'all 0.2s ease',
-                        minWidth: '20px',
-                        height: '16px'
+                        minWidth: '18px', // Smaller width
+                        height: '14px' // Smaller height
                       }}
                       onMouseEnter={(e) => {
                         e.target.style.transform = 'scale(1.1)';
@@ -1149,7 +1311,7 @@ const AmazonsChoice = () => {
                       }}
                       onMouseLeave={(e) => {
                         e.target.style.transform = 'scale(1)';
-                        e.target.style.boxShadow = '0 1px 4px rgba(255, 102, 0, 0.3)';
+                        e.target.style.boxShadow = '0 1px 3px rgba(255, 102, 0, 0.3)';
                       }}
                     >
                       <i className={isInBasket(product.id) ? 'fas fa-check' : 'fas fa-shopping-basket'}></i>

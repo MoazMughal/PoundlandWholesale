@@ -28,7 +28,7 @@ export const adminApiCall = async (url, options = {}) => {
     
     if (response.status === 401) {
       // Token expired or invalid - let the context handle this
-      console.log('⚠️ Authentication failed - token may be expired');
+      
       throw new Error('Authentication failed. Please refresh the page.');
     }
     

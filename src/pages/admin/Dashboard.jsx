@@ -38,8 +38,6 @@ const AdminDashboard = () => {
   const { currency, setCurrency, formatPrice, currencySymbols } = useCurrency();
   const { logout: adminLogout } = useAdmin();
 
-
-
   useEffect(() => {
     fetchStats();
     fetchRecentProducts();
@@ -120,8 +118,6 @@ const AdminDashboard = () => {
       console.error('Error fetching Amazon\'s Choice products:', error);
     }
   };
-
-
 
   const fetchSellers = async () => {
     try {
@@ -239,10 +235,10 @@ const AdminDashboard = () => {
 
     try {
       setSearchLoading(true);
-      console.log('🔍 Admin searching for:', query);
+      
       const response = await adminGet(`http://localhost:5000/api/products?search=${encodeURIComponent(query)}&limit=100`);
       const data = await response.json();
-      console.log('✅ Admin search results:', data.products?.length || 0, 'products found');
+      
       setSearchResults(data.products || []);
     } catch (error) {
       console.error('❌ Error searching products:', error);
@@ -267,9 +263,7 @@ const AdminDashboard = () => {
   const startProfitEditing = (product) => {
     // Calculate product cost automatically from product price (keep in PKR)
     const productPricePKR = parseFloat(product.price) || 0;
-    
 
-    
     // Set default currency to Pound when opening profit modal
     setCurrency('GBP');
     setProfitModalCurrency('GBP');
@@ -459,7 +453,6 @@ const AdminDashboard = () => {
       cacheManager.remove('amazons_choice_products');
       cacheManager.clearAll(); // Clear all cache entries
 
-      
       alert('✅ Product updated successfully! Changes will appear immediately in Amazon\'s Choice products.');
       setShowFullEditModal(false);
       setFullEditProduct(null);
@@ -773,8 +766,6 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-
-
           <div className="stat-card-enhanced sellers" onClick={() => navigate('/admin/sellers')}>
             <div className="stat-icon-enhanced">👥</div>
             <div className="stat-content-enhanced">
@@ -970,12 +961,6 @@ const AdminDashboard = () => {
           </div>
         )}
       </div>
-
-
-
-
-
-
 
       {/* Sellers Management Section */}
       <div className="products-management">
@@ -1670,7 +1655,6 @@ const AdminDashboard = () => {
                   />
                 </div>
 
-
               </div>
             </div>
 
@@ -2092,7 +2076,6 @@ const AdminDashboard = () => {
                       placeholder="Auto-calculated: Profit per Unit × 200"
                     />
                   </div>
-
 
                 </div>
               </div>

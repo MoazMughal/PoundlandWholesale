@@ -668,7 +668,6 @@ router.get('/verify-reset-token/:token', async (req, res) => {
   }
 });
 
-
 // GET /auth/verify - Verify JWT token
 router.get('/verify', async (req, res) => {
   try {

@@ -33,7 +33,7 @@ export const getDeviceInfo = () => {
 
 export const logDeviceInfo = () => {
   const info = getDeviceInfo();
-  console.log('📱 Device Info:', info);
+  
   return info;
 };
 

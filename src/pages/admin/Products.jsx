@@ -77,6 +77,15 @@ const AdminProducts = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [editingInput, setEditingInput] = useState(null); // Track which input is being edited
   const [inputValues, setInputValues] = useState({}); // Store raw input values during editing
+  
+  // Auto-fetch profit values states
+  const [showAutoFetchModal, setShowAutoFetchModal] = useState(false);
+  const [categoryProducts, setCategoryProducts] = useState([]);
+  const [selectedSourceProduct, setSelectedSourceProduct] = useState(null);
+  const [loadingCategoryProducts, setLoadingCategoryProducts] = useState(false);
+  const [currentFetchCategory, setCurrentFetchCategory] = useState('');
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const [availableCategories, setAvailableCategories] = useState([]);
 
   // Add global CSS to hide number input spinners
   useEffect(() => {
@@ -119,6 +128,294 @@ const AdminProducts = () => {
       });
     }
   }, [profitEditProduct?.profitEvaluation?.salesProceeds, profitEditProduct?.platformComparison]);
+
+  // Helper function to update profit data after price change
+  const updateProfitDataAfterPriceChange = async (productId, newPrice, token) => {
+    try {
+      console.log('🔄 Updating profit data after price change for product:', productId, 'New price:', newPrice);
+      
+      // Fetch the current product data to get existing profit information
+      const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        console.log('⚠️ Could not fetch product data for profit update');
+        return;
+      }
+
+      const productData = await response.json();
+      
+      // Check if product has profit data to update
+      if (!productData.profitEvaluation && !productData.profitCalculations && !productData.platformComparison) {
+        console.log('ℹ️ Product has no profit data to update');
+        return;
+      }
+
+      console.log('📊 Product has profit data, updating calculations...');
+
+      // Update profit modal if it's open for this product
+      if (profitEditProduct && profitEditProduct._id === productId) {
+        console.log('🔄 Profit modal is open, updating modal state');
+
+        // Update the product cost in the profit evaluation
+        const updatedProfitEvaluation = {
+          ...profitEditProduct.profitEvaluation,
+          productCost: newPrice
+        };
+
+        // Recalculate net profit with new product cost
+        const balanceChange = updatedProfitEvaluation.balanceChange || 0;
+        const newNetProfit = parseFloat((balanceChange - newPrice).toFixed(2));
+        updatedProfitEvaluation.netProfit = newNetProfit;
+
+        // Update profit calculations
+        const updatedProfitCalculations = {
+          ...profitEditProduct.profitCalculations,
+          costPrice: newPrice,
+          profitPerUnit: newNetProfit
+        };
+
+        // Update platform comparison profits and markup with new product cost
+        const updatedPlatformComparison = profitEditProduct.platformComparison.map(platform => ({
+          ...platform,
+          profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2)),
+          markup: calculateMarkupPercentage(platform.rrpPerUnit, newPrice) // Recalculate markup with new product cost
+        }));
+
+        // Calculate auto-savings percentage
+        const autoCalculatedSavings = newPrice === 0 ? 0 : 
+          ((balanceChange - newPrice) / newPrice) * 100;
+
+        // Update the profit edit product state
+        setProfitEditProduct({
+          ...profitEditProduct,
+          profitEvaluation: updatedProfitEvaluation,
+          profitCalculations: updatedProfitCalculations,
+          platformComparison: updatedPlatformComparison,
+          savings: parseFloat(autoCalculatedSavings.toFixed(2))
+        });
+
+        // Set visual indicator that product cost was updated
+        setProductCostUpdated(true);
+        setTimeout(() => setProductCostUpdated(false), 3000);
+      }
+
+      // Always update the database with new profit calculations
+      const existingEvaluation = productData.profitEvaluation || {};
+      const balanceChange = existingEvaluation.balanceChange || 0;
+      const newNetProfit = parseFloat((balanceChange - newPrice).toFixed(2));
+
+      const updatedProfitEvaluation = {
+        ...existingEvaluation,
+        productCost: newPrice,
+        netProfit: newNetProfit
+      };
+
+      // Update profit calculations
+      const existingCalculations = productData.profitCalculations || {};
+      const updatedProfitCalculations = {
+        ...existingCalculations,
+        costPrice: newPrice,
+        profitPerUnit: newNetProfit
+      };
+
+      // Update platform comparison if it exists
+      const updatedPlatformComparison = (productData.platformComparison || []).map(platform => ({
+        ...platform,
+        profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2)),
+        markup: calculateMarkupPercentage(platform.rrpPerUnit, newPrice) // Recalculate markup with new product cost
+      }));
+
+      // Calculate auto-savings percentage
+      const autoCalculatedSavings = newPrice === 0 ? 0 : 
+        ((balanceChange - newPrice) / newPrice) * 100;
+
+      // Prepare update data
+      const profitUpdateData = {
+        profitEvaluation: updatedProfitEvaluation,
+        profitCalculations: updatedProfitCalculations,
+        savings: parseFloat(autoCalculatedSavings.toFixed(2))
+      };
+
+      if (updatedPlatformComparison.length > 0) {
+        profitUpdateData.platformComparison = updatedPlatformComparison;
+      }
+
+      // Save to database
+      const updateResponse = await fetch(`http://localhost:5000/api/products/${productId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(profitUpdateData)
+      });
+
+      if (updateResponse.ok) {
+        console.log('✅ Profit data automatically updated in database after price change');
+        
+        // Show success message
+        setSuccessMessage('Price updated! Profit calculations have been automatically recalculated and saved.');
+        setShowSuccessToast(true);
+        setTimeout(() => setShowSuccessToast(false), 4000);
+      } else {
+        console.log('⚠️ Failed to auto-update profit data in database');
+      }
+
+    } catch (error) {
+      console.error('❌ Error updating profit data after price change:', error);
+    }
+  };
+
+  // Function to fetch available categories with profit data
+  const fetchAvailableCategoriesWithProfitData = async (currentProductId) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      
+      const response = await fetch(`http://localhost:5000/api/products/admin/categories-with-profit?excludeId=${currentProductId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableCategories(data.categories);
+      } else {
+        console.error('Failed to fetch available categories');
+        setAvailableCategories([]);
+      }
+    } catch (error) {
+      console.error('Error fetching available categories:', error);
+      setAvailableCategories([]);
+    }
+  };
+
+  // Function to fetch products from same category with profit data
+  const fetchCategoryProductsWithProfitData = async (category, currentProductId, exactMatch = true) => {
+    try {
+      setLoadingCategoryProducts(true);
+      const token = localStorage.getItem('adminToken');
+      
+      console.log('🔍 Fetching products from category:', category, 'exactMatch:', exactMatch, 'excluding:', currentProductId);
+      
+      // Use the optimized endpoint for better performance
+      const endpoint = exactMatch 
+        ? `http://localhost:5000/api/products/admin/category/${encodeURIComponent(category)}/with-profit?excludeId=${currentProductId}&exactMatch=true`
+        : `http://localhost:5000/api/products/admin/category/${encodeURIComponent(category)}/with-profit?excludeId=${currentProductId}&exactMatch=false`;
+        
+      const response = await fetch(endpoint, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 Found', data.products.length, 'products with profit data in category:', category);
+        setCategoryProducts(data.products);
+        setCurrentFetchCategory(category);
+      } else {
+        console.error('Failed to fetch category products');
+        setCategoryProducts([]);
+      }
+    } catch (error) {
+      console.error('Error fetching category products:', error);
+      setCategoryProducts([]);
+    } finally {
+      setLoadingCategoryProducts(false);
+    }
+  };
+
+  // Function to copy profit data from selected product
+  const copyProfitDataFromProduct = (sourceProduct) => {
+    if (!sourceProduct || !profitEditProduct) return;
+
+    console.log('📋 Copying profit data from:', sourceProduct.name);
+    console.log('📋 Source profit data:', {
+      platformComparison: sourceProduct.platformComparison,
+      profitEvaluation: sourceProduct.profitEvaluation,
+      profitCalculations: sourceProduct.profitCalculations
+    });
+
+    // Keep the current product's price as product cost
+    const currentProductCost = profitEditProduct.profitEvaluation?.productCost || parseFloat(profitEditProduct.price) || 0;
+    
+    // Copy platform comparison data
+    const copiedPlatformComparison = sourceProduct.platformComparison ? 
+      sourceProduct.platformComparison.map(platform => ({
+        platform: platform.platform || 'Platform',
+        rrpPerUnit: parseFloat(platform.rrpPerUnit) || 0,
+        units: parseInt(platform.units) || 200,
+        profitFor200Units: 0, // Will be recalculated
+        markup: '0%' // Will be recalculated
+      })) : 
+      profitEditProduct.platformComparison || [];
+
+    // Copy profit evaluation data but keep current product cost
+    const copiedProfitEvaluation = sourceProduct.profitEvaluation ? {
+      salesProceeds: parseFloat(sourceProduct.profitEvaluation.salesProceeds) || 0,
+      commission: parseFloat(sourceProduct.profitEvaluation.commission) || 0,
+      commissionTax: parseFloat(sourceProduct.profitEvaluation.commissionTax) || 0,
+      digitalServicesFee: parseFloat(sourceProduct.profitEvaluation.digitalServicesFee) || 0,
+      digitalServicesTax: parseFloat(sourceProduct.profitEvaluation.digitalServicesTax) || 0,
+      fbaFulfilmentFee: parseFloat(sourceProduct.profitEvaluation.fbaFulfilmentFee) || 0,
+      fbaFulfilmentTax: parseFloat(sourceProduct.profitEvaluation.fbaFulfilmentTax) || 0,
+      balanceChange: parseFloat(sourceProduct.profitEvaluation.balanceChange) || 0,
+      productCost: currentProductCost, // Keep current product's cost
+      netProfit: 0, // Will be recalculated
+      monthlyProfit: parseFloat(sourceProduct.profitEvaluation.monthlyProfit) || 0,
+      yearlyProfit: parseFloat(sourceProduct.profitEvaluation.yearlyProfit) || 0
+    } : profitEditProduct.profitEvaluation || {};
+
+    // Recalculate net profit with current product cost
+    const balanceChange = copiedProfitEvaluation.balanceChange || 0;
+    const newNetProfit = parseFloat((balanceChange - currentProductCost).toFixed(2));
+    copiedProfitEvaluation.netProfit = newNetProfit;
+
+    // Update profit calculations
+    const copiedProfitCalculations = {
+      profitPerUnit: newNetProfit,
+      profitFor200Units: parseFloat((newNetProfit * 200).toFixed(2)),
+      dealUnitsProfit: sourceProduct.profitCalculations?.dealUnitsProfit || 0,
+      profitForDealUnits: sourceProduct.profitCalculations?.profitForDealUnits || 0
+    };
+
+    // Recalculate platform comparison profits and markup with current product cost
+    const updatedPlatformComparison = copiedPlatformComparison.map(platform => ({
+      ...platform,
+      profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2)),
+      markup: calculateMarkupPercentage(platform.rrpPerUnit, currentProductCost)
+    }));
+
+    // Sync Amazon platform RRP/Unit with Sales Proceeds
+    const amazonPlatform = updatedPlatformComparison.find(p => p.platform === 'Amazon');
+    if (amazonPlatform) {
+      amazonPlatform.rrpPerUnit = copiedProfitEvaluation.salesProceeds;
+      amazonPlatform.markup = calculateMarkupPercentage(copiedProfitEvaluation.salesProceeds, currentProductCost);
+    }
+
+    // Calculate auto-savings percentage
+    const autoCalculatedSavings = currentProductCost === 0 ? 0 : 
+      ((balanceChange - currentProductCost) / currentProductCost) * 100;
+
+    // Update the profit edit product state
+    setProfitEditProduct({
+      ...profitEditProduct,
+      platformComparison: updatedPlatformComparison,
+      profitEvaluation: copiedProfitEvaluation,
+      profitCalculations: copiedProfitCalculations,
+      savings: parseFloat(autoCalculatedSavings.toFixed(2))
+    });
+
+    console.log('✅ Profit data copied and recalculated with current product cost:', currentProductCost);
+    
+    // Show success message
+    setSuccessMessage(`Profit data copied from "${sourceProduct.name}" and recalculated with current product cost!`);
+    setShowSuccessToast(true);
+    setTimeout(() => setShowSuccessToast(false), 4000);
+    
+    // Close the auto-fetch modal
+    setShowAutoFetchModal(false);
+    setSelectedSourceProduct(null);
+  };
 
   // Helper function to calculate markup percentage (moved to component level)
   const calculateMarkupPercentage = (rrpPerUnit, productCost) => {
@@ -186,7 +483,7 @@ const AdminProducts = () => {
 
     // Ensure we have at least one variation
     if (updatedVariations.length === 0) {
-      updatedVariations.push({ type: 'style', name: '', options: [] });
+      updatedVariations.push({ type: 'style', name: 'Style', options: [] });
     }
 
     // Find or create the option for this product
@@ -198,10 +495,10 @@ const AdminProducts = () => {
         updatedVariations[0].options = [];
       }
       updatedVariations[0].options.push({
-        value: availableProducts.find(p => p._id === productId)?.name?.split(' ')[0] || 'Option',
+        value: '', // Start with empty value for user to fill
         productId: productId,
         type: 'style',
-        customName: '',
+        customName: 'Style', // Auto-set based on type
         images: [],
         price: null,
         stock: null
@@ -214,6 +511,8 @@ const AdminProducts = () => {
       updatedVariations[0].options[optionIndex].type = value;
     } else if (field === 'name') {
       updatedVariations[0].options[optionIndex].customName = value;
+    } else if (field === 'value') {
+      updatedVariations[0].options[optionIndex].value = value;
     }
 
     setVariationsEditProduct({
@@ -745,158 +1044,8 @@ const AdminProducts = () => {
 
         // If price was updated, check if we need to update profit data
         if (field === 'price') {
-          // Update profit modal if it's open for this product
-          if (profitEditProduct && profitEditProduct._id === productId) {
-            console.log('🔄 Price updated, updating product cost in profit modal from', profitEditProduct.profitEvaluation.productCost, 'to', parsedValue);
-
-            // Update the product cost in the profit evaluation
-            const updatedProfitEvaluation = {
-              ...profitEditProduct.profitEvaluation,
-              productCost: parsedValue
-            };
-
-            // Recalculate net profit with new product cost
-            const balanceChange = updatedProfitEvaluation.balanceChange || 0;
-            const newNetProfit = parseFloat((balanceChange - parsedValue).toFixed(2));
-            updatedProfitEvaluation.netProfit = newNetProfit;
-
-            // Update profit calculations
-            const updatedProfitCalculations = {
-              ...profitEditProduct.profitCalculations,
-              costPrice: parsedValue,
-              profitPerUnit: newNetProfit
-            };
-
-            // Update platform comparison profits with new net profit
-            const updatedPlatformComparison = profitEditProduct.platformComparison.map(platform => ({
-              ...platform,
-              profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2)),
-              markup: calculateMarkupPercentage(platform.rrpPerUnit, parsedValue) // Recalculate markup with new product cost
-            }));
-
-            // Update the profit edit product state
-            setProfitEditProduct({
-              ...profitEditProduct,
-              profitEvaluation: updatedProfitEvaluation,
-              profitCalculations: updatedProfitCalculations,
-              platformComparison: updatedPlatformComparison
-            });
-
-            // Set visual indicator that product cost was updated
-            setProductCostUpdated(true);
-            setTimeout(() => setProductCostUpdated(false), 3000); // Clear after 3 seconds
-
-            // Automatically save the updated profit data to the database
-            try {
-              const profitUpdateData = {
-                platformComparison: updatedPlatformComparison.map(platform => ({
-                  platform: platform.platform || 'Platform',
-                  rrpPerUnit: parseFloat((parseFloat(platform.rrpPerUnit) || 0).toFixed(2)),
-                  units: parseInt(platform.units) || 200,
-                  profitFor200Units: parseFloat((parseFloat(platform.profitFor200Units) || 0).toFixed(2)),
-                  markup: platform.markup || '0%'
-                })),
-                platformUnits: parseInt(selectedUnits) || 200,
-                profitCalculations: {
-                  profitPerUnit: parseFloat((parseFloat(updatedProfitCalculations.profitPerUnit) || 0).toFixed(2)),
-                  profitFor200Units: parseFloat((parseFloat(updatedProfitCalculations.profitPerUnit) * 200 || 0).toFixed(2)),
-                  dealUnitsProfit: parseFloat((parseFloat(updatedProfitCalculations.dealUnitsProfit) || 0).toFixed(2)),
-                  profitForDealUnits: parseFloat((parseFloat(updatedProfitCalculations.profitForDealUnits) || 0).toFixed(2))
-                },
-                profitEvaluation: {
-                  salesProceeds: parseFloat((parseFloat(updatedProfitEvaluation.salesProceeds) || 0).toFixed(2)),
-                  commission: parseFloat((parseFloat(updatedProfitEvaluation.commission) || 0).toFixed(2)),
-                  commissionTax: parseFloat((parseFloat(updatedProfitEvaluation.commissionTax) || 0).toFixed(2)),
-                  digitalServicesFee: parseFloat((parseFloat(updatedProfitEvaluation.digitalServicesFee) || 0).toFixed(2)),
-                  digitalServicesTax: parseFloat((parseFloat(updatedProfitEvaluation.digitalServicesTax) || 0).toFixed(2)),
-                  fbaFulfilmentFee: parseFloat((parseFloat(updatedProfitEvaluation.fbaFulfilmentFee) || 0).toFixed(2)),
-                  fbaFulfilmentTax: parseFloat((parseFloat(updatedProfitEvaluation.fbaFulfilmentTax) || 0).toFixed(2)),
-                  balanceChange: parseFloat((parseFloat(updatedProfitEvaluation.balanceChange) || 0).toFixed(2)),
-                  productCost: parseFloat((parseFloat(updatedProfitEvaluation.productCost) || 0).toFixed(2)),
-                  netProfit: parseFloat((parseFloat(updatedProfitEvaluation.netProfit) || 0).toFixed(2)),
-                  monthlyProfit: parseFloat((parseFloat(updatedProfitEvaluation.monthlyProfit) || 0).toFixed(2)),
-                  yearlyProfit: parseFloat((parseFloat(updatedProfitEvaluation.yearlyProfit) || 0).toFixed(2))
-                }
-              };
-
-              const profitResponse = await fetch(`http://localhost:5000/api/products/${productId}`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(profitUpdateData)
-              });
-
-              if (profitResponse.ok) {
-                console.log('✅ Profit data automatically updated in database after price change');
-              } else {
-                console.log('⚠️ Failed to auto-update profit data in database');
-              }
-            } catch (error) {
-              console.error('❌ Error auto-updating profit data:', error);
-            }
-
-            console.log('✅ Profit modal updated with new product cost and recalculated profits');
-          } else {
-            // Even if modal is not open, update profit data in database if it exists
-            const productToUpdate = updatedProducts.find(p => p._id === productId);
-            if (productToUpdate && (productToUpdate.profitEvaluation || productToUpdate.profitCalculations)) {
-              console.log('🔄 Price updated for product with existing profit data, updating product cost in database');
-
-              // Update product cost in existing profit evaluation
-              const existingEvaluation = productToUpdate.profitEvaluation || {};
-              const balanceChange = existingEvaluation.balanceChange || 0;
-              const newNetProfit = parseFloat((balanceChange - parsedValue).toFixed(2));
-
-              const updatedProfitEvaluation = {
-                ...existingEvaluation,
-                productCost: parsedValue,
-                netProfit: newNetProfit
-              };
-
-              // Update profit calculations
-              const existingCalculations = productToUpdate.profitCalculations || {};
-              const updatedProfitCalculations = {
-                ...existingCalculations,
-                costPrice: parsedValue,
-                profitPerUnit: newNetProfit
-              };
-
-              // Update platform comparison if it exists
-              const updatedPlatformComparison = (productToUpdate.platformComparison || []).map(platform => ({
-                ...platform,
-                profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2))
-              }));
-
-              // Save to database
-              const profitUpdateData = {
-                profitEvaluation: updatedProfitEvaluation,
-                profitCalculations: updatedProfitCalculations
-              };
-
-              if (updatedPlatformComparison.length > 0) {
-                profitUpdateData.platformComparison = updatedPlatformComparison;
-              }
-
-              fetch(`http://localhost:5000/api/products/${productId}`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(profitUpdateData)
-              }).then(response => {
-                if (response.ok) {
-                  console.log('✅ Profit data automatically updated in database after price change (modal closed)');
-                } else {
-                  console.log('⚠️ Failed to auto-update profit data in database (modal closed)');
-                }
-              }).catch(error => {
-                console.error('❌ Error auto-updating profit data (modal closed):', error);
-              });
-            }
-          }
+          // Always update profit data when price changes, regardless of modal state
+          await updateProfitDataAfterPriceChange(productId, parsedValue, token);
         }
 
         cacheManager.clearAll();
@@ -996,9 +1145,18 @@ const AdminProducts = () => {
     console.log('🎨 Current variationsEditProduct:', variationsEditProduct);
 
     const newVariation = {
-      type: 'color',
-      name: '', // Start with empty name so user can customize
-      options: []
+      type: 'style', // Default to 'style'
+      name: 'Style', // Auto-set name based on type
+      options: [
+        // Add current product as the first option with empty value (user will fill it)
+        {
+          value: '',
+          productId: null, // null indicates current product
+          images: variationsEditProduct.images || [],
+          price: variationsEditProduct.price || null,
+          stock: variationsEditProduct.stock || null
+        }
+      ]
     };
 
     console.log('🎨 New variation to add:', newVariation);
@@ -1137,22 +1295,102 @@ const AdminProducts = () => {
       // Clean the variations data before sending
       const cleanedVariations = (variationsEditProduct.variations || [])
         .filter(variation => variation.type && variation.name) // Only include valid variations
-        .map(variation => ({
-          type: variation.type,
-          name: variation.name,
-          options: variation.options
+        .map(variation => {
+          // Ensure current product is always included as first option
+          let options = variation.options || [];
+          
+          // Find current product option
+          const currentProductOptionIndex = options.findIndex(option => 
+            !option.productId || option.productId === null || option.productId === variationsEditProduct._id
+          );
+          
+          let currentProductOption = null;
+          if (currentProductOptionIndex !== -1) {
+            currentProductOption = options[currentProductOptionIndex];
+            // Remove it from its current position
+            options.splice(currentProductOptionIndex, 1);
+            console.log('🎨 Found existing current product option:', currentProductOption);
+          }
+          
+          // If no current product option exists, create one with empty value
+          if (!currentProductOption) {
+            currentProductOption = {
+              value: '', // Will be filtered out if empty
+              productId: null,
+              images: [],
+              price: null,
+              stock: null
+            };
+            console.log('🎨 Created new current product option (empty)');
+          }
+          
+          console.log('🎨 Current product option before processing:', {
+            value: currentProductOption.value,
+            productId: currentProductOption.productId,
+            hasValue: !!(currentProductOption.value && currentProductOption.value.trim() !== '')
+          });
+          
+          // Only include current product option if it has a value
+          const finalOptions = [];
+          if (currentProductOption.value && currentProductOption.value.trim() !== '') {
+            finalOptions.push({
+              value: currentProductOption.value.trim(),
+              productId: null, // Always null for current product
+              images: currentProductOption.images || [],
+              price: currentProductOption.price || null,
+              stock: currentProductOption.stock || null
+            });
+          }
+          
+          // Add other options (linked products)
+          options
             .filter(option => option.value && option.value.trim() !== '') // Only include options with values
-            .map(option => ({
-              value: option.value.trim(),
-              productId: option.productId && option.productId !== '' && option.productId !== 'null' ? option.productId : null,
-              images: option.images || [],
-              price: option.price || null,
-              stock: option.stock || null
-            }))
-        }))
+            .forEach(option => {
+              finalOptions.push({
+                value: option.value.trim(),
+                productId: option.productId && option.productId !== '' && option.productId !== 'null' ? option.productId : null,
+                images: option.images || [],
+                price: option.price || null,
+                stock: option.stock || null
+              });
+            });
+          
+          return {
+            type: variation.type,
+            name: variation.name,
+            options: finalOptions
+          };
+        })
         .filter(variation => variation.options.length > 0); // Only include variations with options
 
+      console.log('🎨 FINAL CLEANED VARIATIONS TO SAVE:', JSON.stringify(cleanedVariations, null, 2));
+      
+      // Specifically check current product options
+      cleanedVariations.forEach((variation, index) => {
+        console.log(`🎨 Variation ${index + 1} (${variation.type}):`);
+        variation.options.forEach((option, optIndex) => {
+          console.log(`  Option ${optIndex + 1}:`, {
+            value: option.value,
+            productId: option.productId,
+            isCurrentProduct: option.productId === null,
+            isLinkedProduct: option.productId !== null
+          });
+        });
+      });
+
       console.log('🎨 Cleaned variations data:', JSON.stringify(cleanedVariations, null, 2));
+      
+      // Debug: Check if current product option is included
+      cleanedVariations.forEach((variation, index) => {
+        console.log(`🎨 Variation ${index + 1} (${variation.type}):`, variation);
+        variation.options.forEach((option, optIndex) => {
+          console.log(`  Option ${optIndex + 1}:`, {
+            value: option.value,
+            productId: option.productId,
+            isCurrentProduct: option.productId === null
+          });
+        });
+      });
 
       // Check if there are any linked products (productId references)
       const hasLinkedProducts = cleanedVariations.some(variation =>
@@ -1300,6 +1538,8 @@ const AdminProducts = () => {
 
   const startProfitEditing = async (product) => {
     try {
+      // Always fetch the latest product data to ensure we have up-to-date profit calculations
+      console.log('🔄 Fetching latest product data for profit editing...');
       const token = localStorage.getItem('adminToken');
       const response = await fetch(`http://localhost:5000/api/products/${product._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -1308,9 +1548,13 @@ const AdminProducts = () => {
       if (response.ok) {
         const latestProduct = await response.json();
         product = latestProduct;
+        console.log('✅ Latest product data fetched for profit modal');
+      } else {
+        console.log('⚠️ Could not fetch latest product data, using current data');
       }
     } catch (error) {
       console.error('Error fetching latest product data:', error);
+      console.log('⚠️ Using current product data for profit modal');
     }
 
     const productPrice = parseFloat(product.price) || 0;
@@ -1374,23 +1618,23 @@ const AdminProducts = () => {
       fbaFulfilmentFee: safeParseFloat(existingEvaluation?.fbaFulfilmentFee, 0),
       fbaFulfilmentTax: safeParseFloat(existingEvaluation?.fbaFulfilmentTax, 0),
       balanceChange: safeParseFloat(existingEvaluation?.balanceChange, 0),
-      productCost: productPrice,
+      productCost: safeParseFloat(existingEvaluation?.productCost, productPrice), // Use existing productCost if available, otherwise use productPrice
       netProfit: 0, // Will be calculated below
       monthlyProfit: safeParseFloat(existingEvaluation?.monthlyProfit, defaultMonthlyProfit),
       yearlyProfit: safeParseFloat(existingEvaluation?.yearlyProfit, defaultYearlyProfit)
     };
 
-    // Calculate netProfit properly: prioritize existing netProfit if valid, then use balance change calculation
+    // Calculate netProfit properly: prioritize recalculation if balance change exists, then use existing netProfit
     const existingNetProfit = safeParseFloat(existingEvaluation?.netProfit, 0);
     
-    if (existingNetProfit !== 0) {
-      // Use existing net profit if it's valid
+    if (initProfitEvaluation.balanceChange !== 0) {
+      // Always recalculate from balance change if it exists (this ensures correct calculation)
+      initProfitEvaluation.netProfit = initProfitEvaluation.balanceChange - initProfitEvaluation.productCost;
+      console.log('🔄 Calculating netProfit from existing balanceChange:', initProfitEvaluation.balanceChange, '-', initProfitEvaluation.productCost, '=', initProfitEvaluation.netProfit);
+    } else if (existingNetProfit !== 0) {
+      // Use existing net profit only if no balance change is available
       initProfitEvaluation.netProfit = existingNetProfit;
       console.log('🔄 Using existing netProfit:', existingNetProfit);
-    } else if (initProfitEvaluation.balanceChange !== 0) {
-      // Use existing balance change
-      initProfitEvaluation.netProfit = initProfitEvaluation.balanceChange - productPrice;
-      console.log('🔄 Calculating netProfit from existing balanceChange:', initProfitEvaluation.balanceChange, '-', productPrice, '=', initProfitEvaluation.netProfit);
     } else {
       // Calculate balance change from sales proceeds and fees, then calculate net profit
       const calculatedBalanceChange = syncedSalesProceeds - 
@@ -1402,8 +1646,8 @@ const AdminProducts = () => {
         initProfitEvaluation.fbaFulfilmentTax;
       
       initProfitEvaluation.balanceChange = calculatedBalanceChange;
-      initProfitEvaluation.netProfit = calculatedBalanceChange - productPrice;
-      console.log('🔄 Calculating netProfit from fees:', calculatedBalanceChange, '-', productPrice, '=', initProfitEvaluation.netProfit);
+      initProfitEvaluation.netProfit = calculatedBalanceChange - initProfitEvaluation.productCost;
+      console.log('🔄 Calculating netProfit from fees:', calculatedBalanceChange, '-', initProfitEvaluation.productCost, '=', initProfitEvaluation.netProfit);
     }
 
     console.log('🔍 Profit Initialization Debug:', {
@@ -2549,6 +2793,91 @@ const AdminProducts = () => {
                 }}>
                   📊 Platform Comparison
                 </h3>
+                
+                {/* Auto-Fetch Button */}
+                <div style={{
+                  marginBottom: window.innerWidth <= 768 ? '15px' : '20px',
+                  padding: '12px',
+                  backgroundColor: '#e3f2fd',
+                  borderRadius: '8px',
+                  border: '2px solid #2196f3'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}>
+                    <div>
+                      <h4 style={{
+                        margin: '0 0 4px 0',
+                        color: '#1976d2',
+                        fontSize: '0.95rem',
+                        fontWeight: '600'
+                      }}>
+                        🚀 Quick Setup
+                      </h4>
+                      <p style={{
+                        margin: 0,
+                        fontSize: '0.8rem',
+                        color: '#424242',
+                        lineHeight: '1.4'
+                      }}>
+                        Copy profit values from another product in the same category to save time
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (profitEditProduct) {
+                          const category = products.find(p => p._id === profitEditProduct._id)?.category;
+                          if (category) {
+                            // Reset states
+                            setShowAllCategories(false);
+                            setSelectedSourceProduct(null);
+                            
+                            // Fetch products from exact same category first
+                            fetchCategoryProductsWithProfitData(category, profitEditProduct._id, true);
+                            
+                            // Also fetch available categories for "Show More" option
+                            fetchAvailableCategoriesWithProfitData(profitEditProduct._id);
+                            
+                            setShowAutoFetchModal(true);
+                          } else {
+                            alert('⚠️ Could not determine product category');
+                          }
+                        }
+                      }}
+                      style={{
+                        background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '10px 20px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseOver={(e) => {
+                        e.target.style.transform = 'translateY(-2px)';
+                        e.target.style.boxShadow = '0 4px 12px rgba(33, 150, 243, 0.4)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.boxShadow = '0 2px 8px rgba(33, 150, 243, 0.3)';
+                      }}
+                      title={`Find products in "${products.find(p => p._id === profitEditProduct._id)?.category}" category with profit data`}
+                    >
+                      <span style={{ fontSize: '1rem' }}>📋</span>
+                      <span>Auto-Fetch Values</span>
+                    </button>
+                  </div>
+                </div>
                 {profitEditProduct.platformComparison.map((platform, index) => (
                   <div key={index} style={{
                     marginBottom: window.innerWidth <= 768 ? '15px' : '20px',
@@ -3948,7 +4277,7 @@ const AdminProducts = () => {
                 marginBottom: '15px',
                 backgroundColor: '#f8f9ff'
               }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', alignItems: 'end' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '15px', alignItems: 'end' }}>
                   <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#6f42c1', display: 'block', marginBottom: '4px' }}>
                       Type:
@@ -3957,10 +4286,21 @@ const AdminProducts = () => {
                       value={variationsEditProduct.variations?.[0]?.type || 'style'}
                       onChange={(e) => {
                         const updatedVariations = [...(variationsEditProduct.variations || [])];
+                        const typeNameMap = {
+                          'style': 'Style',
+                          'color': 'Color', 
+                          'size': 'Size'
+                        };
+                        
                         if (updatedVariations.length === 0) {
-                          updatedVariations.push({ type: e.target.value, name: '', options: [] });
+                          updatedVariations.push({ 
+                            type: e.target.value, 
+                            name: typeNameMap[e.target.value] || e.target.value, 
+                            options: [{ value: '', productId: null }] 
+                          });
                         } else {
                           updatedVariations[0].type = e.target.value;
+                          updatedVariations[0].name = typeNameMap[e.target.value] || e.target.value; // Auto-set name based on type
                         }
                         setVariationsEditProduct({ ...variationsEditProduct, variations: updatedVariations });
                       }}
@@ -3980,21 +4320,48 @@ const AdminProducts = () => {
 
                   <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#6f42c1', display: 'block', marginBottom: '4px' }}>
-                      Custom Name:
+                      Value for this product:
                     </label>
                     <input
                       type="text"
-                      value={variationsEditProduct.variations?.[0]?.name || ''}
+                      value={(() => {
+                        // Find current product option value
+                        const currentOption = variationsEditProduct.variations?.[0]?.options?.find(option => 
+                          option.productId === null || option.productId === variationsEditProduct._id
+                        );
+                        const value = currentOption?.value || '';
+                        console.log('🎨 Input field value:', {
+                          currentOption,
+                          value,
+                          allOptions: variationsEditProduct.variations?.[0]?.options
+                        });
+                        return value;
+                      })()}
                       onChange={(e) => {
+                        console.log('🎨 Current product value input changed to:', e.target.value);
                         const updatedVariations = [...(variationsEditProduct.variations || [])];
                         if (updatedVariations.length === 0) {
-                          updatedVariations.push({ type: 'style', name: e.target.value, options: [] });
+                          updatedVariations.push({ type: 'style', name: 'Style', options: [{ value: e.target.value, productId: null }] });
                         } else {
-                          updatedVariations[0].name = e.target.value;
+                          if (!updatedVariations[0].options) {
+                            updatedVariations[0].options = [];
+                          }
+                          // Find or create current product option
+                          const currentOptionIndex = updatedVariations[0].options.findIndex(option => 
+                            option.productId === null || option.productId === variationsEditProduct._id
+                          );
+                          if (currentOptionIndex !== -1) {
+                            console.log('🎨 Updating existing current product option at index:', currentOptionIndex);
+                            updatedVariations[0].options[currentOptionIndex].value = e.target.value;
+                          } else {
+                            console.log('🎨 Creating new current product option with value:', e.target.value);
+                            updatedVariations[0].options.push({ value: e.target.value, productId: null });
+                          }
                         }
+                        console.log('🎨 Updated variations:', updatedVariations);
                         setVariationsEditProduct({ ...variationsEditProduct, variations: updatedVariations });
                       }}
-                      placeholder="e.g., any, custom, etc."
+                      placeholder="e.g., Samsung, Blue, 12mm"
                       style={{
                         width: '100%',
                         padding: '8px 10px',
@@ -4006,7 +4373,7 @@ const AdminProducts = () => {
                   </div>
                 </div>
 
-                {variationsEditProduct.variations?.[0]?.name && (
+                {variationsEditProduct.variations?.[0]?.type && (
                   <div style={{
                     fontSize: '0.75rem',
                     color: '#28a745',
@@ -4016,7 +4383,12 @@ const AdminProducts = () => {
                     backgroundColor: '#d4edda',
                     borderRadius: '4px'
                   }}>
-                    Will display: "{variationsEditProduct.variations[0].name}: [auto-detected value]"
+                    Will display: "{variationsEditProduct.variations[0].type.charAt(0).toUpperCase() + variationsEditProduct.variations[0].type.slice(1)}: {(() => {
+                      const currentOption = variationsEditProduct.variations?.[0]?.options?.find(option => 
+                        option.productId === null || option.productId === variationsEditProduct._id
+                      );
+                      return currentOption?.value || '[Enter value above]';
+                    })()}"
                   </div>
                 )}
               </div>
@@ -4092,7 +4464,7 @@ const AdminProducts = () => {
 
                           <div style={{
                             display: 'grid',
-                            gridTemplateColumns: '1fr 1fr 1fr auto',
+                            gridTemplateColumns: '1fr 2fr auto',
                             gap: '10px',
                             alignItems: 'end'
                           }}>
@@ -4104,6 +4476,9 @@ const AdminProducts = () => {
                                 value={linkedOption?.type || 'style'}
                                 onChange={(e) => {
                                   updateLinkedProductConfig(product._id, 'type', e.target.value);
+                                  // Auto-set the name based on type
+                                  const nameMap = { 'style': 'Style', 'color': 'Color', 'size': 'Size' };
+                                  updateLinkedProductConfig(product._id, 'name', nameMap[e.target.value] || e.target.value);
                                   console.log('🎨 Updated type for', product.name, 'to', e.target.value);
                                 }}
                                 style={{
@@ -4122,16 +4497,16 @@ const AdminProducts = () => {
 
                             <div>
                               <label style={{ fontSize: '0.75rem', fontWeight: '600', color: '#555', display: 'block', marginBottom: '4px' }}>
-                                Custom Name:
+                                Value for this product:
                               </label>
                               <input
                                 type="text"
-                                value={linkedOption?.customName || ''}
+                                value={linkedOption?.value || ''}
                                 onChange={(e) => {
-                                  updateLinkedProductConfig(product._id, 'name', e.target.value);
-                                  console.log('🎨 Updated custom name for', product.name, 'to', e.target.value);
+                                  updateLinkedProductConfig(product._id, 'value', e.target.value);
+                                  console.log('🎨 Updated value for', product.name, 'to', e.target.value);
                                 }}
-                                placeholder="e.g., custom, shade, etc."
+                                placeholder="e.g., Samsung, Blue, 12mm"
                                 style={{
                                   width: '100%',
                                   padding: '6px 8px',
@@ -4215,7 +4590,7 @@ const AdminProducts = () => {
                           </div>
 
                           {/* Preview for linked product */}
-                          {isLinked && linkedOption?.customName && (
+                          {isLinked && linkedOption?.type && linkedOption?.value && (
                             <div style={{
                               fontSize: '0.7rem',
                               color: '#17a2b8',
@@ -4225,7 +4600,7 @@ const AdminProducts = () => {
                               backgroundColor: '#d1ecf1',
                               borderRadius: '4px'
                             }}>
-                              This product will display: "{linkedOption.customName}: [auto-detected value]"
+                              This product will display: "{linkedOption.type.charAt(0).toUpperCase() + linkedOption.type.slice(1)}: {linkedOption.value}"
                             </div>
                           )}
                         </div>
@@ -4528,6 +4903,633 @@ const AdminProducts = () => {
                 }
               })()}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Auto-Fetch Profit Values Modal */}
+      {showAutoFetchModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1001,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '800px',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '20px 25px',
+              borderBottom: '2px solid #f0f0f0',
+              background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+              color: 'white',
+              borderRadius: '12px 12px 0 0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 'bold' }}>
+                  📋 Copy Profit Values
+                </h2>
+                <p style={{ margin: '5px 0 0 0', opacity: 0.9, fontSize: '0.9rem' }}>
+                  Select a product from the same category to copy its profit configuration
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAutoFetchModal(false);
+                  setSelectedSourceProduct(null);
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  color: '#fff',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  fontSize: '20px',
+                  fontWeight: '700'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '25px' }}>
+              {/* Category Filter Section */}
+              <div style={{
+                marginBottom: '20px',
+                padding: '15px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #dee2e6'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '10px'
+                }}>
+                  <div>
+                    <h4 style={{
+                      margin: '0 0 4px 0',
+                      color: '#495057',
+                      fontSize: '0.95rem',
+                      fontWeight: '600'
+                    }}>
+                      📂 Category Filter
+                    </h4>
+                    <p style={{
+                      margin: 0,
+                      fontSize: '0.8rem',
+                      color: '#6c757d'
+                    }}>
+                      Currently showing: <strong>{currentFetchCategory}</strong> products
+                    </p>
+                  </div>
+                  
+                  {!showAllCategories ? (
+                    <button
+                      onClick={() => {
+                        setShowAllCategories(true);
+                        // Fetch all products with profit data
+                        if (profitEditProduct) {
+                          fetchCategoryProductsWithProfitData('all', profitEditProduct._id, false);
+                        }
+                      }}
+                      style={{
+                        background: '#17a2b8',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <span>🔍</span>
+                      <span>Show All Categories</span>
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select
+                        value={currentFetchCategory}
+                        onChange={(e) => {
+                          const selectedCategory = e.target.value;
+                          if (selectedCategory === 'all') {
+                            fetchCategoryProductsWithProfitData('all', profitEditProduct._id, false);
+                          } else {
+                            fetchCategoryProductsWithProfitData(selectedCategory, profitEditProduct._id, true);
+                          }
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          border: '1px solid #ced4da',
+                          borderRadius: '4px',
+                          fontSize: '0.8rem',
+                          backgroundColor: 'white'
+                        }}
+                      >
+                        <option value="all">All Categories</option>
+                        {availableCategories.map((cat) => (
+                          <option key={cat.category} value={cat.category}>
+                            {cat.category} ({cat.count} products)
+                          </option>
+                        ))}
+                      </select>
+                      
+                      <button
+                        onClick={() => {
+                          setShowAllCategories(false);
+                          // Go back to original category
+                          const originalCategory = products.find(p => p._id === profitEditProduct._id)?.category;
+                          if (originalCategory) {
+                            fetchCategoryProductsWithProfitData(originalCategory, profitEditProduct._id, true);
+                          }
+                        }}
+                        style={{
+                          background: '#6c757d',
+                          color: 'white',
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem'
+                        }}
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {loadingCategoryProducts ? (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  minHeight: '200px',
+                  flexDirection: 'column',
+                  gap: '15px'
+                }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    border: '4px solid #f3f3f3',
+                    borderTop: '4px solid #2196f3',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                  }}></div>
+                  <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                    Loading products with profit data...
+                  </div>
+                </div>
+              ) : categoryProducts.length === 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '40px 20px',
+                  color: '#666'
+                }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📊</div>
+                  <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>
+                    {showAllCategories ? 'No Products Found' : `No "${currentFetchCategory}" Products Found`}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}>
+                    {showAllCategories 
+                      ? 'No products in any category have profit data configured yet.'
+                      : `No other products in the "${currentFetchCategory}" category have profit data configured yet.`
+                    }
+                  </p>
+                  {!showAllCategories && (
+                    <button
+                      onClick={() => {
+                        setShowAllCategories(true);
+                        if (profitEditProduct) {
+                          fetchCategoryProductsWithProfitData('all', profitEditProduct._id, false);
+                        }
+                      }}
+                      style={{
+                        marginTop: '15px',
+                        background: '#17a2b8',
+                        color: 'white',
+                        border: 'none',
+                        padding: '10px 20px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        fontWeight: '600'
+                      }}
+                    >
+                      🔍 Search All Categories
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div style={{
+                    marginBottom: '20px',
+                    padding: '15px',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '8px',
+                    border: '1px solid #ffeaa7'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>💡</span>
+                      <strong style={{ color: '#856404', fontSize: '0.9rem' }}>How it works:</strong>
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.85rem', color: '#856404' }}>
+                      <li>Platform comparison values will be copied exactly</li>
+                      <li>Amazon fees & taxes will be copied exactly</li>
+                      <li>Product cost will remain your current product's price</li>
+                      <li>Net profit will be recalculated based on your product cost</li>
+                    </ul>
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gap: '15px',
+                    maxHeight: '400px',
+                    overflow: 'auto',
+                    padding: '5px'
+                  }}>
+                    {showAllCategories ? (
+                      // Group products by category when showing all
+                      Object.entries(
+                        categoryProducts.reduce((acc, product) => {
+                          const cat = product.category || 'Uncategorized';
+                          if (!acc[cat]) acc[cat] = [];
+                          acc[cat].push(product);
+                          return acc;
+                        }, {})
+                      ).map(([categoryName, products]) => (
+                        <div key={categoryName} style={{ marginBottom: '20px' }}>
+                          <h5 style={{
+                            margin: '0 0 10px 0',
+                            padding: '8px 12px',
+                            backgroundColor: '#e9ecef',
+                            borderRadius: '6px',
+                            fontSize: '0.9rem',
+                            fontWeight: '600',
+                            color: '#495057',
+                            border: '1px solid #dee2e6'
+                          }}>
+                            📂 {categoryName} ({products.length} products)
+                          </h5>
+                          {products.map((product) => (
+                            <div
+                              key={product._id}
+                              style={{
+                                border: selectedSourceProduct?._id === product._id ? '3px solid #2196f3' : '2px solid #e0e0e0',
+                                borderRadius: '8px',
+                                padding: '15px',
+                                backgroundColor: selectedSourceProduct?._id === product._id ? '#f3f9ff' : 'white',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                marginBottom: '10px',
+                                marginLeft: '15px'
+                              }}
+                              onClick={() => setSelectedSourceProduct(product)}
+                              onMouseEnter={(e) => {
+                                if (selectedSourceProduct?._id !== product._id) {
+                                  e.target.style.borderColor = '#2196f3';
+                                  e.target.style.backgroundColor = '#fafafa';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (selectedSourceProduct?._id !== product._id) {
+                                  e.target.style.borderColor = '#e0e0e0';
+                                  e.target.style.backgroundColor = 'white';
+                                }
+                              }}
+                            >
+                              {/* Product content - same as below */}
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                marginBottom: '10px'
+                              }}>
+                                <div style={{ flex: 1 }}>
+                                  <h4 style={{
+                                    margin: '0 0 5px 0',
+                                    fontSize: '1rem',
+                                    color: '#333',
+                                    fontWeight: '600'
+                                  }}>
+                                    {product.name}
+                                  </h4>
+                                  <div style={{
+                                    fontSize: '0.8rem',
+                                    color: '#666',
+                                    marginBottom: '8px'
+                                  }}>
+                                    Price: £{product.price} | Category: {product.category}
+                                  </div>
+                                </div>
+                                {selectedSourceProduct?._id === product._id && (
+                                  <div style={{
+                                    background: '#2196f3',
+                                    color: 'white',
+                                    borderRadius: '50%',
+                                    width: '24px',
+                                    height: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    ✓
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Profit Data Preview */}
+                              <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                                gap: '10px',
+                                fontSize: '0.75rem'
+                              }}>
+                                {product.platformComparison && product.platformComparison.length > 0 && (
+                                  <div style={{
+                                    padding: '8px',
+                                    backgroundColor: '#e8f5e9',
+                                    borderRadius: '4px',
+                                    border: '1px solid #c8e6c9'
+                                  }}>
+                                    <strong style={{ color: '#2e7d32' }}>Platforms:</strong>
+                                    <div style={{ marginTop: '4px' }}>
+                                      {product.platformComparison.slice(0, 2).map((platform, idx) => (
+                                        <div key={idx} style={{ color: '#424242' }}>
+                                          {platform.platform}: £{platform.rrpPerUnit}
+                                        </div>
+                                      ))}
+                                      {product.platformComparison.length > 2 && (
+                                        <div style={{ color: '#666', fontStyle: 'italic' }}>
+                                          +{product.platformComparison.length - 2} more
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {product.profitEvaluation && (
+                                  <div style={{
+                                    padding: '8px',
+                                    backgroundColor: '#fff3e0',
+                                    borderRadius: '4px',
+                                    border: '1px solid #ffcc02'
+                                  }}>
+                                    <strong style={{ color: '#f57c00' }}>Amazon Fees:</strong>
+                                    <div style={{ marginTop: '4px', color: '#424242' }}>
+                                      Commission: £{product.profitEvaluation.commission || 0}
+                                      <br />
+                                      FBA Fee: £{product.profitEvaluation.fbaFulfilmentFee || 0}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {product.profitCalculations && (
+                                  <div style={{
+                                    padding: '8px',
+                                    backgroundColor: '#f3e5f5',
+                                    borderRadius: '4px',
+                                    border: '1px solid #ce93d8'
+                                  }}>
+                                    <strong style={{ color: '#7b1fa2' }}>Profit:</strong>
+                                    <div style={{ marginTop: '4px', color: '#424242' }}>
+                                      Per Unit: £{product.profitCalculations.profitPerUnit || 0}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ))
+                    ) : (
+                      // Show products from same category only
+                      categoryProducts.map((product) => (
+                        <div
+                          key={product._id}
+                          style={{
+                            border: selectedSourceProduct?._id === product._id ? '3px solid #2196f3' : '2px solid #e0e0e0',
+                            borderRadius: '8px',
+                            padding: '15px',
+                            backgroundColor: selectedSourceProduct?._id === product._id ? '#f3f9ff' : 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onClick={() => setSelectedSourceProduct(product)}
+                          onMouseEnter={(e) => {
+                            if (selectedSourceProduct?._id !== product._id) {
+                              e.target.style.borderColor = '#2196f3';
+                              e.target.style.backgroundColor = '#fafafa';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (selectedSourceProduct?._id !== product._id) {
+                              e.target.style.borderColor = '#e0e0e0';
+                              e.target.style.backgroundColor = 'white';
+                            }
+                          }}
+                        >
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            marginBottom: '10px'
+                          }}>
+                            <div style={{ flex: 1 }}>
+                              <h4 style={{
+                                margin: '0 0 5px 0',
+                                fontSize: '1rem',
+                                color: '#333',
+                                fontWeight: '600'
+                              }}>
+                                {product.name}
+                              </h4>
+                              <div style={{
+                                fontSize: '0.8rem',
+                                color: '#666',
+                                marginBottom: '8px'
+                              }}>
+                                Price: £{product.price} | Category: {product.category}
+                              </div>
+                            </div>
+                            {selectedSourceProduct?._id === product._id && (
+                              <div style={{
+                                background: '#2196f3',
+                                color: 'white',
+                                borderRadius: '50%',
+                                width: '24px',
+                                height: '24px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '14px',
+                                fontWeight: 'bold'
+                              }}>
+                                ✓
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Profit Data Preview */}
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                            gap: '10px',
+                            fontSize: '0.75rem'
+                          }}>
+                            {product.platformComparison && product.platformComparison.length > 0 && (
+                              <div style={{
+                                padding: '8px',
+                                backgroundColor: '#e8f5e9',
+                                borderRadius: '4px',
+                                border: '1px solid #c8e6c9'
+                              }}>
+                                <strong style={{ color: '#2e7d32' }}>Platforms:</strong>
+                                <div style={{ marginTop: '4px' }}>
+                                  {product.platformComparison.slice(0, 2).map((platform, idx) => (
+                                    <div key={idx} style={{ color: '#424242' }}>
+                                      {platform.platform}: £{platform.rrpPerUnit}
+                                    </div>
+                                  ))}
+                                  {product.platformComparison.length > 2 && (
+                                    <div style={{ color: '#666', fontStyle: 'italic' }}>
+                                      +{product.platformComparison.length - 2} more
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {product.profitEvaluation && (
+                              <div style={{
+                                padding: '8px',
+                                backgroundColor: '#fff3e0',
+                                borderRadius: '4px',
+                                border: '1px solid #ffcc02'
+                              }}>
+                                <strong style={{ color: '#f57c00' }}>Amazon Fees:</strong>
+                                <div style={{ marginTop: '4px', color: '#424242' }}>
+                                  Commission: £{product.profitEvaluation.commission || 0}
+                                  <br />
+                                  FBA Fee: £{product.profitEvaluation.fbaFulfilmentFee || 0}
+                                </div>
+                              </div>
+                            )}
+
+                            {product.profitCalculations && (
+                              <div style={{
+                                padding: '8px',
+                                backgroundColor: '#f3e5f5',
+                                borderRadius: '4px',
+                                border: '1px solid #ce93d8'
+                              }}>
+                                <strong style={{ color: '#7b1fa2' }}>Profit:</strong>
+                                <div style={{ marginTop: '4px', color: '#424242' }}>
+                                  Per Unit: £{product.profitCalculations.profitPerUnit || 0}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            {!loadingCategoryProducts && categoryProducts.length > 0 && (
+              <div style={{
+                padding: '20px 25px',
+                borderTop: '1px solid #eee',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '15px'
+              }}>
+                <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                  {selectedSourceProduct ? (
+                    <span style={{ color: '#2196f3', fontWeight: '600' }}>
+                      ✓ Selected: {selectedSourceProduct.name}
+                    </span>
+                  ) : (
+                    'Select a product to copy its profit configuration'
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => {
+                      setShowAutoFetchModal(false);
+                      setSelectedSourceProduct(null);
+                    }}
+                    style={{
+                      background: '#6c757d',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px 20px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (selectedSourceProduct) {
+                        copyProfitDataFromProduct(selectedSourceProduct);
+                      }
+                    }}
+                    disabled={!selectedSourceProduct}
+                    style={{
+                      background: selectedSourceProduct ? 'linear-gradient(135deg, #28a745 0%, #20c997 100%)' : '#ccc',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px 20px',
+                      borderRadius: '6px',
+                      cursor: selectedSourceProduct ? 'pointer' : 'not-allowed',
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <span>📋</span>
+                    <span>Copy Values</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -255,8 +255,6 @@ const ExcelProducts = () => {
                   </div>
                 )}
 
-
-
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
                   <div style={{ color: '#f6b042', fontSize: '11px', marginRight: '6px' }}>
                     {renderStars(product.rating)}

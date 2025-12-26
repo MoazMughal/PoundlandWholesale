@@ -33,8 +33,6 @@ const SellerProfile = () => {
     })
   }, [navigate, isLoggedIn, seller, contextLoading])
 
-
-
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData({

@@ -306,8 +306,6 @@ const BestSellers = () => {
             ))}
           </div>
 
-
-
           {/* Quick Stats */}
           <div className="row mt-5">
             <div className="col-12 mb-4">

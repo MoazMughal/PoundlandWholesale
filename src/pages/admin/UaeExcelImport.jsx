@@ -86,7 +86,7 @@ const UaeExcelImport = () => {
       const token = localStorage.getItem('adminToken');
       
       if (!token || !isAdminLoggedIn) {
-        console.log('No admin token or not logged in, skipping seller load');
+        
         return;
       }
       

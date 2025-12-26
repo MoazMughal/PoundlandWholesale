@@ -107,8 +107,6 @@ const CompactHeader = () => {
             ...visibleCategories
           ];
           
-          console.log('🏠 Header categories loaded:', allCategories.length, 'categories');
-          console.log('🏠 Hidden categories:', hiddenCategories);
           setCategories(allCategories);
         }
       } catch (error) {

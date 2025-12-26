@@ -508,7 +508,6 @@ async function processCardPayment(cardDetails, amount, buyerInfo = null) {
   }
   
   // Simulation mode (for testing without Paymob)
-  console.log('⚠️ Using payment simulation mode. Configure PAYMOB_API_KEY for real payments.');
   
   // Simulate payment processing delay
   await new Promise(resolve => setTimeout(resolve, 1500));
@@ -616,7 +615,6 @@ router.post('/forgot-password', async (req, res) => {
     await buyer.save();
 
     // Send OTP via WhatsApp
-    console.log(`📱 Sending OTP to ${buyer.whatsappNo}`);
 
     res.json({
       success: true,

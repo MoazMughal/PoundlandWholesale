@@ -22,7 +22,7 @@ export const AdminProvider = ({ children }) => {
       try {
         // Check for logout flag first
         if (sessionManager.hasLogoutFlag()) {
-          console.log('🚫 Logout flag detected, clearing auth data')
+          
           clearAuthData()
           setLoading(false)
           return
@@ -30,7 +30,7 @@ export const AdminProvider = ({ children }) => {
 
         // Initialize session if fresh browser session
         if (sessionManager.isFreshSession()) {
-          console.log('🔄 Fresh browser session detected - clearing auth data for security')
+          
           sessionManager.initSession()
           clearAuthData() // Clear auth data on fresh session for security
           setLoading(false)
@@ -41,7 +41,7 @@ export const AdminProvider = ({ children }) => {
         const adminData = localStorage.getItem('adminData')
         
         if (!token || !adminData) {
-          console.log('🔐 No auth data found')
+          
           setLoading(false)
           return
         }
@@ -49,7 +49,7 @@ export const AdminProvider = ({ children }) => {
         // Additional security: Clear auth data if no active session exists
         // This prevents automatic login when opening new tabs/windows
         if (!sessionManager.hasSession()) {
-          console.log('🔒 No active session found - clearing auth data for security')
+          
           clearAuthData()
           setLoading(false)
           return
@@ -57,7 +57,7 @@ export const AdminProvider = ({ children }) => {
 
         // Basic token validation
         if (!isValidJWT(token)) {
-          console.log('❌ Invalid token format')
+          
           clearAuthData()
           setLoading(false)
           return
@@ -102,7 +102,7 @@ export const AdminProvider = ({ children }) => {
         
         // Check if token is expired (with 5 minute buffer)
         if (payload.exp && payload.exp < (now - 300)) {
-          console.log('❌ Token expired')
+          
           return false
         }
         
@@ -130,19 +130,18 @@ export const AdminProvider = ({ children }) => {
           // Update with fresh data
           setAdmin(freshAdmin)
           localStorage.setItem('adminData', JSON.stringify(freshAdmin))
-          console.log('✅ Token validated successfully')
-          
+
         } else if (response.status === 401) {
-          console.log('❌ Token invalid, attempting refresh')
+          
           await attemptTokenRefresh(token)
         } else {
-          console.log('⚠️ Server error during validation, keeping current auth state')
+          
         }
       } catch (error) {
         if (error.name === 'TimeoutError') {
-          console.log('⚠️ Token validation timeout, keeping current auth state')
+          
         } else {
-          console.log('⚠️ Network error during validation, keeping current auth state')
+          
         }
       } finally {
         setIsAuthenticating(false)
@@ -162,8 +161,7 @@ export const AdminProvider = ({ children }) => {
         
         if (refreshResponse.ok) {
           const refreshData = await refreshResponse.json()
-          console.log('✅ Token refreshed successfully')
-          
+
           localStorage.setItem('adminToken', refreshData.token)
           localStorage.setItem('adminData', JSON.stringify(refreshData.admin))
           setAdmin(refreshData.admin)
@@ -172,7 +170,7 @@ export const AdminProvider = ({ children }) => {
           throw new Error('Refresh failed')
         }
       } catch (refreshError) {
-        console.log('❌ Token refresh failed, clearing auth')
+        
         clearAuthData()
       }
     }
@@ -182,8 +180,7 @@ export const AdminProvider = ({ children }) => {
 
   const login = async (adminData, token) => {
     try {
-      console.log('🔐 Admin login initiated')
-      
+
       // Clear any existing auth data first
       localStorage.removeItem('adminToken')
       localStorage.removeItem('adminData')
@@ -199,8 +196,7 @@ export const AdminProvider = ({ children }) => {
       // Update state
       setAdmin(adminData)
       setIsLoggedIn(true)
-      
-      console.log('✅ Admin login successful')
+
     } catch (error) {
       console.error('❌ Login error:', error)
       throw error
@@ -208,8 +204,7 @@ export const AdminProvider = ({ children }) => {
   }
 
   const logout = () => {
-    console.log('🚪 Admin logout initiated')
-    
+
     // Clear all auth data
     setAdmin(null)
     setIsLoggedIn(false)
@@ -222,8 +217,7 @@ export const AdminProvider = ({ children }) => {
     
     // Redirect to login
     window.location.replace('/admin/login')
-    
-    console.log('✅ Admin logout completed')
+
   }
 
   const updateAdmin = (updatedData) => {
@@ -248,8 +242,7 @@ export const AdminProvider = ({ children }) => {
       // Clear client-side cache
       const { default: cacheManager } = await import('../utils/cacheManager.js')
       cacheManager.remove('amazons_choice_products')
-      
-      console.log('✅ Product cache cleared successfully')
+
       return true
     } catch (error) {
       console.error('❌ Error clearing product cache:', error)
@@ -263,7 +256,7 @@ export const AdminProvider = ({ children }) => {
     
     // Prevent multiple simultaneous checks
     if (isAuthenticating) {
-      console.log('⏳ Authentication already in progress')
+      
       return isLoggedIn
     }
     
@@ -285,8 +278,7 @@ export const AdminProvider = ({ children }) => {
         return true
         
       } else if (response.status === 401) {
-        console.log('🔄 Token expired, attempting refresh')
-        
+
         try {
           const refreshResponse = await fetch('http://localhost:5000/api/auth/refresh', {
             method: 'POST',
@@ -299,8 +291,7 @@ export const AdminProvider = ({ children }) => {
           
           if (refreshResponse.ok) {
             const refreshData = await refreshResponse.json()
-            console.log('✅ Token refreshed successfully')
-            
+
             localStorage.setItem('adminToken', refreshData.token)
             localStorage.setItem('adminData', JSON.stringify(refreshData.admin))
             setAdmin(refreshData.admin)
@@ -308,21 +299,21 @@ export const AdminProvider = ({ children }) => {
             return true
           }
         } catch (refreshError) {
-          console.log('❌ Token refresh failed')
+          
         }
         
         // Token invalid and refresh failed
         logout()
         return false
       } else {
-        console.log('⚠️ Server error during token check, assuming valid')
+        
         return true // Assume valid on server errors
       }
     } catch (error) {
       if (error.name === 'TimeoutError') {
-        console.log('⚠️ Token validation timeout, assuming valid')
+        
       } else {
-        console.log('⚠️ Network error during token check, assuming valid')
+        
       }
       return true // Assume valid on network errors
     } finally {

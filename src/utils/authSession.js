@@ -33,10 +33,10 @@ class AuthSessionManager {
                             localStorage.getItem('buyerToken');
       
       if (!hasValidTokens) {
-        console.log('🔄 New browser session with no tokens - clearing auth data');
+        
         this.clearAllAuth();
       } else {
-        console.log('🔄 New browser session but tokens exist - keeping auth data');
+        
       }
       
       // Create new session ID
@@ -47,7 +47,7 @@ class AuthSessionManager {
       // Check if session expired due to inactivity
       const timeSinceActivity = Date.now() - parseInt(lastActivity);
       if (timeSinceActivity > SESSION_TIMEOUT) {
-        console.log('⏰ Session expired due to inactivity');
+        
         this.clearAllAuth();
       }
     }
@@ -70,7 +70,7 @@ class AuthSessionManager {
       if (lastActivity) {
         const timeSinceActivity = Date.now() - parseInt(lastActivity);
         if (timeSinceActivity > SESSION_TIMEOUT) {
-          console.log('⏰ Auto-logout due to inactivity');
+          
           this.logout();
           window.location.href = '/';
         }
@@ -90,7 +90,7 @@ class AuthSessionManager {
           const timeHidden = Date.now() - parseInt(hiddenAt);
           // If hidden for more than 24 hours, logout
           if (timeHidden > SESSION_TIMEOUT) {
-            console.log('⏰ Auto-logout after long inactivity');
+            
             this.logout();
             window.location.href = '/';
           }

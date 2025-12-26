@@ -26,7 +26,7 @@ const CategoryVisibilityToggle = ({ compact = false }) => {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/categories');
+      const response = await fetch('http://localhost:5000/api/categories?includeCounts=true');
       if (response.ok) {
         const data = await response.json();
         // Filter out Excel categories and system categories
@@ -273,6 +273,18 @@ const CategoryVisibilityToggle = ({ compact = false }) => {
                   }}>
                     {category.label}
                   </span>
+                  {category.count !== undefined && (
+                    <span style={{
+                      fontSize: '0.7rem',
+                      color: '#666',
+                      background: '#f3f4f6',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                      marginLeft: '4px'
+                    }}>
+                      {category.count}
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={() => toggleCategoryVisibility(category.value)}
