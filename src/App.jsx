@@ -54,9 +54,6 @@ const SellerAddProduct = lazy(() => import('./pages/seller/AddProduct'))
 const SellerAddProducts = lazy(() => import('./pages/seller/AddProducts'))
 const SellerEditProfile = lazy(() => import('./pages/seller/EditProfile'))
 const SellerAdminProducts = lazy(() => import('./pages/seller/AdminProducts'))
-const SellerUkProducts = lazy(() => import('./pages/seller/UkProducts'))
-const SellerUaeProducts = lazy(() => import('./pages/seller/UaeProducts'))
-const SellerAmazon10Products = lazy(() => import('./pages/seller/Amazon10Products'))
 const SellerAmazonsChoiceProducts = lazy(() => import('./pages/seller/AmazonsChoiceProducts'))
 const SellerListedProducts = lazy(() => import('./pages/seller/ListedProducts'))
 
@@ -145,9 +142,6 @@ function App() {
           <Route path="/seller/products/add" element={<SellerAddProduct />} />
           <Route path="/seller/add-products" element={<SellerAddProducts />} />
           <Route path="/seller/admin-products" element={<SellerAdminProducts />} />
-          <Route path="/seller/uk-products" element={<SellerUkProducts />} />
-          <Route path="/seller/uae-products" element={<SellerUaeProducts />} />
-          <Route path="/seller/amazon10-products" element={<SellerAmazon10Products />} />
           <Route path="/seller/amazons-choice-products" element={<SellerAmazonsChoiceProducts />} />
           <Route path="/seller/listed-products" element={<SellerListedProducts />} />
           
