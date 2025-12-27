@@ -340,9 +340,17 @@
   }
   
   /* Ensure text contrast on light backgrounds */
-  .product-detail-page .mobile-buy-box *,
-  .product-detail-page .border.rounded.p-3 * {
+  .product-detail-page .mobile-buy-box *:not(.enhanced-btn):not(.enhanced-btn *),
+  .product-detail-page .border.rounded.p-3 *:not(.enhanced-btn):not(.enhanced-btn *) {
     color: #1f2937 !important;
+  }
+  
+  /* Specific button text color override for mobile */
+  .product-detail-page .mobile-buy-box .enhanced-btn,
+  .product-detail-page .mobile-buy-box .enhanced-btn *,
+  .product-detail-page .border.rounded.p-3 .enhanced-btn,
+  .product-detail-page .border.rounded.p-3 .enhanced-btn * {
+    color: #ffffff !important;
   }
   
   .product-detail-page .mobile-buy-box .text-muted,
@@ -374,6 +382,16 @@
   .product-detail-page .btn-danger {
     background-color: #dc2626 !important;
     border-color: #dc2626 !important;
+    color: #ffffff !important;
+  }
+  
+  /* Enhanced button specific styling for mobile */
+  .product-detail-page .enhanced-btn {
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%) !important;
+  }
+  
+  .product-detail-page .enhanced-btn * {
     color: #ffffff !important;
   }
   
@@ -512,6 +530,32 @@
   --text-warning: #d97706;
   --bg-light: #ffffff;
   --border-light: #e5e7eb;
+}
+
+/* Force white text for Add to Cart buttons - Maximum specificity */
+.product-detail-page button[style*="background: linear-gradient(135deg, #232f3e"],
+.product-detail-page button[style*="linear-gradient(135deg, #232f3e"],
+button[style*="background: linear-gradient(135deg, #232f3e"],
+button[style*="linear-gradient(135deg, #232f3e"] {
+  color: #ffffff !important;
+}
+
+.product-detail-page button[style*="background: linear-gradient(135deg, #232f3e"] *,
+.product-detail-page button[style*="linear-gradient(135deg, #232f3e"] *,
+button[style*="background: linear-gradient(135deg, #232f3e"] *,
+button[style*="linear-gradient(135deg, #232f3e"] * {
+  color: #ffffff !important;
+}
+
+/* Additional fallback for any dark background buttons */
+button[style*="background: linear-gradient"][style*="#232f3e"],
+button[style*="background: linear-gradient"][style*="#1a1a1a"] {
+  color: #ffffff !important;
+}
+
+button[style*="background: linear-gradient"][style*="#232f3e"] *,
+button[style*="background: linear-gradient"][style*="#1a1a1a"] * {
+  color: #ffffff !important;
 }
 
 /* Light background containers */

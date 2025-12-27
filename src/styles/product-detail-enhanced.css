@@ -54,7 +54,7 @@
   border-color: #ff9900;
 }
 
-/* Compact Button Styles */
+/* Enhanced Button Styles */
 .enhanced-btn {
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -64,6 +64,15 @@
   border: 1px solid transparent;
   position: relative;
   overflow: hidden;
+  color: #ffffff !important; /* Force white text */
+}
+
+/* Force white text for all button content */
+.enhanced-btn,
+.enhanced-btn *,
+.enhanced-btn i,
+.enhanced-btn span {
+  color: #ffffff !important;
 }
 
 .enhanced-btn::before {
@@ -84,6 +93,18 @@
 .enhanced-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Specific Add to Cart button styling */
+button[style*="background: linear-gradient(135deg, #232f3e"],
+button[style*="linear-gradient(135deg, #232f3e"] {
+  color: #ffffff !important;
+}
+
+button[style*="background: linear-gradient(135deg, #232f3e"] *,
+button[style*="linear-gradient(135deg, #232f3e"] i,
+button[style*="linear-gradient(135deg, #232f3e"] span {
+  color: #ffffff !important;
 }
 
 /* Enhanced Price Display */
@@ -232,6 +253,26 @@
   .enhanced-btn {
     padding: 6px 10px;
     font-size: 0.7rem;
+    color: #ffffff !important; /* Ensure white text on mobile */
+  }
+  
+  /* Specific fix for Add to Cart button on mobile */
+  .enhanced-btn i,
+  .enhanced-btn span,
+  .enhanced-btn * {
+    color: #ffffff !important;
+  }
+  
+  /* Force white text for buttons with dark backgrounds */
+  button[style*="background: linear-gradient(135deg, #232f3e"],
+  button[style*="linear-gradient(135deg, #232f3e"] {
+    color: #ffffff !important;
+  }
+  
+  button[style*="background: linear-gradient(135deg, #232f3e"] *,
+  button[style*="linear-gradient(135deg, #232f3e"] i,
+  button[style*="linear-gradient(135deg, #232f3e"] span {
+    color: #ffffff !important;
   }
   
   .enhanced-title {
@@ -291,4 +332,37 @@
     color: #000 !important;
     border: 1px solid #000 !important;
   }
+}
+
+/* Force white text for Add to Cart buttons - Maximum specificity */
+.product-detail-page button[style*="background: linear-gradient(135deg, #232f3e"],
+.product-detail-page button[style*="linear-gradient(135deg, #232f3e"],
+button[style*="background: linear-gradient(135deg, #232f3e"],
+button[style*="linear-gradient(135deg, #232f3e"] {
+  color: #ffffff !important;
+}
+
+.product-detail-page button[style*="background: linear-gradient(135deg, #232f3e"] *,
+.product-detail-page button[style*="linear-gradient(135deg, #232f3e"] *,
+button[style*="background: linear-gradient(135deg, #232f3e"] *,
+button[style*="linear-gradient(135deg, #232f3e"] * {
+  color: #ffffff !important;
+}
+
+.product-detail-page button[style*="background: linear-gradient(135deg, #232f3e"] i,
+.product-detail-page button[style*="linear-gradient(135deg, #232f3e"] i,
+button[style*="background: linear-gradient(135deg, #232f3e"] i,
+button[style*="linear-gradient(135deg, #232f3e"] i {
+  color: #ffffff !important;
+}
+
+/* Additional fallback for any dark background buttons */
+button[style*="background: linear-gradient"][style*="#232f3e"],
+button[style*="background: linear-gradient"][style*="#1a1a1a"] {
+  color: #ffffff !important;
+}
+
+button[style*="background: linear-gradient"][style*="#232f3e"] *,
+button[style*="background: linear-gradient"][style*="#1a1a1a"] * {
+  color: #ffffff !important;
 }
