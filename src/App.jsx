@@ -46,6 +46,8 @@ const AdminBuyers = lazy(() => import('./pages/admin/Buyers'))
 const AdminPendingPayments = lazy(() => import('./pages/admin/PendingPayments'))
 const AdminSellerListings = lazy(() => import('./pages/admin/SellerListings'))
 const BuyerDashboard = lazy(() => import('./pages/buyer/Dashboard'))
+const BuyerEditProfile = lazy(() => import('./pages/buyer/EditProfile'))
+const BuyerTestAuth = lazy(() => import('./pages/buyer/TestAuth'))
 const SellerDashboard = lazy(() => import('./pages/seller/Dashboard'))
 const ClearStorage = lazy(() => import('./pages/ClearStorage'))
 const SellerProfile = lazy(() => import('./pages/seller/Profile'))
@@ -133,6 +135,8 @@ function App() {
           
           {/* Buyer Routes */}
           <Route path="/buyer/dashboard" element={<BuyerDashboard />} />
+          <Route path="/buyer/edit-profile" element={<BuyerEditProfile />} />
+          <Route path="/buyer/test-auth" element={<BuyerTestAuth />} />
           
           {/* Seller Routes */}
           <Route path="/seller/dashboard" element={<SellerDashboard />} />

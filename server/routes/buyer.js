@@ -133,8 +133,7 @@ router.get('/profile', authenticateBuyer, async (req, res) => {
   try {
     const buyer = await Buyer.findById(req.buyer.id)
       .select('-password')
-      .populate('favorites', 'name price images')
-      .populate('orders');
+      .populate('favorites', 'name price images');
 
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
@@ -153,7 +152,6 @@ router.get('/profile', authenticateBuyer, async (req, res) => {
         status: buyer.status,
         address: buyer.address,
         favorites: buyer.favorites,
-        orders: buyer.orders,
         lastLogin: buyer.lastLogin,
         createdAt: buyer.createdAt
       }
@@ -186,10 +184,104 @@ router.put('/profile', authenticateBuyer, async (req, res) => {
       buyer: {
         id: buyer._id,
         name: buyer.getFullName(),
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
         email: buyer.email,
         phone: buyer.phone,
         address: buyer.address
       }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Update buyer email
+router.put('/profile/email', authenticateBuyer, async (req, res) => {
+  try {
+    const { newEmail, password } = req.body;
+
+    if (!newEmail || !password) {
+      return res.status(400).json({ message: 'New email and current password are required' });
+    }
+
+    const buyer = await Buyer.findById(req.buyer.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Verify current password
+    const isPasswordValid = await buyer.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    // Check if new email already exists
+    const existingBuyer = await Buyer.findOne({ email: newEmail.toLowerCase() });
+    if (existingBuyer && existingBuyer._id.toString() !== buyer._id.toString()) {
+      return res.status(400).json({ message: 'Email already in use by another account' });
+    }
+
+    // Check if email exists in other collections
+    const Seller = (await import('../models/Seller.js')).default;
+    const existingSeller = await Seller.findOne({ email: newEmail.toLowerCase() });
+    if (existingSeller) {
+      return res.status(400).json({ message: 'Email already registered as a seller' });
+    }
+
+    const Admin = (await import('../models/Admin.js')).default;
+    const existingAdmin = await Admin.findOne({ email: newEmail.toLowerCase() });
+    if (existingAdmin) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    buyer.email = newEmail.toLowerCase();
+    await buyer.save();
+
+    res.json({
+      success: true,
+      message: 'Email updated successfully',
+      buyer: {
+        id: buyer._id,
+        name: buyer.getFullName(),
+        email: buyer.email
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Update buyer password
+router.put('/profile/password', authenticateBuyer, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'New password must be at least 8 characters long' });
+    }
+
+    const buyer = await Buyer.findById(req.buyer.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Verify current password
+    const isPasswordValid = await buyer.comparePassword(currentPassword);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    buyer.password = newPassword; // Will be hashed by pre-save middleware
+    await buyer.save();
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully'
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -249,13 +341,12 @@ router.delete('/favorites/:productId', authenticateBuyer, async (req, res) => {
 router.get('/dashboard/stats', authenticateBuyer, async (req, res) => {
   try {
     const buyer = await Buyer.findById(req.buyer.id)
-      .populate('favorites')
-      .populate('orders');
+      .populate('favorites');
 
     res.json({
       success: true,
       stats: {
-        totalOrders: buyer.orders.length,
+        totalOrders: buyer.orders ? buyer.orders.length : 0,
         totalFavorites: buyer.favorites.length,
         status: buyer.status,
         memberSince: buyer.createdAt,
@@ -273,7 +364,6 @@ router.get('/all', async (req, res) => {
     const buyers = await Buyer.find()
       .select('-password')
       .populate('favorites', 'name')
-      .populate('orders')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -286,7 +376,7 @@ router.get('/all', async (req, res) => {
         userType: buyer.userType,
         status: buyer.status,
         phone: buyer.phone,
-        orders: buyer.orders,
+        orders: buyer.orders || [],
         favorites: buyer.favorites,
         lastLogin: buyer.lastLogin,
         createdAt: buyer.createdAt

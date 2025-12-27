@@ -3037,7 +3037,6 @@ const ProductDetail = () => {
                             £{safeNumber(product.profitCalculations.profitPerUnit).toFixed(2)}
                           </span>
                         </div>
-                       
                         <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                           <span style={{color: '#565959'}}>📈 Profit/{product.dealUnits || 1}:</span>
                           <span style={{color: '#059669', fontWeight: '700', fontSize: '0.7rem'}}>
@@ -3572,7 +3571,7 @@ const ProductDetail = () => {
                         fontSize: '0.65rem', 
                         padding: '6px 10px',
                         background: 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)',
-                        color: '#ffffff',
+                        color: '#ffffff !important',
                         border: '1px solid #ff9900',
                         borderRadius: '6px',
                         fontWeight: '600',
@@ -4321,13 +4320,13 @@ const ProductDetail = () => {
                     <div style={{
                       background: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%)',
                       borderRadius: '15px',
-                      padding: '25px',
+                      padding: '20px',
                       boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
                     }}>
                       <div style={{
                         display: 'flex',
                         alignItems: 'center',
-                        marginBottom: '20px'
+                        marginBottom: '15px'
                       }}>
                         <span style={{
                           fontSize: '24px',
@@ -4501,9 +4500,9 @@ const ProductDetail = () => {
 
                       <div style={{
                         textAlign: 'center',
-                        marginBottom: '20px',
+                        marginBottom: '10px',
                         background: 'rgba(255, 255, 255, 0.8)',
-                        padding: '10px',
+                        padding: '8px',
                         borderRadius: '8px'
                       }}>
                         <div style={{
@@ -4542,7 +4541,7 @@ const ProductDetail = () => {
                               fontSize: '24px',
                               fontWeight: 'bold',
                               color: '#2e7d32',
-                              marginBottom: '8px'
+                              marginBottom: '4px'
                             }}>
                               £{((product.profitEvaluation.netProfit || 0) / (product.dealUnits || 1)).toFixed(2)}
                             </div>
@@ -4578,7 +4577,7 @@ const ProductDetail = () => {
                               fontSize: '24px',
                               fontWeight: 'bold',
                               color: '#f57c00',
-                              marginBottom: '8px'
+                              marginBottom: '4px'
                             }}>
                               £{((product.profitEvaluation.productCost || 0) / (product.dealUnits || 1)).toFixed(2)}
                             </div>

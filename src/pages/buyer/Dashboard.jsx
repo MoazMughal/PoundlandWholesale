@@ -21,7 +21,11 @@ const BuyerDashboard = () => {
       const token = localStorage.getItem('buyerToken');
       const localBuyer = localStorage.getItem('buyerData');
       
+      console.log('Dashboard: Token check:', token ? 'Token found' : 'No token found');
+      console.log('Dashboard: Local buyer data:', localBuyer ? 'Found' : 'Not found');
+      
       if (!token) {
+        console.log('Dashboard: No token, redirecting to login');
         navigate('/login/buyer');
         return;
       }
@@ -31,6 +35,7 @@ const BuyerDashboard = () => {
       }
 
       try {
+        console.log('Dashboard: Making profile API call');
         // Fetch buyer profile
         const profileResponse = await fetch('http://localhost:5000/api/buyer/profile', {
           headers: {
@@ -38,10 +43,18 @@ const BuyerDashboard = () => {
           }
         });
 
+        console.log('Dashboard: Profile response status:', profileResponse.status);
+
         if (profileResponse.ok) {
           const profileData = await profileResponse.json();
           setBuyerData(profileData.buyer);
           localStorage.setItem('buyerData', JSON.stringify(profileData.buyer));
+        } else if (profileResponse.status === 401) {
+          console.log('Dashboard: Unauthorized, clearing tokens and redirecting');
+          localStorage.removeItem('buyerToken');
+          localStorage.removeItem('buyerData');
+          navigate('/login/buyer');
+          return;
         }
 
         // Fetch dashboard stats
@@ -230,16 +243,46 @@ const BuyerDashboard = () => {
         border: '1px solid #e5e7eb'
       }}>
         <h2 style={{fontSize: '1.3rem', marginBottom: '20px', color: '#111827'}}>🚀 Quick Actions</h2>
-        <div style={{display: 'flex', justifyContent: 'center'}}>
+        <div style={{display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap'}}>
+          <button
+            onClick={() => navigate('/buyer/edit-profile')}
+            style={{
+              padding: '15px 30px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '1rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-3px)'
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.4)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)'
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)'
+            }}
+          >
+            ✏️ Edit Profile
+          </button>
+          
           <button
             onClick={() => navigate('/')}
             style={{
-              padding: '20px 40px',
+              padding: '15px 30px',
               background: 'linear-gradient(135deg, #ff9900 0%, #ff6600 100%)',
               color: 'white',
               border: 'none',
               borderRadius: '12px',
-              fontSize: '1.1rem',
+              fontSize: '1rem',
               fontWeight: '700',
               cursor: 'pointer',
               display: 'flex',

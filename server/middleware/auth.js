@@ -34,6 +34,7 @@ export const authenticateBuyer = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
     const buyer = await Buyer.findById(decoded.id).select('-password');
     
     if (!buyer) {

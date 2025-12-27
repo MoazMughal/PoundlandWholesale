@@ -151,8 +151,13 @@ router.post('/send-otp', async (req, res) => {
       if (!sendResult.success) {
         // If email fails, still save OTP but inform user
         // In development, show OTP directly for testing
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`🔢 OTP for ${cleanEmail}: ${otp} (Email delivery failed)`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`\n🔢 =================================`);
+          console.log(`📧 EMAIL: ${cleanEmail}`);
+          console.log(`🔑 OTP: ${otp}`);
+          console.log(`⏰ EXPIRES: 5 minutes`);
+          console.log(`🔢 =================================\n`);
+          
           return res.status(200).json({ 
             success: true,
             message: `Email delivery failed. Your OTP is: ${otp}`,
@@ -176,8 +181,14 @@ router.post('/send-otp', async (req, res) => {
     } catch (emailError) {
       // If email service fails completely, still save OTP
       // In development, show OTP directly for testing
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`🔢 OTP for ${cleanEmail}: ${otp} (Email service failed)`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`\n🔢 =================================`);
+        console.log(`📧 EMAIL: ${cleanEmail}`);
+        console.log(`🔑 OTP: ${otp}`);
+        console.log(`⏰ EXPIRES: 5 minutes`);
+        console.log(`❌ EMAIL ERROR: ${emailError.message}`);
+        console.log(`🔢 =================================\n`);
+        
         return res.status(200).json({ 
           success: true,
           message: `Email service failed. Your OTP is: ${otp}`,
