@@ -1057,15 +1057,6 @@ const AdminDashboard = () => {
         <button onClick={() => navigate('/admin/products')} className="tool-btn">
           📦 Manage All ({stats?.products.total || 0})
         </button>
-        <button onClick={() => navigate('/admin/excel-import')} className="tool-btn primary">
-          ➕ UK Products (Excel)
-        </button>
-        <button onClick={() => navigate('/admin/uae-excel-import')} className="tool-btn warning">
-          🇦🇪 UAE Products (Excel)
-        </button>
-        <button onClick={() => navigate('/admin/amazon10-excel-import')} className="tool-btn info">
-          📊 Amazon 10 Products (Excel)
-        </button>
         <button onClick={importHardcodedProducts} className="tool-btn success" style={{color: 'black'}}>
           📥 Import JSON
         </button>

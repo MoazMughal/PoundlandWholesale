@@ -1,7 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useEffect, lazy, Suspense } from 'react'
-import Navbar from './components/Navbar'
-import Footer from './components/Footer'
 import MobileHeader from './components/MobileHeader'
 import CompactFooter from './components/CompactFooter'
 import WhatsAppFloat from './components/WhatsAppFloat'
@@ -12,7 +10,6 @@ import { CurrencyProvider } from './context/CurrencyContext'
 import { SellerProvider } from './context/SellerContext'
 import { AdminProvider } from './context/AdminContext'
 import { BasketProvider } from './context/BasketContext'
-import authSessionManager from './utils/authSession'
 import './App.css'
 import './styles/mobile-responsive.css'
 import './styles/enhanced-theme.css'
@@ -22,8 +19,6 @@ const AmazonsChoice = lazy(() => import('./pages/AmazonsChoice'))
 const Basket = lazy(() => import('./pages/Basket'))
 const Categories = lazy(() => import('./pages/Categories'))
 const AboutUs = lazy(() => import('./pages/AboutUs'))
-const Login = lazy(() => import('./pages/Login'))
-const Register = lazy(() => import('./pages/Register'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
 const ForgotPasswordToken = lazy(() => import('./pages/ForgotPasswordToken'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
@@ -33,7 +28,6 @@ const SupplierLogin = lazy(() => import('./pages/auth/SupplierLogin'))
 const BuyerRegister = lazy(() => import('./pages/auth/BuyerRegister'))
 const SupplierRegister = lazy(() => import('./pages/auth/SupplierRegister'))
 const JoinNow = lazy(() => import('./pages/onboarding/JoinNow'))
-const Product = lazy(() => import('./pages/Product'))
 const ProductDetail = lazy(() => import('./pages/ProductDetail'))
 const AdminLogin = lazy(() => import('./pages/admin/Login'))
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
@@ -48,8 +42,6 @@ const ExcelImport = lazy(() => import('./pages/admin/ExcelImport'))
 const ExcelManager = lazy(() => import('./pages/admin/ExcelManager'))
 const AdminExcelProducts = lazy(() => import('./pages/admin/ExcelProducts'))
 const ExcelProductEdit = lazy(() => import('./pages/admin/ExcelProductEdit'))
-const UaeExcelImport = lazy(() => import('./pages/admin/UaeExcelImport'))
-const Amazon10ExcelImport = lazy(() => import('./pages/admin/Amazon10ExcelImport'))
 const AdminBuyers = lazy(() => import('./pages/admin/Buyers'))
 const AdminPendingPayments = lazy(() => import('./pages/admin/PendingPayments'))
 const AdminSellerListings = lazy(() => import('./pages/admin/SellerListings'))
@@ -67,7 +59,6 @@ const SellerUaeProducts = lazy(() => import('./pages/seller/UaeProducts'))
 const SellerAmazon10Products = lazy(() => import('./pages/seller/Amazon10Products'))
 const SellerAmazonsChoiceProducts = lazy(() => import('./pages/seller/AmazonsChoiceProducts'))
 const SellerListedProducts = lazy(() => import('./pages/seller/ListedProducts'))
-const ApiDebug = lazy(() => import('./components/ApiDebug'))
 
 // Legal Pages
 const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'))
@@ -123,7 +114,6 @@ function App() {
           <Route path="/" element={<AmazonsChoice />} />
           <Route path="/basket" element={<Basket />} />
           <Route path="/clear-storage" element={<ClearStorage />} />
-          <Route path="/api-debug" element={<ApiDebug />} />
           <Route path="/about-us" element={<AboutUs />} />
           <Route path="/categories" element={<Categories />} />
           {/* Legacy routes - redirect to new auth system */}
@@ -177,8 +167,6 @@ function App() {
           <Route path="/admin/excel-manager" element={<ProtectedRoute><ExcelManager /></ProtectedRoute>} />
           <Route path="/admin/excel-products/:uploadId" element={<ProtectedRoute><AdminExcelProducts /></ProtectedRoute>} />
           <Route path="/admin/excel-products/:uploadId/edit/:productId" element={<ProtectedRoute><ExcelProductEdit /></ProtectedRoute>} />
-          <Route path="/admin/uae-excel-import" element={<ProtectedRoute><UaeExcelImport /></ProtectedRoute>} />
-          <Route path="/admin/amazon10-excel-import" element={<ProtectedRoute><Amazon10ExcelImport /></ProtectedRoute>} />
           
           {/* Legal Pages */}
           <Route path="/terms-of-service" element={<TermsOfService />} />

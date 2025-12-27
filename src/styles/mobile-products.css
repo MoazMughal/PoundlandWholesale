@@ -38,7 +38,7 @@
 
 /* Mobile Badge Visibility Fixes - CRITICAL */
 @media screen and (max-width: 576px) {
-  /* Force mobile badges to show with maximum specificity */
+  /* Force mobile badges to show with maximum specificity - smaller font size */
   .mobile-badge-container,
   .product-card .mobile-badge-container,
   .product-image-container .mobile-badge-container,
@@ -46,28 +46,44 @@
   .product-card div[data-mobile-badge="true"],
   .product-image-container div[data-mobile-badge="true"],
   #products-grid .product-card .mobile-badge-container,
-  #products-grid .product-card div[data-mobile-badge="true"] {
-    display: block !important;
+  #products-grid .product-card div[data-mobile-badge="true"],
+  .mobile-badge {
+    display: flex !important;
     position: absolute !important;
     z-index: 1000 !important;
     opacity: 1 !important;
     visibility: visible !important;
-    top: 4px !important; /* Move down slightly */
-    right: 4px !important; /* Move more to the right */
-    /* Remove all color overrides to allow JavaScript dynamic styling */
-    padding: 3px 5px !important; /* Reduce padding */
-    border-radius: 4px !important; /* Smaller border radius */
-    font-size: 8px !important; /* Smaller font */
+    top: 2px !important;
+    right: 2px !important;
+    /* Mobile badge styling with slightly larger font */
+    padding: 2px 4px !important;
+    border-radius: 3px !important;
+    font-size: 6px !important;
     font-weight: bold !important;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important; /* Lighter shadow */
-    border: none !important; /* Remove white border */
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
-    letter-spacing: 0.1px !important; /* Reduce letter spacing */
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.6) !important;
+    border: 1px solid rgba(255,255,255,0.4) !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
+    letter-spacing: 0.1px !important;
     min-width: fit-content !important;
     white-space: nowrap !important;
     pointer-events: none !important;
     transform: none !important;
     filter: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 1px !important;
+    max-width: 60px !important;
+    overflow: hidden !important;
+  }
+  
+  /* Force white text color for all badge content */
+  .mobile-badge-container *,
+  .mobile-badge *,
+  div[data-mobile-badge="true"] *,
+  .product-card .mobile-badge-container *,
+  .product-image-container .mobile-badge-container * {
+    color: white !important;
   }
   
   /* Force dynamic badge colors with maximum specificity */
@@ -82,36 +98,49 @@
   }
   
   /* Specific color overrides for each badge type */
-  .dynamic-mobile-badge[data-badge-color="#e74c3c"] {
+  .dynamic-mobile-badge[data-badge-color="#e74c3c"],
+  .mobile-badge[style*="#e74c3c"] {
     background-color: #e74c3c !important;
   }
-  .dynamic-mobile-badge[data-badge-color="#f39c12"] {
+  .dynamic-mobile-badge[data-badge-color="#f39c12"],
+  .mobile-badge[style*="#f39c12"] {
     background-color: #f39c12 !important;
   }
-  .dynamic-mobile-badge[data-badge-color="#e67e22"] {
+  .dynamic-mobile-badge[data-badge-color="#e67e22"],
+  .mobile-badge[style*="#e67e22"] {
     background-color: #e67e22 !important;
   }
-  .dynamic-mobile-badge[data-badge-color="#9b59b6"] {
+  .dynamic-mobile-badge[data-badge-color="#9b59b6"],
+  .mobile-badge[style*="#9b59b6"] {
     background-color: #9b59b6 !important;
   }
-  .dynamic-mobile-badge[data-badge-color="#3498db"] {
+  .dynamic-mobile-badge[data-badge-color="#3498db"],
+  .mobile-badge[style*="#3498db"] {
     background-color: #3498db !important;
   }
-  .dynamic-mobile-badge[data-badge-color="#e91e63"] {
+  .dynamic-mobile-badge[data-badge-color="#e91e63"],
+  .mobile-badge[style*="#e91e63"] {
     background-color: #e91e63 !important;
   }
-  .dynamic-mobile-badge[data-badge-color="#1abc9c"] {
+  .dynamic-mobile-badge[data-badge-color="#1abc9c"],
+  .mobile-badge[style*="#1abc9c"] {
     background-color: #1abc9c !important;
   }
-  .dynamic-mobile-badge[data-badge-color="#27ae60"] {
+  .dynamic-mobile-badge[data-badge-color="#27ae60"],
+  .mobile-badge[style*="#27ae60"] {
     background-color: #27ae60 !important;
   }
+  .dynamic-mobile-badge[data-badge-color="#ff6600"],
+  .mobile-badge[style*="#ff6600"] {
+    background-color: #ff6600 !important;
+  }
   
-  /* Allow mobile badge inner content to have dynamic colors */
+  /* Allow mobile badge inner content to have white color */
   .mobile-badge-container span,
-  div[data-mobile-badge="true"] span {
+  div[data-mobile-badge="true"] span,
+  .mobile-badge span {
     background-color: inherit !important;
-    color: inherit !important;
+    color: white !important;
   }
   
   /* Force desktop badges to hide on mobile */
@@ -122,7 +151,8 @@
   .product-card div[data-desktop-badge="true"],
   .product-image-container div[data-desktop-badge="true"],
   #products-grid .product-card .desktop-badge-container,
-  #products-grid .product-card div[data-desktop-badge="true"] {
+  #products-grid .product-card div[data-desktop-badge="true"],
+  .desktop-badge {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
@@ -137,24 +167,50 @@
   .product-image-container .mobile-badge-container,
   div[data-mobile-badge="true"],
   .product-card div[data-mobile-badge="true"],
-  .product-image-container div[data-mobile-badge="true"] {
+  .product-image-container div[data-mobile-badge="true"],
+  .mobile-badge {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
   }
   
-  /* Show desktop badges */
+  /* Show desktop badges - smaller font size with white text */
   .desktop-badge-container,
   .product-card .desktop-badge-container,
   .product-image-container .desktop-badge-container,
   div[data-desktop-badge="true"],
   .product-card div[data-desktop-badge="true"],
-  .product-image-container div[data-desktop-badge="true"] {
-    display: block !important;
+  .product-image-container div[data-desktop-badge="true"],
+  .desktop-badge {
+    display: flex !important;
     position: absolute !important;
     z-index: 1000 !important;
     visibility: visible !important;
     opacity: 1 !important;
+    top: 3px !important;
+    right: 3px !important;
+    padding: 3px 6px !important;
+    border-radius: 4px !important;
+    font-size: 7px !important;
+    font-weight: bold !important;
+    color: white !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5) !important;
+    border: 1px solid rgba(255,255,255,0.4) !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.7) !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+  }
+  
+  /* Force white text color for all desktop badge content */
+  .desktop-badge-container *,
+  .desktop-badge *,
+  div[data-desktop-badge="true"] *,
+  .product-card .desktop-badge-container *,
+  .product-image-container .desktop-badge-container * {
+    color: white !important;
   }
 }
 
@@ -597,8 +653,8 @@
   }
 
   .product-card .product-info > div[style*="display: flex"][style*="flexDirection: column"] > div {
-    font-size: 6px !important;
-    padding: 1px 2px !important;
+    font-size: 7px !important;
+    padding: 2px 3px !important;
     margin: 0 !important;
     line-height: 1.1 !important;
   }
@@ -1635,8 +1691,9 @@ MOBILE FIXES - Badge Visibility and Profit Positioning */
   .product-card .product-info > div[style*="marginTop: '2px'"] {
     margin-top: 4px !important;
   }
-}/
-* MOBILE PRICE OVERFLOW FIX */
+}
+
+/* MOBILE PRICE OVERFLOW FIX */
 @media (max-width: 576px) {
   /* Fix price container overflow */
   .product-card .product-info > div[style*="fontWeight: '800'"] {
@@ -1716,8 +1773,9 @@ MOBILE FIXES - Badge Visibility and Profit Positioning */
   .product-card .product-info > div[style*="display: flex"] > div:first-child {
     max-width: 45% !important;
   }
-}/* A
-GGRESSIVE MOBILE PRICE OVERFLOW FIX */
+}
+
+/* AGGRESSIVE MOBILE PRICE OVERFLOW FIX */
 @media (max-width: 576px) {
   /* Fix price container overflow - More aggressive approach */
   .product-card .product-info > div[style*="fontWeight: '800'"] {
@@ -1789,8 +1847,9 @@ GGRESSIVE MOBILE PRICE OVERFLOW FIX */
     max-width: 50px !important;
     font-size: 5px !important;
   }
-}/
-* FINAL MOBILE FIXES - Badge Visibility and Increased Price Width */
+}
+
+/* FINAL MOBILE FIXES - Badge Visibility and Increased Price Width */
 @media (max-width: 576px) {
   /* BADGE VISIBILITY CONTROL - Force mobile badges to show */
   .mobile-badge-container {

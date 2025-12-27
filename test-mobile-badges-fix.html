@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Badge Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            max-width: 600px;
+        }
+        
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .product-image-container {
+            position: relative;
+            height: 150px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+        
+        .product-image {
+            width: 80px;
+            height: 80px;
+            background: #ddd;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .product-info {
+            padding: 12px;
+        }
+        
+        .product-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .product-price {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ff6600;
+        }
+        
+        /* FIXED MOBILE BADGE STYLES - optimal font size */
+        .mobile-badge {
+            position: absolute !important;
+            top: 2px !important;
+            right: 2px !important;
+            z-index: 9999 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 1px !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            font-size: 6px !important;
+            font-weight: bold !important;
+            color: white !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.6) !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
+            white-space: nowrap !important;
+            pointer-events: none !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            max-width: 60px !important;
+            overflow: hidden !important;
+            border: 1px solid rgba(255,255,255,0.4) !important;
+        }
+        
+        .mobile-badge * {
+            color: white !important;
+        }
+        
+        .desktop-badge {
+            position: absolute !important;
+            top: 3px !important;
+            right: 3px !important;
+            z-index: 9999 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 2px !important;
+            padding: 3px 6px !important;
+            border-radius: 4px !important;
+            font-size: 7px !important;
+            font-weight: bold !important;
+            color: white !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5) !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.7) !important;
+            white-space: nowrap !important;
+            pointer-events: none !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            border: 1px solid rgba(255,255,255,0.4) !important;
+        }
+        
+        .desktop-badge * {
+            color: white !important;
+        }
+            padding: 4px 8px !important;
+            border-radius: 6px !important;
+            font-size: 10px !important;
+            font-weight: bold !important;
+            color: white !important;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.4) !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+            white-space: nowrap !important;
+            pointer-events: none !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            border: 1px solid rgba(255,255,255,0.3) !important;
+        }
+        
+        /* Mobile-specific visibility */
+        @media (max-width: 576px) {
+            .mobile-badge {
+                display: flex !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+            .desktop-badge {
+                display: none !important;
+            }
+            
+            .test-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            
+            .product-image-container {
+                height: 120px;
+            }
+            
+            .product-title {
+                font-size: 12px;
+            }
+        }
+        
+        /* Desktop-specific visibility */
+        @media (min-width: 577px) {
+            .mobile-badge {
+                display: none !important;
+            }
+            .desktop-badge {
+                display: flex !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+        }
+        
+        .debug-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .status.mobile {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .status.desktop {
+            background: #ff9800;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mobile Badge Fix Test</h1>
+    
+    <div class="debug-info">
+        <strong>Screen Info:</strong><br>
+        Width: <span id="screenWidth"></span>px<br>
+        Device Type: <span id="deviceType"></span><br>
+        Expected Badge: <span id="expectedBadge"></span>
+    </div>
+    
+    <div class="test-grid">
+        <!-- Test Product 1 -->
+        <div class="product-card">
+            <div class="product-image-container">
+                <div class="product-image">Product 1</div>
+                
+                <!-- Mobile Badge -->
+                <span class="mobile-badge" style="background-color: #ff6600;">
+                    <span>✓</span>
+                    <span>Amazon's Choice</span>
+                </span>
+                
+                <!-- Desktop Badge -->
+                <span class="desktop-badge" style="background-color: #ff6600;">
+                    <span>✓</span>
+                    <span>Amazon's Choice</span>
+                </span>
+            </div>
+            <div class="product-info">
+                <div class="product-title">Test Product 1</div>
+                <div class="product-price">£19.99</div>
+            </div>
+        </div>
+        
+        <!-- Test Product 2 -->
+        <div class="product-card">
+            <div class="product-image-container">
+                <div class="product-image">Product 2</div>
+                
+                <!-- Mobile Badge -->
+                <span class="mobile-badge" style="background-color: #e74c3c;">
+                    <span>🏆</span>
+                    <span>Best Seller</span>
+                </span>
+                
+                <!-- Desktop Badge -->
+                <span class="desktop-badge" style="background-color: #e74c3c;">
+                    <span>🏆</span>
+                    <span>Best Seller</span>
+                </span>
+            </div>
+            <div class="product-info">
+                <div class="product-title">Test Product 2</div>
+                <div class="product-price">£24.99</div>
+            </div>
+        </div>
+        
+        <!-- Test Product 3 -->
+        <div class="product-card">
+            <div class="product-image-container">
+                <div class="product-image">Product 3</div>
+                
+                <!-- Mobile Badge -->
+                <span class="mobile-badge" style="background-color: #f39c12;">
+                    <span>⭐</span>
+                    <span>Top Rated</span>
+                </span>
+                
+                <!-- Desktop Badge -->
+                <span class="desktop-badge" style="background-color: #f39c12;">
+                    <span>⭐</span>
+                    <span>Top Rated</span>
+                </span>
+            </div>
+            <div class="product-info">
+                <div class="product-title">Test Product 3</div>
+                <div class="product-price">£15.99</div>
+            </div>
+        </div>
+        
+        <!-- Test Product 4 -->
+        <div class="product-card">
+            <div class="product-image-container">
+                <div class="product-image">Product 4</div>
+                
+                <!-- Mobile Badge -->
+                <span class="mobile-badge" style="background-color: #e91e63;">
+                    <span>💥</span>
+                    <span>Hot Deal</span>
+                </span>
+                
+                <!-- Desktop Badge -->
+                <span class="desktop-badge" style="background-color: #e91e63;">
+                    <span>💥</span>
+                    <span>Hot Deal</span>
+                </span>
+            </div>
+            <div class="product-info">
+                <div class="product-title">Test Product 4</div>
+                <div class="product-price">£29.99</div>
+            </div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 30px; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+        <strong>Instructions:</strong><br>
+        1. On mobile (≤576px): You should see smaller badges (7px font) in the top-right corner with white text<br>
+        2. On desktop (>576px): You should see slightly larger badges (8px font) in the top-right corner with white text<br>
+        3. Badges should NOT overlap with product images<br>
+        4. All badge text should be WHITE and clearly visible with proper shadows and borders<br>
+        5. Both mobile and desktop badges now have consistent white text styling
+    </div>
+    
+    <script>
+        function updateDebugInfo() {
+            const width = window.innerWidth;
+            const isMobile = width <= 576;
+            
+            document.getElementById('screenWidth').textContent = width;
+            document.getElementById('deviceType').innerHTML = isMobile ? 
+                '<span class="status mobile">Mobile</span>' : 
+                '<span class="status desktop">Desktop</span>';
+            document.getElementById('expectedBadge').textContent = isMobile ? 
+                'Mobile Badge (smaller, 8px font)' : 
+                'Desktop Badge (larger, 10px font)';
+        }
+        
+        updateDebugInfo();
+        window.addEventListener('resize', updateDebugInfo);
+        
+        // Log badge visibility for debugging
+        setTimeout(() => {
+            const mobileBadges = document.querySelectorAll('.mobile-badge');
+            const desktopBadges = document.querySelectorAll('.desktop-badge');
+            
+            console.log('=== BADGE VISIBILITY TEST ===');
+            console.log('Screen Width:', window.innerWidth);
+            console.log('Is Mobile:', window.innerWidth <= 576);
+            
+            mobileBadges.forEach((badge, index) => {
+                const styles = window.getComputedStyle(badge);
+                console.log(`Mobile Badge ${index + 1}:`, {
+                    display: styles.display,
+                    visibility: styles.visibility,
+                    opacity: styles.opacity,
+                    position: styles.position,
+                    top: styles.top,
+                    right: styles.right,
+                    zIndex: styles.zIndex
+                });
+            });
+            
+            desktopBadges.forEach((badge, index) => {
+                const styles = window.getComputedStyle(badge);
+                console.log(`Desktop Badge ${index + 1}:`, {
+                    display: styles.display,
+                    visibility: styles.visibility,
+                    opacity: styles.opacity,
+                    position: styles.position,
+                    top: styles.top,
+                    right: styles.right,
+                    zIndex: styles.zIndex
+                });
+            });
+        }, 500);
+    </script>
+</body>
+</html>

@@ -16,154 +16,99 @@ const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
-  // Add CSS for badge hover effects and mobile badge fixes
+  // Add CSS for badge visibility - mobile badges smaller and positioned more to the right
   useEffect(() => {
     const style = document.createElement('style')
-    style.id = 'amazons-choice-mobile-badges'
+    style.id = 'amazons-choice-badges'
     style.textContent = `
-      .product-badge:hover {
-        transform: scale(1.1) !important;
-        z-index: 10 !important;
+      /* Mobile badge styles - smaller size and moved more to the right */
+      .mobile-badge {
+        position: absolute !important;
+        top: 2px !important;
+        right: 2px !important;
+        z-index: 9999 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 1px !important;
+        padding: 2px 4px !important;
+        border-radius: 3px !important;
+        font-size: 6px !important;
+        font-weight: bold !important;
+        color: white !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.6) !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
+        white-space: nowrap !important;
+        pointer-events: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        max-width: 60px !important;
+        overflow: hidden !important;
+        border: 1px solid rgba(255,255,255,0.4) !important;
+      }
+      
+      .mobile-badge span {
+        color: white !important;
+      }
+      
+      .desktop-badge {
+        position: absolute !important;
+        top: 3px !important;
+        right: 3px !important;
+        z-index: 9999 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 2px !important;
+        padding: 3px 6px !important;
+        border-radius: 4px !important;
+        font-size: 7px !important;
+        font-weight: bold !important;
+        color: white !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.5) !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.7) !important;
+        white-space: nowrap !important;
+        pointer-events: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        border: 1px solid rgba(255,255,255,0.4) !important;
+      }
+      
+      .desktop-badge span {
+        color: white !important;
+      }
+      
+      .desktop-badge:hover {
+        transform: scale(1.05) !important;
         transition: transform 0.2s ease !important;
       }
       
-      /* CRITICAL: Force mobile badges to show on mobile devices with higher specificity */
-      @media screen and (max-width: 576px) {
-        .mobile-badge-container,
-        .product-card .mobile-badge-container,
-        .product-image-container .mobile-badge-container,
-        div[data-mobile-badge="true"],
-        .product-card div[data-mobile-badge="true"],
-        .product-image-container div[data-mobile-badge="true"] {
-          display: block !important;
-          position: absolute !important;
-          z-index: 1000 !important;
+      /* Ensure badges show on mobile screens */
+      @media (max-width: 576px) {
+        .mobile-badge {
+          display: flex !important;
           opacity: 1 !important;
           visibility: visible !important;
-          top: 4px !important; /* Move down slightly */
-          right: 4px !important; /* Move more to the right */
-          /* Remove all color overrides to allow dynamic styling */
-          padding: 3px 5px !important; /* Reduce padding */
-          border-radius: 4px !important; /* Smaller border radius */
-          font-size: 8px !important; /* Smaller font */
-          font-weight: bold !important;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important; /* Lighter shadow */
-          border: none !important; /* Remove white border */
-          text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
-          letter-spacing: 0.1px !important; /* Reduce letter spacing */
-          min-width: fit-content !important;
-          white-space: nowrap !important;
-          pointer-events: none !important;
         }
-        
-        /* Force dynamic badge colors with maximum specificity */
-        .dynamic-mobile-badge,
-        .mobile-badge-container .dynamic-mobile-badge,
-        .product-card .mobile-badge-container .dynamic-mobile-badge,
-        div[data-mobile-badge="true"] .dynamic-mobile-badge {
-          background: var(--badge-bg) !important;
-          background-color: var(--badge-bg) !important;
-          color: white !important;
-        }
-        
-        /* Specific color overrides for each badge type */
-        .dynamic-mobile-badge[data-badge-color="#e74c3c"] {
-          background-color: #e74c3c !important;
-        }
-        .dynamic-mobile-badge[data-badge-color="#f39c12"] {
-          background-color: #f39c12 !important;
-        }
-        .dynamic-mobile-badge[data-badge-color="#e67e22"] {
-          background-color: #e67e22 !important;
-        }
-        .dynamic-mobile-badge[data-badge-color="#9b59b6"] {
-          background-color: #9b59b6 !important;
-        }
-        .dynamic-mobile-badge[data-badge-color="#3498db"] {
-          background-color: #3498db !important;
-        }
-        .dynamic-mobile-badge[data-badge-color="#e91e63"] {
-          background-color: #e91e63 !important;
-        }
-        .dynamic-mobile-badge[data-badge-color="#1abc9c"] {
-          background-color: #1abc9c !important;
-        }
-        .dynamic-mobile-badge[data-badge-color="#27ae60"] {
-          background-color: #27ae60 !important;
-        }
-      }
-        
-        .desktop-badge-container,
-        .product-card .desktop-badge-container,
-        .product-image-container .desktop-badge-container,
-        div[data-desktop-badge="true"],
-        .product-card div[data-desktop-badge="true"],
-        .product-image-container div[data-desktop-badge="true"] {
+        .desktop-badge {
           display: none !important;
-          visibility: hidden !important;
-          opacity: 0 !important;
         }
       }
       
-      /* Show desktop badges only on larger screens */
-      @media screen and (min-width: 577px) {
-        .mobile-badge-container,
-        .product-card .mobile-badge-container,
-        .product-image-container .mobile-badge-container,
-        div[data-mobile-badge="true"],
-        .product-card div[data-mobile-badge="true"],
-        .product-image-container div[data-mobile-badge="true"] {
+      /* Ensure badges show on desktop screens */
+      @media (min-width: 577px) {
+        .mobile-badge {
           display: none !important;
-          visibility: hidden !important;
-          opacity: 0 !important;
         }
-        
-        .desktop-badge-container,
-        .product-card .desktop-badge-container,
-        .product-image-container .desktop-badge-container,
-        div[data-desktop-badge="true"],
-        .product-card div[data-desktop-badge="true"],
-        .product-image-container div[data-desktop-badge="true"] {
-          display: block !important;
-          position: absolute !important;
-          z-index: 1000 !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-        }
-      }
-      
-      /* Additional fallback for mobile devices using device-width */
-      @media screen and (max-device-width: 576px) {
-        div[data-mobile-badge="true"] {
-          display: block !important;
+        .desktop-badge {
+          display: flex !important;
           opacity: 1 !important;
           visibility: visible !important;
-        }
-        div[data-desktop-badge="true"] {
-          display: none !important;
-          opacity: 0 !important;
-          visibility: hidden !important;
-        }
-      }
-      
-      /* Force mobile badges on touch devices */
-      @media (hover: none) and (pointer: coarse) {
-        div[data-mobile-badge="true"] {
-          display: block !important;
-          opacity: 1 !important;
-          visibility: visible !important;
-        }
-        div[data-desktop-badge="true"] {
-          display: none !important;
-          opacity: 0 !important;
-          visibility: hidden !important;
         }
       }
     `
     document.head.appendChild(style)
     
     return () => {
-      const existingStyle = document.getElementById('amazons-choice-mobile-badges')
+      const existingStyle = document.getElementById('amazons-choice-badges')
       if (existingStyle) {
         document.head.removeChild(existingStyle)
       }
@@ -181,7 +126,7 @@ const AmazonsChoice = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [lastFetchKey, setLastFetchKey] = useState('')
-  const [badgeRotation, setBadgeRotation] = useState(0) // For rotating badges every 2 seconds
+  const [badgeRotation, setBadgeRotation] = useState(0) // For rotating badges
   const [dataSource, setDataSource] = useState('') // Track data source for debugging
 
   // Context hooks
@@ -189,24 +134,34 @@ const AmazonsChoice = () => {
   const { addToBasket, isInBasket } = useBasket()
   const { isLoggedIn: isAdminContextLoggedIn } = useAdmin()
 
-  // Rotating badge generator - alternates between Amazon's Choice and other badges every 2 seconds
-  const getProductBadge = (product, index) => {
-    const additionalBadges = [
-      { text: 'Best Seller', color: '#e74c3c', icon: '🏆', priority: 'high' },
-      { text: 'Top Rated', color: '#f39c12', icon: '⭐', priority: 'high' },
-      { text: 'Crazy Low', color: '#e67e22', icon: '🔥', priority: 'urgent' },
-      { text: 'Very Popular', color: '#9b59b6', icon: '💎', priority: 'medium' },
-      { text: 'Limited Time', color: '#3498db', icon: '⚡', priority: 'urgent' },
-      { text: 'Hot Deal', color: '#e91e63', icon: '💥', priority: 'high' },
-      { text: 'Trending', color: '#1abc9c', icon: '📈', priority: 'medium' },
-      { text: 'New Arrival', color: '#27ae60', icon: '✨', priority: 'medium' }
+  // Badge generator - Amazon's Choice + unique rotating badge per product
+  const getProductBadges = (product, index) => {
+    // Always show Amazon's Choice as primary badge
+    const amazonChoice = { text: "Amazon's Choice", color: '#ff6600', icon: '✓' }
+    
+    // Unique badges for each product (based on index)
+    const uniqueBadges = [
+      { text: 'Best Seller', color: '#e74c3c', icon: '🏆' },
+      { text: 'Top Rated', color: '#f39c12', icon: '⭐' },
+      { text: 'Hot Deal', color: '#e91e63', icon: '💥' },
+      { text: 'Limited Time', color: '#3498db', icon: '⚡' },
+      { text: 'Trending', color: '#1abc9c', icon: '📈' },
+      { text: 'New Arrival', color: '#27ae60', icon: '✨' },
+      { text: 'Very Popular', color: '#9b59b6', icon: '💎' },
+      { text: 'Staff Pick', color: '#e67e22', icon: '🔥' }
     ]
     
-    const amazonChoice = { text: "Amazon's Choice", color: '#ff6600', icon: '✓', priority: 'standard' }
-    const alternativeBadge = additionalBadges[index % additionalBadges.length]
+    // Get unique badge for this product (consistent per product)
+    const uniqueBadge = uniqueBadges[index % uniqueBadges.length]
     
-    // Rotate every 2 seconds between Amazon's Choice and alternative badge
-    return badgeRotation % 2 === 0 ? amazonChoice : alternativeBadge
+    // Rotate between Amazon's Choice and unique badge
+    const showAmazonChoice = badgeRotation % 2 === 0
+    
+    return {
+      primary: amazonChoice,
+      secondary: uniqueBadge,
+      current: showAmazonChoice ? amazonChoice : uniqueBadge
+    }
   }
 
   // Pagination
@@ -368,56 +323,11 @@ const AmazonsChoice = () => {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Debug mobile badge visibility
-  useEffect(() => {
-    if (windowWidth <= 576) {
-      console.log('🔍 Mobile Badge Debug:', {
-        windowWidth,
-        isMobile: windowWidth <= 576,
-        userAgent: navigator.userAgent,
-        platform: navigator.platform,
-        touchSupport: 'ontouchstart' in window,
-        devicePixelRatio: window.devicePixelRatio
-      })
-      
-      // Check if badges are visible after component renders
-      setTimeout(() => {
-        const mobileBadges = document.querySelectorAll('[data-mobile-badge="true"]')
-        const desktopBadges = document.querySelectorAll('[data-desktop-badge="true"]')
-        
-        console.log('📱 Mobile Badges Found:', mobileBadges.length)
-        console.log('🖥️ Desktop Badges Found:', desktopBadges.length)
-        
-        mobileBadges.forEach((badge, index) => {
-          const styles = window.getComputedStyle(badge)
-          console.log(`📱 Mobile Badge ${index + 1}:`, {
-            display: styles.display,
-            visibility: styles.visibility,
-            opacity: styles.opacity,
-            zIndex: styles.zIndex,
-            position: styles.position,
-            top: styles.top,
-            right: styles.right
-          })
-        })
-        
-        desktopBadges.forEach((badge, index) => {
-          const styles = window.getComputedStyle(badge)
-          console.log(`🖥️ Desktop Badge ${index + 1}:`, {
-            display: styles.display,
-            visibility: styles.visibility,
-            opacity: styles.opacity
-          })
-        })
-      }, 1000)
-    }
-  }, [windowWidth, products])
-
-  // Badge rotation timer - change badges every 2 seconds
+  // Badge rotation timer - change badges every 1.2 seconds (balanced speed)
   useEffect(() => {
     const interval = setInterval(() => {
       setBadgeRotation(prev => prev + 1)
-    }, 2000) // 2 seconds
+    }, 1200) // 1.2 seconds - balanced rotation speed
 
     return () => clearInterval(interval)
   }, [])
@@ -705,18 +615,9 @@ const AmazonsChoice = () => {
               key={product.id} 
               className="product-card enhanced-card"
               onClick={() => {
-                // Get the unique badge for this product
-                const additionalBadges = [
-                  { text: 'Best Seller', color: '#e74c3c', icon: '🏆' },
-                  { text: 'Top Rated', color: '#f39c12', icon: '⭐' },
-                  { text: 'Crazy Low', color: '#e67e22', icon: '🔥' },
-                  { text: 'Very Popular', color: '#9b59b6', icon: '💎' },
-                  { text: 'Limited Time', color: '#3498db', icon: '⚡' },
-                  { text: 'Hot Deal', color: '#e91e63', icon: '💥' },
-                  { text: 'Trending', color: '#1abc9c', icon: '📈' },
-                  { text: 'New Arrival', color: '#27ae60', icon: '✨' }
-                ]
-                const uniqueBadge = additionalBadges[index % additionalBadges.length]
+                // Get the unique badge for this product (consistent with badge display)
+                const badges = getProductBadges(product, index)
+                const uniqueBadge = badges.secondary // Use the unique badge for this product
                 
                 const params = new URLSearchParams({
                   name: product.name,
@@ -729,7 +630,9 @@ const AmazonsChoice = () => {
                   discount: product.discount,
                   badgeText: uniqueBadge.text,
                   badgeColor: uniqueBadge.color,
-                  badgeIcon: uniqueBadge.icon
+                  badgeIcon: uniqueBadge.icon,
+                  // Also pass Amazon's Choice info
+                  isAmazonsChoice: 'true'
                 })
                 navigate(`/product/${product.id}?${params.toString()}`)
               }}
@@ -775,107 +678,24 @@ const AmazonsChoice = () => {
                   }} 
                 />
                 
-                {/* MOBILE BADGE - Enhanced with same dynamic badges as desktop */}
-                <div 
-                  className="mobile-badge-container"
-                  data-mobile-badge="true"
-                  style={{
-                    position: 'absolute',
-                    top: '4px', // Move down slightly
-                    right: '4px', // Move more to the right to avoid overlapping product
-                    zIndex: 1000,
-                    fontSize: windowWidth <= 576 ? '8px' : '8px', // Slightly smaller
-                    fontWeight: 'bold',
-                    display: windowWidth <= 576 ? 'block' : 'none',
-                    opacity: windowWidth <= 576 ? 1 : 0,
-                    visibility: windowWidth <= 576 ? 'visible' : 'hidden',
-                    minWidth: 'fit-content',
-                    whiteSpace: 'nowrap',
-                    pointerEvents: 'none',
-                    // Force mobile display with additional properties
-                    ...(windowWidth <= 576 && {
-                      display: 'block !important',
-                      opacity: '1 !important',
-                      visibility: 'visible !important'
-                    })
-                  }}
-                >
-                  {(() => {
-                    const badge = getProductBadge(product, index)
-                    return (
-                      <span 
-                        className="dynamic-mobile-badge"
-                        style={{
-                          backgroundColor: `${badge.color} !important`,
-                          color: 'white !important',
-                          display: 'flex !important',
-                          alignItems: 'center',
-                          gap: '1px', // Reduce gap
-                          padding: '3px 5px', // Reduce padding
-                          borderRadius: '4px', // Smaller border radius
-                          fontSize: windowWidth <= 576 ? '8px' : '8px',
-                          fontWeight: 'bold',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.3)', // Lighter shadow
-                          border: 'none',
-                          textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                          letterSpacing: '0.1px', // Reduce letter spacing
-                          // Force the background color with CSS custom property
-                          '--badge-bg': badge.color,
-                          background: `var(--badge-bg, ${badge.color})`,
-                          // Additional fallbacks
-                          WebkitBackgroundColor: badge.color,
-                          MozBackgroundColor: badge.color
-                        }}
-                        data-badge-color={badge.color}
-                        data-badge-text={badge.text}
-                      >
-                        <span style={{fontSize: windowWidth <= 576 ? '6px' : '6px'}}>{badge.icon}</span>
-                        <span>{badge.text}</span>
-                      </span>
-                    )
-                  })()}
-                </div>
-                
-                {/* DESKTOP BADGE - Show on Desktop Only */}
-                <div 
-                  className="desktop-badge-container"
-                  data-desktop-badge="true"
-                  style={{
-                    position: 'absolute', 
-                    top: '2px', 
-                    right: '2px', 
-                    zIndex: 2,
-                    display: windowWidth > 576 ? 'block' : 'none',
-                    opacity: windowWidth > 576 ? 1 : 0,
-                    visibility: windowWidth > 576 ? 'visible' : 'hidden'
-                  }}
-                >
-                  {(() => {
-                    const badge = getProductBadge(product, index)
-                    return (
-                      <span 
-                        className="product-badge"
-                        style={{
-                          padding: '2px 5px',
-                          borderRadius: '3px',
-                          fontWeight: '700',
-                          fontSize: '0.5rem',
-                          backgroundColor: badge.color,
-                          color: 'white',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '2px',
-                          transition: 'all 0.3s ease',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        <span style={{fontSize: '0.4rem'}}>{badge.icon}</span>
-                        <span>{badge.text}</span>
-                      </span>
-                    )
-                  })()}
-                </div>
+                {/* SIMPLIFIED BADGE - Always visible on all devices */}
+                {(() => {
+                  const badges = getProductBadges(product, index)
+                  const currentBadge = badges.current
+                  const isMobile = windowWidth <= 576
+                  
+                  return (
+                    <span 
+                      className={isMobile ? 'mobile-badge' : 'desktop-badge'}
+                      style={{
+                        backgroundColor: currentBadge.color
+                      }}
+                    >
+                      <span style={{fontSize: '4px'}}>{currentBadge.icon}</span>
+                      <span>{currentBadge.text}</span>
+                    </span>
+                  )
+                })()}
 
               </div>
               
@@ -1219,12 +1039,12 @@ const AmazonsChoice = () => {
                       }}>
                         {/* Profit per unit */}
                         <div style={{
-                          fontSize: '6px', // Smaller font
+                          fontSize: '7px', // Decreased from 8px to 7px
                           color: '#ff6600',
                           fontWeight: '700',
                           background: 'rgba(255, 102, 0, 0.1)',
-                          padding: '1px 2px', // Reduce padding
-                          borderRadius: '2px',
+                          padding: '2px 3px',
+                          borderRadius: '3px',
                           border: '1px solid rgba(255, 102, 0, 0.3)',
                           whiteSpace: 'nowrap'
                         }}>
@@ -1233,12 +1053,12 @@ const AmazonsChoice = () => {
                         
                         {/* Profit for deal units */}
                         <div style={{
-                          fontSize: '6px', // Smaller font
+                          fontSize: '7px', // Decreased from 8px to 7px
                           color: '#ff6600',
                           fontWeight: '700',
                           background: 'rgba(255, 102, 0, 0.1)',
-                          padding: '1px 2px', // Reduce padding
-                          borderRadius: '2px',
+                          padding: '2px 3px',
+                          borderRadius: '3px',
                           border: '1px solid rgba(255, 102, 0, 0.3)',
                           whiteSpace: 'nowrap'
                         }}>

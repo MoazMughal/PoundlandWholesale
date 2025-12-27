@@ -2636,23 +2636,48 @@ const ProductDetail = () => {
                   <div className="position-absolute top-0 start-0 m-1">
                     {(() => {
                       const badgeParam = searchParams.get('badge')
-                      const badgeStyle = getBadgeStyle(badgeParam)
-                      return (
-                        <span 
-                          className="badge px-2 py-1" 
-                          style={{
-                            fontSize: '0.6rem',
-                            fontWeight: '600',
-                            backgroundColor: badgeStyle.bgColor,
-                            color: badgeStyle.textColor || '#fff',
-                            borderRadius: '4px',
-                            boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-                            letterSpacing: '0.3px'
-                          }}
-                        >
-                          <i className={`fas ${badgeStyle.icon} me-1`}></i>{badgeStyle.text}
-                        </span>
-                      )
+                      const isFromAmazonsChoice = searchParams.get('isAmazonsChoice') === 'true'
+                      const badgeTextParam = searchParams.get('badgeText')
+                      const badgeColorParam = searchParams.get('badgeColor')
+                      
+                      if (isFromAmazonsChoice && badgeTextParam && badgeColorParam) {
+                        // Show only the unique badge when coming from Amazon's Choice page
+                        return (
+                          <span 
+                            className="badge px-2 py-1"
+                            style={{
+                              fontSize: '0.6rem',
+                              fontWeight: '600',
+                              backgroundColor: badgeColorParam,
+                              color: '#fff',
+                              borderRadius: '4px',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                              letterSpacing: '0.3px'
+                            }}
+                          >
+                            <i className="fas fa-star me-1"></i>{badgeTextParam}
+                          </span>
+                        )
+                      } else {
+                        // Single badge (original logic)
+                        const badgeStyle = getBadgeStyle(badgeParam)
+                        return (
+                          <span 
+                            className="badge px-2 py-1" 
+                            style={{
+                              fontSize: '0.6rem',
+                              fontWeight: '600',
+                              backgroundColor: badgeStyle.bgColor,
+                              color: badgeStyle.textColor || '#fff',
+                              borderRadius: '4px',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                              letterSpacing: '0.3px'
+                            }}
+                          >
+                            <i className={`fas ${badgeStyle.icon} me-1`}></i>{badgeStyle.text}
+                          </span>
+                        )
+                      }
                     })()}
                   </div>
                 </div>
