@@ -1381,9 +1381,17 @@ router.put('/variations/enhanced/:id', authenticateAdmin, async (req, res) => {
                 type: option.type || variation.type,
                 name: option.customName || 'Custom',
                 options: [
-                  // Add the current product as an option
+                  // Add the linked product itself as current product option (productId: null)
                   {
-                    value: option.value || 'Default', // Use user input or simple default
+                    value: option.value, // Use the manually entered value for this linked product
+                    productId: null, // This represents the current product (linked product)
+                    images: linkedProduct.images || [],
+                    price: linkedProduct.price || null,
+                    stock: linkedProduct.stock || null
+                  },
+                  // Add the original product as a linked option
+                  {
+                    value: getCurrentProductVariationValueFromOptions(variation.options, req.params.id, updatedProduct.name, option.type || variation.type), // Use manually entered value if available
                     productId: req.params.id,
                     images: updatedProduct.images || [],
                     price: updatedProduct.price || null,
@@ -1474,6 +1482,27 @@ function detectVariationValue(productName, variationType) {
   return 'Default';
 }
 
+// Helper function to get current product's variation value from options (prioritizes manual entry)
+function getCurrentProductVariationValueFromOptions(options, currentProductId, productName, variationType) {
+  // First, try to find manually entered value for current product
+  const currentProductOption = options?.find(option => 
+    !option.productId || 
+    option.productId === null || 
+    option.productId === '' ||
+    option.productId === currentProductId
+  );
+  
+  if (currentProductOption && currentProductOption.value && currentProductOption.value.trim() !== '') {
+    console.log(`🎯 Using manually entered value for current product: "${currentProductOption.value}"`);
+    return currentProductOption.value;
+  }
+  
+  // Fallback to auto-detection only if no manual value exists
+  const detectedValue = detectVariationValue(productName, variationType);
+  console.log(`🎯 Using auto-detected value as fallback: "${detectedValue}"`);
+  return detectedValue;
+}
+
 // Bidirectional variations update endpoint
 router.put('/variations/bidirectional/:id', authenticateAdmin, async (req, res) => {
   try {
@@ -1528,6 +1557,9 @@ router.put('/variations/bidirectional/:id', authenticateAdmin, async (req, res) 
           let linkedVariations = linkedProduct.variations || [];
           console.log(`📋 Current variations on ${linkedProduct.name}:`, linkedVariations);
           
+          // Find the corresponding variation from the current product to get the manually entered value
+          const currentVariation = variations.find(v => v.type === linkedInfo.variationType);
+          
           // Find or create the variation type
           let variationIndex = linkedVariations.findIndex(v => v.type === linkedInfo.variationType);
           if (variationIndex === -1) {
@@ -1549,10 +1581,28 @@ router.put('/variations/bidirectional/:id', authenticateAdmin, async (req, res) 
           );
 
           if (existingOptionIndex === -1) {
-            // Add current product as an option with user-provided value
-            let optionValue = linkedInfo.optionValue || 'Default'; // Use user input or simple default
+            // First, ensure the linked product has a current product option (productId: null)
+            const currentProductOptionIndex = linkedVariations[variationIndex].options.findIndex(
+              opt => !opt.productId || opt.productId === null
+            );
             
-            console.log(`🎨 Setting variation value: ${currentProduct.name} → ${optionValue}`);
+            if (currentProductOptionIndex === -1) {
+              // Add current product option for the linked product itself
+              const linkedProductValue = detectVariationValue(linkedProduct.name, linkedInfo.variationType);
+              linkedVariations[variationIndex].options.push({
+                value: linkedProductValue,
+                productId: null, // Current product (linked product)
+                images: linkedProduct.images || [],
+                price: linkedProduct.price || null,
+                stock: linkedProduct.stock || null
+              });
+              console.log(`🎯 Added current product option for ${linkedProduct.name}: "${linkedProductValue}"`);
+            }
+            
+            // Then add the original product as a linked option
+            let optionValue = getCurrentProductVariationValueFromOptions(currentVariation?.options, req.params.id, updatedProduct.name, linkedInfo.variationType);
+            
+            console.log(`🎨 Setting variation value: ${updatedProduct.name} → ${optionValue} (manual or detected)`);
 
             linkedVariations[variationIndex].options.push({
               value: optionValue,

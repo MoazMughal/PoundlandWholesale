@@ -133,67 +133,67 @@ const ProductVariations = ({
   };
 
   // Auto-detect current product's variation value
-  const detectCurrentValue = (variationType) => {
-    const productName = product.name?.toLowerCase() || '';
+  const detectCurrentValue = (variationType, productName = null) => {
+    const nameToUse = productName || product.name?.toLowerCase() || '';
     
     switch (variationType) {
       case 'color':
-        if (productName.includes('red')) return 'Red';
-        if (productName.includes('blue')) return 'Blue';
-        if (productName.includes('green')) return 'Green';
-        if (productName.includes('black')) return 'Black';
-        if (productName.includes('white')) return 'White';
-        if (productName.includes('yellow')) return 'Yellow';
-        if (productName.includes('orange')) return 'Orange';
-        if (productName.includes('pink')) return 'Pink';
-        if (productName.includes('purple')) return 'Purple';
-        if (productName.includes('brown')) return 'Brown';
-        if (productName.includes('grey') || productName.includes('gray')) return 'Grey';
-        if (productName.includes('silver')) return 'Silver';
-        if (productName.includes('gold')) return 'Gold';
-        if (productName.includes('clear')) return 'Clear';
+        if (nameToUse.includes('red')) return 'Red';
+        if (nameToUse.includes('blue')) return 'Blue';
+        if (nameToUse.includes('green')) return 'Green';
+        if (nameToUse.includes('black')) return 'Black';
+        if (nameToUse.includes('white')) return 'White';
+        if (nameToUse.includes('yellow')) return 'Yellow';
+        if (nameToUse.includes('orange')) return 'Orange';
+        if (nameToUse.includes('pink')) return 'Pink';
+        if (nameToUse.includes('purple')) return 'Purple';
+        if (nameToUse.includes('brown')) return 'Brown';
+        if (nameToUse.includes('grey') || nameToUse.includes('gray')) return 'Grey';
+        if (nameToUse.includes('silver')) return 'Silver';
+        if (nameToUse.includes('gold')) return 'Gold';
+        if (nameToUse.includes('clear')) return 'Clear';
         return 'Default';
         
       case 'size':
-        if (productName.includes('small')) return 'Small';
-        if (productName.includes('medium')) return 'Medium';
-        if (productName.includes('large')) return 'Large';
-        if (productName.includes('xl')) return 'XL';
-        if (productName.includes('xxl')) return 'XXL';
+        if (nameToUse.includes('small')) return 'Small';
+        if (nameToUse.includes('medium')) return 'Medium';
+        if (nameToUse.includes('large')) return 'Large';
+        if (nameToUse.includes('xl')) return 'XL';
+        if (nameToUse.includes('xxl')) return 'XXL';
         return 'Standard';
         
       case 'style':
-        if (productName.includes('classic')) return 'Classic';
-        if (productName.includes('modern')) return 'Modern';
-        if (productName.includes('vintage')) return 'Vintage';
-        if (productName.includes('premium')) return 'Premium';
-        if (productName.includes('deluxe')) return 'Deluxe';
-        if (productName.includes('basic')) return 'Basic';
-        if (productName.includes('dinosaur')) return 'Dinosaur';
-        if (productName.includes('dolphin')) return 'Dolphin';
-        if (productName.includes('shark')) return 'Shark';
+        if (nameToUse.includes('classic')) return 'Classic';
+        if (nameToUse.includes('modern')) return 'Modern';
+        if (nameToUse.includes('vintage')) return 'Vintage';
+        if (nameToUse.includes('premium')) return 'Premium';
+        if (nameToUse.includes('deluxe')) return 'Deluxe';
+        if (nameToUse.includes('basic')) return 'Basic';
+        if (nameToUse.includes('dinosaur')) return 'Dinosaur';
+        if (nameToUse.includes('dolphin')) return 'Dolphin';
+        if (nameToUse.includes('shark')) return 'Shark';
         return 'Default';
         
       default:
         // For unknown variation types, try to detect color first, then extract meaningful words
         // Check for colors first
-        if (productName.includes('red')) return 'Red';
-        if (productName.includes('blue')) return 'Blue';
-        if (productName.includes('green')) return 'Green';
-        if (productName.includes('black')) return 'Black';
-        if (productName.includes('white')) return 'White';
-        if (productName.includes('yellow')) return 'Yellow';
-        if (productName.includes('orange')) return 'Orange';
-        if (productName.includes('pink')) return 'Pink';
-        if (productName.includes('purple')) return 'Purple';
-        if (productName.includes('brown')) return 'Brown';
-        if (productName.includes('grey') || productName.includes('gray')) return 'Grey';
-        if (productName.includes('silver')) return 'Silver';
-        if (productName.includes('gold')) return 'Gold';
-        if (productName.includes('clear')) return 'Clear';
+        if (nameToUse.includes('red')) return 'Red';
+        if (nameToUse.includes('blue')) return 'Blue';
+        if (nameToUse.includes('green')) return 'Green';
+        if (nameToUse.includes('black')) return 'Black';
+        if (nameToUse.includes('white')) return 'White';
+        if (nameToUse.includes('yellow')) return 'Yellow';
+        if (nameToUse.includes('orange')) return 'Orange';
+        if (nameToUse.includes('pink')) return 'Pink';
+        if (nameToUse.includes('purple')) return 'Purple';
+        if (nameToUse.includes('brown')) return 'Brown';
+        if (nameToUse.includes('grey') || nameToUse.includes('gray')) return 'Grey';
+        if (nameToUse.includes('silver')) return 'Silver';
+        if (nameToUse.includes('gold')) return 'Gold';
+        if (nameToUse.includes('clear')) return 'Clear';
         
         // If no color found, extract meaningful words from product name
-        const words = product.name?.split(' ').filter(word => 
+        const words = (productName || product.name)?.split(' ').filter(word => 
           word.length > 3 && 
           !['the', 'and', 'for', 'with', 'from', 'strap', 'watch'].includes(word.toLowerCase())
         ) || [];
@@ -249,11 +249,6 @@ const ProductVariations = ({
             option.productId === product.id ||
             option.productId === ''
           );
-          
-          // If still not found, use the first option as fallback
-          if (!currentProductOption) {
-            currentProductOption = variation.options[0];
-          }
         }
         
         console.log('🎨 ProductVariations Debug:', {
@@ -281,36 +276,12 @@ const ProductVariations = ({
           initialCurrentValue: currentValue
         });
         
-        // Only use product name extraction if NO saved value exists at all
+        // Only use product name extraction as absolute last resort when NO saved value exists at all
         if (!currentValue || currentValue.trim() === '') {
-          const productName = product.name?.toLowerCase() || '';
-          console.log('🎨 No saved value found, trying to extract from product name:', productName);
-          
-          if (variation.type === 'style') {
-            if (productName.includes('samsung')) currentValue = 'Samsung';
-            else if (productName.includes('lg')) currentValue = 'LG';
-            else if (productName.includes('sony')) currentValue = 'Sony';
-            else if (productName.includes('panasonic')) currentValue = 'Panasonic';
-            else if (productName.includes('philips')) currentValue = 'Philips';
-            else if (productName.includes('hitachi')) currentValue = 'Hitachi';
-            else if (productName.includes('toshiba')) currentValue = 'Toshiba';
-            else if (productName.includes('sharp')) currentValue = 'Sharp';
-            else currentValue = 'Default';
-          } else if (variation.type === 'color') {
-            if (productName.includes('black')) currentValue = 'Black';
-            else if (productName.includes('white')) currentValue = 'White';
-            else if (productName.includes('blue')) currentValue = 'Blue';
-            else if (productName.includes('red')) currentValue = 'Red';
-            else if (productName.includes('silver')) currentValue = 'Silver';
-            else if (productName.includes('gold')) currentValue = 'Gold';
-            else currentValue = 'Default';
-          } else {
-            currentValue = 'Default';
-          }
-          
-          console.log('🎨 Extracted value from product name:', currentValue);
+          currentValue = detectCurrentValue(variation.type);
+          console.log('🎨 Extracted value from product name (fallback):', currentValue);
         } else {
-          console.log('🎨 Using saved value:', currentValue);
+          console.log('🎨 Using saved/stored value (preferred):', currentValue);
         }
         
         return (
@@ -353,14 +324,27 @@ const ProductVariations = ({
                 const linkedProduct = linkedProducts[option.productId];
                 const isSelected = selectedVariations[variation.type] === option.value;
 
-                // Just use the option value directly without auto-detection
-                const displayValue = option.value;
+                // Prioritize stored value over auto-detection
+                let displayValue = option.value;
+                
+                // Only use auto-detection if stored value is empty or clearly wrong
+                if (!displayValue || displayValue.trim() === '' || displayValue === 'Default') {
+                  if (linkedProduct && linkedProduct.name) {
+                    const detectedValue = detectCurrentValue(variation.type, linkedProduct.name);
+                    if (detectedValue && detectedValue !== 'Default') {
+                      displayValue = detectedValue;
+                      console.log(`🎨 Used auto-detection as fallback: "${option.value}" → "${detectedValue}" for ${linkedProduct.name}`);
+                    }
+                  }
+                } else {
+                  console.log(`🎨 Using stored value (preferred): "${displayValue}" for ${linkedProduct?.name}`);
+                }
 
                 return (
                   <div
                     key={optionIndex}
                     className={`variation-option linked ${isSelected ? 'selected' : ''}`}
-                    onClick={() => handleVariationSelect(variation.type, option)}
+                    onClick={() => handleVariationSelect(variation.type, { ...option, value: displayValue })}
                   >
                     {showImages && (
                       <div className="option-image">

@@ -6,6 +6,74 @@ import CategoryVisibilityToggle from '../../components/CategoryVisibilityToggle'
 import '../../styles/AdminProducts.css';
 import '../../styles/AdminLayout.css';
 
+// Helper function to get current product's variation value
+const getCurrentProductVariationValue = (product, variationType) => {
+  const productName = product.name?.toLowerCase() || '';
+  
+  switch (variationType) {
+    case 'color':
+      if (productName.includes('red')) return 'Red';
+      if (productName.includes('blue')) return 'Blue';
+      if (productName.includes('green')) return 'Green';
+      if (productName.includes('black')) return 'Black';
+      if (productName.includes('white')) return 'White';
+      if (productName.includes('yellow')) return 'Yellow';
+      if (productName.includes('orange')) return 'Orange';
+      if (productName.includes('pink')) return 'Pink';
+      if (productName.includes('purple')) return 'Purple';
+      if (productName.includes('brown')) return 'Brown';
+      if (productName.includes('grey') || productName.includes('gray')) return 'Grey';
+      if (productName.includes('silver')) return 'Silver';
+      if (productName.includes('gold')) return 'Gold';
+      if (productName.includes('clear')) return 'Clear';
+      return 'Default';
+      
+    case 'size':
+      if (productName.includes('small')) return 'Small';
+      if (productName.includes('medium')) return 'Medium';
+      if (productName.includes('large')) return 'Large';
+      if (productName.includes('xl')) return 'XL';
+      if (productName.includes('xxl')) return 'XXL';
+      return 'Standard';
+      
+    case 'style':
+      if (productName.includes('classic')) return 'Classic';
+      if (productName.includes('modern')) return 'Modern';
+      if (productName.includes('vintage')) return 'Vintage';
+      if (productName.includes('premium')) return 'Premium';
+      if (productName.includes('deluxe')) return 'Deluxe';
+      if (productName.includes('basic')) return 'Basic';
+      if (productName.includes('dinosaur')) return 'Dinosaur';
+      if (productName.includes('dolphin')) return 'Dolphin';
+      if (productName.includes('shark')) return 'Shark';
+      return 'Default';
+      
+    default:
+      // For unknown variation types, try to detect color first, then extract meaningful words
+      if (productName.includes('red')) return 'Red';
+      if (productName.includes('blue')) return 'Blue';
+      if (productName.includes('green')) return 'Green';
+      if (productName.includes('black')) return 'Black';
+      if (productName.includes('white')) return 'White';
+      if (productName.includes('yellow')) return 'Yellow';
+      if (productName.includes('orange')) return 'Orange';
+      if (productName.includes('pink')) return 'Pink';
+      if (productName.includes('purple')) return 'Purple';
+      if (productName.includes('brown')) return 'Brown';
+      if (productName.includes('grey') || productName.includes('gray')) return 'Grey';
+      if (productName.includes('silver')) return 'Silver';
+      if (productName.includes('gold')) return 'Gold';
+      if (productName.includes('clear')) return 'Clear';
+      
+      // If no color found, extract meaningful words from product name
+      const words = product.name?.split(' ').filter(word => 
+        word.length > 3 && 
+        !['the', 'and', 'for', 'with', 'from', 'strap', 'watch'].includes(word.toLowerCase())
+      ) || [];
+      return words[0] || 'Default';
+  }
+};
+
 // Component to show linked product preview in admin
 const LinkedProductPreview = ({ productId }) => {
   const [productData, setProductData] = useState(null);
@@ -1312,16 +1380,25 @@ const AdminProducts = () => {
             console.log('🎨 Found existing current product option:', currentProductOption);
           }
           
-          // If no current product option exists, create one with empty value
+          // If no current product option exists, create one with detected value
           if (!currentProductOption) {
+            // Only use auto-detection as last resort
+            const detectedValue = getCurrentProductVariationValue(variationsEditProduct, variation.type);
             currentProductOption = {
-              value: '', // Will be filtered out if empty
+              value: detectedValue,
               productId: null,
-              images: [],
-              price: null,
-              stock: null
+              images: variationsEditProduct.images || [],
+              price: variationsEditProduct.price || null,
+              stock: variationsEditProduct.stock || null
             };
-            console.log('🎨 Created new current product option (empty)');
+            console.log('🎨 Created new current product option with auto-detected value (fallback):', detectedValue);
+          } else if (!currentProductOption.value || currentProductOption.value.trim() === '') {
+            // If existing option has no value, detect it as fallback
+            const detectedValue = getCurrentProductVariationValue(variationsEditProduct, variation.type);
+            currentProductOption.value = detectedValue;
+            console.log('🎨 Updated existing current product option with auto-detected value (fallback):', detectedValue);
+          } else {
+            console.log('🎨 Preserving manually entered value:', currentProductOption.value);
           }
           
           console.log('🎨 Current product option before processing:', {
@@ -4710,11 +4787,40 @@ const AdminProducts = () => {
 
                               const cleanedVariations = (variationsEditProduct.variations || [])
                                 .filter(variation => variation.type && variation.name)
-                                .map(variation => ({
-                                  type: variation.type,
-                                  name: variation.name,
-                                  options: (variation.options || [])
-                                    .filter(option => option.productId) // Only include linked products
+                                .map(variation => {
+                                  // Check if there's already a manually entered value for the current product
+                                  const existingCurrentOption = variation.options?.find(option => 
+                                    !option.productId || option.productId === null || option.productId === variationsEditProduct._id
+                                  );
+                                  
+                                  // Use manually entered value if it exists, otherwise auto-detect
+                                  let currentProductValue;
+                                  if (existingCurrentOption && existingCurrentOption.value && existingCurrentOption.value.trim() !== '') {
+                                    currentProductValue = existingCurrentOption.value;
+                                    console.log('🎨 Using manually entered value:', currentProductValue);
+                                  } else {
+                                    currentProductValue = getCurrentProductVariationValue(variationsEditProduct, variation.type);
+                                    console.log('🎨 Using auto-detected value:', currentProductValue);
+                                  }
+                                  
+                                  const options = [];
+                                  
+                                  // Add current product option first (with null productId)
+                                  if (currentProductValue) {
+                                    options.push({
+                                      value: currentProductValue,
+                                      productId: null, // Current product
+                                      type: variation.type,
+                                      customName: '',
+                                      images: variationsEditProduct.images || [],
+                                      price: variationsEditProduct.price || null,
+                                      stock: variationsEditProduct.stock || null
+                                    });
+                                  }
+                                  
+                                  // Add linked product options
+                                  const linkedOptions = (variation.options || [])
+                                    .filter(option => option.productId) // Only linked products
                                     .map(option => ({
                                       value: option.value.trim(),
                                       productId: option.productId,
@@ -4723,8 +4829,16 @@ const AdminProducts = () => {
                                       images: option.images || [],
                                       price: option.price || null,
                                       stock: option.stock || null
-                                    }))
-                                }));
+                                    }));
+                                  
+                                  options.push(...linkedOptions);
+                                  
+                                  return {
+                                    type: variation.type,
+                                    name: variation.name,
+                                    options: options
+                                  };
+                                });
 
                               console.log('🎨 Saving variations with linked products:', cleanedVariations);
 
