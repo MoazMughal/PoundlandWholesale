@@ -7,7 +7,9 @@
     "dev": "nodemon server.js",
     "create-admin": "node scripts/createAdmin.js",
     "seed": "node scripts/seedData.js",
-    "update-jewelry": "node scripts/updateJewelryPrices.js"
+    "update-jewelry": "node scripts/updateJewelryPrices.js",
+    "env:dev": "node switch-environment.js development",
+    "env:prod": "node switch-environment.js production"
   },
   "dependencies": {
     "axios": "^1.13.2",

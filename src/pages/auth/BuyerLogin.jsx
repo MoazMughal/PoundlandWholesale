@@ -155,7 +155,7 @@ const BuyerLogin = () => {
                         Remember me
                       </label>
                     </div>
-                    <Link to="/forgot-password" className="text-decoration-none small text-primary">
+                    <Link to="/forgot-password-token" className="text-decoration-none small text-primary">
                       Forgot Password?
                     </Link>
                   </div>

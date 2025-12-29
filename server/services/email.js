@@ -197,7 +197,7 @@ export const sendPasswordResetEmail = async (email, userName, resetUrl) => {
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
             .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+            .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white !important; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
             .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
             .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
           </style>
@@ -213,7 +213,7 @@ export const sendPasswordResetEmail = async (email, userName, resetUrl) => {
               <p>We received a request to reset your password. Click the button below to create a new password:</p>
               
               <div style="text-align: center;">
-                <a href="${resetUrl}" class="button">Reset Password</a>
+                <a href="${resetUrl}" class="button" style="display: inline-block; padding: 12px 30px; background: #667eea; color: white !important; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold;">Reset Password</a>
               </div>
               
               <p>Or copy and paste this link into your browser:</p>

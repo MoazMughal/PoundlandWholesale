@@ -160,7 +160,7 @@ const SupplierLogin = () => {
                         Remember me
                       </label>
                     </div>
-                    <Link to="/forgot-password" className="text-decoration-none small text-success">
+                    <Link to="/forgot-password-token" className="text-decoration-none small text-success">
                       Forgot Password?
                     </Link>
                   </div>

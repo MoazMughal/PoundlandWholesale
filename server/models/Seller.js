@@ -153,8 +153,32 @@ sellerSchema.pre('save', async function(next) {
   
   // Generate supplier ID if new seller
   if (!this.supplierId) {
-    const count = await mongoose.model('Seller').countDocuments();
-    this.supplierId = `SUP${String(count + 1).padStart(6, '0')}`;
+    let supplierId;
+    let isUnique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (!isUnique && attempts < maxAttempts) {
+      const count = await mongoose.model('Seller').countDocuments();
+      const randomOffset = Math.floor(Math.random() * 1000); // Add randomness
+      const idNumber = count + randomOffset + 1;
+      supplierId = `SUP${String(idNumber).padStart(6, '0')}`;
+      
+      // Check if this ID already exists
+      const existingSupplier = await mongoose.model('Seller').findOne({ supplierId });
+      if (!existingSupplier) {
+        isUnique = true;
+      }
+      attempts++;
+    }
+    
+    if (!isUnique) {
+      // Fallback: use timestamp-based ID
+      const timestamp = Date.now().toString().slice(-6);
+      supplierId = `SUP${timestamp}`;
+    }
+    
+    this.supplierId = supplierId;
   }
   
   next();

@@ -138,20 +138,7 @@ const ForgotPasswordToken = () => {
                     </div>
                   </div>
 
-                  <div className="alert alert-info py-2 mb-3">
-                    <div className="d-flex align-items-start">
-                      <i className="fas fa-info-circle text-info me-2 mt-1"></i>
-                      <div>
-                        <h6 className="mb-1 small fw-bold">How it works:</h6>
-                        <ol className="mb-0 small ps-3">
-                          <li>Enter your email address</li>
-                          <li>Receive a secure reset link</li>
-                          <li>Link expires in 10 minutes</li>
-                          <li>Set your new password</li>
-                        </ol>
-                      </div>
-                    </div>
-                  </div>
+                 
 
                   <button 
                     type="submit" 

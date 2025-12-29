@@ -155,7 +155,7 @@ const Login = () => {
                           Remember me
                         </label>
                       </div>
-                      <Link to="/forgot-password" className="text-decoration-none" style={{fontSize: '0.85rem'}}>
+                      <Link to="/forgot-password-token" className="text-decoration-none" style={{fontSize: '0.85rem'}}>
                         Forgot Password?
                       </Link>
                     </div>
