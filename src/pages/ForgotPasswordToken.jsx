@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getApiUrl } from '../utils/api';
 
 const ForgotPasswordToken = () => {
   const [loading, setLoading] = useState(false);
@@ -28,7 +29,7 @@ const ForgotPasswordToken = () => {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
+      const response = await fetch(getApiUrl('auth/forgot-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

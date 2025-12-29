@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { getApiUrl } from '../utils/api';
 
 const ResetPassword = () => {
   const { token } = useParams();
@@ -29,7 +30,7 @@ const ResetPassword = () => {
       setUserType(type);
 
       const response = await fetch(
-        `http://localhost:5000/api/auth/verify-reset-token/${token}?type=${type}`
+        getApiUrl(`auth/verify-reset-token/${token}?type=${type}`)
       );
 
       const data = await response.json();
@@ -81,7 +82,7 @@ const ResetPassword = () => {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:5000/api/auth/reset-password-token', {
+      const response = await fetch(getApiUrl('auth/reset-password-token'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
