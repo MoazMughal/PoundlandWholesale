@@ -19,10 +19,36 @@ const ExcelProducts = () => {
   const [editingCell, setEditingCell] = useState(null); // { productId, field }
   const [editingValue, setEditingValue] = useState('');
   const [savedCell, setSavedCell] = useState(null); // { productId, field } for showing save feedback
+  const [availableCategories, setAvailableCategories] = useState([]);
 
   useEffect(() => {
-    fetchProducts();
+    // Debounce the search to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      fetchProducts();
+    }, searchQuery ? 500 : 0); // 500ms delay for search, immediate for other changes
+
+    return () => clearTimeout(timeoutId);
   }, [uploadId, currentPage, searchQuery, categoryFilter, statusFilter, pageSize]);
+
+  useEffect(() => {
+    fetchAvailableCategories();
+  }, [uploadId]);
+
+  const fetchAvailableCategories = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`http://localhost:5000/api/admin-excel/uploads/${uploadId}/categories`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableCategories(data.categories || []);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -36,16 +62,27 @@ const ExcelProducts = () => {
         ...(statusFilter !== 'all' && { status: statusFilter })
       });
 
+      console.log('🔍 Fetching products with params:', {
+        page: currentPage,
+        limit: pageSize,
+        search: searchQuery,
+        category: categoryFilter,
+        status: statusFilter
+      });
+
       const response = await fetch(`http://localhost:5000/api/admin-excel/uploads/${uploadId}/products?${params}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (response.ok) {
         const data = await response.json();
+        console.log('📊 Received products:', data.products.length, 'Total:', data.pagination?.totalProducts);
         setProducts(data.products);
         setUpload(data.upload);
         setTotalPages(data.pagination?.totalPages || 1);
         setTotalProducts(data.pagination?.totalProducts || data.products.length);
+      } else {
+        console.error('❌ Failed to fetch products:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -107,6 +144,31 @@ const ExcelProducts = () => {
     } catch (error) {
       console.error('Error converting products:', error);
       alert('❌ Failed to convert products');
+    }
+  };
+
+  const handleSyncStatus = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`http://localhost:5000/api/admin-excel/uploads/${uploadId}/sync-status`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(`✅ Status sync completed!\n\n📊 Synced: ${result.syncedCount} products\n🔧 Fixed: ${result.fixedCount} products\n📦 Total processed: ${result.totalProcessed}`);
+        fetchProducts(); // Refresh the list
+      } else {
+        alert(`❌ Failed to sync status: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error syncing status:', error);
+      alert('❌ Failed to sync status');
     }
   };
 
@@ -419,7 +481,11 @@ const ExcelProducts = () => {
               type="text"
               placeholder="🔍 Search products..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                console.log('Search query changed to:', e.target.value);
+                setSearchQuery(e.target.value);
+                setCurrentPage(1); // Reset to first page when search changes
+              }}
               style={{
                 padding: '6px 10px',
                 border: '1px solid #d1d5db',
@@ -431,7 +497,11 @@ const ExcelProducts = () => {
             
             <select
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              onChange={(e) => {
+                console.log('Category filter changed to:', e.target.value);
+                setCategoryFilter(e.target.value);
+                setCurrentPage(1); // Reset to first page when filter changes
+              }}
               style={{
                 padding: '6px 10px',
                 border: '1px solid #d1d5db',
@@ -440,11 +510,18 @@ const ExcelProducts = () => {
               }}
             >
               <option value="all">All Categories</option>
+              {availableCategories.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
             </select>
             
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                console.log('Status filter changed to:', e.target.value);
+                setStatusFilter(e.target.value);
+                setCurrentPage(1); // Reset to first page when filter changes
+              }}
               style={{
                 padding: '6px 10px',
                 border: '1px solid #d1d5db',
@@ -491,6 +568,23 @@ const ExcelProducts = () => {
                 🌐 Convert ({selectedProducts.size})
               </button>
             )}
+
+            <button
+              onClick={handleSyncStatus}
+              style={{
+                padding: '6px 12px',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+              title="Sync status with main products"
+            >
+              🔄 Sync Status
+            </button>
           </div>
         </div>
 
@@ -541,6 +635,7 @@ const ExcelProducts = () => {
                     </th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>Product</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>ASIN</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>Image</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>Category</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>Price</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>Rating</th>
@@ -606,6 +701,75 @@ const ExcelProducts = () => {
                           value={product.asin} 
                           style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
                         />
+                      </td>
+                      <td style={{ padding: '8px 10px' }}>
+                        {product.asin ? (
+                          <div style={{ 
+                            width: '40px', 
+                            height: '40px', 
+                            border: '1px solid #e5e7eb', 
+                            borderRadius: '4px',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: '#f8fafc'
+                          }}>
+                            <img
+                              src={`http://localhost:5000/api/admin-excel/public/images/by-asin/${product.asin}`}
+                              alt={product.asin}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                              }}
+                              onLoad={(e) => {
+                                // Image loaded successfully
+                                e.target.style.display = 'block';
+                                if (e.target.nextSibling) {
+                                  e.target.nextSibling.style.display = 'none';
+                                }
+                              }}
+                              onError={(e) => {
+                                // Image failed to load
+                                e.target.style.display = 'none';
+                                if (e.target.nextSibling) {
+                                  e.target.nextSibling.style.display = 'flex';
+                                }
+                              }}
+                            />
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '100%',
+                              height: '100%',
+                              fontSize: '0.6rem',
+                              color: '#9ca3af',
+                              flexDirection: 'column'
+                            }}>
+                              <div>📷</div>
+                              <div style={{ fontSize: '0.5rem', marginTop: '2px' }}>No Image</div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ 
+                            width: '40px', 
+                            height: '40px', 
+                            border: '1px dashed #d1d5db', 
+                            borderRadius: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: '#f9fafb',
+                            fontSize: '0.6rem',
+                            color: '#9ca3af',
+                            flexDirection: 'column'
+                          }}>
+                            <div>❌</div>
+                            <div style={{ fontSize: '0.5rem', marginTop: '2px' }}>No ASIN</div>
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: '8px 10px' }}>
                         <EditableCell 
@@ -716,7 +880,7 @@ const ExcelProducts = () => {
             </div>
           )}
 
-          {/* Compact Pagination */}
+          {/* Enhanced Pagination with Page Numbers */}
           {!loading && products.length > 0 && totalPages > 1 && (
             <div style={{
               padding: '12px 16px',
@@ -724,12 +888,53 @@ const ExcelProducts = () => {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              background: '#f8fafc'
+              background: '#f8fafc',
+              flexWrap: 'wrap',
+              gap: '10px'
             }}>
-              <div style={{ fontSize: '0.8rem', color: '#666' }}>
-                Page {currentPage} of {totalPages} ({totalProducts} total)
+              <div style={{ fontSize: '0.8rem', color: '#666', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span>Page {currentPage} of {totalPages} ({totalProducts} total)</span>
+                
+                {/* Quick Jump Input */}
+                {totalPages > 10 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '0.7rem' }}>Go to:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={totalPages}
+                      placeholder={currentPage}
+                      style={{
+                        width: '50px',
+                        padding: '3px 5px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '3px',
+                        fontSize: '0.7rem',
+                        textAlign: 'center'
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          const page = parseInt(e.target.value);
+                          if (page >= 1 && page <= totalPages) {
+                            setCurrentPage(page);
+                            e.target.value = '';
+                          }
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const page = parseInt(e.target.value);
+                        if (page >= 1 && page <= totalPages) {
+                          setCurrentPage(page);
+                          e.target.value = '';
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </div>
-              <div style={{ display: 'flex', gap: '6px' }}>
+              
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* First and Previous buttons */}
                 <button
                   onClick={() => setCurrentPage(1)}
                   disabled={currentPage === 1}
@@ -760,8 +965,129 @@ const ExcelProducts = () => {
                     fontWeight: '500'
                   }}
                 >
-                  ← Prev
+                  ←
                 </button>
+
+                {/* Page Numbers */}
+                {(() => {
+                  const pageNumbers = [];
+                  const maxVisiblePages = 7; // Show up to 7 page numbers
+                  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                  
+                  // Adjust start page if we're near the end
+                  if (endPage - startPage + 1 < maxVisiblePages) {
+                    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                  }
+
+                  // Add first page and ellipsis if needed
+                  if (startPage > 1) {
+                    pageNumbers.push(
+                      <button
+                        key={1}
+                        onClick={() => setCurrentPage(1)}
+                        style={{
+                          padding: '5px 8px',
+                          background: 1 === currentPage ? '#667eea' : 'white',
+                          color: 1 === currentPage ? 'white' : '#667eea',
+                          border: '1px solid #667eea',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          fontWeight: 1 === currentPage ? 'bold' : '500',
+                          minWidth: '28px'
+                        }}
+                      >
+                        1
+                      </button>
+                    );
+                    
+                    if (startPage > 2) {
+                      pageNumbers.push(
+                        <span key="ellipsis1" style={{ 
+                          padding: '5px 4px', 
+                          fontSize: '0.7rem', 
+                          color: '#9ca3af' 
+                        }}>
+                          ...
+                        </span>
+                      );
+                    }
+                  }
+
+                  // Add visible page numbers
+                  for (let i = startPage; i <= endPage; i++) {
+                    pageNumbers.push(
+                      <button
+                        key={i}
+                        onClick={() => setCurrentPage(i)}
+                        style={{
+                          padding: '5px 8px',
+                          background: i === currentPage ? '#667eea' : 'white',
+                          color: i === currentPage ? 'white' : '#667eea',
+                          border: '1px solid #667eea',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          fontWeight: i === currentPage ? 'bold' : '500',
+                          minWidth: '28px',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (i !== currentPage) {
+                            e.target.style.background = '#f0f4ff';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (i !== currentPage) {
+                            e.target.style.background = 'white';
+                          }
+                        }}
+                      >
+                        {i}
+                      </button>
+                    );
+                  }
+
+                  // Add ellipsis and last page if needed
+                  if (endPage < totalPages) {
+                    if (endPage < totalPages - 1) {
+                      pageNumbers.push(
+                        <span key="ellipsis2" style={{ 
+                          padding: '5px 4px', 
+                          fontSize: '0.7rem', 
+                          color: '#9ca3af' 
+                        }}>
+                          ...
+                        </span>
+                      );
+                    }
+                    
+                    pageNumbers.push(
+                      <button
+                        key={totalPages}
+                        onClick={() => setCurrentPage(totalPages)}
+                        style={{
+                          padding: '5px 8px',
+                          background: totalPages === currentPage ? '#667eea' : 'white',
+                          color: totalPages === currentPage ? 'white' : '#667eea',
+                          border: '1px solid #667eea',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          fontWeight: totalPages === currentPage ? 'bold' : '500',
+                          minWidth: '28px'
+                        }}
+                      >
+                        {totalPages}
+                      </button>
+                    );
+                  }
+
+                  return pageNumbers;
+                })()}
+
+                {/* Next and Last buttons */}
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage === totalPages}
@@ -776,7 +1102,7 @@ const ExcelProducts = () => {
                     fontWeight: '500'
                   }}
                 >
-                  Next →
+                  →
                 </button>
                 <button
                   onClick={() => setCurrentPage(totalPages)}

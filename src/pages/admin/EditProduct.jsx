@@ -97,7 +97,7 @@ const EditProduct = () => {
         rating: product.rating || 4.5,
         reviews: product.reviews || 0,
         stock: product.stock || 0,
-        dealUnits: product.dealUnits !== undefined && product.dealUnits !== null ? product.dealUnits : 1,
+        dealUnits: Math.floor((product.platformUnits || 2400) / 12), // Auto-calculate as platformUnits / 12
         platformUnits: product.platformUnits !== undefined && product.platformUnits !== null ? product.platformUnits : 2400,
         seller: product.seller?._id || '',
         isAmazonsChoice: product.isAmazonsChoice || false,
@@ -167,9 +167,10 @@ const EditProduct = () => {
   const fetchCategories = async () => {
     try {
       // Include Excel categories for admin use
-      const response = await fetch('http://localhost:5000/api/categories?includeExcel=true');
+      const response = await fetch('http://localhost:5000/api/products/public/categories?includeExcel=true');
       if (response.ok) {
         const data = await response.json();
+        console.log('📂 EditProduct: Fetched categories:', data.categories);
         setCategories(data.categories || []);
       }
     } catch (error) {
@@ -192,7 +193,7 @@ const EditProduct = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/categories', {
+      const response = await fetch('http://localhost:5000/api/products/public/categories', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -236,6 +237,12 @@ const EditProduct = () => {
       ...formData,
       [name]: type === 'checkbox' ? checked : value
     };
+
+    // Auto-calculate dealUnits when platformUnits changes
+    if (name === 'platformUnits') {
+      const platformUnits = parseInt(value) || 2400;
+      newFormData.dealUnits = Math.floor(platformUnits / 12);
+    }
 
     // If price is manually changed, update the original price reference
     if (name === 'price' && value !== '') {
@@ -491,7 +498,7 @@ const EditProduct = () => {
         rating: Math.min(Math.max(parseFloat(formData.rating) || 4.5, 0), 5), // Clamp between 0-5
         reviews: parseInt(formData.reviews) || 0,
         stock: parseInt(formData.stock) || 0,
-        dealUnits: isNaN(parseInt(formData.dealUnits)) ? 1 : parseInt(formData.dealUnits),
+        dealUnits: Math.floor((formData.platformUnits || 2400) / 12), // Auto-calculate as platformUnits / 12
         images: finalImageUrls,
         isAmazonsChoice: formData.isAmazonsChoice || false,
         status: formData.status || 'active',
@@ -625,7 +632,7 @@ const EditProduct = () => {
                   <select name="category" value={formData.category} onChange={handleChange} required>
                     <option value="">Select Category</option>
                     {categories.map(cat => (
-                      <option key={cat.value} value={cat.value}>
+                      <option key={cat.value} value={cat.label}>
                         {cat.label}
                       </option>
                     ))}
@@ -773,17 +780,17 @@ const EditProduct = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label>No of Deal Units *</label>
+              <label>No of Deal Units * (Auto-calculated)</label>
               <input
                 type="number"
                 name="dealUnits"
                 value={formData.dealUnits}
-                onChange={handleChange}
-                required
+                readOnly
                 min="1"
-                placeholder="1"
+                placeholder="Auto-calculated from Platform Units ÷ 12"
+                style={{backgroundColor: '#f8f9fa', cursor: 'not-allowed'}}
               />
-              <small>Number of units in this deal</small>
+              <small>Auto-calculated as Platform Units ÷ 12 (currently: {formData.platformUnits || 2400} ÷ 12 = {formData.dealUnits})</small>
             </div>
 
             <div className="form-group">

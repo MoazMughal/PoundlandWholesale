@@ -4,8 +4,15 @@ import { createTransport } from 'nodemailer';
 const createTransporter = () => {
   // Check if email credentials are configured
   if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('❌ Email credentials not configured:', {
+      EMAIL_HOST: !!process.env.EMAIL_HOST,
+      EMAIL_USER: !!process.env.EMAIL_USER,
+      EMAIL_PASS: !!process.env.EMAIL_PASS
+    });
     return null;
   }
+
+  console.log('📧 Creating email transporter with Gmail service...');
 
   // Configuration 1: Gmail service (fastest)
   const gmailConfig = {
@@ -46,7 +53,9 @@ const createTransporter = () => {
   };
 
   // Try Gmail service first, fallback to SMTP
-  return createTransport(gmailConfig);
+  const transporter = createTransport(gmailConfig);
+  console.log('✅ Email transporter created successfully');
+  return transporter;
 };
 
 // Test email connection
@@ -178,20 +187,27 @@ export const sendEmailOTP = async (email, otp, userName = 'User') => {
 // Send password reset email
 export const sendPasswordResetEmail = async (email, userName, resetUrl) => {
   try {
+    console.log('📧 Attempting to send password reset email to:', email);
+    console.log('🔗 Reset URL:', resetUrl);
+    
     const transporter = createTransporter();
     
     if (!transporter) {
+      console.error('❌ Failed to create email transporter');
       return false;
     }
 
     const mailOptions = {
-      from: `"${process.env.EMAIL_FROM_NAME || 'Your App'}" <${process.env.EMAIL_USER}>`,
+      from: `"${process.env.EMAIL_FROM_NAME || 'Generic Wholesale'}" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: 'Password Reset Request',
+      subject: 'Password Reset Request - Generic Wholesale',
       html: `
         <!DOCTYPE html>
         <html>
         <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta http-equiv="X-UA-Compatible" content="IE=edge">
           <style>
             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -200,25 +216,38 @@ export const sendPasswordResetEmail = async (email, userName, resetUrl) => {
             .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white !important; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
             .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
             .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+            .link-box { background: white; padding: 15px; border-radius: 5px; word-break: break-all; border: 1px solid #ddd; }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
               <h1 style="margin: 0;">🔐 Password Reset Request</h1>
+              <p style="margin: 10px 0 0 0; opacity: 0.9;">Generic Wholesale</p>
             </div>
             <div class="content">
               <p>Hi <strong>${userName}</strong>,</p>
               
-              <p>We received a request to reset your password. Click the button below to create a new password:</p>
+              <p>We received a request to reset your password for your Generic Wholesale account.</p>
+              
+              <p><strong>To reset your password:</strong></p>
+              <ol style="padding-left: 20px;">
+                <li>Click the button below</li>
+                <li>If it opens in a new tab, you can close this email tab</li>
+                <li>Or copy the link and paste it in your current browser tab</li>
+              </ol>
               
               <div style="text-align: center;">
-                <a href="${resetUrl}" class="button" style="display: inline-block; padding: 12px 30px; background: #667eea; color: white !important; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold;">Reset Password</a>
+                <a href="${resetUrl}" class="button" target="_self" rel="noopener" style="display: inline-block; padding: 12px 30px; background: #667eea; color: white !important; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold;">Reset Password</a>
               </div>
               
               <p>Or copy and paste this link into your browser:</p>
-              <p style="background: white; padding: 10px; border-radius: 5px; word-break: break-all;">
-                <a href="${resetUrl}">${resetUrl}</a>
+              <div class="link-box">
+                <a href="${resetUrl}" target="_self" rel="noopener" style="color: #667eea; word-break: break-all;">${resetUrl}</a>
+              </div>
+              
+              <p style="font-size: 14px; color: #888; margin-top: 15px;">
+                💡 <strong>Tip:</strong> If the button doesn't work, copy the link above and paste it directly into your browser's address bar.
               </p>
               
               <div class="warning">
@@ -231,18 +260,21 @@ export const sendPasswordResetEmail = async (email, userName, resetUrl) => {
               </div>
               
               <p style="margin-top: 30px; color: #666;">
-                If you're having trouble clicking the button, copy and paste the URL above into your web browser.
+                If you're having trouble clicking the button, copy and paste the URL above into your web browser. 
+                <br><small>Note: Gmail may open links in new tabs for security - this is normal behavior.</small>
               </p>
             </div>
             <div class="footer">
               <p>This is an automated email. Please do not reply.</p>
-              <p>&copy; ${new Date().getFullYear()} Your Company. All rights reserved.</p>
+              <p>&copy; ${new Date().getFullYear()} Generic Wholesale. All rights reserved.</p>
             </div>
           </div>
         </body>
         </html>
       `
     };
+
+    console.log('📧 Email options configured, attempting to send...');
 
     // Add timeout wrapper
     const sendWithTimeout = (transporter, mailOptions, timeout = 15000) => {
@@ -254,10 +286,12 @@ export const sendPasswordResetEmail = async (email, userName, resetUrl) => {
       ]);
     };
 
-    await sendWithTimeout(transporter, mailOptions);
+    const result = await sendWithTimeout(transporter, mailOptions);
+    console.log('✅ Password reset email sent successfully:', result.messageId);
     return true;
 
   } catch (error) {
+    console.error('❌ Failed to send password reset email:', error);
     return false;
   }
 };

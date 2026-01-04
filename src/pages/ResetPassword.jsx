@@ -3,9 +3,37 @@ import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { getApiUrl } from '../utils/api';
 
 const ResetPassword = () => {
+  // Add error boundary
+  const [componentError, setComponentError] = useState(null);
+  
+  // Wrap the component in error handling
+  useEffect(() => {
+    const handleError = (error) => {
+      console.error('ResetPassword component error:', error);
+      setComponentError(error.message);
+    };
+    
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  if (componentError) {
+    return (
+      <div style={{ padding: '50px', textAlign: 'center' }}>
+        <h2>Component Error</h2>
+        <p>Error: {componentError}</p>
+        <a href="/forgot-password-token">Request New Reset Link</a>
+      </div>
+    );
+  }
+
   const { token } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  
+  console.log('🔄 ResetPassword component loaded');
+  console.log('🔄 Token from URL:', token);
+  console.log('🔄 Search params:', Object.fromEntries(searchParams));
   
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
@@ -21,6 +49,7 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
+    console.log('🔄 useEffect triggered, calling verifyToken');
     verifyToken();
   }, [token]);
 
@@ -29,18 +58,23 @@ const ResetPassword = () => {
       const type = searchParams.get('type') || 'buyer';
       setUserType(type);
 
+      console.log('🔍 Verifying token:', token, 'for type:', type);
+
       const response = await fetch(
         getApiUrl(`auth/verify-reset-token/${token}?type=${type}`)
       );
 
       const data = await response.json();
+      console.log('🔍 Token verification response:', data);
 
       if (response.ok) {
         setTokenValid(true);
         setUserEmail(data.email);
+        console.log('✅ Token is valid for email:', data.email);
       } else {
         setTokenValid(false);
         setError(data.message || 'Invalid or expired reset token');
+        console.error('❌ Token verification failed:', data.message);
       }
     } catch (error) {
       console.error('Token verification error:', error);
@@ -82,6 +116,8 @@ const ResetPassword = () => {
     setLoading(true);
     
     try {
+      console.log('🔄 Submitting password reset for token:', token, 'userType:', userType);
+      
       const response = await fetch(getApiUrl('auth/reset-password-token'), {
         method: 'POST',
         headers: {
@@ -95,19 +131,23 @@ const ResetPassword = () => {
       });
 
       const data = await response.json();
+      console.log('🔄 Password reset response:', data);
 
       if (response.ok) {
         setSuccess('Password reset successfully! Redirecting to login...');
+        console.log('✅ Password reset successful');
         setTimeout(() => {
           const loginPath = userType === 'buyer' 
             ? '/login/buyer' 
             : userType === 'seller' 
               ? '/login/supplier' 
-              : '/login';
+              : '/auth';
+          console.log('🔄 Redirecting to:', loginPath);
           navigate(loginPath);
         }, 2000);
       } else {
         setError(data.message || 'Failed to reset password');
+        console.error('❌ Password reset failed:', data.message);
       }
     } catch (error) {
       console.error('Reset password error:', error);
@@ -170,19 +210,46 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="min-vh-100 d-flex align-items-center bg-light py-4">
-      <div className="container">
+    <div className="min-vh-100 d-flex align-items-center py-4" style={{
+      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+      position: 'relative'
+    }}>
+      {/* Background Pattern */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='M20 20c0-5.5-4.5-10-10-10s-10 4.5-10 10 4.5 10 10 10 10-4.5 10-10zm10 0c0-5.5-4.5-10-10-10s-10 4.5-10 10 4.5 10 10 10 10-4.5 10-10z'/%3E%3C/g%3E%3C/svg%3E")`,
+        opacity: 0.2
+      }}></div>
+      
+      <div className="container position-relative">
         <div className="row justify-content-center">
           <div className="col-lg-5 col-md-7">
-            <div className="card shadow-lg border-0 rounded-4">
-              <div className="card-body p-4">
+            <div className="card shadow-2xl border-0 rounded-4" style={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(10px)'
+            }}>
+              <div className="card-body p-5">
                 <div className="text-center mb-4">
                   <div className="mb-3">
-                    <i className="fas fa-lock fa-3x text-success"></i>
+                    <div className="d-inline-flex align-items-center justify-content-center" style={{
+                      width: '80px',
+                      height: '80px',
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      borderRadius: '50%',
+                      boxShadow: '0 10px 30px rgba(16, 185, 129, 0.3)'
+                    }}>
+                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{width: '32px', height: '32px'}}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                      </svg>
+                    </div>
                   </div>
                   <h4 className="fw-bold text-dark mb-2">Set New Password</h4>
                   <p className="text-muted small mb-0">
-                    Create a strong password for: <strong>{userEmail}</strong>
+                    Create a strong password for: <strong className="text-success">{userEmail}</strong>
                   </p>
                 </div>
 

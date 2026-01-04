@@ -78,7 +78,7 @@ const MobileHeader = () => {
       try {
         // Add cache buster to ensure fresh data
         const cacheBuster = `_t=${Date.now()}`;
-        const response = await fetch(`http://localhost:5000/api/categories?${cacheBuster}`, {
+        const response = await fetch(`http://localhost:5000/api/products/public/categories?${cacheBuster}`, {
           headers: {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
@@ -100,15 +100,10 @@ const MobileHeader = () => {
             !hiddenCategories.includes(cat.value)
           );
           
-          // Add "All" category at the beginning
-          const allCategories = [
-            { value: 'all', label: 'All' },
-            ...visibleCategories
-          ];
-          
-          console.log('📱 Mobile header categories loaded:', allCategories.length, 'categories');
+          // Use categories from API (which already includes "All" at the beginning)
+          console.log('📱 Mobile header categories loaded:', visibleCategories.length, 'categories');
           console.log('📱 Hidden categories:', hiddenCategories);
-          setCategories(allCategories);
+          setCategories(visibleCategories);
         }
       } catch (error) {
         console.error('Error fetching categories for mobile header:', error);

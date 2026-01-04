@@ -132,16 +132,16 @@ export const AdminProvider = ({ children }) => {
           localStorage.setItem('adminData', JSON.stringify(freshAdmin))
 
         } else if (response.status === 401) {
-          
-          await attemptTokenRefresh(token)
+          console.log('🔑 Token validation failed, but continuing with cached admin data for public pages')
+          // Don't logout immediately for public pages, just log the issue
         } else {
-          
+          console.log('🔑 Token validation server error, continuing with cached data')
         }
       } catch (error) {
         if (error.name === 'TimeoutError') {
-          
+          console.log('🔑 Token validation timeout, continuing with cached data')
         } else {
-          
+          console.log('🔑 Token validation network error, continuing with cached data')
         }
       } finally {
         setIsAuthenticating(false)

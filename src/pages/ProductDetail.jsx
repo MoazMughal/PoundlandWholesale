@@ -106,7 +106,14 @@ const ProductDetail = () => {
   const [isSellerLoggedIn, setIsSellerLoggedIn] = useState(false)
   const [currentSeller, setCurrentSeller] = useState(null)
   const [savingUnits, setSavingUnits] = useState(false) // Loading state for saving units
-  const [quantity, setQuantity] = useState(200) // Minimum quantity is 200
+  const [quantity, setQuantity] = useState(200) // Will be updated to match dealUnits
+
+  // Update quantity to match dealUnits when product loads
+  useEffect(() => {
+    if (product && product.dealUnits) {
+      setQuantity(product.dealUnits);
+    }
+  }, [product?.dealUnits]);
 
   // Variation change handlers
   const handleVariationChange = (newSelections) => {
@@ -448,7 +455,7 @@ const ProductDetail = () => {
             category: dbProduct.category || 'General',
             brand: dbProduct.brand || '',
             markup: dbProduct.discount ? `${dbProduct.discount}%` : '250%',
-            dealUnits: dbProduct.dealUnits || 1,
+            dealUnits: Math.floor((dbProduct.platformUnits || 200) / 12), // Calculate as platformUnits / 12
             seller: dbProduct.seller,
             sellerInfo: dbProduct.sellerInfo,
             save: parseFloat(dbProduct.savings) || 0, // Add the single savings field
@@ -470,7 +477,7 @@ const ProductDetail = () => {
             dealInfo: {
               location: 'International',
               flag: '🌍',
-              minOrder: '200 Unit',
+              minOrder: `${dbProduct.dealUnits || Math.floor((dbProduct.platformUnits || 200) / 12)} Unit`,
               condition: 'New'
             },
             specifications: {
@@ -1216,7 +1223,7 @@ const ProductDetail = () => {
           dealInfo: {
             location: 'International',
             flag: '🌍',
-            minOrder: '200 Unit',
+            minOrder: `${Math.floor(200 / 12)} Unit`, // Default calculation for URL params
             condition: 'New'
           },
           specifications: {
@@ -1586,7 +1593,7 @@ const ProductDetail = () => {
                      `₨${foundProduct.price}`,
               rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
               rating: foundProduct.rating || 4.5,
-              dealUnits: foundProduct.dealUnits || 1,
+              dealUnits: Math.floor((foundProduct.platformUnits || 200) / 12), // Calculate as platformUnits / 12
               seller: foundProduct.seller,
               sellerInfo: foundProduct.sellerInfo,
               reviews: foundProduct.reviews || 100,
@@ -1604,7 +1611,7 @@ const ProductDetail = () => {
               dealInfo: {
                 location: 'International',
                 flag: '🌍',
-                minOrder: '200 Unit',
+                minOrder: `${foundProduct.dealUnits || Math.floor((foundProduct.platformUnits || 200) / 12)} Unit`,
                 condition: 'New'
               },
               specifications: {
@@ -1928,7 +1935,7 @@ const ProductDetail = () => {
                        `₨${foundProduct.price}`, // Use the actual currency from database
                 rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
                 rating: foundProduct.rating || 4.5,
-                dealUnits: foundProduct.dealUnits || 1,
+                dealUnits: Math.floor((foundProduct.platformUnits || 200) / 12), // Calculate as platformUnits / 12
                 seller: foundProduct.seller,
                 sellerInfo: foundProduct.sellerInfo,
                 reviews: foundProduct.reviews || 100,
@@ -1946,7 +1953,7 @@ const ProductDetail = () => {
                 dealInfo: {
                   location: 'International',
                   flag: '🌍',
-                  minOrder: '200 Unit',
+                  minOrder: `${foundProduct.dealUnits || Math.floor((foundProduct.platformUnits || 200) / 12)} Unit`,
                   condition: 'New'
                 },
                 specifications: {
@@ -2331,24 +2338,54 @@ const ProductDetail = () => {
       console.log('- selectedUnits:', selectedUnits);
     }
     
-    // If we have admin panel platform data, use it with selected units
+    // Get product cost price in GBP for calculations
+    const getProductCostGBP = () => {
+      const costPriceRaw = parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0);
+      const isPKR = product?.price?.includes('₨') || product?.price?.includes('Rs');
+      const isGBP = product?.price?.includes('£');
+      
+      if (isPKR) {
+        return costPriceRaw * 0.00272; // Convert PKR to GBP
+      } else if (isGBP) {
+        return costPriceRaw; // Already in GBP
+      } else {
+        // Assume PKR if no currency symbol
+        return costPriceRaw * 0.00272;
+      }
+    };
+    
+    const productCostGBP = getProductCostGBP();
+    
+    // If we have admin panel platform data, use it with new formula
     if (product?.platforms && product.platforms.length > 0) {
       if (isTargetProduct) {
-        console.log('✅ Using admin panel platform data with selected units:', product.platforms);
+        console.log('✅ Using admin panel platform data with new formula:', product.platforms);
       }
-      // Use stored platform data with individual units
+      // Use stored platform data with formula: (Platform Price - Product Cost) × Unit Sales/Year = Gross Profit
       return product.platforms.map(platform => {
         const perUnitPrice = platform.perUnitPrice || parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) / (platform.units || 200);
-        const platformUnits = platform.units || 200; // Use platform-specific units
-        const totalPrice = perUnitPrice * platformUnits;
-        const totalProfit = platform.grossProfit || 0; // Use stored profit
+        const platformUnits = platform.units || quantity || 200; // Use platform-specific units or current quantity
+        
+        // Formula: (Platform Price - Product Cost) × Unit Sales/Year = Gross Profit
+        const grossProfitPerUnit = perUnitPrice - productCostGBP;
+        const totalGrossProfit = grossProfitPerUnit * platformUnits;
+        
+        console.log(`Platform ${platform.name} calculation:`, {
+          perUnitPrice: perUnitPrice,
+          productCostGBP: productCostGBP,
+          grossProfitPerUnit: grossProfitPerUnit,
+          platformUnits: platformUnits,
+          totalGrossProfit: totalGrossProfit,
+          formula: `(${perUnitPrice} - ${productCostGBP}) × ${platformUnits} = ${totalGrossProfit}`
+        });
         
         return {
           ...platform,
-          price: totalPrice,
-          grossProfit: totalProfit,
+          price: perUnitPrice, // Show per unit price
+          grossProfit: totalGrossProfit, // Use new formula result
           units: platformUnits,
-          description: `Total Profit: ${totalProfit} for ${platformUnits} units`
+          perUnitPrice: perUnitPrice,
+          description: `Gross Profit: £${totalGrossProfit.toFixed(2)} for ${platformUnits} units`
         };
       });
     }
@@ -2368,63 +2405,52 @@ const ProductDetail = () => {
     const rrpValue = parseFloat(product.rrp.replace(/[£₨$€]/g, ''));
     if (isNaN(rrpValue)) return [];
     
-    // Calculate prices and profits for selected units
-    const rrpTotal = rrpValue * selectedUnits;
+    // Calculate platform prices
     const amazonPrice = rrpValue * 0.70; // 30% less than RRP
-    const amazonTotal = amazonPrice * selectedUnits;
     const ebayPrice = rrpValue * 0.75; // 25% less than RRP
-    const ebayTotal = ebayPrice * selectedUnits;
     
-    // Get cost price and convert to GBP if needed
-    const costPriceRaw = parseFloat(product.price.replace(/[£₨$€]/g, ''));
-    // Check if price is in PKR (₨) or GBP (£)
-    const isPKR = product.price.includes('₨') || product.price.includes('Rs');
-    const isGBP = product.price.includes('£');
+    // Formula: (Platform Price - Product Cost) × Unit Sales/Year = Gross Profit
+    const rrpGrossProfitPerUnit = rrpValue - productCostGBP;
+    const amazonGrossProfitPerUnit = amazonPrice - productCostGBP;
+    const ebayGrossProfitPerUnit = ebayPrice - productCostGBP;
     
-    // Convert cost price to GBP
-    let costPriceGBP;
-    if (isPKR) {
-      costPriceGBP = costPriceRaw * 0.00272; // Convert PKR to GBP
-    } else if (isGBP) {
-      costPriceGBP = costPriceRaw; // Already in GBP
-    } else {
-      // Assume PKR if no currency symbol
-      costPriceGBP = costPriceRaw * 0.00272;
-    }
+    const selectedUnits = quantity || 200; // Use current quantity selection
+    const rrpTotalGrossProfit = rrpGrossProfitPerUnit * selectedUnits;
+    const amazonTotalGrossProfit = amazonGrossProfitPerUnit * selectedUnits;
+    const ebayTotalGrossProfit = ebayGrossProfitPerUnit * selectedUnits;
     
-    const costTotal = costPriceGBP * selectedUnits;
-    
-    // Calculate profits as total revenue (RRP * selected units)
-    const rrpProfit = rrpTotal; // RRP * selected units (total revenue)
-    const amazonProfit = amazonTotal; // Amazon price * selected units (total revenue)
-    const ebayProfit = ebayTotal; // eBay price * selected units (total revenue)
-    
-    // Calculate markup percentages (Revenue vs Cost)
-    const rrpMarkup = (((rrpTotal - costTotal) / costTotal) * 100).toFixed(2);
-    const amazonMarkup = (((amazonTotal - costTotal) / costTotal) * 100).toFixed(2);
-    const ebayMarkup = (((ebayTotal - costTotal) / costTotal) * 100).toFixed(2);
+    // Calculate markup percentages: ((Platform Price - Product Cost) / Product Cost) × 100
+    const rrpMarkup = productCostGBP > 0 ? (((rrpValue - productCostGBP) / productCostGBP) * 100).toFixed(2) : '0';
+    const amazonMarkup = productCostGBP > 0 ? (((amazonPrice - productCostGBP) / productCostGBP) * 100).toFixed(2) : '0';
+    const ebayMarkup = productCostGBP > 0 ? (((ebayPrice - productCostGBP) / productCostGBP) * 100).toFixed(2) : '0';
     
     return [
       { 
         name: 'RRP', 
-        price: `£${rrpTotal.toFixed(2)}`, 
-        grossProfit: `£${rrpProfit.toFixed(2)}`, 
+        price: rrpValue,
+        grossProfit: rrpTotalGrossProfit, 
         markup: `${rrpMarkup}%`,
-        description: `Total Revenue: RRP × ${selectedUnits} units`
+        units: selectedUnits,
+        perUnitPrice: rrpValue,
+        description: `Gross Profit: £${rrpTotalGrossProfit.toFixed(2)} for ${selectedUnits} units`
       },
       { 
         name: 'Amazon', 
-        price: `£${amazonTotal.toFixed(2)}`, 
-        grossProfit: `£${amazonProfit.toFixed(2)}`, 
+        price: amazonPrice,
+        grossProfit: amazonTotalGrossProfit, 
         markup: `${amazonMarkup}%`,
-        description: `Total Revenue: Amazon Price × ${selectedUnits} units`
+        units: selectedUnits,
+        perUnitPrice: amazonPrice,
+        description: `Gross Profit: £${amazonTotalGrossProfit.toFixed(2)} for ${selectedUnits} units`
       },
       { 
         name: 'eBay', 
-        price: `£${ebayTotal.toFixed(2)}`, 
-        grossProfit: `£${ebayProfit.toFixed(2)}`, 
+        price: ebayPrice,
+        grossProfit: ebayTotalGrossProfit, 
         markup: `${ebayMarkup}%`,
-        description: `Total Revenue: eBay Price × ${selectedUnits} units`
+        units: selectedUnits,
+        perUnitPrice: ebayPrice,
+        description: `Gross Profit: £${ebayTotalGrossProfit.toFixed(2)} for ${selectedUnits} units`
       }
     ];
   };
@@ -2818,25 +2844,27 @@ const ProductDetail = () => {
                     <div className="flex-grow-1">
                       <div className="d-flex align-items-baseline gap-2 flex-wrap mb-2">
                         <span className="fw-bold" style={{
-                          fontSize: '1.4rem', 
+                          fontSize: '1.6rem', 
                           color: '#B12704',
-                          fontWeight: '700',
-                          letterSpacing: '-0.3px'
+                          fontWeight: '800',
+                          letterSpacing: '-0.5px',
+                          fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                         }}>
                           {convertPrice(product.price)}
                         </span>
                         <span className="text-muted" style={{
                           fontSize: '0.75rem',
                           fontWeight: '500'
-                        }}>/Unit ex. VAT</span>
+                        }}>/Unit (DDP to Amazon Warehouse)</span>
                       </div>
                       {/* Enhanced RRP and Save Section */}
                       <div className="d-flex gap-3 align-items-center flex-wrap">
                         <div className="d-flex align-items-center gap-1">
                           <small className="text-muted" style={{fontSize: '0.65rem', fontWeight: '500'}}>RRP:</small>
                           <span className="fw-bold text-primary" style={{
-                            fontSize: '0.75rem',
-                            fontWeight: '700'
+                            fontSize: '0.85rem',
+                            fontWeight: '700',
+                            fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                           }}>
                             {(() => {
                               // FIXED RRP LOGIC: Use Amazon Platform RRP values from admin panel
@@ -2995,7 +3023,7 @@ const ProductDetail = () => {
                             color: '#232f3e',
                             letterSpacing: '0.2px'
                           }}>
-                            Profit Calculator
+                            Amazon Deal Profit Calculation
                           </span>
                           <button
                             onClick={() => {
@@ -3033,36 +3061,37 @@ const ProductDetail = () => {
                         </div>
                         <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                           <span style={{color: '#565959'}}>💰 Profit/unit:</span>
-                          <span style={{color: '#059669', fontWeight: '700', fontSize: '0.7rem'}}>
+                          <span style={{color: '#059669', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
                             £{safeNumber(product.profitCalculations.profitPerUnit).toFixed(2)}
                           </span>
                         </div>
                         <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>📈 Profit/{product.dealUnits || 1}:</span>
-                          <span style={{color: '#059669', fontWeight: '700', fontSize: '0.7rem'}}>
-                            £{(product.profitEvaluation?.netProfit || (safeNumber(product.profitCalculations.profitPerUnit) * (product.dealUnits || 1))).toFixed(2)}
+                          <span style={{color: '#565959'}}>📈 Profit/{quantity}:</span>
+                          <span style={{color: '#059669', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
+                            £{(product.profitEvaluation?.netProfit ? (product.profitEvaluation.netProfit / (product.dealUnits || 1)) * quantity : (safeNumber(product.profitCalculations.profitPerUnit) * quantity)).toFixed(2)}
                           </span>
                         </div>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>💰 Total cost/{product.dealUnits || 1}:</span>
-                          <span style={{color: '#B12704', fontWeight: '700', fontSize: '0.7rem'}}>{(() => {
+                          <span style={{color: '#565959'}}>💰 Total cost/{quantity}:</span>
+                          <span style={{color: '#B12704', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>{(() => {
                             // Use profitEvaluation productCost if available, otherwise calculate from price
                             if (product.profitEvaluation?.productCost) {
-                              return `£${(product.profitEvaluation.productCost).toFixed(2)}`;
+                              // Calculate proportional cost based on current quantity vs dealUnits
+                              const costPerUnit = product.profitEvaluation.productCost / (product.dealUnits || 1);
+                              return `£${(costPerUnit * quantity).toFixed(2)}`;
                             }
                             
                             // Fallback calculation: quantity × unit price
                             const priceString = product.price || '£0';
                             const unitPrice = parseFloat(priceString.replace(/[₨£$€]/g, '').trim()) || 0;
-                            const units = product.dealUnits || 1;
-                            const totalCost = unitPrice * units;
+                            const totalCost = unitPrice * quantity;
                             
                             console.log('💰 Cost Calculation:', {
                               originalPrice: product.price,
                               unitPrice: unitPrice,
-                              units: units,
+                              quantity: quantity,
                               totalCost: totalCost,
-                              formula: `${units} × ${unitPrice} = ${totalCost}`
+                              formula: `${quantity} × ${unitPrice} = ${totalCost}`
                             });
                             
                             return `£${totalCost.toFixed(2)}`;
@@ -3381,7 +3410,7 @@ const ProductDetail = () => {
                       <span style={{fontSize: '0.6rem', color: '#565959', fontWeight: '500'}}>/Unit</span>
                     </div>
                     <small style={{fontSize: '0.6rem', color: '#565959', fontWeight: '500'}}>
-                      Excluding VAT & shipping
+                      (DDP to Amazon Warehouse)
                     </small>
                   </div>
 
@@ -3397,11 +3426,11 @@ const ProductDetail = () => {
                       color: '#0369a1'
                     }}>
                       <i className="fas fa-check-circle me-1" style={{color: '#059669', fontSize: '0.6rem'}}></i>
-                      In Stock & Ready
+                      In Stock & Ready to Ship
                     </div>
                     <small style={{fontSize: '0.6rem', color: '#0369a1', fontWeight: '500'}}>
                       <i className="fas fa-shipping-fast me-1"></i>
-                      Fast Shipping Available
+                      Delivery in 15 days to Amazon Warehouse
                     </small>
                   </div>
 
@@ -3419,7 +3448,7 @@ const ProductDetail = () => {
                     }}>Quantity:</label>
                     <div className="d-flex align-items-center gap-1 mb-1">
                       <button
-                        onClick={() => setQuantity(Math.max(200, quantity - 50))}
+                        onClick={() => setQuantity(Math.max(product?.dealUnits || 200, quantity - 1))}
                         style={{
                           background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
                           border: '1px solid #e1e5e9',
@@ -3450,19 +3479,20 @@ const ProductDetail = () => {
                         type="number" 
                         className="form-control text-center" 
                         style={{
-                          fontSize: '0.7rem', 
+                          fontSize: '0.8rem', 
                           color: '#232f3e', 
                           backgroundColor: '#ffffff', 
                           border: '1px solid #e1e5e9',
                           borderRadius: '4px',
-                          fontWeight: '600',
+                          fontWeight: '700',
                           maxWidth: '60px',
                           padding: '4px',
-                          height: '24px'
+                          height: '24px',
+                          fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                         }}
                         value={quantity}
-                        min="200"
-                        step="50"
+                        min={product?.dealUnits || 200}
+                        step="1"
                         onChange={(e) => {
                           const value = e.target.value;
                           // Allow user to type freely, including clearing the field
@@ -3473,10 +3503,11 @@ const ProductDetail = () => {
                           }
                         }}
                         onBlur={(e) => {
-                          // Ensure value is at least 200 when user leaves the field
+                          // Ensure value is at least dealUnits when user leaves the field
+                          const minQuantity = product?.dealUnits || 200;
                           const value = parseInt(e.target.value);
-                          if (isNaN(value) || value < 200) {
-                            setQuantity(200);
+                          if (isNaN(value) || value < minQuantity) {
+                            setQuantity(minQuantity);
                           }
                           // Reset styling
                           e.target.style.borderColor = '#e1e5e9';
@@ -3489,7 +3520,7 @@ const ProductDetail = () => {
                         placeholder="200"
                       />
                       <button
-                        onClick={() => setQuantity(quantity + 50)}
+                        onClick={() => setQuantity(quantity + 1)}
                         style={{
                           background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
                           border: '1px solid #e1e5e9',
@@ -3523,7 +3554,7 @@ const ProductDetail = () => {
                       fontWeight: '500'
                     }}>
                       <i className="fas fa-info-circle me-1"></i>
-                      Min: 200 units
+                      Min: {product?.dealUnits || 200} units • Changes affect Platform Comparison gross profit
                     </small>
                   </div>
 
@@ -3562,7 +3593,7 @@ const ProductDetail = () => {
                         e.target.style.boxShadow = '0 2px 6px rgba(255, 153, 0, 0.25)';
                       }}
                     >
-                      <i className="fas fa-bolt me-1"></i>Buy Now - {quantity || 200} Units
+                      <i className="fas fa-bolt me-1"></i>Buy Now - <span style={{fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>{quantity || 200}</span> Units
                     </button>
                     
                     <button 
@@ -3899,14 +3930,27 @@ const ProductDetail = () => {
                       <div className="fw-bold mb-2" style={{fontSize: '0.9rem', color: '#2d3748'}}>
                         <i className="fas fa-chart-line me-2"></i>Platform Comparison
                       </div>
+                      
+                      {/* Formula Explanation */}
+                      <div className="alert alert-info py-2 px-3 mb-3" style={{fontSize: '0.7rem', background: 'linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%)', border: '1px solid #90caf9', borderRadius: '6px'}}>
+                        <div className="d-flex align-items-center">
+                          <i className="fas fa-calculator me-2 text-primary"></i>
+                          <strong>Formula:</strong>
+                          <span className="ms-2" style={{fontFamily: 'monospace', background: '#fff', padding: '2px 6px', borderRadius: '3px', border: '1px solid #ddd'}}>
+                            (Platform Price - Product Cost) × Unit Sale/Year = Gross Profit
+                          </span>
+                        </div>
+                      </div>
+                      
                       <div className="table-responsive" style={{overflowX: 'auto', overflowY: 'hidden'}}>
                         <table className="table table-sm table-bordered shadow-sm mb-0" style={{fontSize: '0.75rem'}}>
                           <thead style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white'}}>
                             <tr>
                               <th className="fw-bold py-2 px-2" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Platform</th>
-                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>RRP/Unit (£)</th>
-                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Units</th>
-                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Total Profit </th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Platform Price</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Product Cost</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Unit Sale/Year</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Gross Profit</th>
                               <th className="fw-bold py-2 px-2 text-center">Markup</th>
                             </tr>
                           </thead>
@@ -3914,6 +3958,25 @@ const ProductDetail = () => {
                             {(() => {
                               const platformData = calculatePlatformData();
                               console.log('🎯 PLATFORM DATA FOR DISPLAY:', platformData);
+                              
+                              // Get product cost for display
+                              const getProductCostGBP = () => {
+                                const costPriceRaw = parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0);
+                                const isPKR = product?.price?.includes('₨') || product?.price?.includes('Rs');
+                                const isGBP = product?.price?.includes('£');
+                                
+                                if (isPKR) {
+                                  return costPriceRaw * 0.00272; // Convert PKR to GBP
+                                } else if (isGBP) {
+                                  return costPriceRaw; // Already in GBP
+                                } else {
+                                  // Assume PKR if no currency symbol
+                                  return costPriceRaw * 0.00272;
+                                }
+                              };
+                              
+                              const productCostGBP = getProductCostGBP();
+                              
                               return platformData.map((platform, idx) => {
                                 console.log(`🔍 Platform ${idx + 1} (${platform.name}):`, {
                                   rawPrice: platform.price,
@@ -3953,7 +4016,10 @@ const ProductDetail = () => {
                                 // Calculate per unit price and total profit correctly
                                 const perUnitPrice = platform.perUnitPrice || parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) / (platform.units || 200);
                                 const platformUnits = platform.units || quantity || 200;
-                                const totalProfit = perUnitPrice * platformUnits;
+                                
+                                // Formula: (Platform Price - Product Cost) × Unit Sales/Year = Gross Profit
+                                const grossProfitPerUnit = perUnitPrice - productCostGBP;
+                                const totalGrossProfit = grossProfitPerUnit * platformUnits;
                                 
                                 return (
                                   <tr key={idx} style={{background: idx % 2 === 0 ? '#f8f9fa' : 'white'}}>
@@ -3961,14 +4027,20 @@ const ProductDetail = () => {
                                       <i className={`fas fa-${platform.name === 'Amazon' ? 'shopping-cart' : platform.name === 'eBay' ? 'gavel' : 'store'} me-1 text-primary`} style={{fontSize: '0.7rem'}}></i>
                                       {platform.name}
                                     </td>
-                                    <td className="fw-bold text-primary py-2 px-2 text-center" style={{fontSize: '0.75rem'}}>
+                                    <td className="fw-bold text-primary py-2 px-2 text-center" style={{fontSize: '0.8rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
                                       £{safeNumber(perUnitPrice).toFixed(2)}
                                     </td>
-                                    <td className="fw-bold py-2 px-2 text-center" style={{fontSize: '0.75rem', color: '#2d3748'}}>
+                                    <td className="fw-bold text-danger py-2 px-2 text-center" style={{fontSize: '0.8rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
+                                      £{safeNumber(productCostGBP).toFixed(2)}
+                                    </td>
+                                    <td className="fw-bold py-2 px-2 text-center" style={{fontSize: '0.8rem', color: '#2d3748', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
                                       ✕ {platformUnits}
                                     </td>
-                                    <td className="fw-bold py-2 px-2 text-center" style={{fontSize: '0.75rem', color: '#2d3748'}}>
-                                      = £{safeNumber(totalProfit).toFixed(2)}
+                                    <td className="fw-bold py-2 px-2 text-center" style={{fontSize: '0.8rem', color: '#059669', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
+                                      = £{safeNumber(totalGrossProfit).toFixed(2)}
+                                      <div style={{fontSize: '0.6rem', color: '#666', marginTop: '2px', fontStyle: 'italic'}}>
+                                        (£{safeNumber(perUnitPrice).toFixed(2)} - £{safeNumber(productCostGBP).toFixed(2)}) × {platformUnits}
+                                      </div>
                                     </td>
                                     <td className="py-2 px-2 text-center">
                                       <span className="badge bg-info" style={{fontSize: '0.65rem', padding: '3px 6px'}}>
@@ -3997,7 +4069,7 @@ const ProductDetail = () => {
                                 <div className="text-white mb-1" style={{fontSize: '0.8rem', fontWeight: '600'}}>
                                   💰 Total Savings
                                 </div>
-                                <div className="text-white" style={{fontSize: '1.2rem', fontWeight: 'bold'}}>
+                                <div className="text-white" style={{fontSize: '1.4rem', fontWeight: '800', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
                                   £{safeNumber(product.savings).toFixed(2)}
                                 </div>
                                 <div className="text-white" style={{fontSize: '0.7rem', opacity: 0.9}}>
@@ -4022,7 +4094,7 @@ const ProductDetail = () => {
                               <div className="col-md-4">
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Profit per Unit</div>
-                                  <div className="fw-bold text-success" style={{fontSize: '0.9rem'}}>
+                                  <div className="fw-bold text-success" style={{fontSize: '1rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
                                     £{safeNumber(product.profitCalculations.profitPerUnit).toFixed(2)}
                                   </div>
                                 </div>
@@ -4030,7 +4102,7 @@ const ProductDetail = () => {
                               <div className="col-md-4">
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Monthly Profit</div>
-                                  <div className="fw-bold text-primary" style={{fontSize: '0.9rem'}}>
+                                  <div className="fw-bold text-primary" style={{fontSize: '1rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
                                     £{(() => {
                                       const monthlyValue = product.evaluation?.monthlyProfit || product.profitCalculations?.monthlyProfit || (product.profitCalculations?.profitPerUnit * 30) || 0;
                                       console.log('📊 Monthly Profit Display Debug:', {
@@ -4047,7 +4119,7 @@ const ProductDetail = () => {
                               <div className="col-md-4">
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Yearly Profit</div>
-                                  <div className="fw-bold text-warning" style={{fontSize: '0.9rem'}}>
+                                  <div className="fw-bold text-warning" style={{fontSize: '1rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
                                     £{(() => {
                                       // PRIORITY 1: Auto-calculate yearly profit based on platform units
                                       const platformData = calculatePlatformData();
@@ -4132,7 +4204,7 @@ const ProductDetail = () => {
                           <tbody>
                             <tr style={{background: '#f1f5f9'}}>
                               <td className="fw-semibold py-2 px-2">Sales Proceeds</td>
-                              <td className="fw-bold py-2 px-2 text-end text-success">{(() => {
+                              <td className="fw-bold py-2 px-2 text-end text-success" style={{fontSize: '0.85rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>{(() => {
                                 console.log('🔍 Sales Proceeds Debug:', {
                                   rawValue: product.evaluation.salesProceeds,
                                   isAdminProfitData: product?.isAdminProfitData,
@@ -4143,7 +4215,7 @@ const ProductDetail = () => {
                             </tr>
                             <tr>
                               <td className="py-2 px-2 ps-3" style={{fontSize: '0.7rem'}}>Commission</td>
-                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.7rem'}}>{convertProfitValue(product.evaluation.commissionBase)}</td>
+                              <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '700'}}>{convertProfitValue(product.evaluation.commissionBase)}</td>
                             </tr>
                             <tr>
                               <td className="py-2 px-2 ps-4" style={{fontSize: '0.65rem', color: '#666'}}>Commission Tax</td>
@@ -4166,16 +4238,16 @@ const ProductDetail = () => {
                               <td className="py-2 px-2 text-end text-danger" style={{fontSize: '0.65rem', color: '#666'}}>{convertProfitValue(product.evaluation.fbaFeeTax)}</td>
                             </tr>
                             <tr style={{background: '#fff3cd'}}>
-                              <td className="fw-semibold py-2 px-2">Balance Change</td>
-                              <td className="fw-bold py-2 px-2 text-end">{convertProfitValue(product.evaluation.changeToBalance)}</td>
+                              <td className="fw-semibold py-2 px-2">Balance Change (Amazon Received)</td>
+                              <td className="fw-bold py-2 px-2 text-end" style={{fontSize: '0.85rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>{convertProfitValue(product.evaluation.changeToBalance)}</td>
                             </tr>
                             <tr>
                               <td className="fw-semibold py-2 px-2">Product Cost</td>
-                              <td className="fw-bold py-2 px-2 text-end text-danger">-{convertProfitValue(product.evaluation.productCost)}</td>
+                              <td className="fw-bold py-2 px-2 text-end text-danger" style={{fontSize: '0.85rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>-{convertProfitValue(product.evaluation.productCost)}</td>
                             </tr>
                             <tr style={{background: '#e6f7ee'}}>
                               <td className="fw-bold py-2 px-2" style={{fontSize: '0.85rem'}}>Net Profit</td>
-                              <td className="fw-bold py-2 px-2 text-end text-success" style={{fontSize: '0.85rem'}}>{convertProfitValue(product.evaluation.netProfit)}</td>
+                              <td className="fw-bold py-2 px-2 text-end text-success" style={{fontSize: '1rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>{convertProfitValue(product.evaluation.netProfit)}</td>
                             </tr>
                           </tbody>
                         </table>

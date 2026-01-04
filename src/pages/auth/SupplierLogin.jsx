@@ -67,8 +67,31 @@ const SupplierLogin = () => {
       background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
       padding: '10px 0',
       alignItems: 'flex-start',
-      paddingTop: '4vh'
+      paddingTop: '4vh',
+      position: 'relative',
+      overflow: 'hidden'
     }}>
+      {/* Animated Background Elements */}
+      <div style={{
+        position: 'absolute',
+        top: '15%',
+        right: '8%',
+        width: '90px',
+        height: '90px',
+        background: 'rgba(255,255,255,0.08)',
+        borderRadius: '50%',
+        animation: 'float 7s ease-in-out infinite'
+      }}></div>
+      <div style={{
+        position: 'absolute',
+        bottom: '20%',
+        left: '12%',
+        width: '60px',
+        height: '60px',
+        background: 'rgba(255,255,255,0.06)',
+        borderRadius: '50%',
+        animation: 'float 9s ease-in-out infinite reverse'
+      }}></div>
       <div className="container">
         <div className="row justify-content-center">
           <div className="col-lg-5 col-md-7 col-sm-9">

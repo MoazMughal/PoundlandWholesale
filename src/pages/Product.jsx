@@ -11,7 +11,14 @@ import watchImg from '../assets/main-pics/Black Watch.jpg'
 const Product = () => {
   const { id } = useParams()
   const [selectedImage, setSelectedImage] = useState(0)
-  const [quantity, setQuantity] = useState(1)
+  const [quantity, setQuantity] = useState(1) // Will be updated to match dealUnits
+
+  // Update quantity to match dealUnits when product loads
+  useEffect(() => {
+    if (product && product.dealUnits) {
+      setQuantity(product.dealUnits);
+    }
+  }, [product?.dealUnits]);
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -37,7 +44,7 @@ const Product = () => {
           ...getMockProduct(), // Start with mock data as base
           ...productData, // Override with real data
           // Ensure critical fields are present
-          dealUnits: productData.dealUnits || 1,
+          dealUnits: Math.floor((productData.platformUnits || 200) / 12), // Calculate as platformUnits / 12
           profitEvaluation: productData.profitEvaluation || getMockProduct().profitEvaluation
         };
         
@@ -290,7 +297,7 @@ const Product = () => {
                   <div className="d-flex align-items-center">
                     <button 
                       className="btn btn-outline-secondary"
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      onClick={() => setQuantity(Math.max(product?.dealUnits || 1, quantity - 1))}
                     >
                       -
                     </button>
@@ -299,7 +306,7 @@ const Product = () => {
                       className="form-control mx-2" 
                       style={{width: '80px'}}
                       value={quantity}
-                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      onChange={(e) => setQuantity(Math.max(product?.dealUnits || 1, parseInt(e.target.value) || (product?.dealUnits || 1)))}
                     />
                     <button 
                       className="btn btn-outline-secondary"

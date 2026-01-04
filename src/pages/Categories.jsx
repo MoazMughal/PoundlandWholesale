@@ -23,7 +23,7 @@ const Categories = () => {
       name: 'Watch Straps',
       description: 'Premium leather, nylon, and metal watch straps',
       image: watchStrapImg,
-      link: '/amazons-choice?cat=strap',
+      link: '/?cat=strap',
       searchTerm: 'Watch Straps',
       icon: 'fa-watch',
       color: '#8b5cf6'
@@ -32,7 +32,7 @@ const Categories = () => {
       name: 'Tape Products',
       description: 'Duct tape, gaffer tape, and specialty tapes',
       image: tapeImg,
-      link: '/amazons-choice?cat=tape',
+      link: '/?cat=tape',
       searchTerm: 'Tape Products',
       icon: 'fa-tape',
       color: '#ec4899'
@@ -41,7 +41,7 @@ const Categories = () => {
       name: 'Lampshades',
       description: 'Paper, fabric, and bamboo lampshades',
       image: lampshadeImg,
-      link: '/amazons-choice?cat=lampshade',
+      link: '/?cat=lampshade',
       searchTerm: 'Lampshades',
       icon: 'fa-lightbulb',
       color: '#f59e0b'
@@ -50,7 +50,7 @@ const Categories = () => {
       name: 'Party Supplies',
       description: 'Balloons, inflatables, decorations, and party essentials',
       image: partyImg,
-      link: '/amazons-choice?cat=party',
+      link: '/?cat=party',
       searchTerm: 'Party Supplies',
       icon: 'fa-birthday-cake',
       color: '#10b981'
@@ -59,7 +59,7 @@ const Categories = () => {
       name: 'Kitchen',
       description: 'Cutlery, utensils, measuring jugs, and accessories',
       image: kitchenImg,
-      link: '/amazons-choice?cat=kitchen',
+      link: '/?cat=kitchen',
       searchTerm: 'Kitchen Products',
       icon: 'fa-utensils',
       color: '#3b82f6'
@@ -68,7 +68,7 @@ const Categories = () => {
       name: 'Electronics',
       description: 'Charging cables, adapters, bulbs, and accessories',
       image: electronicsImg,
-      link: '/amazons-choice?cat=electronics',
+      link: '/?cat=electronics',
       searchTerm: 'Electronics',
       icon: 'fa-plug',
       color: '#6366f1'
@@ -77,7 +77,7 @@ const Categories = () => {
       name: 'Jewelry',
       description: 'Nose rings, earrings, and fashion jewelry',
       image: jewelryImg,
-      link: '/amazons-choice?cat=jewelry',
+      link: '/?cat=jewelry',
       searchTerm: 'Jewelry',
       icon: 'fa-gem',
       color: '#ef4444'
@@ -86,7 +86,7 @@ const Categories = () => {
       name: 'Home & Decor',
       description: 'Home accessories, decorations, and organizational items',
       image: homeImg,
-      link: '/amazons-choice?cat=home',
+      link: '/?cat=home',
       searchTerm: 'Home Decor',
       icon: 'fa-home',
       color: '#14b8a6'
@@ -95,7 +95,7 @@ const Categories = () => {
       name: 'Automotive',
       description: 'Car accessories, bulbs, and maintenance products',
       image: automotiveImg,
-      link: '/amazons-choice?cat=automotive',
+      link: '/?cat=automotive',
       searchTerm: 'Automotive',
       icon: 'fa-car',
       color: '#f97316'
@@ -104,7 +104,7 @@ const Categories = () => {
       name: 'Remote Controls',
       description: 'TV remotes, universal remotes, and accessories',
       image: remoteImg,
-      link: '/amazons-choice?cat=remote',
+      link: '/?cat=remote',
       searchTerm: 'Remote Controls',
       icon: 'fa-tv',
       color: '#06b6d4'
@@ -113,7 +113,7 @@ const Categories = () => {
       name: 'Stickers',
       description: 'Decorative stickers, labels, and decals',
       image: stickerImg,
-      link: '/amazons-choice?cat=sticker',
+      link: '/?cat=sticker',
       searchTerm: 'Stickers',
       icon: 'fa-star',
       color: '#a855f7'
@@ -122,7 +122,7 @@ const Categories = () => {
       name: 'Party Decorations',
       description: 'Cake toppers, banners, and party decoration items',
       image: cakeTopperImg,
-      link: '/amazons-choice?cat=party',
+      link: '/?cat=party',
       searchTerm: 'Party Decorations',
       icon: 'fa-gifts',
       color: '#84cc16'
@@ -131,7 +131,7 @@ const Categories = () => {
       name: 'Inflatables',
       description: 'Inflatable toys, animals, and party inflatables',
       image: inflatableImg,
-      link: '/amazons-choice?cat=party',
+      link: '/?cat=party',
       searchTerm: 'Inflatables',
       icon: 'fa-swimming-pool',
       color: '#0ea5e9'

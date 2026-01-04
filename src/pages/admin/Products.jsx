@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import cacheManager from '../../utils/cacheManager';
 import { getImageUrl } from '../../utils/imageImports';
+import { getValidAdminToken, cleanupAuthTokens } from '../../utils/authFix';
 import CategoryVisibilityToggle from '../../components/CategoryVisibilityToggle';
+import CategoryManagementModal from '../../components/CategoryManagementModal';
+import BulkOperationsModal from '../../components/BulkOperationsModal';
 import '../../styles/AdminProducts.css';
 import '../../styles/AdminLayout.css';
 
@@ -135,6 +138,7 @@ const AdminProducts = () => {
   const [editValues, setEditValues] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [totalPages, setTotalPages] = useState(1); // Add totalPages state
   const [showProfitModal, setShowProfitModal] = useState(false);
   const [profitEditProduct, setProfitEditProduct] = useState(null);
   const [selectedProducts, setSelectedProducts] = useState(new Set());
@@ -154,6 +158,9 @@ const AdminProducts = () => {
   const [currentFetchCategory, setCurrentFetchCategory] = useState('');
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [availableCategories, setAvailableCategories] = useState([]);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [showCategoryManagementModal, setShowCategoryManagementModal] = useState(false);
+  const [showBulkOperationsModal, setShowBulkOperationsModal] = useState(false);
 
   // Add global CSS to hide number input spinners
   useEffect(() => {
@@ -213,6 +220,7 @@ const AdminProducts = () => {
       }
 
       const productData = await response.json();
+      console.log('📦 Current product data:', productData);
       
       // Check if product has profit data to update
       if (!productData.profitEvaluation && !productData.profitCalculations && !productData.platformComparison) {
@@ -226,21 +234,22 @@ const AdminProducts = () => {
       if (profitEditProduct && profitEditProduct._id === productId) {
         console.log('🔄 Profit modal is open, updating modal state');
 
-        // Update the product cost in the profit evaluation
+        // Update the product cost in the profit evaluation - UPDATE BOTH PRICE AND COST
         const updatedProfitEvaluation = {
           ...profitEditProduct.profitEvaluation,
-          productCost: newPrice
+          salesProceeds: newPrice, // Update sales proceeds to match new price
+          productCost: newPrice // Also update product cost to match new price
         };
 
-        // Recalculate net profit with new product cost
-        const balanceChange = updatedProfitEvaluation.balanceChange || 0;
-        const newNetProfit = parseFloat((balanceChange - newPrice).toFixed(2));
+        // Recalculate net profit with new product cost (same as new price)
+        const newProductCost = newPrice; // Product cost = new price
+        const newNetProfit = parseFloat((balanceChange - newProductCost).toFixed(2));
         updatedProfitEvaluation.netProfit = newNetProfit;
 
-        // Update profit calculations
+        // Update profit calculations - use new price as cost price
         const updatedProfitCalculations = {
           ...profitEditProduct.profitCalculations,
-          costPrice: newPrice,
+          costPrice: newProductCost, // Use new price as cost price
           profitPerUnit: newNetProfit
         };
 
@@ -248,12 +257,12 @@ const AdminProducts = () => {
         const updatedPlatformComparison = profitEditProduct.platformComparison.map(platform => ({
           ...platform,
           profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2)),
-          markup: calculateMarkupPercentage(platform.rrpPerUnit, newPrice) // Recalculate markup with new product cost
+          markup: calculateMarkupPercentage(platform.rrpPerUnit, newProductCost) // Use new price as product cost
         }));
 
-        // Calculate auto-savings percentage
-        const autoCalculatedSavings = newPrice === 0 ? 0 : 
-          ((balanceChange - newPrice) / newPrice) * 100;
+        // Calculate auto-savings percentage with new product cost
+        const autoCalculatedSavings = newProductCost === 0 ? 0 : 
+          ((balanceChange - newProductCost) / newProductCost) * 100;
 
         // Update the profit edit product state
         setProfitEditProduct({
@@ -272,32 +281,36 @@ const AdminProducts = () => {
       // Always update the database with new profit calculations
       const existingEvaluation = productData.profitEvaluation || {};
       const balanceChange = existingEvaluation.balanceChange || 0;
-      const newNetProfit = parseFloat((balanceChange - newPrice).toFixed(2));
+      const newProductCost = newPrice; // Set product cost to match new price
+      const newNetProfit = parseFloat((balanceChange - newProductCost).toFixed(2));
 
       const updatedProfitEvaluation = {
         ...existingEvaluation,
-        productCost: newPrice,
+        salesProceeds: newPrice, // Update sales proceeds to match new price
+        productCost: newProductCost, // Update product cost to match new price
         netProfit: newNetProfit
       };
 
-      // Update profit calculations
+      console.log('💰 Updated profit evaluation:', updatedProfitEvaluation);
+
+      // Update profit calculations - use new price as cost price
       const existingCalculations = productData.profitCalculations || {};
       const updatedProfitCalculations = {
         ...existingCalculations,
-        costPrice: newPrice,
+        costPrice: newProductCost, // Use new price as product cost
         profitPerUnit: newNetProfit
       };
 
-      // Update platform comparison if it exists
+      // Update platform comparison if it exists - use new price as product cost
       const updatedPlatformComparison = (productData.platformComparison || []).map(platform => ({
         ...platform,
         profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2)),
-        markup: calculateMarkupPercentage(platform.rrpPerUnit, newPrice) // Recalculate markup with new product cost
+        markup: calculateMarkupPercentage(platform.rrpPerUnit, newProductCost) // Use new price as product cost
       }));
 
-      // Calculate auto-savings percentage
-      const autoCalculatedSavings = newPrice === 0 ? 0 : 
-        ((balanceChange - newPrice) / newPrice) * 100;
+      // Calculate auto-savings percentage with new product cost
+      const autoCalculatedSavings = newProductCost === 0 ? 0 : 
+        ((balanceChange - newProductCost) / newProductCost) * 100;
 
       // Prepare update data
       const profitUpdateData = {
@@ -311,6 +324,7 @@ const AdminProducts = () => {
       }
 
       // Save to database
+      console.log('💾 Saving profit update data to database:', profitUpdateData);
       const updateResponse = await fetch(`http://localhost:5000/api/products/${productId}`, {
         method: 'PUT',
         headers: {
@@ -320,15 +334,63 @@ const AdminProducts = () => {
         body: JSON.stringify(profitUpdateData)
       });
 
+      console.log('📡 Database update response status:', updateResponse.status);
+      
       if (updateResponse.ok) {
+        const responseData = await updateResponse.json();
         console.log('✅ Profit data automatically updated in database after price change');
+        console.log('📦 Updated product data:', responseData);
+        
+        // Aggressive cache clearing
+        cacheManager.clearAll();
+        
+        // Clear browser cache
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            names.forEach(name => {
+              caches.delete(name);
+            });
+          });
+        }
+        
+        // Clear localStorage cache
+        const cacheKeys = Object.keys(localStorage).filter(key => 
+          key.includes('product') || key.includes('cache') || key.includes('evaluation')
+        );
+        cacheKeys.forEach(key => localStorage.removeItem(key));
+        
+        // Force refresh products list
+        await fetchProducts();
+        
+        // Verify the update by fetching the product again
+        setTimeout(async () => {
+          try {
+            const verifyResponse = await fetch(`http://localhost:5000/api/products/${productId}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (verifyResponse.ok) {
+              const verifiedProduct = await verifyResponse.json();
+              console.log('🔍 VERIFICATION - Product after update:', {
+                productId,
+                price: verifiedProduct.price,
+                salesProceeds: verifiedProduct.profitEvaluation?.salesProceeds,
+                productCost: verifiedProduct.profitEvaluation?.productCost,
+                netProfit: verifiedProduct.profitEvaluation?.netProfit,
+                message: 'Both price and product cost should now match the new price'
+              });
+            }
+          } catch (error) {
+            console.error('❌ Verification failed:', error);
+          }
+        }, 1000);
         
         // Show success message
-        setSuccessMessage('Price updated! Profit calculations have been automatically recalculated and saved.');
+        setSuccessMessage('✅ Price updated! Both product price and product cost updated in Amazon FBA Revenue Calculator.');
         setShowSuccessToast(true);
         setTimeout(() => setShowSuccessToast(false), 4000);
       } else {
-        console.log('⚠️ Failed to auto-update profit data in database');
+        const errorData = await updateResponse.json();
+        console.log('⚠️ Failed to auto-update profit data in database:', errorData);
       }
 
     } catch (error) {
@@ -378,6 +440,7 @@ const AdminProducts = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('📊 Found', data.products.length, 'products with profit data in category:', category);
+        console.log('📋 Products list:', data.products.map(p => ({ name: p.name, id: p._id, hasProfit: !!p.profitEvaluation })));
         setCategoryProducts(data.products);
         setCurrentFetchCategory(category);
       } else {
@@ -394,14 +457,32 @@ const AdminProducts = () => {
 
   // Function to copy profit data from selected product
   const copyProfitDataFromProduct = (sourceProduct) => {
-    if (!sourceProduct || !profitEditProduct) return;
+    if (!sourceProduct || !profitEditProduct) {
+      console.log('❌ Copy failed: Missing source or target product');
+      return;
+    }
+
+    // Check if trying to copy from same product
+    if (sourceProduct._id === profitEditProduct._id) {
+      console.log('⚠️ Cannot copy from the same product to itself');
+      alert('⚠️ Cannot copy profit data from the same product to itself. Please select a different product.');
+      return;
+    }
 
     console.log('📋 Copying profit data from:', sourceProduct.name);
+    console.log('📋 To product:', profitEditProduct.name);
     console.log('📋 Source profit data:', {
       platformComparison: sourceProduct.platformComparison,
       profitEvaluation: sourceProduct.profitEvaluation,
       profitCalculations: sourceProduct.profitCalculations
     });
+
+    // Validate that source product has profit data
+    if (!sourceProduct.profitEvaluation && !sourceProduct.platformComparison) {
+      console.log('⚠️ Source product has no profit data to copy');
+      alert('⚠️ The selected product has no profit data to copy. Please select a product with existing profit data.');
+      return;
+    }
 
     // Keep the current product's price as product cost
     const currentProductCost = profitEditProduct.profitEvaluation?.productCost || parseFloat(profitEditProduct.price) || 0;
@@ -474,6 +555,12 @@ const AdminProducts = () => {
     });
 
     console.log('✅ Profit data copied and recalculated with current product cost:', currentProductCost);
+    console.log('📊 Copied data summary:', {
+      platformComparison: updatedPlatformComparison.length,
+      profitEvaluation: copiedProfitEvaluation,
+      profitCalculations: copiedProfitCalculations,
+      savings: parseFloat(autoCalculatedSavings.toFixed(2))
+    });
     
     // Show success message
     setSuccessMessage(`Profit data copied from "${sourceProduct.name}" and recalculated with current product cost!`);
@@ -660,17 +747,7 @@ const AdminProducts = () => {
   const productsPerPage = 50;
 
   const [categories, setCategories] = useState([
-    { value: 'all', label: 'All Products', icon: '📦' },
-    { value: 'remote', label: 'Remote Controls', icon: '📺' },
-    { value: 'electronics', label: 'Electronics', icon: '⚡' },
-    { value: 'strap', label: 'Watch Straps', icon: '⌚' },
-    { value: 'jewelry', label: 'Jewelry', icon: '💎' },
-    { value: 'party', label: 'Party Supplies', icon: '🎉' },
-    { value: 'home', label: 'Home & Decor', icon: '🏠' },
-    { value: 'kitchen', label: 'Kitchen', icon: '🍳' },
-    { value: 'automotive', label: 'Automotive', icon: '🚗' },
-    { value: 'tape', label: 'Tape', icon: '📼' },
-    { value: 'lampshade', label: 'Lampshades', icon: '💡' }
+    // Categories will be loaded from API
   ]);
 
   const formatPrice = (price) => {
@@ -785,9 +862,22 @@ const AdminProducts = () => {
   useEffect(() => {
     // Clear cache to ensure fresh data
     cacheManager.clearAll();
-    fetchProducts();
+    setCurrentPage(1); // Reset to first page when filters change
+    fetchProducts(1);
     fetchCategories();
   }, [search, filters]);
+
+  // Initial load on component mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  // Handle page changes
+  useEffect(() => {
+    if (currentPage > 1) { // Only fetch if not initial load (page 1 is handled by filters useEffect)
+      fetchProducts(currentPage);
+    }
+  }, [currentPage]);
 
   // Track window resize for responsive modal
   useEffect(() => {
@@ -801,23 +891,28 @@ const AdminProducts = () => {
 
   const fetchCategories = async () => {
     try {
+      console.log('📂 Frontend: Fetching categories...');
       // Include Excel categories for admin use
-      const response = await fetch('http://localhost:5000/api/categories?includeExcel=true');
+      const response = await fetch('http://localhost:5000/api/products/public/categories?includeExcel=true');
       if (response.ok) {
         const data = await response.json();
+        console.log('📂 Frontend: Received categories from API:', data.categories.map(c => c.value));
 
-        // Merge with default categories (keeping icons)
-        const defaultCategories = [
-          { value: 'all', label: 'All Products', icon: '📦' }
-        ];
+        // Get hidden categories from localStorage
+        const hiddenCategories = JSON.parse(localStorage.getItem('hiddenCategories') || '[]');
+        console.log('📂 Hidden categories:', hiddenCategories);
 
-        const dynamicCategories = data.categories.map(cat => ({
-          value: cat.value,
-          label: cat.label,
-          icon: getCategoryIcon(cat.value)
-        }));
+        // Filter out hidden categories and format for display
+        const dynamicCategories = data.categories
+          .filter(cat => cat.value === 'all' || !hiddenCategories.includes(cat.value))
+          .map(cat => ({
+            value: cat.value,
+            label: cat.value === 'all' ? 'All Products' : cat.label,
+            icon: getCategoryIcon(cat.value)
+          }));
 
-        setCategories([...defaultCategories, ...dynamicCategories]);
+        console.log('📂 Frontend: Setting final categories (after hiding):', dynamicCategories.map(c => c.value));
+        setCategories(dynamicCategories);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -827,6 +922,7 @@ const AdminProducts = () => {
 
   const getCategoryIcon = (categoryValue) => {
     const iconMap = {
+      'all': '📦',
       'remote': '📺',
       'electronics': '⚡',
       'strap': '⌚',
@@ -848,36 +944,42 @@ const AdminProducts = () => {
     return iconMap[categoryValue] || '📂';
   };
 
+  // Client-side filtering is now handled server-side, so we just set filteredProducts to products
   useEffect(() => {
-    let filtered = [...products];
+    setFilteredProducts(products);
+  }, [products]);
 
-    if (filters.category) {
-      filtered = filtered.filter(p => p.category === filters.category);
-    }
-
-    if (filters.status) {
-      filtered = filtered.filter(p => p.status === filters.status);
-    }
-
-    if (filters.isAmazonsChoice) {
-      filtered = filtered.filter(p => p.isAmazonsChoice === true);
-    }
-
-    setFilteredProducts(filtered);
-  }, [products, filters.category, filters.status, filters.isAmazonsChoice]);
-
-  const fetchProducts = async () => {
+  const fetchProducts = async (page = currentPage) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('adminToken');
+      
+      // Clean up any invalid tokens first
+      cleanupAuthTokens();
+      
+      const token = getValidAdminToken();
+      if (!token) {
+        alert('❌ Authentication token is invalid. Please log in again.');
+        navigate('/admin/login');
+        return;
+      }
 
       const params = new URLSearchParams({
         ...(search && { search }),
         ...(filters.category && { category: filters.category }),
         ...(filters.status && { status: filters.status }),
         ...(filters.isAmazonsChoice && { isAmazonsChoice: 'true' }),
-        excludeSellerCopies: 'true',
-        limit: '50'
+        excludeSellerCopies: 'true', // Re-enable with improved server-side filtering
+        limit: productsPerPage.toString(), // Use productsPerPage instead of hardcoded 50
+        page: page.toString() // Add pagination
+      });
+
+      console.log('🔍 Products fetch params:', {
+        search,
+        category: filters.category,
+        status: filters.status,
+        isAmazonsChoice: filters.isAmazonsChoice,
+        page,
+        limit: productsPerPage
       });
 
       const useFastEndpoint = !search && !filters.category && !filters.status && !filters.isAmazonsChoice;
@@ -885,8 +987,10 @@ const AdminProducts = () => {
       // Add cache buster to ensure fresh data
       const cacheBuster = `_t=${Date.now()}`;
       const url = useFastEndpoint
-        ? `http://localhost:5000/api/products/admin/fast?${cacheBuster}`
+        ? `http://localhost:5000/api/products/admin/fast?${cacheBuster}&limit=${productsPerPage}&page=${page}`
         : `http://localhost:5000/api/products?${params}&${cacheBuster}`;
+
+      console.log('🌐 Fetching from URL:', url);
 
       const response = await fetch(url, {
         headers: {
@@ -903,9 +1007,16 @@ const AdminProducts = () => {
       }
 
       const data = await response.json();
+      console.log('📊 Received products:', data.products.length, 'Total:', data.total);
       setProducts(data.products);
       setTotalProducts(data.total || data.products.length);
       setFilteredProducts(data.products);
+      
+      // Update pagination info
+      const totalPagesCalc = Math.ceil((data.total || data.products.length) / productsPerPage);
+      setTotalPages(totalPagesCalc);
+      console.log(`📊 Admin Products: Page ${page}/${totalPagesCalc}, showing ${data.products.length} of ${data.total || data.products.length} products`);
+      
     } catch (error) {
       console.error('❌ Error fetching products:', error);
       alert('Failed to fetch products. Please check console for details.');
@@ -953,11 +1064,8 @@ const AdminProducts = () => {
     if (selectedProducts.size === filteredProducts.length) {
       setSelectedProducts(new Set());
     } else {
-      const currentPageProducts = filteredProducts.slice(
-        (currentPage - 1) * productsPerPage,
-        currentPage * productsPerPage
-      );
-      setSelectedProducts(new Set(currentPageProducts.map(p => p._id)));
+      // With server-side pagination, filteredProducts already contains only current page products
+      setSelectedProducts(new Set(filteredProducts.map(p => p._id)));
     }
   };
 
@@ -1005,6 +1113,61 @@ const AdminProducts = () => {
     } catch (error) {
       console.error('Error in bulk delete:', error);
       alert('❌ Failed to delete products');
+    }
+  };
+
+  const handleBulkOperations = async (productIds, updateData, updateMode) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      
+      console.log('🔄 Sending bulk update request:', {
+        productIds: productIds.length,
+        updateData,
+        updateMode
+      });
+
+      const response = await fetch('http://localhost:5000/api/products/admin/bulk-update', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          productIds,
+          updateData,
+          updateMode
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Bulk update result:', result);
+
+        // Clear selection and refresh
+        setSelectedProducts(new Set());
+        fetchProducts();
+        cacheManager.clearAll();
+
+        // Show results
+        if (result.failCount === 0) {
+          setSuccessMessage(`✅ Successfully updated ${result.successCount} product(s)`);
+          setShowSuccessToast(true);
+          setTimeout(() => setShowSuccessToast(false), 4000);
+        } else {
+          const message = `⚠️ Updated ${result.successCount} product(s), failed to update ${result.failCount} product(s)`;
+          if (result.errors && result.errors.length > 0) {
+            console.error('Bulk update errors:', result.errors);
+          }
+          alert(message);
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Bulk update failed:', errorData);
+        alert(`❌ Failed to update products: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error('Error in bulk operations:', error);
+      alert('❌ Failed to update products. Please try again.');
     }
   };
 
@@ -1112,6 +1275,8 @@ const AdminProducts = () => {
 
         // If price was updated, check if we need to update profit data
         if (field === 'price') {
+          console.log('💰 Price field updated, calling updateProfitDataAfterPriceChange');
+          console.log('📊 Price update details:', { productId, newPrice: parsedValue, field });
           // Always update profit data when price changes, regardless of modal state
           await updateProfitDataAfterPriceChange(productId, parsedValue, token);
         }
@@ -1605,6 +1770,122 @@ const AdminProducts = () => {
     updateFiltersAndUrl({ ...filters, category: newCategory });
   };
 
+  const handleDeleteCategory = async (categoryValue, categoryLabel) => {
+    const productCount = products.filter(p => p.category === categoryValue).length;
+    
+    if (productCount > 0) {
+      const confirmMessage = `⚠️ Category "${categoryLabel}" contains ${productCount} product(s).\n\n` +
+        `Options:\n` +
+        `1. Move products to another category first (recommended)\n` +
+        `2. Delete category and ALL its products (⚠️ PERMANENT)\n\n` +
+        `Choose an option:`;
+      
+      const choice = confirm(confirmMessage + '\n\nClick OK to DELETE ALL PRODUCTS, Cancel to move products first');
+      
+      if (!choice) {
+        alert('💡 Use the Category Management Modal to move products between categories first, then delete the empty category.');
+        return;
+      }
+      
+      // User chose to delete all products
+      const finalConfirm = prompt(
+        `🚨 FINAL WARNING 🚨\n\n` +
+        `This will PERMANENTLY DELETE:\n` +
+        `• Category: "${categoryLabel}"\n` +
+        `• All ${productCount} products in this category\n` +
+        `• Remove from all views (Admin, Amazon's Choice, Headers)\n\n` +
+        `This action CANNOT be undone!\n\n` +
+        `Type "DELETE ALL" to confirm:`
+      );
+      
+      if (finalConfirm !== 'DELETE ALL') {
+        alert('❌ Deletion cancelled - you must type "DELETE ALL" to confirm');
+        return;
+      }
+      
+      try {
+        const token = getValidAdminToken();
+        if (!token) {
+          alert('❌ Authentication required. Please log in again.');
+          return;
+        }
+        
+        const response = await fetch(`http://localhost:5000/api/products/category/${encodeURIComponent(categoryValue)}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          alert(`✅ Category "${categoryLabel}" deleted successfully!\n\n` +
+                `📊 Products deleted: ${result.deletedCount}\n` +
+                `📋 Excel products updated: ${result.excelUpdatedCount || 0}\n\n` +
+                `🔄 Refreshing all views...`);
+          
+          // Force refresh everything
+          await fetchCategories();
+          await fetchProducts();
+          
+          // Trigger global refresh
+          window.dispatchEvent(new CustomEvent('refreshCategories'));
+          localStorage.setItem('categoriesUpdated', Date.now().toString());
+          
+          // Reload page after short delay
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+          
+        } else {
+          const error = await response.json();
+          alert(`❌ Failed to delete category: ${error.message}`);
+        }
+      } catch (error) {
+        console.error('Error deleting category:', error);
+        alert(`❌ Error deleting category: ${error.message}`);
+      }
+      
+      return;
+    }
+    
+    // For empty categories, offer to hide them
+    const confirmMessage = `Hide the empty "${categoryLabel}" category from the category list?\n\n` +
+      `Note: This will hide the category from the UI but won't delete it from the database.\n` +
+      `The category can be restored later if needed.`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      // Instead of deleting, we'll hide the category by storing it in localStorage
+      const hiddenCategories = JSON.parse(localStorage.getItem('hiddenCategories') || '[]');
+      if (!hiddenCategories.includes(categoryValue)) {
+        hiddenCategories.push(categoryValue);
+        localStorage.setItem('hiddenCategories', JSON.stringify(hiddenCategories));
+      }
+      
+      // Show success message
+      setSuccessMessage(`✅ Category "${categoryLabel}" has been hidden from the list`);
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 4000);
+      
+      // Refresh categories to apply the filter
+      await fetchCategories();
+      
+      // Clear any category filter if the hidden category was selected
+      if (filters.category === categoryValue) {
+        updateFiltersAndUrl({ ...filters, category: '' });
+      }
+      
+      console.log('✅ Category hidden successfully:', categoryValue);
+    } catch (error) {
+      console.error('❌ Error hiding category:', error);
+      alert('❌ Failed to hide category. Please try again.');
+    }
+  };
+
   const handleStatusFilter = (statusValue) => {
     updateFiltersAndUrl({ ...filters, status: statusValue });
   };
@@ -1899,6 +2180,8 @@ const AdminProducts = () => {
       });
 
       const updateData = {
+        price: parseFloat(cleanProfitEvaluation.productCost), // Update main product price to match product cost
+        currency: 'GBP',
         platformComparison: cleanPlatformComparison,
         platformUnits: parseInt(selectedUnits) || 200,
         profitCalculations: cleanProfitCalculations,
@@ -1963,7 +2246,7 @@ const AdminProducts = () => {
         console.log('🔄 All caches cleared and product data refreshed');
 
         // Show modern success toast instead of basic alert
-        setSuccessMessage('Profit data updated successfully! The product detail page will now show the updated data.');
+        setSuccessMessage('✅ Product updated successfully! Price and profit data saved across the entire website.');
         setShowSuccessToast(true);
         
         // Auto-hide toast after 5 seconds
@@ -2019,35 +2302,141 @@ const AdminProducts = () => {
             Manage your product catalog
           </p>
         </div>
-        <button
-          onClick={() => navigate('/admin/products/add')}
-          style={{
-            background: 'rgba(255, 255, 255, 0.2)',
-            border: '2px solid rgba(255, 255, 255, 0.3)',
-            color: 'white',
-            padding: '10px 20px',
-            borderRadius: '8px',
-            fontSize: '0.9rem',
-            fontWeight: '600',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.3s ease',
-            backdropFilter: 'blur(10px)'
-          }}
-          onMouseOver={(e) => {
-            e.target.style.background = 'rgba(255, 255, 255, 0.3)';
-            e.target.style.transform = 'translateY(-2px)';
-          }}
-          onMouseOut={(e) => {
-            e.target.style.background = 'rgba(255, 255, 255, 0.2)';
-            e.target.style.transform = 'translateY(0)';
-          }}
-        >
-          <span style={{ fontSize: '1.1rem' }}>➕</span>
-          Add New Product
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => setShowCategoryManagementModal(true)}
+            style={{
+              background: 'rgba(102, 126, 234, 0.9)',
+              border: '2px solid rgba(102, 126, 234, 0.3)',
+              color: 'white',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.3s ease',
+              backdropFilter: 'blur(10px)'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.background = 'rgba(102, 126, 234, 1)';
+              e.target.style.transform = 'translateY(-2px)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.background = 'rgba(102, 126, 234, 0.9)';
+              e.target.style.transform = 'translateY(0)';
+            }}
+          >
+            <span style={{ fontSize: '1.1rem' }}>📂</span>
+            Manage Categories
+          </button>
+          <button
+            onClick={() => {
+              console.log('🔄 Manual refresh triggered');
+              cacheManager.clearAll();
+              // Clear all browser caches
+              if ('caches' in window) {
+                caches.keys().then(names => {
+                  names.forEach(name => caches.delete(name));
+                });
+              }
+              // Clear localStorage
+              Object.keys(localStorage).filter(key => 
+                key.includes('product') || key.includes('cache') || key.includes('evaluation')
+              ).forEach(key => localStorage.removeItem(key));
+              
+              // Force refresh
+              window.location.reload();
+            }}
+            style={{
+              background: 'rgba(255, 255, 255, 0.2)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              color: 'white',
+              padding: '10px 15px',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.background = 'rgba(255, 255, 255, 0.3)';
+              e.target.style.transform = 'translateY(-2px)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.background = 'rgba(255, 255, 255, 0.2)';
+              e.target.style.transform = 'translateY(0)';
+            }}
+            title="Clear all caches and refresh data"
+          >
+            🔄 Force Refresh
+          </button>
+          {selectedProducts.size > 0 && (
+            <button
+              onClick={() => setShowBulkOperationsModal(true)}
+              style={{
+                background: 'rgba(34, 197, 94, 0.9)',
+                border: '2px solid rgba(34, 197, 94, 0.3)',
+                color: 'white',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.3s ease',
+                backdropFilter: 'blur(10px)'
+              }}
+              onMouseOver={(e) => {
+                e.target.style.background = 'rgba(34, 197, 94, 1)';
+                e.target.style.transform = 'translateY(-2px)';
+              }}
+              onMouseOut={(e) => {
+                e.target.style.background = 'rgba(34, 197, 94, 0.9)';
+                e.target.style.transform = 'translateY(0)';
+              }}
+            >
+              <span style={{ fontSize: '1.1rem' }}>🔄</span>
+              Bulk Edit ({selectedProducts.size})
+            </button>
+          )}
+          <button
+            onClick={() => navigate('/admin/products/add')}
+            style={{
+              background: 'rgba(255, 255, 255, 0.2)',
+              border: '2px solid rgba(255, 255, 255, 0.3)',
+              color: 'white',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.3s ease',
+              backdropFilter: 'blur(10px)'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.background = 'rgba(255, 255, 255, 0.3)';
+              e.target.style.transform = 'translateY(-2px)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.background = 'rgba(255, 255, 255, 0.2)';
+              e.target.style.transform = 'translateY(0)';
+            }}
+          >
+            <span style={{ fontSize: '1.1rem' }}>➕</span>
+            Add New Product
+          </button>
+        </div>
       </div>
 
 
@@ -2175,49 +2564,135 @@ const AdminProducts = () => {
 
         {/* Category Quick Filter Buttons */}
         <div style={{ marginBottom: '6px' }}>
-          <div style={{ fontSize: '0.7rem', fontWeight: '600', marginBottom: '4px', color: '#374151' }}>
-            📂 Categories:
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: '4px' 
+          }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: '600', color: '#374151' }}>
+              📂 Categories:
+            </div>
+            <button
+              onClick={() => setShowCategoryManager(!showCategoryManager)}
+              style={{
+                background: showCategoryManager ? '#ef4444' : '#6b7280',
+                color: 'white',
+                border: 'none',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '0.6rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}
+              title={showCategoryManager ? 'Hide category management' : 'Show category management'}
+            >
+              <span>{showCategoryManager ? '🔧' : '⚙️'}</span>
+              <span>{showCategoryManager ? 'Hide' : 'Manage'}</span>
+            </button>
           </div>
           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
             {categories.map(cat => {
               const isActive = (filters.category === cat.value || (cat.value === 'all' && !filters.category));
+              const productCount = products.filter(p => cat.value === 'all' || p.category === cat.value).length;
+              
               return (
-                <button
-                  key={cat.value}
-                  onClick={() => handleCategoryFilter(cat.value)}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '0.65rem',
-                    borderRadius: '4px',
-                    border: '1px solid #667eea',
-                    background: isActive ? '#667eea' : 'white',
-                    color: isActive ? 'white' : '#667eea',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                    transition: 'all 0.2s',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '3px',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  <span style={{ fontSize: '0.7rem' }}>{cat.icon}</span>
-                  <span>{cat.label}</span>
-                  {isActive && (
-                    <span style={{
-                      background: 'rgba(255,255,255,0.3)',
-                      padding: '1px 4px',
-                      borderRadius: '8px',
-                      fontSize: '0.6rem',
-                      fontWeight: '700'
-                    }}>
-                      {products.filter(p => cat.value === 'all' || p.category === cat.value).length}
-                    </span>
+                <div key={cat.value} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                  <button
+                    onClick={() => handleCategoryFilter(cat.value)}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '0.65rem',
+                      borderRadius: '4px',
+                      border: '1px solid #667eea',
+                      background: isActive ? '#667eea' : 'white',
+                      color: isActive ? 'white' : '#667eea',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                      transition: 'all 0.2s',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.7rem' }}>{cat.icon}</span>
+                    <span>{cat.label}</span>
+                    {(isActive || showCategoryManager) && (
+                      <span style={{
+                        background: isActive ? 'rgba(255,255,255,0.3)' : (productCount > 0 ? '#f3f4f6' : '#fef2f2'),
+                        color: isActive ? 'white' : (productCount > 0 ? '#6b7280' : '#ef4444'),
+                        padding: '1px 4px',
+                        borderRadius: '8px',
+                        fontSize: '0.6rem',
+                        fontWeight: '700'
+                      }}>
+                        {productCount}
+                      </span>
+                    )}
+                  </button>
+                  {showCategoryManager && cat.value !== 'all' && (
+                    <button
+                      onClick={() => handleDeleteCategory(cat.value, cat.label)}
+                      style={{
+                        background: productCount > 0 ? '#ef4444' : '#f59e0b',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '3px',
+                        padding: '2px 4px',
+                        cursor: 'pointer',
+                        fontSize: '0.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        marginLeft: '2px',
+                        transition: 'all 0.2s'
+                      }}
+                      title={productCount > 0 ? `Cannot delete "${cat.label}" category (${productCount} products) - Move products first` : `Hide "${cat.label}" category from list (empty)`}
+                      onMouseEnter={(e) => {
+                        if (productCount > 0) {
+                          e.target.style.background = '#dc2626';
+                        } else {
+                          e.target.style.background = '#d97706';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (productCount > 0) {
+                          e.target.style.background = '#ef4444';
+                        } else {
+                          e.target.style.background = '#f59e0b';
+                        }
+                      }}
+                    >
+                      🗑️
+                    </button>
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
+          {showCategoryManager && (
+            <div style={{
+              marginTop: '8px',
+              padding: '8px',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '4px',
+              fontSize: '0.6rem',
+              color: '#991b1b'
+            }}>
+              <strong>⚠️ Category Management Mode:</strong> Click the 🗑️ button next to any category to hide it from the list. 
+              <br />
+              <span style={{ fontSize: '0.55rem', opacity: 0.8 }}>
+                • Red buttons = Categories with products (cannot be hidden - move products first)
+                <br />
+                • Orange buttons = Empty categories (can be hidden safely)
+                <br />
+                • Hidden categories can be restored using "📂 Manage Categories" → "🔄 Restore Hidden" tab
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="filters" style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -2352,7 +2827,7 @@ const AdminProducts = () => {
                 )}
               </div>
               <div style={{ fontSize: '0.75rem', fontWeight: '600' }}>
-                {filteredProducts.length} products
+                {totalProducts} total products
               </div>
             </div>
           )}
@@ -2361,12 +2836,12 @@ const AdminProducts = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ fontWeight: '600' }}>
                 {filters.isAmazonsChoice && filters.category
-                  ? `🏆 Amazon's Choice - ${categories.find(c => c.value === filters.category)?.label}: ${filteredProducts.length}`
+                  ? `🏆 Amazon's Choice - ${categories.find(c => c.value === filters.category)?.label}: ${totalProducts}`
                   : filters.isAmazonsChoice
-                    ? `🏆 Amazon's Choice: ${filteredProducts.length}`
+                    ? `🏆 Amazon's Choice: ${totalProducts}`
                     : filters.category
-                      ? `📂 ${categories.find(c => c.value === filters.category)?.label}: ${filteredProducts.length}`
-                      : `📦 Showing: ${filteredProducts.length}`}
+                      ? `📂 ${categories.find(c => c.value === filters.category)?.label}: ${totalProducts}`
+                      : `📦 Showing: ${totalProducts}`}
               </span>
               {selectedProducts.size > 0 && (
                 <>
@@ -2399,11 +2874,30 @@ const AdminProducts = () => {
                   >
                     🗑️ Delete Selected
                   </button>
+                  <button
+                    onClick={() => setShowBulkOperationsModal(true)}
+                    style={{
+                      padding: '3px 10px',
+                      fontSize: '0.65rem',
+                      background: '#667eea',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title={`Bulk edit ${selectedProducts.size} selected product(s)`}
+                  >
+                    🔄 Bulk Edit
+                  </button>
                 </>
               )}
             </div>
             <span style={{ fontSize: '0.65rem', color: '#6b7280' }}>
-              Page {currentPage}/{Math.ceil(filteredProducts.length / productsPerPage)}
+              Page {currentPage}/{totalPages}
             </span>
           </div>
 
@@ -2414,7 +2908,7 @@ const AdminProducts = () => {
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', width: '40px', color: 'white' }}>
                     <input
                       type="checkbox"
-                      checked={selectedProducts.size > 0 && selectedProducts.size === filteredProducts.slice((currentPage - 1) * productsPerPage, currentPage * productsPerPage).length}
+                      checked={selectedProducts.size > 0 && selectedProducts.size === filteredProducts.length}
                       onChange={handleSelectAll}
                       style={{ cursor: 'pointer' }}
                       title="Select all on this page"
@@ -2431,7 +2925,7 @@ const AdminProducts = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredProducts.slice((currentPage - 1) * productsPerPage, currentPage * productsPerPage).map(product => (
+                {filteredProducts.map(product => (
                   <tr key={product._id} style={{ borderBottom: '1px solid #e5e7eb', background: selectedProducts.has(product._id) ? '#f0f9ff' : 'transparent' }}>
                     <td style={{ padding: '4px 8px', textAlign: 'center' }}>
                       <input
@@ -2650,7 +3144,7 @@ const AdminProducts = () => {
           )}
 
           {/* Pagination */}
-          {filteredProducts.length > productsPerPage && (
+          {totalPages > 1 && (
             <div style={{
               display: 'flex',
               justifyContent: 'center',
@@ -2706,20 +3200,20 @@ const AdminProducts = () => {
                 minWidth: '80px',
                 textAlign: 'center'
               }}>
-                {currentPage} / {Math.ceil(filteredProducts.length / productsPerPage)}
+                {currentPage} / {totalPages}
               </div>
 
               <button
-                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredProducts.length / productsPerPage), prev + 1))}
-                disabled={currentPage === Math.ceil(filteredProducts.length / productsPerPage)}
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
                 style={{
                   padding: '4px 8px',
                   fontSize: '0.7rem',
                   border: '1px solid #667eea',
-                  background: currentPage === Math.ceil(filteredProducts.length / productsPerPage) ? '#f3f4f6' : 'white',
-                  color: currentPage === Math.ceil(filteredProducts.length / productsPerPage) ? '#9ca3af' : '#667eea',
+                  background: currentPage === totalPages ? '#f3f4f6' : 'white',
+                  color: currentPage === totalPages ? '#9ca3af' : '#667eea',
                   borderRadius: '4px',
-                  cursor: currentPage === Math.ceil(filteredProducts.length / productsPerPage) ? 'not-allowed' : 'pointer',
+                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
                   fontWeight: '600'
                 }}
               >
@@ -2727,16 +3221,16 @@ const AdminProducts = () => {
               </button>
 
               <button
-                onClick={() => setCurrentPage(Math.ceil(filteredProducts.length / productsPerPage))}
-                disabled={currentPage === Math.ceil(filteredProducts.length / productsPerPage)}
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
                 style={{
                   padding: '4px 8px',
                   fontSize: '0.7rem',
                   border: '1px solid #667eea',
-                  background: currentPage === Math.ceil(filteredProducts.length / productsPerPage) ? '#f3f4f6' : 'white',
-                  color: currentPage === Math.ceil(filteredProducts.length / productsPerPage) ? '#9ca3af' : '#667eea',
+                  background: currentPage === totalPages ? '#f3f4f6' : 'white',
+                  color: currentPage === totalPages ? '#9ca3af' : '#667eea',
                   borderRadius: '4px',
-                  cursor: currentPage === Math.ceil(filteredProducts.length / productsPerPage) ? 'not-allowed' : 'pointer',
+                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
                   fontWeight: '600'
                 }}
               >
@@ -2906,13 +3400,17 @@ const AdminProducts = () => {
                     </div>
                     <button
                       onClick={() => {
+                        console.log('🚀 Auto Fetch button clicked');
                         if (profitEditProduct) {
+                          console.log('📦 Current product:', profitEditProduct.name, 'ID:', profitEditProduct._id);
                           const category = products.find(p => p._id === profitEditProduct._id)?.category;
+                          console.log('📂 Product category:', category);
                           if (category) {
                             // Reset states
                             setShowAllCategories(false);
                             setSelectedSourceProduct(null);
                             
+                            console.log('🔍 Fetching products from category:', category);
                             // Fetch products from exact same category first
                             fetchCategoryProductsWithProfitData(category, profitEditProduct._id, true);
                             
@@ -2921,8 +3419,11 @@ const AdminProducts = () => {
                             
                             setShowAutoFetchModal(true);
                           } else {
+                            console.log('❌ Could not determine product category');
                             alert('⚠️ Could not determine product category');
                           }
+                        } else {
+                          console.log('❌ No profitEditProduct found');
                         }
                       }}
                       style={{
@@ -4006,7 +4507,7 @@ const AdminProducts = () => {
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         Product Cost (£)
                         <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
-                          (Auto-filled from product price)
+                          (Manually editable)
                         </span>
                         {productCostUpdated && (
                           <span style={{
@@ -4024,17 +4525,52 @@ const AdminProducts = () => {
                         type="number"
                         step="0.01"
                         value={safeFormatNumber(profitEditProduct.profitEvaluation.productCost)}
-                        readOnly
+                        onChange={(e) => {
+                          const newProductCost = parseFloat(e.target.value) || 0;
+                          
+                          // Update the profit evaluation
+                          const updatedProfitEvaluation = {
+                            ...profitEditProduct.profitEvaluation,
+                            productCost: newProductCost
+                          };
+                          
+                          // Recalculate net profit with new product cost
+                          const balanceChange = updatedProfitEvaluation.balanceChange || 0;
+                          const newNetProfit = parseFloat((balanceChange - newProductCost).toFixed(2));
+                          updatedProfitEvaluation.netProfit = newNetProfit;
+                          
+                          // Update the product
+                          const updatedProduct = {
+                            ...profitEditProduct,
+                            price: newProductCost, // Also update the main product price
+                            profitEvaluation: updatedProfitEvaluation
+                          };
+                          
+                          // Update platform comparison profits and markup with new product cost
+                          const updatedPlatformComparison = profitEditProduct.platformComparison.map(platform => ({
+                            ...platform,
+                            profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2)),
+                            markup: calculateMarkupPercentage(platform.rrpPerUnit, newProductCost)
+                          }));
+                          
+                          updatedProduct.platformComparison = updatedPlatformComparison;
+                          
+                          setProfitEditProduct(updatedProduct);
+                          
+                          // Set visual indicator that product cost was updated
+                          setProductCostUpdated(true);
+                          setTimeout(() => setProductCostUpdated(false), 3000);
+                        }}
                         style={{
                           width: '100%',
                           padding: '10px',
-                          border: productCostUpdated ? '2px solid #28a745' : '1px solid #17a2b8',
+                          border: productCostUpdated ? '2px solid #28a745' : '2px solid #007bff',
                           borderRadius: '6px',
                           fontSize: '0.9rem',
-                          backgroundColor: productCostUpdated ? '#d4edda' : '#e7f3ff',
-                          cursor: 'not-allowed',
+                          backgroundColor: productCostUpdated ? '#d4edda' : '#f8f9ff',
                           transition: 'all 0.3s ease'
                         }}
+                        placeholder="Enter product cost"
                       />
                     </div>
                   </div>
@@ -5786,6 +6322,32 @@ const AdminProducts = () => {
           }
         }
       `}</style>
+      
+      {/* Category Management Modal */}
+      <CategoryManagementModal
+        isOpen={showCategoryManagementModal}
+        onClose={() => setShowCategoryManagementModal(false)}
+        onCategoriesUpdated={() => {
+          console.log('🔄 Categories updated - refreshing admin products page');
+          // Force refresh categories and products
+          fetchCategories();
+          fetchProducts();
+          // Also trigger a page reload after a short delay to ensure everything updates
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        }}
+      />
+
+      {/* Bulk Operations Modal */}
+      <BulkOperationsModal
+        isOpen={showBulkOperationsModal}
+        onClose={() => setShowBulkOperationsModal(false)}
+        selectedProducts={selectedProducts}
+        onBulkUpdate={handleBulkOperations}
+        categories={categories}
+        allProducts={products}
+      />
     </div>
   );
 };

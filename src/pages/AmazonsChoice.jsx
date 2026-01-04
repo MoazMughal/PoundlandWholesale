@@ -2,15 +2,22 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import ScrollToTop from '../components/ScrollToTop'
 import ProductCardSkeleton from '../components/ProductCardSkeleton'
+import SearchBar from '../components/SearchBar'
+import Breadcrumb from '../components/Breadcrumb'
+import LoadingSpinner from '../components/LoadingSpinner'
+import { ProductCardSkeleton as NewProductCardSkeleton } from '../components/SkeletonLoaders'
+import Pagination from '../components/Pagination'
 import { useCurrency } from '../context/CurrencyContext'
 import { useSeller } from '../context/SellerContext'
 import { useBasket } from '../context/BasketContext'
 import { useAdmin } from '../context/AdminContext'
 import { getImageUrl } from '../utils/imageImports'
+import { optimizeImageUrl } from '../utils/imageOptimization'
 import { getApiUrl } from '../utils/api'
 import { logDeviceInfo } from '../utils/deviceDetection'
 import '../styles/mobile-products.css'
 import '../styles/enhanced-theme.css'
+import '../styles/mobile-improvements.css'
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
@@ -123,11 +130,16 @@ const AmazonsChoice = () => {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('cat') || 'all')
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '')
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page')) || 1)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [lastFetchKey, setLastFetchKey] = useState('')
   const [badgeRotation, setBadgeRotation] = useState(0) // For rotating badges
   const [dataSource, setDataSource] = useState('') // Track data source for debugging
+  
+  // Pagination state
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalProducts, setTotalProducts] = useState(0)
+  const [productsPerPage] = useState(48) // Show 48 products per page
 
   // Context hooks
   const { formatPrice } = useCurrency()
@@ -164,19 +176,25 @@ const AmazonsChoice = () => {
     }
   }
 
-  // Pagination
-  const productsPerPage = 48
-  const indexOfLastProduct = currentPage * productsPerPage
-  const indexOfFirstProduct = indexOfLastProduct - productsPerPage
-  // Simplified: just use products directly for now
-  const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct)
-  const totalPages = Math.ceil(products.length / productsPerPage)
+  // Pagination - now using server-side pagination
+  const currentProducts = products // Use products directly from API
+  
+  // Handle page change
+  const handlePageChange = (page) => {
+    setCurrentPage(page)
+    // Update URL with new page
+    const newSearchParams = new URLSearchParams(searchParams)
+    newSearchParams.set('page', page.toString())
+    navigate(`?${newSearchParams.toString()}`, { replace: true })
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
-  // Fetch products with server-side filtering
-  const fetchProducts = async (category = null, search = null) => {
+  // Fetch products with server-side filtering and pagination
+  const fetchProducts = async (category = null, search = null, page = 1) => {
     try {
       // Create a key for this fetch to avoid duplicate requests
-      const fetchKey = `${category || 'all'}-${search || ''}`
+      const fetchKey = `${category || 'all'}-${search || ''}-${page}`
       
       // Skip if we just fetched the same data
       if (fetchKey === lastFetchKey && products.length > 0) {
@@ -184,39 +202,23 @@ const AmazonsChoice = () => {
         return
       }
       
-      // Only show loading if we don't have products already
-      if (products.length === 0) {
-        setLoading(true)
-      }
-      // Fetching products from database
+      // Always show loading for new page requests
+      setLoading(true)
       
-      // No timeout - let database take as long as it needs
-      
-      // Optimize API calls for better performance
-      let apiUrl
+      // Build API parameters
+      const params = new URLSearchParams()
+      params.append('isAmazonsChoice', 'true') // Always filter for Amazon Choice products
+      params.append('limit', productsPerPage.toString()) // Use our products per page
+      params.append('page', page.toString()) // Add page parameter
       
       if (category && category !== 'all') {
-        // For specific categories, use filtered endpoint with Amazon Choice filter
-        const params = new URLSearchParams()
         params.append('category', category)
-        params.append('isAmazonsChoice', 'true') // Always filter for Amazon Choice products
-        params.append('limit', '50')
-        if (search) params.append('search', search)
-        apiUrl = `products/public?${params.toString()}`
-      } else if (search) {
-        // For search, use filtered endpoint with Amazon Choice filter
-        const params = new URLSearchParams()
-        params.append('search', search)
-        params.append('isAmazonsChoice', 'true') // Always filter for Amazon Choice products
-        params.append('limit', '50')
-        apiUrl = `products/public?${params.toString()}`
-      } else {
-        // For "All" Amazon Choice products from all categories, use filtered endpoint
-        const params = new URLSearchParams()
-        params.append('isAmazonsChoice', 'true') // Show Amazon Choice products from ALL categories
-        params.append('limit', '50')
-        apiUrl = `products/public?${params.toString()}`
       }
+      if (search) {
+        params.append('search', search)
+      }
+      
+      const apiUrl = `products/public?${params.toString()}`
       
       // API URL and Amazon Choice filter applied
       
@@ -237,7 +239,17 @@ const AmazonsChoice = () => {
           // Simplified: All prices in GBP (£) only - use actual database price
           const transformedProducts = data.products.map(p => {
             // Debug amber bulb specifically
-            // Product transformation
+            const isAmberBulb = p.name && p.name.toLowerCase().includes('amber glass');
+            if (isAmberBulb) {
+              console.log('🔍 AMBER BULB DEBUG IN AMAZONS CHOICE:', {
+                name: p.name,
+                platformUnits: p.platformUnits,
+                dealUnits: p.dealUnits,
+                calculatedDealUnits: Math.floor((p.platformUnits || 200) / 12),
+                hasplatformUnits: !!p.platformUnits,
+                platformUnitsType: typeof p.platformUnits
+              });
+            }
             
             return {
               id: p._id,
@@ -254,7 +266,73 @@ const AmazonsChoice = () => {
               reviews: p.reviews || 0,
               stock: p.stock || 0,
               discount: p.discount || 0,
-              dealUnits: p.dealUnits || 1,
+              dealUnits: (() => {
+                // Try multiple sources for platform units
+                let platformUnits = p.platformUnits;
+                
+                // If no platformUnits, check if it's in profit evaluation or other fields
+                if (!platformUnits && p.profitEvaluation?.platformUnits) {
+                  platformUnits = p.profitEvaluation.platformUnits;
+                }
+                
+                // If still no platformUnits, check platform comparison data
+                if (!platformUnits && p.platformComparison && p.platformComparison.length > 0) {
+                  // Try to get units from platform comparison
+                  const firstPlatform = p.platformComparison[0];
+                  if (firstPlatform.units) {
+                    platformUnits = firstPlatform.units;
+                  }
+                }
+                
+                // If we found platformUnits, calculate dealUnits
+                if (platformUnits && platformUnits > 0) {
+                  const calculatedDealUnits = Math.floor(platformUnits / 12);
+                  
+                  // Debug specific products
+                  const isAmberBulb = p.name && p.name.toLowerCase().includes('amber glass');
+                  if (isAmberBulb) {
+                    console.log('🔍 AMBER BULB CALCULATION SUCCESS:', {
+                      name: p.name,
+                      platformUnits: platformUnits,
+                      calculatedDealUnits: calculatedDealUnits,
+                      source: p.platformUnits ? 'direct' : p.profitEvaluation?.platformUnits ? 'profitEval' : 'platformComparison'
+                    });
+                  }
+                  
+                  return calculatedDealUnits;
+                }
+                
+                // If no platformUnits found anywhere, check if the existing dealUnits looks like it might be correct
+                // (i.e., if it's already been calculated and stored)
+                if (p.dealUnits && p.dealUnits > 1 && p.dealUnits < 1000) {
+                  // Use the existing dealUnits value (it might already be calculated correctly)
+                  const isAmberBulb = p.name && p.name.toLowerCase().includes('amber glass');
+                  if (isAmberBulb) {
+                    console.log('🔍 AMBER BULB USING EXISTING DEALUNITS:', {
+                      name: p.name,
+                      existingDealUnits: p.dealUnits,
+                      reason: 'No platformUnits found, using existing dealUnits'
+                    });
+                  }
+                  return p.dealUnits;
+                }
+                
+                // Final fallback - calculate from default platformUnits
+                const defaultPlatformUnits = 2400;
+                const fallbackDealUnits = Math.floor(defaultPlatformUnits / 12);
+                
+                const isAmberBulb = p.name && p.name.toLowerCase().includes('amber glass');
+                if (isAmberBulb) {
+                  console.log('🔍 AMBER BULB USING FALLBACK:', {
+                    name: p.name,
+                    fallbackDealUnits: fallbackDealUnits,
+                    reason: 'No data found, using default calculation'
+                  });
+                }
+                
+                return fallbackDealUnits;
+              })(), // Auto-calculate as platformUnits / 12
+              platformUnits: p.platformUnits, // Also include platformUnits for debugging
               currency: 'GBP',
               isAmazonsChoice: true,
               // Include profit data from database
@@ -264,11 +342,11 @@ const AmazonsChoice = () => {
             };
           })
           
-          // Setting products state
-          
+          // Setting products state with pagination info
           setProducts(transformedProducts)
-          // Initialize filtered products with all products
           setFilteredProducts(transformedProducts)
+          setTotalPages(data.totalPages || 1)
+          setTotalProducts(data.total || transformedProducts.length)
           setLoading(false)
           setHasLoadedOnce(true)
           setLastFetchKey(fetchKey)
@@ -276,10 +354,12 @@ const AmazonsChoice = () => {
           
           // Products loaded successfully
           
-          // Show notification if using fallback data
         } else {
           // No Amazon Choice products found in database
           setProducts([])
+          setFilteredProducts([])
+          setTotalPages(1)
+          setTotalProducts(0)
           setLoading(false)
         }
       } else {
@@ -293,10 +373,10 @@ const AmazonsChoice = () => {
     }
   }
 
-  // Server-side filtering - fetch products with filters
-  const applyFilters = async (category, search) => {
-    // Applying filters
-    await fetchProducts(category, search)
+  // Server-side filtering - fetch products with filters and pagination
+  const applyFilters = async (category, search, page = currentPage) => {
+    // Applying filters with pagination
+    await fetchProducts(category, search, page)
   }
 
   // Force refresh for admin
@@ -336,6 +416,7 @@ const AmazonsChoice = () => {
   useEffect(() => {
     const catParam = searchParams.get('cat') || 'all'
     const searchParam = searchParams.get('search') || ''
+    const pageParam = parseInt(searchParams.get('page')) || 1
     
     // URL params changed
     
@@ -345,9 +426,10 @@ const AmazonsChoice = () => {
     // Update state
     setSelectedCategory(catParam)
     setSearchQuery(searchParam)
+    setCurrentPage(pageParam)
     
-    // Fetch products with filters
-    applyFilters(catParam, searchParam)
+    // Fetch products with filters and pagination
+    applyFilters(catParam, searchParam, pageParam)
   }, [searchParams])
 
   // Health check on component mount
@@ -377,32 +459,32 @@ const AmazonsChoice = () => {
         {/* Enhanced Loading Message */}
         <div style={{
           textAlign: 'center',
-          padding: '60px 20px',
-          fontSize: '20px',
+          padding: '40px 20px',
+          fontSize: '18px',
           color: '#ff6600',
           background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
-          borderRadius: '20px',
-          border: '3px solid #ff6600',
-          boxShadow: '0 10px 30px rgba(255, 102, 0, 0.2)',
+          borderRadius: '15px',
+          border: '2px solid #ff6600',
+          boxShadow: '0 8px 25px rgba(255, 102, 0, 0.2)',
           margin: '20px 0'
         }}>
           <div style={{
-            fontSize: '3rem',
-            marginBottom: '20px',
-            animation: 'spin 2s linear infinite, pulse 1.5s ease-in-out infinite alternate'
+            fontSize: '2rem',
+            marginBottom: '15px',
+            animation: 'spin 2s linear infinite'
           }}>
             🔄
           </div>
           <div style={{
             fontWeight: '700',
             textShadow: '0 2px 4px rgba(255, 102, 0, 0.3)',
-            letterSpacing: '1px'
+            letterSpacing: '0.5px'
           }}>
             Loading Amazing Products...
           </div>
           <div style={{
-            fontSize: '14px',
-            marginTop: '10px',
+            fontSize: '12px',
+            marginTop: '8px',
             color: '#cc3300',
             fontWeight: '500'
           }}>
@@ -410,6 +492,7 @@ const AmazonsChoice = () => {
           </div>
         </div>
         
+        {/* Skeleton Loaders Grid */}
         <div id="products-grid" style={{
           display: 'grid', 
           gridTemplateColumns: windowWidth < 576 ? 'repeat(2, 1fr)' : 
@@ -422,8 +505,8 @@ const AmazonsChoice = () => {
           maxWidth: '1600px',
           margin: '0 auto'
         }}>
-          {Array.from({ length: 48 }).map((_, index) => (
-            <ProductCardSkeleton key={index} />
+          {Array.from({ length: productsPerPage }).map((_, index) => (
+            <NewProductCardSkeleton key={index} />
           ))}
         </div>
       </div>
@@ -550,8 +633,8 @@ const AmazonsChoice = () => {
       <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '5px 15px', marginTop: '10px'}}>
         <ScrollToTop />
 
-        {/* Data Source Indicator for Debugging */}
-        {dataSource && dataSource !== 'database' && dataSource !== 'fast' && (
+        {/* Data Source Indicator for Debugging - Only show for problematic sources */}
+        {dataSource && dataSource !== 'database' && dataSource !== 'fast' && dataSource !== 'database_random' && (
           <div style={{
             background: '#fef3c7',
             border: '1px solid #f59e0b',
@@ -588,6 +671,47 @@ const AmazonsChoice = () => {
             >
               🔄 Retry
             </button>
+          </div>
+        )}
+
+        {/* Product Count Header */}
+        {!loading && currentProducts.length > 0 && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px',
+            padding: '15px 20px',
+            background: 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
+            borderRadius: '12px',
+            color: 'white',
+            boxShadow: '0 4px 15px rgba(255, 250, 247, 0.3)'
+          }}>
+            <div>
+              <h2 style={{ 
+                margin: 0, 
+                fontSize: '1.5rem', 
+                fontWeight: '700',
+                textShadow: '0 2px 4px rgba(251, 240, 240, 1)'
+              }}>
+                🏆 Amazon's Choice Products
+              </h2>
+              <p style={{ 
+                margin: '5px 0 0 0', 
+                fontSize: '0.9rem', 
+                opacity: 0.9,
+                fontWeight: '500'
+              }}>
+                Showing {products.length} of {totalProducts.toLocaleString()} products
+                {currentPage > 1 && ` (Page ${currentPage} of ${totalPages})`}
+              </p>
+            </div>
+            <div style={{
+              fontSize: '2rem',
+              opacity: 0.8
+            }}>
+              ✨
+            </div>
           </div>
         )}
 
@@ -667,7 +791,7 @@ const AmazonsChoice = () => {
                 padding: windowWidth < 576 ? '5px' : '8px'
               }}>
                 <img 
-                  src={getImageUrl(product.image)}
+                  src={optimizeImageUrl(getImageUrl(product.image), { width: 300, height: 300, quality: 80 })}
                   alt={product.name} 
                   loading="lazy"
                   onError={(e) => e.target.style.display = 'none'}
@@ -1083,7 +1207,18 @@ const AmazonsChoice = () => {
                   }}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '2px'}}>
                       <span style={{fontSize: '8px', color: '#cc3300', fontWeight: '700'}}>
-                        💰 Deal of {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
+                        💰 Deal of {(() => {
+                          const isAmberBulb = product.name && product.name.toLowerCase().includes('amber glass');
+                          if (isAmberBulb) {
+                            console.log('🔍 AMBER BULB DISPLAY DEBUG:', {
+                              productName: product.name,
+                              productDealUnits: product.dealUnits,
+                              productPlatformUnits: product.platformUnits,
+                              fallbackValue: product.dealUnits || 1
+                            });
+                          }
+                          return product.dealUnits || 1;
+                        })()} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{fontSize: '8px', fontWeight: '800', color: '#ff3300'}}>
                         {(() => {
@@ -1205,105 +1340,15 @@ const AmazonsChoice = () => {
 
         {/* Enhanced Pagination */}
         {totalPages > 1 && (
-          <div className="pagination-container" style={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            marginTop: '40px',
-            padding: '20px',
-            background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
-            borderRadius: '15px',
-            border: '2px solid #ff6600',
-            boxShadow: '0 8px 25px rgba(255, 102, 0, 0.2)'
-          }}>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <button
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                style={{
-                  padding: '12px 16px',
-                  border: '2px solid #ff6600',
-                  background: currentPage === 1 ? 
-                    'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)' : 
-                    'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)',
-                  color: currentPage === 1 ? '#999' : '#ff6600',
-                  borderRadius: '10px',
-                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                  fontSize: '16px',
-                  fontWeight: '700',
-                  transition: 'all 0.3s ease',
-                  boxShadow: currentPage === 1 ? 'none' : '0 4px 12px rgba(255, 102, 0, 0.2)'
-                }}
-                onMouseEnter={(e) => {
-                  if (currentPage !== 1) {
-                    e.target.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
-                    e.target.style.color = 'white';
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 6px 18px rgba(255, 102, 0, 0.4)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (currentPage !== 1) {
-                    e.target.style.background = 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)';
-                    e.target.style.color = '#ff6600';
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(255, 102, 0, 0.2)';
-                  }
-                }}
-              >
-                <i className="fas fa-chevron-left"></i>
-              </button>
-              
-              <span style={{ 
-                padding: '12px 20px', 
-                fontSize: '16px', 
-                color: '#ff3300',
-                fontWeight: '700',
-                background: 'linear-gradient(135deg, #ffffff 0%, #fff5f0 100%)',
-                border: '2px solid #ff6600',
-                borderRadius: '10px',
-                textShadow: '0 1px 2px rgba(255, 51, 0, 0.2)'
-              }}>
-                Page {currentPage} of {totalPages}
-              </span>
-              
-              <button
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                style={{
-                  padding: '12px 16px',
-                  border: '2px solid #ff6600',
-                  background: currentPage === totalPages ? 
-                    'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)' : 
-                    'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)',
-                  color: currentPage === totalPages ? '#999' : '#ff6600',
-                  borderRadius: '10px',
-                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                  fontSize: '16px',
-                  fontWeight: '700',
-                  transition: 'all 0.3s ease',
-                  boxShadow: currentPage === totalPages ? 'none' : '0 4px 12px rgba(255, 102, 0, 0.2)'
-                }}
-                onMouseEnter={(e) => {
-                  if (currentPage !== totalPages) {
-                    e.target.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
-                    e.target.style.color = 'white';
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 6px 18px rgba(255, 102, 0, 0.4)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (currentPage !== totalPages) {
-                    e.target.style.background = 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)';
-                    e.target.style.color = '#ff6600';
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(255, 102, 0, 0.2)';
-                  }
-                }}
-              >
-                <i className="fas fa-chevron-right"></i>
-              </button>
-            </div>
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            itemsPerPage={productsPerPage}
+            totalItems={totalProducts}
+            showInfo={true}
+            size="md"
+          />
         )}
       </div>
     </div>

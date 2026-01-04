@@ -62,11 +62,34 @@ const BuyerLogin = () => {
 
   return (
     <div className="min-vh-100 d-flex" style={{
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
       padding: '10px 0',
       alignItems: 'flex-start',
-      paddingTop: '4vh'
+      paddingTop: '4vh',
+      position: 'relative',
+      overflow: 'hidden'
     }}>
+      {/* Animated Background Elements */}
+      <div style={{
+        position: 'absolute',
+        top: '10%',
+        left: '5%',
+        width: '80px',
+        height: '80px',
+        background: 'rgba(255,255,255,0.1)',
+        borderRadius: '50%',
+        animation: 'float 6s ease-in-out infinite'
+      }}></div>
+      <div style={{
+        position: 'absolute',
+        top: '70%',
+        right: '10%',
+        width: '120px',
+        height: '120px',
+        background: 'rgba(255,255,255,0.05)',
+        borderRadius: '50%',
+        animation: 'float 8s ease-in-out infinite reverse'
+      }}></div>
       <div className="container">
         <div className="row justify-content-center">
           <div className="col-lg-5 col-md-7 col-sm-9">

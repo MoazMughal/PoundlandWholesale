@@ -106,11 +106,20 @@ const ExcelProductEdit = () => {
           setRemovedImages(new Set()); // Reset removed images when loading product
           
         } else {
-          setImageUrls(new Array(5).fill(undefined));
-          setImageFiles(new Array(5).fill(undefined));
+          // Check if there's an uploaded image for this ASIN
+          const imageUrlsArray = new Array(5).fill(undefined);
+          const imageFilesArray = new Array(5).fill(undefined);
+          
+          if (data.product.asin) {
+            // Try to use uploaded image as main image
+            const uploadedImageUrl = `http://localhost:5000/api/admin-excel/public/images/by-asin/${data.product.asin}`;
+            imageUrlsArray[0] = uploadedImageUrl;
+          }
+          
+          setImageUrls(imageUrlsArray);
+          setImageFiles(imageFilesArray);
           setOriginalImages([]);
           setRemovedImages(new Set()); // Reset removed images
-          
         }
       } else {
         alert('Failed to fetch product details');
@@ -128,7 +137,7 @@ const ExcelProductEdit = () => {
   const fetchCategories = async () => {
     try {
       // Include Excel categories for admin use
-      const response = await fetch('http://localhost:5000/api/categories?includeExcel=true');
+      const response = await fetch('http://localhost:5000/api/products/public/categories?includeExcel=true');
       if (response.ok) {
         const data = await response.json();
         setCategories(data.categories || []);
@@ -153,7 +162,7 @@ const ExcelProductEdit = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/categories', {
+      const response = await fetch('http://localhost:5000/api/products/public/categories', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -8,8 +8,80 @@ import ExcelProduct from '../models/ExcelProduct.js';
 import { authenticateAdmin } from '../middleware/auth.js';
 import path from 'path';
 import fs from 'fs';
+import AdmZip from 'adm-zip';
+import sharp from 'sharp';
 
 const router = express.Router();
+
+// Normalize category name to prevent duplicates during Excel import
+function normalizeCategoryName(categoryName) {
+  if (!categoryName) return '';
+  
+  const normalized = categoryName.trim();
+  
+  // Define category mapping to prevent duplicates
+  const categoryMappings = {
+    // Clothing variations
+    'clothing': 'Clothing',
+    'cloth': 'Clothing',
+    'clothes': 'Clothing',
+    
+    // Automotive variations
+    'automotive': 'Automotive',
+    'automotives': 'Automotive',
+    'auto': 'Automotive',
+    
+    // Remote control variations
+    'remote': 'Remote Controls',
+    'remotes': 'Remote Controls',
+    'remote-controls': 'Remote Controls',
+    'remote control': 'Remote Controls',
+    'remote controls': 'Remote Controls',
+    
+    // Watch strap variations
+    'watch strap': 'Watch Strap',
+    'watchstrap': 'Watch Strap',
+    'watch-strap': 'Watch Strap',
+    'watch straps': 'Watch Strap',
+    
+    // Lampshade variations
+    'lampshade': 'Lampshades',
+    'lamp shade': 'Lampshades',
+    'lamp-shade': 'Lampshades',
+    
+    // Car bulb variations
+    'car bulb': 'Car Bulb',
+    'carbulb': 'Car Bulb',
+    'car-bulb': 'Car Bulb',
+    'car bulbs': 'Car Bulb',
+    
+    // Electronics variations
+    'electronic': 'Electronics',
+    'electronics': 'Electronics',
+    
+    // Home variations
+    'home': 'Home & Garden',
+    'home & garden': 'Home & Garden',
+    'home and garden': 'Home & Garden',
+    'home-garden': 'Home & Garden',
+    'home & decore': 'Home & Garden',
+    'home decor': 'Home & Garden',
+    
+    // Accessories variations
+    'accessory': 'Accessories',
+    'accessories': 'Accessories',
+    'accessorie': 'Accessories'
+  };
+  
+  // Check for exact match (case-insensitive)
+  const lowerNormalized = normalized.toLowerCase();
+  if (categoryMappings[lowerNormalized]) {
+    return categoryMappings[lowerNormalized];
+  }
+  
+  // Return original with proper capitalization
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
 
 // Configure multer for Excel file uploads
 const storage = multer.diskStorage({
@@ -270,6 +342,9 @@ async function handleExcelUpload(req, res) {
           'category', 'product category', 'productcategory', 'cat'
         ]);
         
+        // Normalize category name to prevent duplicates
+        const normalizedCategory = normalizeCategoryName(category);
+        
         const price = parsePrice(findColumn(row, [
           'price', 'product price', 'productprice', 'cost', 'amount', 'unit price', 'unitprice'
         ]));
@@ -319,7 +394,7 @@ async function handleExcelUpload(req, res) {
           asin: asin || undefined,
           price: finalPrice,
           originalPrice: finalPrice * 1.2, // Default 20% markup for original price
-          category: category ? category.toString().trim() : 'Uncategorized',
+          category: normalizedCategory ? normalizedCategory.toString().trim() : 'Uncategorized',
           rating: rating > 0 ? rating : 4.0, // Default rating if missing
           reviews: reviews >= 0 ? reviews : 0, // Allow 0 reviews
           dealUnits: dealUnits > 0 ? dealUnits : 1, // Default to 1 if missing
@@ -528,6 +603,15 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
     const { uploadId } = req.params;
     const { page = 1, limit = 50, search, category, status } = req.query;
     
+    console.log('🔍 Excel products query:', {
+      uploadId,
+      page,
+      limit,
+      search,
+      category,
+      status
+    });
+    
     // Validate and cap the limit to prevent performance issues
     const validatedLimit = Math.min(parseInt(limit) || 50, 200);
     
@@ -551,6 +635,8 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
       query.status = status;
     }
 
+    console.log('🔍 Final MongoDB query:', JSON.stringify(query, null, 2));
+
     const products = await ExcelProduct.find(query)
       .sort({ rowNumber: 1 }) // Sort by Excel row order
       .limit(validatedLimit)
@@ -559,12 +645,65 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
 
     const total = await ExcelProduct.countDocuments(query);
 
+    // Sync status with main products for converted items
+    const productsWithSyncedStatus = await Promise.all(products.map(async (product) => {
+      if (product.isConverted && product.mainProductId) {
+        try {
+          // Check if main product exists and is active
+          const mainProduct = await Product.findById(product.mainProductId).select('status').lean();
+          
+          if (mainProduct) {
+            // Update status based on main product status
+            let syncedStatus = 'listed';
+            if (mainProduct.status === 'active') {
+              syncedStatus = 'listed';
+            } else if (mainProduct.status === 'inactive') {
+              syncedStatus = 'inactive';
+            } else {
+              syncedStatus = mainProduct.status;
+            }
+            
+            // Update Excel product status if it's different
+            if (product.status !== syncedStatus) {
+              await ExcelProduct.updateOne(
+                { _id: product._id },
+                { $set: { status: syncedStatus } }
+              );
+              product.status = syncedStatus;
+            }
+          } else {
+            // Main product doesn't exist anymore, mark as pending
+            if (product.status !== 'pending') {
+              await ExcelProduct.updateOne(
+                { _id: product._id },
+                { $set: { status: 'pending', isConverted: false, mainProductId: null } }
+              );
+              product.status = 'pending';
+              product.isConverted = false;
+              product.mainProductId = null;
+            }
+          }
+        } catch (syncError) {
+          console.error('Error syncing status for product:', product._id, syncError);
+        }
+      }
+      
+      return product;
+    }));
+
+    console.log('📊 Excel products result:', {
+      found: productsWithSyncedStatus.length,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / validatedLimit)
+    });
+
     // Get upload info
     const upload = await ExcelUpload.findById(uploadId).lean();
 
     res.json({
       success: true,
-      products,
+      products: productsWithSyncedStatus,
       upload,
       pagination: {
         currentPage: parseInt(page),
@@ -579,6 +718,115 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
     res.status(500).json({
       success: false,
       message: 'Failed to fetch Excel products',
+      error: error.message
+    });
+  }
+});
+
+// Sync Excel product statuses with main products
+router.post('/uploads/:uploadId/sync-status', authenticateAdmin, async (req, res) => {
+  try {
+    const { uploadId } = req.params;
+    
+    console.log('🔄 Syncing Excel product statuses for upload:', uploadId);
+    
+    // Get all Excel products for this upload that are converted
+    const convertedProducts = await ExcelProduct.find({
+      excelUploadId: uploadId,
+      isConverted: true,
+      mainProductId: { $exists: true }
+    });
+    
+    let syncedCount = 0;
+    let fixedCount = 0;
+    const errors = [];
+    
+    for (const excelProduct of convertedProducts) {
+      try {
+        // Check if main product exists and get its status
+        const mainProduct = await Product.findById(excelProduct.mainProductId).select('status category').lean();
+        
+        if (mainProduct) {
+          // Determine correct status based on main product
+          let correctStatus = 'listed';
+          if (mainProduct.status === 'active') {
+            correctStatus = 'listed';
+          } else if (mainProduct.status === 'inactive') {
+            correctStatus = 'inactive';
+          } else {
+            correctStatus = mainProduct.status;
+          }
+          
+          // Update if status is different
+          if (excelProduct.status !== correctStatus) {
+            await ExcelProduct.updateOne(
+              { _id: excelProduct._id },
+              { 
+                $set: { 
+                  status: correctStatus,
+                  category: mainProduct.category // Also sync category
+                }
+              }
+            );
+            syncedCount++;
+          }
+        } else {
+          // Main product doesn't exist, reset Excel product
+          await ExcelProduct.updateOne(
+            { _id: excelProduct._id },
+            { 
+              $set: { 
+                status: 'pending',
+                isConverted: false
+              },
+              $unset: { mainProductId: 1 }
+            }
+          );
+          fixedCount++;
+        }
+      } catch (error) {
+        errors.push(`Error syncing ${excelProduct.name}: ${error.message}`);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Status sync completed for upload ${uploadId}`,
+      syncedCount,
+      fixedCount,
+      totalProcessed: convertedProducts.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
+    
+  } catch (error) {
+    console.error('❌ Error syncing Excel product statuses:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to sync Excel product statuses',
+      error: error.message
+    });
+  }
+});
+
+// Get categories from specific Excel upload
+router.get('/uploads/:uploadId/categories', authenticateAdmin, async (req, res) => {
+  try {
+    const { uploadId } = req.params;
+    
+    const categories = await ExcelProduct.distinct('category', {
+      excelUploadId: uploadId
+    });
+
+    res.json({
+      success: true,
+      categories: categories.filter(cat => cat && cat.trim() !== '').sort()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching Excel categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch Excel categories',
       error: error.message
     });
   }
@@ -830,11 +1078,37 @@ router.post('/uploads/:uploadId/convert-products', authenticateAdmin, async (req
 
     for (const excelProduct of excelProducts) {
       try {
+        // Check for uploaded images for this ASIN
+        let productImages = excelProduct.images || [];
+        
+        if (excelProduct.asin) {
+          // Look for uploaded images matching this ASIN
+          const imageUpload = await ImageUpload.findOne({
+            'images.asin': excelProduct.asin.toUpperCase(),
+            status: 'completed'
+          });
+          
+          if (imageUpload) {
+            const matchingImage = imageUpload.images.find(img => img.asin === excelProduct.asin.toUpperCase());
+            if (matchingImage && fs.existsSync(matchingImage.filePath)) {
+              // Add the uploaded image as the main image
+              const imageUrl = `http://localhost:5000/api/admin-excel/public/images/by-asin/${excelProduct.asin}`;
+              
+              // Add to the beginning of images array (main image)
+              if (!productImages.includes(imageUrl)) {
+                productImages.unshift(imageUrl);
+              }
+              
+              console.log('✅ Added uploaded image for ASIN:', excelProduct.asin, 'URL:', imageUrl);
+            }
+          }
+        }
+
         // Create main product from Excel product
         const mainProductData = {
           name: excelProduct.name,
           price: excelProduct.price,
-          category: excelProduct.category,
+          category: excelProduct.category || 'uncategorized', // Ensure category is never null/undefined
           description: excelProduct.description || '',
           brand: excelProduct.brand || '',
           asin: excelProduct.asin || '',
@@ -842,7 +1116,7 @@ router.post('/uploads/:uploadId/convert-products', authenticateAdmin, async (req
           reviews: excelProduct.reviews || 0,
           dealUnits: excelProduct.dealUnits || 1,
           stock: excelProduct.stock || 100,
-          images: excelProduct.images || [],
+          images: productImages, // Use the images array with uploaded images
           currency: excelProduct.currency || 'GBP',
           features: excelProduct.features || [],
           originalPrice: excelProduct.originalPrice || excelProduct.price * 1.2,
@@ -851,7 +1125,7 @@ router.post('/uploads/:uploadId/convert-products', authenticateAdmin, async (req
           isAdminProduct: true,
           listedBy: 'admin',
           marketplace: 'UK',
-          isAmazonsChoice: false,
+          isAmazonsChoice: true, // Auto-list converted products on Amazon's Choice page
           isBestSeller: false,
           showOnHome: false,
           // Add reference to Excel source
@@ -862,9 +1136,24 @@ router.post('/uploads/:uploadId/convert-products', authenticateAdmin, async (req
           }
         };
 
+        // Validate and clean category name
+        if (mainProductData.category) {
+          // Clean up category name: trim whitespace, ensure it's a string
+          mainProductData.category = String(mainProductData.category).trim();
+          
+          // If category is empty after trimming, set to uncategorized
+          if (!mainProductData.category) {
+            mainProductData.category = 'uncategorized';
+          }
+          
+          console.log(`📂 Product "${excelProduct.name}" category: "${mainProductData.category}"`);
+        } else {
+          mainProductData.category = 'uncategorized';
+        }
+
         // Validate required fields
         if (!mainProductData.name || !mainProductData.price || !mainProductData.category) {
-          errors.push(`Failed to convert ${excelProduct.name}: Missing required fields`);
+          errors.push(`Failed to convert ${excelProduct.name}: Missing required fields (name: ${!!mainProductData.name}, price: ${!!mainProductData.price}, category: ${!!mainProductData.category})`);
           continue;
         }
 
@@ -913,6 +1202,86 @@ router.post('/uploads/:uploadId/convert-products', authenticateAdmin, async (req
     res.status(500).json({
       success: false,
       message: 'Failed to convert Excel products',
+      error: error.message
+    });
+  }
+});
+
+// Fix products with missing or invalid categories
+router.post('/fix-product-categories', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🔧 Starting category fix for products...');
+    
+    // Find products with missing, null, or empty categories
+    const productsWithoutCategory = await Product.find({
+      $or: [
+        { category: { $exists: false } },
+        { category: null },
+        { category: '' },
+        { category: { $regex: /^\s*$/ } } // Only whitespace
+      ]
+    });
+    
+    console.log(`📊 Found ${productsWithoutCategory.length} products without valid categories`);
+    
+    let fixedCount = 0;
+    
+    for (const product of productsWithoutCategory) {
+      try {
+        // Set to 'uncategorized' if no category
+        await Product.updateOne(
+          { _id: product._id },
+          { $set: { category: 'uncategorized' } }
+        );
+        fixedCount++;
+        console.log(`✅ Fixed category for product: ${product.name}`);
+      } catch (error) {
+        console.error(`❌ Failed to fix category for product ${product._id}:`, error);
+      }
+    }
+    
+    // Also check for products with inconsistent category formatting
+    const allProducts = await Product.find({ 
+      category: { $exists: true, $ne: null, $ne: '' },
+      status: 'active'
+    });
+    
+    let normalizedCount = 0;
+    
+    for (const product of allProducts) {
+      try {
+        const originalCategory = product.category;
+        const normalizedCategory = String(originalCategory).trim();
+        
+        if (originalCategory !== normalizedCategory) {
+          await Product.updateOne(
+            { _id: product._id },
+            { $set: { category: normalizedCategory || 'uncategorized' } }
+          );
+          normalizedCount++;
+          console.log(`🔧 Normalized category for product: ${product.name} (${originalCategory} → ${normalizedCategory})`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to normalize category for product ${product._id}:`, error);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Category fix completed`,
+      results: {
+        productsWithoutCategory: productsWithoutCategory.length,
+        fixedCount,
+        normalizedCount,
+        totalProcessed: fixedCount + normalizedCount
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fixing product categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fix product categories',
       error: error.message
     });
   }
@@ -1059,6 +1428,648 @@ router.post('/sync-excel-products', authenticateAdmin, async (req, res) => {
       success: false,
       message: 'Failed to sync Excel products',
       error: error.message
+    });
+  }
+});
+
+// ============================================
+// IMAGE UPLOAD ROUTES
+// ============================================
+
+// Import ImageUpload model
+import ImageUpload from '../models/ImageUpload.js';
+
+// Configure multer for image ZIP uploads
+const imageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = 'uploads/images';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const originalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    cb(null, `${timestamp}_${originalName}`);
+  }
+});
+
+const imageUpload = multer({
+  storage: imageStorage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/zip' || file.mimetype === 'application/x-zip-compressed') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only ZIP files are allowed'), false);
+    }
+  },
+  limits: {
+    fileSize: 500 * 1024 * 1024 // 500MB limit for ZIP files
+  }
+});
+
+// POST /api/admin-excel/upload-images - Upload ZIP file containing images
+router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No ZIP file uploaded' });
+    }
+
+    const zipPath = req.file.path;
+    const extractDir = path.join('uploads/images/extracted', Date.now().toString());
+    
+    // Create extraction directory
+    if (!fs.existsSync(extractDir)) {
+      fs.mkdirSync(extractDir, { recursive: true });
+    }
+
+    // Create image upload record
+    const imageUploadRecord = new ImageUpload({
+      originalFileName: req.file.originalname,
+      fileName: req.file.filename,
+      filePath: req.file.path,
+      fileSize: req.file.size,
+      status: 'processing'
+    });
+
+    await imageUploadRecord.save();
+
+    // Process ZIP file
+    const zip = new AdmZip(zipPath);
+    const zipEntries = zip.getEntries();
+    
+    let totalImages = 0;
+    let validImages = 0;
+    let matchedAsins = 0;
+    let errors = 0;
+    const processedImages = [];
+
+    for (const entry of zipEntries) {
+      if (entry.isDirectory) continue;
+      
+      const fileName = entry.entryName;
+      const fileExt = path.extname(fileName).toLowerCase();
+      
+      // Check if it's an image file
+      if (!['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(fileExt)) {
+        continue;
+      }
+
+      totalImages++;
+
+      try {
+        // Extract ASIN from filename (remove extension and path)
+        const justFileName = path.basename(fileName); // Get just the filename part
+        const baseName = path.basename(justFileName, fileExt); // Remove extension
+        const asin = baseName.toUpperCase();
+
+        console.log('🔍 Processing image:', {
+          fullPath: fileName,
+          justFileName: justFileName,
+          baseName: baseName,
+          asin: asin
+        });
+
+        // Validate ASIN format (10 characters, alphanumeric)
+        if (!/^[A-Z0-9]{10}$/.test(asin)) {
+          console.log('❌ Invalid ASIN format:', asin, 'from file:', justFileName);
+          errors++;
+          continue;
+        }
+
+        // Extract image to directory with just the filename (no subdirectories)
+        const extractedFileName = justFileName;
+        const extractedPath = path.join(extractDir, extractedFileName);
+        
+        // Extract the file
+        zip.extractEntryTo(entry, extractDir, false, true);
+        
+        // If the file was extracted to a subdirectory, move it to the root
+        const actualExtractedPath = path.join(extractDir, fileName);
+        if (actualExtractedPath !== extractedPath && fs.existsSync(actualExtractedPath)) {
+          // Move file from subdirectory to root
+          fs.renameSync(actualExtractedPath, extractedPath);
+          
+          // Clean up empty subdirectory
+          const subDir = path.dirname(actualExtractedPath);
+          if (subDir !== extractDir) {
+            try {
+              fs.rmSync(subDir, { recursive: true, force: true });
+            } catch (e) {
+              // Ignore cleanup errors
+            }
+          }
+        }
+
+        console.log('✅ Extracted image:', extractedFileName, 'to:', extractedPath);
+
+        // Check if product exists with this ASIN
+        const product = await Product.findOne({ asin: asin }) || await ExcelProduct.findOne({ asin: asin });
+        
+        const imageData = {
+          fileName: extractedFileName, // Use just the filename
+          asin: asin,
+          filePath: extractedPath,
+          fileSize: entry.header.size,
+          matched: !!product,
+          productId: product?._id
+        };
+
+        processedImages.push(imageData);
+        validImages++;
+        
+        if (product) {
+          matchedAsins++;
+          console.log('🎯 Matched ASIN:', asin, 'with product:', product.name);
+        } else {
+          console.log('❓ No product found for ASIN:', asin);
+        }
+
+      } catch (error) {
+        console.error('Error processing image:', fileName, error);
+        errors++;
+      }
+    }
+
+    // Update image upload record
+    imageUploadRecord.summary = {
+      totalImages,
+      validImages,
+      matchedAsins,
+      errors
+    };
+    imageUploadRecord.images = processedImages;
+    imageUploadRecord.status = 'completed';
+    await imageUploadRecord.save();
+
+    // Clean up ZIP file
+    fs.unlinkSync(zipPath);
+
+    res.json({
+      success: true,
+      message: 'Images uploaded and processed successfully',
+      uploadId: imageUploadRecord._id,
+      summary: {
+        totalImages,
+        validImages,
+        matchedAsins,
+        errors
+      }
+    });
+
+  } catch (error) {
+    console.error('Image upload error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to process image upload',
+      error: error.message 
+    });
+  }
+});
+
+// GET /api/admin-excel/image-uploads - Get all image uploads
+router.get('/image-uploads', authenticateAdmin, async (req, res) => {
+  try {
+    const uploads = await ImageUpload.find()
+      .sort({ uploadedAt: -1 })
+      .select('originalFileName fileSize uploadedAt summary status');
+
+    res.json({
+      success: true,
+      uploads
+    });
+  } catch (error) {
+    console.error('Error fetching image uploads:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch image uploads' 
+    });
+  }
+});
+
+// GET /api/admin-excel/image-uploads/:id - Get specific image upload with images
+router.get('/image-uploads/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const upload = await ImageUpload.findById(req.params.id)
+      .populate('images.productId', 'name asin');
+
+    if (!upload) {
+      return res.status(404).json({ message: 'Image upload not found' });
+    }
+
+    res.json({
+      success: true,
+      upload
+    });
+  } catch (error) {
+    console.error('Error fetching image upload:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch image upload' 
+    });
+  }
+});
+
+// DELETE /api/admin-excel/image-uploads/:id - Delete image upload and all images
+router.delete('/image-uploads/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const upload = await ImageUpload.findById(req.params.id);
+    
+    if (!upload) {
+      return res.status(404).json({ message: 'Image upload not found' });
+    }
+
+    // Delete all image files
+    let deletedImages = 0;
+    for (const image of upload.images) {
+      try {
+        if (fs.existsSync(image.filePath)) {
+          fs.unlinkSync(image.filePath);
+          deletedImages++;
+        }
+      } catch (error) {
+        console.error('Error deleting image file:', image.filePath, error);
+      }
+    }
+
+    // Delete extraction directory if it exists
+    const extractDir = path.dirname(upload.images[0]?.filePath || '');
+    if (extractDir && fs.existsSync(extractDir)) {
+      try {
+        fs.rmSync(extractDir, { recursive: true, force: true });
+      } catch (error) {
+        console.error('Error deleting extraction directory:', error);
+      }
+    }
+
+    // Delete upload record
+    await ImageUpload.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Image upload deleted successfully',
+      deletedImages
+    });
+  } catch (error) {
+    console.error('Error deleting image upload:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to delete image upload' 
+    });
+  }
+});
+
+// GET /api/admin-excel/images/by-asin/:asin - Get image for specific ASIN (with auth)
+router.get('/images/by-asin/:asin', authenticateAdmin, async (req, res) => {
+  try {
+    const asin = req.params.asin.toUpperCase();
+    console.log('🖼️ Image request for ASIN:', asin);
+    
+    const imageUpload = await ImageUpload.findOne({
+      'images.asin': asin,
+      status: 'completed'
+    });
+
+    if (!imageUpload) {
+      console.log('❌ No image upload found for ASIN:', asin);
+      return res.status(404).json({ message: 'No image found for this ASIN' });
+    }
+
+    const image = imageUpload.images.find(img => img.asin === asin);
+    
+    if (!image) {
+      console.log('❌ No image found in upload for ASIN:', asin);
+      return res.status(404).json({ message: 'Image not found in upload' });
+    }
+
+    if (!fs.existsSync(image.filePath)) {
+      console.log('❌ Image file does not exist:', image.filePath);
+      return res.status(404).json({ message: 'Image file not found on disk' });
+    }
+
+    console.log('✅ Serving image for ASIN:', asin, 'from:', image.filePath);
+    
+    // Set proper headers for image serving
+    const ext = path.extname(image.filePath).toLowerCase();
+    const mimeTypes = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp'
+    };
+    
+    res.setHeader('Content-Type', mimeTypes[ext] || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+    
+    // Serve the image file
+    res.sendFile(path.resolve(image.filePath));
+  } catch (error) {
+    console.error('Error serving image:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to serve image' 
+    });
+  }
+});
+
+// GET /api/admin-excel/public/images/by-asin/:asin - Public image endpoint (no auth required)
+router.get('/public/images/by-asin/:asin', async (req, res) => {
+  try {
+    const asin = req.params.asin.toUpperCase();
+    console.log('🖼️ Public image request for ASIN:', asin);
+    
+    const imageUpload = await ImageUpload.findOne({
+      'images.asin': asin,
+      status: 'completed'
+    });
+
+    if (!imageUpload) {
+      console.log('❌ No image upload found for ASIN:', asin);
+      return res.status(404).json({ message: 'No image found for this ASIN' });
+    }
+
+    const image = imageUpload.images.find(img => img.asin === asin);
+    
+    if (!image) {
+      console.log('❌ No image found in upload for ASIN:', asin);
+      return res.status(404).json({ message: 'Image not found in upload' });
+    }
+
+    if (!fs.existsSync(image.filePath)) {
+      console.log('❌ Image file does not exist:', image.filePath);
+      return res.status(404).json({ message: 'Image file not found on disk' });
+    }
+
+    console.log('✅ Serving public image for ASIN:', asin, 'from:', image.filePath);
+    
+    // Set proper headers for image serving
+    const ext = path.extname(image.filePath).toLowerCase();
+    const mimeTypes = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp'
+    };
+    
+    res.setHeader('Content-Type', mimeTypes[ext] || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+    
+    // Serve the image file
+    res.sendFile(path.resolve(image.filePath));
+  } catch (error) {
+    console.error('Error serving public image:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to serve image' 
+    });
+  }
+});
+
+// POST /api/admin-excel/migrate/add-images-to-converted - Add images to already converted products
+router.post('/migrate/add-images-to-converted', authenticateAdmin, async (req, res) => {
+  try {
+    // Find all main products that were converted from Excel and have ASINs but no images
+    const convertedProducts = await Product.find({
+      'excelSource': { $exists: true },
+      asin: { $exists: true, $ne: '' },
+      $or: [
+        { images: { $exists: false } },
+        { images: { $size: 0 } }
+      ]
+    });
+
+    let updatedCount = 0;
+    let errorCount = 0;
+
+    for (const product of convertedProducts) {
+      try {
+        // Look for uploaded images matching this ASIN
+        const imageUpload = await ImageUpload.findOne({
+          'images.asin': product.asin.toUpperCase(),
+          status: 'completed'
+        });
+        
+        if (imageUpload) {
+          const matchingImage = imageUpload.images.find(img => img.asin === product.asin.toUpperCase());
+          if (matchingImage && fs.existsSync(matchingImage.filePath)) {
+            // Add the uploaded image as the main image
+            const imageUrl = `http://localhost:5000/api/admin-excel/public/images/by-asin/${product.asin}`;
+            
+            // Update the product with the image and set as Amazon's Choice
+            await Product.updateOne(
+              { _id: product._id },
+              { 
+                $set: { 
+                  images: [imageUrl],
+                  isAmazonsChoice: true // Also set as Amazon's Choice
+                } 
+              }
+            );
+            
+            console.log('✅ Added image and set as Amazon\'s Choice for:', product.name, 'ASIN:', product.asin);
+            updatedCount++;
+          }
+        }
+      } catch (error) {
+        console.error('Error updating product:', product._id, error);
+        errorCount++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Migration completed',
+      updatedCount,
+      errorCount,
+      totalChecked: convertedProducts.length
+    });
+
+  } catch (error) {
+    console.error('Error in converted products migration:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Migration failed',
+      error: error.message 
+    });
+  }
+});
+
+// POST /api/admin-excel/migrate/set-converted-as-amazons-choice - Set all converted products as Amazon's Choice
+router.post('/migrate/set-converted-as-amazons-choice', authenticateAdmin, async (req, res) => {
+  try {
+    // Find all main products that were converted from Excel but are not Amazon's Choice
+    const convertedProducts = await Product.find({
+      'excelSource': { $exists: true },
+      isAmazonsChoice: { $ne: true }
+    });
+
+    let updatedCount = 0;
+    let errorCount = 0;
+
+    for (const product of convertedProducts) {
+      try {
+        // Update the product to be Amazon's Choice
+        await Product.updateOne(
+          { _id: product._id },
+          { 
+            $set: { 
+              isAmazonsChoice: true,
+              isBestSeller: true // Also mark as best seller for extra visibility
+            } 
+          }
+        );
+        
+        console.log('✅ Set as Amazon\'s Choice:', product.name);
+        updatedCount++;
+      } catch (error) {
+        console.error('Error updating product:', product._id, error);
+        errorCount++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Migration completed',
+      updatedCount,
+      errorCount,
+      totalChecked: convertedProducts.length
+    });
+
+  } catch (error) {
+    console.error('Error in Amazon\'s Choice migration:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Migration failed',
+      error: error.message 
+    });
+  }
+});
+
+// POST /api/admin-excel/migrate/fix-image-paths - Fix existing image paths
+router.post('/migrate/fix-image-paths', authenticateAdmin, async (req, res) => {
+  try {
+    const imageUploads = await ImageUpload.find({ status: 'completed' });
+    let fixedCount = 0;
+    let errorCount = 0;
+    
+    for (const upload of imageUploads) {
+      let hasChanges = false;
+      
+      for (const image of upload.images) {
+        try {
+          // Check if current file path exists
+          if (fs.existsSync(image.filePath)) {
+            continue; // File exists, no need to fix
+          }
+          
+          // Extract just the filename from the stored path
+          const justFileName = path.basename(image.fileName);
+          const extractDir = path.dirname(image.filePath);
+          const newFilePath = path.join(extractDir, justFileName);
+          
+          // Check if the file exists with just the filename
+          if (fs.existsSync(newFilePath)) {
+            console.log('🔧 Fixing path for:', image.asin, 'from:', image.filePath, 'to:', newFilePath);
+            image.filePath = newFilePath;
+            image.fileName = justFileName;
+            hasChanges = true;
+            fixedCount++;
+          } else {
+            // Try to find the file in subdirectories
+            const extractDirContents = fs.readdirSync(extractDir, { withFileTypes: true });
+            let found = false;
+            
+            for (const item of extractDirContents) {
+              if (item.isDirectory()) {
+                const subDirPath = path.join(extractDir, item.name);
+                const possiblePath = path.join(subDirPath, justFileName);
+                
+                if (fs.existsSync(possiblePath)) {
+                  console.log('🔧 Moving file for:', image.asin, 'from:', possiblePath, 'to:', newFilePath);
+                  
+                  // Move file to root directory
+                  fs.renameSync(possiblePath, newFilePath);
+                  
+                  // Update record
+                  image.filePath = newFilePath;
+                  image.fileName = justFileName;
+                  hasChanges = true;
+                  fixedCount++;
+                  found = true;
+                  break;
+                }
+              }
+            }
+            
+            if (!found) {
+              console.log('❌ Could not find file for ASIN:', image.asin, 'expected:', justFileName);
+              errorCount++;
+            }
+          }
+        } catch (error) {
+          console.error('Error fixing image path for:', image.asin, error);
+          errorCount++;
+        }
+      }
+      
+      if (hasChanges) {
+        await upload.save();
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: 'Image path migration completed',
+      fixedCount,
+      errorCount
+    });
+    
+  } catch (error) {
+    console.error('Error in image path migration:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Migration failed',
+      error: error.message 
+    });
+  }
+});
+
+// GET /api/admin-excel/debug/images - Debug endpoint to check available images
+router.get('/debug/images', authenticateAdmin, async (req, res) => {
+  try {
+    const imageUploads = await ImageUpload.find({ status: 'completed' });
+    
+    const debugInfo = {
+      totalUploads: imageUploads.length,
+      images: []
+    };
+    
+    for (const upload of imageUploads) {
+      for (const image of upload.images) {
+        debugInfo.images.push({
+          asin: image.asin,
+          fileName: image.fileName,
+          filePath: image.filePath,
+          fileExists: fs.existsSync(image.filePath),
+          matched: image.matched,
+          productId: image.productId
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      debug: debugInfo
+    });
+  } catch (error) {
+    console.error('Error in debug endpoint:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Debug endpoint failed',
+      error: error.message 
     });
   }
 });

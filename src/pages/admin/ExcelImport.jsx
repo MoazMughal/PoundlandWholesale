@@ -224,34 +224,52 @@ const ExcelImport = () => {
           alignItems: 'center',
           marginBottom: '30px',
           padding: '20px',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(135deg, #ca583eff 0%, #764ba2 100%)',
           borderRadius: '12px',
           color: 'white'
         }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 'bold' }}>
+            <h1 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 'bold' , color:"white"}}>
               📊 Excel Product Upload
             </h1>
-            <p style={{ margin: '8px 0 0 0', fontSize: '1rem', opacity: 0.9 }}>
+            <p style={{ margin: '8px 0 0 0', fontSize: '1rem', opacity: 0.9 , color:"white"}}>
               Upload and manage products from Excel files
             </p>
           </div>
-          <button
-            onClick={() => navigate('/admin/products')}
-            style={{
-              background: 'rgba(255, 255, 255, 0.2)',
-              border: '2px solid rgba(255, 255, 255, 0.3)',
-              color: 'white',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease'
-            }}
-          >
-            📦 Back to Products
-          </button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => navigate('/admin/excel-manager')}
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
+                color: 'white',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              📊 Excel Manager
+            </button>
+            <button
+              onClick={() => navigate('/admin/products')}
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
+                color: 'white',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              📦 Back to Products
+            </button>
+          </div>
         </div>
 
         {/* Statistics */}

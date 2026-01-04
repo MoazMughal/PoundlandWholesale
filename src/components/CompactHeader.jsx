@@ -79,7 +79,7 @@ const CompactHeader = () => {
       try {
         // Add cache buster to ensure fresh data
         const cacheBuster = `_t=${Date.now()}`;
-        const response = await fetch(`http://localhost:5000/api/categories?${cacheBuster}`, {
+        const response = await fetch(`http://localhost:5000/api/products/public/categories?${cacheBuster}`, {
           headers: {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
@@ -101,13 +101,8 @@ const CompactHeader = () => {
             !hiddenCategories.includes(cat.value)
           );
           
-          // Add "All" category at the beginning
-          const allCategories = [
-            { value: 'all', label: 'All' },
-            ...visibleCategories
-          ];
-          
-          setCategories(allCategories);
+          // Use categories from API (which already includes "All" at the beginning)
+          setCategories(visibleCategories);
         }
       } catch (error) {
         console.error('Error fetching categories for header:', error);

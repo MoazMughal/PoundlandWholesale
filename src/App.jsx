@@ -13,6 +13,13 @@ import { BasketProvider } from './context/BasketContext'
 import './App.css'
 import './styles/mobile-responsive.css'
 import './styles/enhanced-theme.css'
+import './styles/design-system.css'
+import './styles/components.css'
+import './styles/typography.css'
+import './styles/accessibility.css'
+import './styles/login-animations.css'
+import './styles/mobile-improvements.css'
+import './styles/micro-interactions.css'
 
 // Lazy load pages for better performance
 const AmazonsChoice = lazy(() => import('./pages/AmazonsChoice'))
@@ -22,6 +29,7 @@ const AboutUs = lazy(() => import('./pages/AboutUs'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
 const ForgotPasswordToken = lazy(() => import('./pages/ForgotPasswordToken'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const DebugReset = lazy(() => import('./pages/DebugReset'))
 const AuthLanding = lazy(() => import('./pages/auth/AuthLanding'))
 const BuyerLogin = lazy(() => import('./pages/auth/BuyerLogin'))
 const SupplierLogin = lazy(() => import('./pages/auth/SupplierLogin'))
@@ -42,6 +50,7 @@ const ExcelImport = lazy(() => import('./pages/admin/ExcelImport'))
 const ExcelManager = lazy(() => import('./pages/admin/ExcelManager'))
 const AdminExcelProducts = lazy(() => import('./pages/admin/ExcelProducts'))
 const ExcelProductEdit = lazy(() => import('./pages/admin/ExcelProductEdit'))
+const ImageViewer = lazy(() => import('./pages/admin/ImageViewer'))
 const AdminBuyers = lazy(() => import('./pages/admin/Buyers'))
 const AdminPendingPayments = lazy(() => import('./pages/admin/PendingPayments'))
 const AdminSellerListings = lazy(() => import('./pages/admin/SellerListings'))
@@ -130,6 +139,21 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/forgot-password-token" element={<ForgotPasswordToken />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route path="/debug-reset/:token" element={<DebugReset />} />
+          <Route path="/test-reset" element={
+            <div style={{padding: '50px', textAlign: 'center'}}>
+              <h2>✅ Test Reset Page Works!</h2>
+              <p>Routing is working correctly.</p>
+              <p>Current URL: {window.location.href}</p>
+              <a href="/reset-password/test123?type=buyer" style={{color: '#667eea'}}>
+                Test Reset Password Route
+              </a>
+              <br /><br />
+              <a href="/debug-reset/test123?type=buyer" style={{color: '#667eea'}}>
+                Debug Reset Password Route
+              </a>
+            </div>
+          } />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/excel-products" element={<ExcelProducts />} />
           
@@ -165,12 +189,20 @@ function App() {
           <Route path="/admin/excel-manager" element={<ProtectedRoute><ExcelManager /></ProtectedRoute>} />
           <Route path="/admin/excel-products/:uploadId" element={<ProtectedRoute><AdminExcelProducts /></ProtectedRoute>} />
           <Route path="/admin/excel-products/:uploadId/edit/:productId" element={<ProtectedRoute><ExcelProductEdit /></ProtectedRoute>} />
+          <Route path="/admin/excel-manager/images/:uploadId" element={<ProtectedRoute><ImageViewer /></ProtectedRoute>} />
           
           {/* Legal Pages */}
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/help-center" element={<HelpCenter />} />
           <Route path="/faq" element={<FAQ />} />
+          
+          {/* Catch-all route for 404 - should be last */}
+          <Route path="*" element={<div style={{padding: '50px', textAlign: 'center'}}>
+            <h2>Page Not Found</h2>
+            <p>The page you're looking for doesn't exist.</p>
+            <a href="/" style={{color: '#667eea'}}>Go Home</a>
+          </div>} />
         </Routes>
         </Suspense>
         </main>

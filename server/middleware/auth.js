@@ -5,23 +5,54 @@ import Seller from '../models/Seller.js';
 
 export const authenticateAdmin = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
+    const authHeader = req.headers.authorization;
+    console.log('🔑 Admin auth - Authorization header:', authHeader ? 'Present' : 'Missing');
     
-    if (!token) {
-      return res.status(401).json({ message: 'Authentication required' });
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('🔑 Admin auth - Invalid authorization header format');
+      return res.status(401).json({ message: 'Authentication required - Invalid header format' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    console.log('🔑 Admin auth - Token extracted:', token ? `${token.substring(0, 10)}...` : 'No token');
+    
+    if (!token || token === 'null' || token === 'undefined') {
+      console.log('🔑 Admin auth - No valid token provided');
+      return res.status(401).json({ message: 'Authentication required - No token' });
+    }
+
+    // Check if JWT_SECRET exists
+    if (!process.env.JWT_SECRET) {
+      console.log('🔑 Admin auth - JWT_SECRET not configured');
+      return res.status(500).json({ message: 'Server configuration error' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('🔑 Admin auth - Token decoded, admin ID:', decoded.id);
+    
     const admin = await Admin.findById(decoded.id).select('-password');
     
     if (!admin) {
+      console.log('🔑 Admin auth - Admin not found in database');
       return res.status(401).json({ message: 'Admin not found' });
     }
 
+    console.log('🔑 Admin auth - Admin found:', admin.username || admin.email);
     req.admin = admin;
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Invalid token' });
+    console.log('🔑 Admin auth - Error:', error.message);
+    
+    // Provide more specific error messages
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Invalid token format' });
+    } else if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expired' });
+    } else if (error.name === 'NotBeforeError') {
+      return res.status(401).json({ message: 'Token not active' });
+    }
+    
+    res.status(401).json({ message: 'Authentication failed' });
   }
 };
 

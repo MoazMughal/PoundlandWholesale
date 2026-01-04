@@ -10,7 +10,9 @@ const router = express.Router();
 async function getProductsWithFallback(query = {}, options = {}) {
   try {
     // Try to get from database first
-    console.log('🔍 Attempting database query...');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🔍 Attempting database query...');
+    }
     
     const dbProducts = await Product.find(query)
       .populate(options.populate || '')
@@ -21,7 +23,9 @@ async function getProductsWithFallback(query = {}, options = {}) {
       .maxTimeMS(5000) // 5 second timeout
       .lean();
     
-    console.log(`✅ Database query successful: ${dbProducts.length} products`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`✅ Database query successful: ${dbProducts.length} products`);
+    }
     
     // Update cache with fresh data
     if (dbProducts.length > 0) {

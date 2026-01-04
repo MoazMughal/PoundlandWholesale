@@ -11,7 +11,6 @@ import excelRoutes from './routes/excel.js';
 import adminExcelRoutes from './routes/admin-excel.js';
 import buyerRoutes from './routes/buyer.js';
 import easypaisaRoutes from './routes/easypaisa.js';
-import categoriesRoutes from './routes/categories.js';
 
 dotenv.config();
 
@@ -27,6 +26,9 @@ const corsOptions = {
     'http://localhost:3001',
     'http://localhost:5173', 
     'https://www.genericwholesale.pk',
+    'https://genericwholesale.pk',
+    'https://genericwholesale.co.uk',
+    'https://www.genericwholesale.co.uk',
     'https://generic-wholesale-frontend.onrender.com',
     process.env.FRONTEND_URL
   ].filter(Boolean), // Remove any undefined values
@@ -39,12 +41,7 @@ app.use(express.json({ limit: '1gb' }));
 app.use(express.urlencoded({ extended: true, limit: '1gb' }));
 
 // Enhanced MongoDB connection with comprehensive error handling and fallbacks
-console.log('🔄 Attempting to connect to MongoDB...');
-console.log('📍 Environment:', process.env.NODE_ENV);
-console.log('📍 MongoDB URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
-if (process.env.NODE_ENV === 'production') {
-  console.log('🏭 Production mode - Enhanced connection settings applied');
-}
+// Only show essential connection info in production
 
 // Connection options optimized for Atlas free tier and production
 const mongoOptions = {
@@ -67,17 +64,18 @@ const maxRetries = 3;
 async function connectWithRetry() {
   try {
     connectionAttempts++;
-    console.log(`🔄 Connection attempt ${connectionAttempts}/${maxRetries}`);
+    // Only show connection attempts in development
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`🔄 Connection attempt ${connectionAttempts}/${maxRetries}`);
+    }
     
     await mongoose.connect(process.env.MONGODB_URI, mongoOptions);
     
-    console.log('✅ MongoDB connected successfully with connection pooling');
-    console.log('🏪 Database:', mongoose.connection.db.databaseName);
-    console.log('🔗 Connection state:', mongoose.connection.readyState);
+    // Only show essential connection info
+    console.log('✅ MongoDB connected successfully');
     
     // Test the connection with a simple query
     const testResult = await mongoose.connection.db.admin().ping();
-    console.log('🏓 Database ping successful:', testResult);
     
   } catch (err) {
     console.error(`❌ MongoDB connection attempt ${connectionAttempts} failed:`, err.message);
@@ -90,23 +88,21 @@ async function connectWithRetry() {
     
     if (connectionAttempts < maxRetries) {
       const delay = connectionAttempts * 2000; // Exponential backoff
-      console.log(`⏳ Retrying in ${delay/1000} seconds...`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`⏳ Retrying in ${delay/1000} seconds...`);
+      }
       setTimeout(connectWithRetry, delay);
     } else {
-      console.error('💥 All connection attempts failed. Server will continue with fallback data.');
-      console.log('\n💡 Troubleshooting suggestions:');
-      console.log('1. Check MongoDB Atlas cluster status');
-      console.log('2. Verify network connectivity');
-      console.log('3. Check IP whitelist (0.0.0.0/0)');
-      console.log('4. Ensure cluster is not paused');
-      console.log('5. Try creating a new database user');
+      console.error('💥 MongoDB connection failed after all attempts');
     }
   }
 }
 
-// Handle connection events
+// Handle connection events - only show in development
 mongoose.connection.on('connected', () => {
-  console.log('🟢 Mongoose connected to MongoDB');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('🟢 Mongoose connected to MongoDB');
+  }
 });
 
 mongoose.connection.on('error', (err) => {
@@ -114,14 +110,18 @@ mongoose.connection.on('error', (err) => {
 });
 
 mongoose.connection.on('disconnected', () => {
-  console.log('🟡 Mongoose disconnected from MongoDB');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('🟡 Mongoose disconnected from MongoDB');
+  }
 });
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
   try {
     await mongoose.connection.close();
-    console.log('🔒 MongoDB connection closed through app termination');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🔒 MongoDB connection closed through app termination');
+    }
     process.exit(0);
   } catch (err) {
     console.error('Error closing MongoDB connection:', err);
@@ -140,7 +140,6 @@ app.use('/api/excel', excelRoutes);
 app.use('/api/admin-excel', adminExcelRoutes);
 app.use('/api/buyer', buyerRoutes);
 app.use('/api/easypaisa', easypaisaRoutes);
-app.use('/api/categories', categoriesRoutes);
 
 // Server startup time for restart detection
 const serverStartTime = Date.now();
@@ -236,7 +235,9 @@ app.get('/api/test-db', async (req, res) => {
     const connectionState = mongoose.connection.readyState;
     const stateNames = ['disconnected', 'connected', 'connecting', 'disconnecting'];
     
-    console.log('🔍 Database test requested - Connection state:', stateNames[connectionState]);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🔍 Database test requested - Connection state:', stateNames[connectionState]);
+    }
     
     if (connectionState !== 1) {
       console.error('❌ Database not connected:', stateNames[connectionState]);
@@ -252,7 +253,9 @@ app.get('/api/test-db', async (req, res) => {
     // Test ping
     const pingResult = await mongoose.connection.db.admin().ping();
     const pingTime = Date.now() - startTime;
-    console.log('✅ Database ping successful:', pingTime + 'ms');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('✅ Database ping successful:', pingTime + 'ms');
+    }
     
     // Test simple query
     const queryStart = Date.now();
@@ -262,7 +265,9 @@ app.get('/api/test-db', async (req, res) => {
       isAmazonsChoice: true 
     });
     const queryTime = Date.now() - queryStart;
-    console.log('✅ Database query successful:', queryTime + 'ms', 'Products:', productCount, 'Amazon Choice:', amazonsChoiceCount);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('✅ Database query successful:', queryTime + 'ms', 'Products:', productCount, 'Amazon Choice:', amazonsChoiceCount);
+    }
     
     res.json({
       success: true,

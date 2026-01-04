@@ -164,3 +164,20 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+/* Global
+ floating animation for all login pages */
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0px) rotate(0deg); 
+  }
+  50% { 
+    transform: translateY(-20px) rotate(5deg); 
+  }
+}
+
+/* Apply to all floating elements */
+.floating-element,
+div[style*="animation: float"] {
+  animation: float 6s ease-in-out infinite;
+  opacity: 0.1;
+}

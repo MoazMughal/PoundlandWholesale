@@ -158,7 +158,31 @@ const AmazonsChoice = () => {
               reviews: p.reviews || 0,
               stock: p.stock || 0,
               discount: p.discount || 0,
-              dealUnits: p.dealUnits || 1,
+              dealUnits: (() => {
+                // Try multiple sources for platform units
+                let platformUnits = p.platformUnits;
+                
+                // If no platformUnits, check if it's in profit evaluation or other fields
+                if (!platformUnits && p.profitEvaluation?.platformUnits) {
+                  platformUnits = p.profitEvaluation.platformUnits;
+                }
+                
+                // If still no platformUnits, check platform comparison data
+                if (!platformUnits && p.platformComparison && p.platformComparison.length > 0) {
+                  // Try to get units from platform comparison
+                  const firstPlatform = p.platformComparison[0];
+                  if (firstPlatform.units) {
+                    platformUnits = firstPlatform.units;
+                  }
+                }
+                
+                // Default to 2400 if still no value found
+                if (!platformUnits || platformUnits <= 0) {
+                  platformUnits = 2400;
+                }
+                
+                return Math.floor(platformUnits / 12);
+              })(), // Auto-calculate as platformUnits / 12
               currency: 'GBP',
               isAmazonsChoice: true,
               // Include profit data from database

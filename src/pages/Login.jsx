@@ -73,13 +73,21 @@ const Login = () => {
   }
 
   return (
-    <div>
+    <div className="min-vh-100" style={{
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      paddingTop: '40px',
+      paddingBottom: '40px'
+    }}>
       {/* Login Section */}
       <section style={{padding: '40px 0'}}>
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-lg-5 col-md-7">
-              <div className="card shadow border-0">
+              <div className="card shadow-lg border-0" style={{
+                borderRadius: '20px',
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(10px)'
+              }}>
                 <div className="card-body p-4">
                   <div className="text-center mb-4">
                     <h3 className="card-title modern-title" style={{fontSize: '1.8rem', marginBottom: '0.5rem'}}>Welcome Back</h3>
@@ -202,7 +210,10 @@ const Login = () => {
       </section>
 
       {/* Benefits Section */}
-      <section className="section-padding bg-light">
+      <section className="section-padding" style={{
+        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+        padding: '60px 0'
+      }}>
         <div className="container">
           <div className="row">
             <div className="col-12 text-center mb-5">

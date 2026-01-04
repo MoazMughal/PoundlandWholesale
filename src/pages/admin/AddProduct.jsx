@@ -30,7 +30,7 @@ const AddProduct = () => {
     rating: 4.5,
     reviews: 0,
     stock: 0,
-    dealUnits: 1,
+    dealUnits: 200, // Auto-calculated as 2400 / 12
     platformUnits: 2400, // Units for yearly profit calculation
     seller: '',
     isAmazonsChoice: false,
@@ -66,6 +66,9 @@ const AddProduct = () => {
   const [categories, setCategories] = useState([]);
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [showRenameCategoryInput, setShowRenameCategoryInput] = useState(false);
+  const [renameCategoryName, setRenameCategoryName] = useState('');
+  const [selectedCategoryToRename, setSelectedCategoryToRename] = useState('');
 
   useEffect(() => {
     fetchSellers();
@@ -90,7 +93,7 @@ const AddProduct = () => {
   const fetchCategories = async () => {
     try {
       // Include Excel categories for admin use
-      const response = await fetch('http://localhost:5000/api/categories?includeExcel=true');
+      const response = await fetch('http://localhost:5000/api/products/public/categories?includeExcel=true');
       if (response.ok) {
         const data = await response.json();
         setCategories(data.categories || []);
@@ -115,7 +118,7 @@ const AddProduct = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/categories', {
+      const response = await fetch('http://localhost:5000/api/products/public/categories', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -153,11 +156,91 @@ const AddProduct = () => {
     }
   };
 
+  const handleRenameCategory = async () => {
+    if (!renameCategoryName.trim() || !selectedCategoryToRename) {
+      alert('Please enter a new category name');
+      return;
+    }
+
+    const categoryToRename = categories.find(cat => cat.value === selectedCategoryToRename);
+    if (!categoryToRename) {
+      alert('Selected category not found');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`http://localhost:5000/api/products/admin/categories/${encodeURIComponent(categoryToRename.label)}/rename`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ newCategoryName: renameCategoryName.trim() })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Update the category in the list
+        setCategories(prev => prev.map(cat => 
+          cat.value === selectedCategoryToRename 
+            ? { ...cat, label: renameCategoryName.trim() }
+            : cat
+        ));
+        
+        // Update form data if the renamed category was selected
+        if (formData.category === selectedCategoryToRename) {
+          setFormData(prev => ({ ...prev, category: selectedCategoryToRename }));
+        }
+        
+        // Reset the input
+        setRenameCategoryName('');
+        setShowRenameCategoryInput(false);
+        setSelectedCategoryToRename('');
+        
+        // Trigger category refresh in headers
+        localStorage.setItem('categoriesUpdated', Date.now().toString());
+        window.dispatchEvent(new CustomEvent('refreshCategories'));
+        
+        alert(`✅ Category renamed successfully from "${categoryToRename.label}" to "${renameCategoryName.trim()}"!`);
+      } else {
+        const errorData = await response.json();
+        alert(`❌ Error: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error('Error renaming category:', error);
+      alert('❌ Failed to rename category. Please try again.');
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      };
+      
+      // Auto-calculate dealUnits when platformUnits changes
+      if (name === 'platformUnits') {
+        const platformUnits = parseInt(value) || 2400;
+        newData.dealUnits = Math.floor(platformUnits / 12);
+      }
+      
+      return newData;
+    });
+  };
+
+  // Handle profit evaluation changes
+  const handleProfitChange = (e) => {
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      profitEvaluation: {
+        ...prev.profitEvaluation,
+        [name]: parseFloat(value) || 0
+      }
     }));
   };
 
@@ -261,7 +344,7 @@ const AddProduct = () => {
         rating: parseFloat(formData.rating) || 4.5,
         reviews: parseInt(formData.reviews) || 0,
         stock: parseInt(formData.stock) || 0,
-        dealUnits: parseInt(formData.dealUnits) || 1,
+        dealUnits: Math.floor((formData.platformUnits || 2400) / 12), // Auto-calculate as platformUnits / 12
         seller: formData.seller || null,
         isAmazonsChoice: formData.isAmazonsChoice || false,
         isBestSeller: false,
@@ -271,7 +354,8 @@ const AddProduct = () => {
         approvalStatus: 'approved',
         isAdminProduct: true,
         listedBy: 'admin',
-        images: finalImageUrls
+        images: finalImageUrls,
+        profitEvaluation: formData.profitEvaluation
       };
 
       const response = await adminPost('http://localhost:5000/api/products', productData);
@@ -379,6 +463,24 @@ const AddProduct = () => {
                   title="Add new category"
                 >
                   + New
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRenameCategoryInput(!showRenameCategoryInput)}
+                  style={{
+                    padding: '10px 15px',
+                    background: '#ffc107',
+                    color: '#212529',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title="Rename existing category"
+                >
+                  ✏️ Rename
                 </button>
               </div>
               
@@ -545,16 +647,17 @@ const AddProduct = () => {
             </div>
 
             <div className="form-group">
-              <label>Deal Units</label>
+              <label>Deal Units (Auto-calculated)</label>
               <input
                 type="number"
                 name="dealUnits"
                 value={formData.dealUnits}
-                onChange={handleChange}
+                readOnly
                 min="1"
-                placeholder="1"
+                placeholder="Auto-calculated from Platform Units ÷ 12"
+                style={{backgroundColor: '#f8f9fa', cursor: 'not-allowed'}}
               />
-              <small>Minimum units for bulk deals</small>
+              <small>Auto-calculated as Platform Units ÷ 12 (currently: {formData.platformUnits || 2400} ÷ 12 = {formData.dealUnits})</small>
             </div>
           </div>
         </div>
@@ -817,6 +920,186 @@ const AddProduct = () => {
                 />
                 <span>🏆 Amazon's Choice</span>
               </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="form-section">
+          <h2>💰 Profit Analysis</h2>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label>Sales Proceeds (£)</label>
+              <input
+                type="number"
+                name="salesProceeds"
+                value={formData.profitEvaluation.salesProceeds}
+                onChange={handleProfitChange}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Revenue from product sales</small>
+            </div>
+
+            <div className="form-group">
+              <label>Commission (£)</label>
+              <input
+                type="number"
+                name="commission"
+                value={formData.profitEvaluation.commission}
+                onChange={handleProfitChange}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Amazon commission fees</small>
+            </div>
+
+            <div className="form-group">
+              <label>Commission Tax (£)</label>
+              <input
+                type="number"
+                name="commissionTax"
+                value={formData.profitEvaluation.commissionTax}
+                onChange={handleProfitChange}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Tax on commission</small>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Digital Services Fee (£)</label>
+              <input
+                type="number"
+                name="digitalServicesFee"
+                value={formData.profitEvaluation.digitalServicesFee}
+                onChange={handleProfitChange}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Digital services charges</small>
+            </div>
+
+            <div className="form-group">
+              <label>Digital Services Tax (£)</label>
+              <input
+                type="number"
+                name="digitalServicesTax"
+                value={formData.profitEvaluation.digitalServicesTax}
+                onChange={handleProfitChange}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Tax on digital services</small>
+            </div>
+
+            <div className="form-group">
+              <label>FBA Fulfilment Fee (£)</label>
+              <input
+                type="number"
+                name="fbaFulfilmentFee"
+                value={formData.profitEvaluation.fbaFulfilmentFee}
+                onChange={handleProfitChange}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Amazon FBA fees</small>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>FBA Fulfilment Tax (£)</label>
+              <input
+                type="number"
+                name="fbaFulfilmentTax"
+                value={formData.profitEvaluation.fbaFulfilmentTax}
+                onChange={handleProfitChange}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Tax on FBA fees</small>
+            </div>
+
+            <div className="form-group">
+              <label>Balance Change (£)</label>
+              <input
+                type="number"
+                name="balanceChange"
+                value={formData.profitEvaluation.balanceChange}
+                onChange={handleProfitChange}
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Auto-calculated: Sales Proceeds - All Fees</small>
+            </div>
+
+            <div className="form-group">
+              <label>Product Cost (£) *</label>
+              <input
+                type="number"
+                name="productCost"
+                value={formData.profitEvaluation.productCost}
+                onChange={handleProfitChange}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                style={{
+                  border: '2px solid #007bff',
+                  backgroundColor: '#f8f9ff'
+                }}
+              />
+              <small>Enter the actual cost of the product (manually editable)</small>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Net Profit (£)</label>
+              <input
+                type="number"
+                name="netProfit"
+                value={formData.profitEvaluation.netProfit}
+                onChange={handleProfitChange}
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Balance Change - Product Cost</small>
+            </div>
+
+            <div className="form-group">
+              <label>Monthly Profit (£)</label>
+              <input
+                type="number"
+                name="monthlyProfit"
+                value={formData.profitEvaluation.monthlyProfit}
+                onChange={handleProfitChange}
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Estimated monthly profit</small>
+            </div>
+
+            <div className="form-group">
+              <label>Yearly Profit (£)</label>
+              <input
+                type="number"
+                name="yearlyProfit"
+                value={formData.profitEvaluation.yearlyProfit}
+                onChange={handleProfitChange}
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Estimated yearly profit</small>
             </div>
           </div>
         </div>

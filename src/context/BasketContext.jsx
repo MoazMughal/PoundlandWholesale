@@ -93,8 +93,25 @@ export const BasketProvider = ({ children }) => {
 
   const getBasketTotal = () => {
     return basket.reduce((total, item) => {
-      const price = parseFloat(item.price.replace(/[£$₨]/g, ''))
-      return total + (price * (item.quantity || 1))
+      // Handle different price formats more robustly
+      let priceStr = item.price || '0';
+      if (typeof priceStr === 'number') {
+        priceStr = priceStr.toString();
+      }
+      
+      // Extract numeric value and detect currency
+      let numericPrice = 0;
+      if (typeof priceStr === 'string') {
+        // Remove all currency symbols and parse
+        numericPrice = parseFloat(priceStr.replace(/[£$₨€]/g, '').replace('د.إ', '').replace('Rs', '').trim()) || 0;
+      }
+      
+      const quantity = item.quantity || 1;
+      const subtotal = numericPrice * quantity;
+      
+      console.log(`Basket calculation - Item: ${item.name}, Price: ${priceStr} -> ${numericPrice}, Quantity: ${quantity}, Subtotal: ${subtotal}`);
+      
+      return total + subtotal;
     }, 0)
   }
 

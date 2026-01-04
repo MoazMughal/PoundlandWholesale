@@ -271,7 +271,7 @@ const AdminDashboard = () => {
     setProfitEditProduct({
       _id: product._id,
       name: product.name || '',
-      dealUnits: product.dealUnits || 1,
+      dealUnits: Math.floor((product.platformUnits || 200) / 12), // Auto-calculate as platformUnits / 12
       platformUnits: product.platformUnits || 200, // Default to 200 units
       // Platform Comparison
       platformComparison: product.platformComparison || [
@@ -314,7 +314,7 @@ const AdminDashboard = () => {
       rating: product.rating || 4.0,
       reviews: product.reviews || 0,
       stock: product.stock || 0,
-      dealUnits: product.dealUnits !== undefined && product.dealUnits !== null ? product.dealUnits : 1,
+      dealUnits: Math.floor((product.platformUnits || 200) / 12), // Auto-calculate as platformUnits / 12
       platformUnits: product.platformUnits || 200, // Default to 200 units
       costPrice: product.costPrice !== undefined && product.costPrice !== null ? product.costPrice : 0,
       isAmazonsChoice: product.isAmazonsChoice || false,
@@ -389,7 +389,7 @@ const AdminDashboard = () => {
       const updateData = {
         platformComparison: profitEditProduct.platformComparison,
         platformUnits: profitEditProduct.platformUnits, // Save the selected unit quantity
-        dealUnits: profitEditProduct.platformUnits, // Also update dealUnits for backward compatibility
+        dealUnits: Math.floor((profitEditProduct.platformUnits || 200) / 12), // Auto-calculate as platformUnits / 12
         profitCalculations: {
           ...profitEditProduct.profitCalculations,
           profitFor200Units: calculatedProfitFor200Units // Auto-calculated value
@@ -434,7 +434,7 @@ const AdminDashboard = () => {
         rating: parseFloat(fullEditProduct.rating),
         reviews: parseInt(fullEditProduct.reviews),
         stock: parseInt(fullEditProduct.stock),
-        dealUnits: isNaN(parseInt(fullEditProduct.dealUnits)) ? 1 : parseInt(fullEditProduct.dealUnits),
+        dealUnits: Math.floor((fullEditProduct.platformUnits || 200) / 12), // Auto-calculate as platformUnits / 12
         platformUnits: fullEditProduct.platformUnits || 200, // Save the platform units
         costPrice: parseFloat(fullEditProduct.costPrice) || 0,
         isAmazonsChoice: fullEditProduct.isAmazonsChoice,
@@ -1069,7 +1069,7 @@ const AdminDashboard = () => {
         <button onClick={() => navigate('/admin/seller-verifications')} className="tool-btn info">
           🆔 Seller Verifications ({stats?.verifications?.pending || 0} pending)
         </button>
-        <button onClick={() => navigate('/admin/seller-listings')} className="tool-btn success">
+        <button onClick={() => navigate('/admin/seller-listings')} className="tool-btn success" style={{color: 'black'}}>
           📋 Seller Listings ({stats?.sellerListings?.total || 0} total)
         </button>
         <button onClick={() => navigate('/admin/pending-payments')} className="tool-btn warning">
@@ -1228,7 +1228,7 @@ const AdminDashboard = () => {
                     const units = parseInt(e.target.value) || 1;
                     setFullEditProduct({
                       ...fullEditProduct, 
-                      dealUnits: units
+                      dealUnits: Math.floor(units / 12) // Auto-calculate as platformUnits / 12
                     });
                   }}
                   style={{
@@ -1461,7 +1461,7 @@ const AdminDashboard = () => {
                   setFullEditProduct({
                     ...fullEditProduct, 
                     platformUnits: units,
-                    dealUnits: units // Also update dealUnits for backward compatibility
+                    dealUnits: Math.floor(units / 12) // Auto-calculate as platformUnits / 12
                   });
                 }}
                 style={{
@@ -1882,7 +1882,7 @@ const AdminDashboard = () => {
                     setProfitEditProduct({
                       ...profitEditProduct, 
                       platformUnits: units,
-                      dealUnits: units // Also update dealUnits for backward compatibility
+                      dealUnits: Math.floor(units / 12) // Auto-calculate as platformUnits / 12
                     });
                   }}
                   style={{

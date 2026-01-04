@@ -7,6 +7,9 @@ const CategoryVisibilityToggle = ({ compact = false }) => {
   const [loading, setLoading] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [deletingCategory, setDeletingCategory] = useState(null);
+  const [renamingCategory, setRenamingCategory] = useState(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   useEffect(() => {
     fetchCategories();
@@ -26,17 +29,32 @@ const CategoryVisibilityToggle = ({ compact = false }) => {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/categories?includeCounts=true');
+      console.log('🔍 CategoryVisibilityToggle: Fetching categories...');
+      
+      // Include empty categories for full admin control
+      const response = await fetch('http://localhost:5000/api/products/public/categories?includeCounts=true&includeEmpty=true');
+      console.log('🔍 CategoryVisibilityToggle: Response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 CategoryVisibilityToggle: Raw data received:', data);
+        
         // Filter out Excel categories and system categories
-        const filteredCategories = data.categories.filter(cat => 
-          !['UAE Products', 'UK Products', 'Amazon10', 'all'].includes(cat.value)
-        );
+        const filteredCategories = data.categories.filter(cat => {
+          const shouldExclude = ['UAE Products', 'UK Products', 'Amazon10', 'all'].includes(cat.value);
+          console.log(`🔍 Category ${cat.value} (${cat.label}): shouldExclude=${shouldExclude}`);
+          return !shouldExclude;
+        });
+        console.log('🔍 CategoryVisibilityToggle: Filtered categories:', filteredCategories);
+        
         setCategories(filteredCategories);
+      } else {
+        console.error('🔍 CategoryVisibilityToggle: Response not OK:', response.status);
+        const errorText = await response.text();
+        console.error('🔍 CategoryVisibilityToggle: Error response:', errorText);
       }
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error('🔍 CategoryVisibilityToggle: Error fetching categories:', error);
     } finally {
       setLoading(false);
     }
@@ -83,6 +101,134 @@ const CategoryVisibilityToggle = ({ compact = false }) => {
   const hideAllCategories = () => {
     const allCategoryValues = categories.map(cat => cat.value);
     setTempHiddenCategories(new Set(allCategoryValues));
+  };
+
+  const deleteCategory = async (categoryLabel) => {
+    const category = categories.find(cat => cat.label === categoryLabel);
+    const hasProducts = category && category.count > 0;
+    
+    const confirmMessage = hasProducts 
+      ? `Are you sure you want to delete the category "${categoryLabel}"? This will remove the category from ${category.count} product(s), but the products will remain active. This action cannot be undone.`
+      : `Are you sure you want to permanently delete the empty category "${categoryLabel}"? This action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setDeletingCategory(categoryLabel);
+      
+      const url = hasProducts 
+        ? `http://localhost:5000/api/products/admin/categories/${encodeURIComponent(categoryLabel)}?force=true`
+        : `http://localhost:5000/api/products/admin/categories/${encodeURIComponent(categoryLabel)}`;
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`✅ ${result.message}`);
+        
+        // Refresh categories list
+        await fetchCategories();
+        
+        // Remove from hidden categories if it was hidden
+        const categoryValue = categories.find(cat => cat.label === categoryLabel)?.value;
+        if (categoryValue) {
+          const newTempSet = new Set(tempHiddenCategories);
+          newTempSet.delete(categoryValue);
+          setTempHiddenCategories(newTempSet);
+          
+          const newHiddenSet = new Set(hiddenCategories);
+          newHiddenSet.delete(categoryValue);
+          setHiddenCategories(newHiddenSet);
+          localStorage.setItem('hiddenCategories', JSON.stringify([...newHiddenSet]));
+        }
+        
+        // Trigger category refresh in headers
+        localStorage.setItem('categoriesUpdated', Date.now().toString());
+        window.dispatchEvent(new CustomEvent('refreshCategories'));
+        
+      } else {
+        const errorData = await response.json();
+        alert(`❌ ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      alert('❌ Failed to delete category. Please try again.');
+    } finally {
+      setDeletingCategory(null);
+    }
+  };
+
+  const startRenaming = (categoryLabel) => {
+    setRenamingCategory(categoryLabel);
+    setNewCategoryName(categoryLabel);
+  };
+
+  const cancelRenaming = () => {
+    setRenamingCategory(null);
+    setNewCategoryName('');
+  };
+
+  const renameCategory = async (oldCategoryLabel) => {
+    if (!newCategoryName.trim() || newCategoryName.trim() === oldCategoryLabel) {
+      cancelRenaming();
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/products/admin/categories/${encodeURIComponent(oldCategoryLabel)}/rename`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ newCategoryName: newCategoryName.trim() })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`✅ ${result.message}`);
+        
+        // Refresh categories list
+        await fetchCategories();
+        
+        // Update hidden categories if the renamed category was hidden
+        const oldCategoryValue = categories.find(cat => cat.label === oldCategoryLabel)?.value;
+        if (oldCategoryValue && hiddenCategories.has(oldCategoryValue)) {
+          const newCategoryValue = newCategoryName.trim().toLowerCase().replace(/\s+/g, '-');
+          
+          const newTempSet = new Set(tempHiddenCategories);
+          newTempSet.delete(oldCategoryValue);
+          newTempSet.add(newCategoryValue);
+          setTempHiddenCategories(newTempSet);
+          
+          const newHiddenSet = new Set(hiddenCategories);
+          newHiddenSet.delete(oldCategoryValue);
+          newHiddenSet.add(newCategoryValue);
+          setHiddenCategories(newHiddenSet);
+          localStorage.setItem('hiddenCategories', JSON.stringify([...newHiddenSet]));
+        }
+        
+        // Trigger category refresh in headers
+        localStorage.setItem('categoriesUpdated', Date.now().toString());
+        window.dispatchEvent(new CustomEvent('refreshCategories'));
+        
+      } else {
+        const errorData = await response.json();
+        alert(`❌ ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error('Error renaming category:', error);
+      alert('❌ Failed to rename category. Please try again.');
+    } finally {
+      cancelRenaming();
+    }
   };
 
   if (!showPanel) {
@@ -178,7 +324,7 @@ const CategoryVisibilityToggle = ({ compact = false }) => {
       </div>
 
       <div style={{ marginBottom: '12px', fontSize: '0.8rem', color: '#666' }}>
-        Control which categories appear in the main header navigation
+        Control which categories appear in the main header navigation. Double-click category names to rename them. Categories can be deleted even if they contain products.
       </div>
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -243,6 +389,10 @@ const CategoryVisibilityToggle = ({ compact = false }) => {
         ) : (
           categories.map(category => {
             const isHidden = tempHiddenCategories.has(category.value);
+            const hasProducts = category.count > 0;
+            const isDeleting = deletingCategory === category.label;
+            const isRenaming = renamingCategory === category.label;
+            
             return (
               <div
                 key={category.value}
@@ -267,41 +417,151 @@ const CategoryVisibilityToggle = ({ compact = false }) => {
                   <span style={{ fontSize: '0.9rem' }}>
                     {isHidden ? '👁️‍🗨️' : '👁️'}
                   </span>
-                  <span style={{
-                    fontWeight: '500',
-                    color: isHidden ? '#dc2626' : '#059669'
-                  }}>
-                    {category.label}
-                  </span>
-                  {category.count !== undefined && (
-                    <span style={{
-                      fontSize: '0.7rem',
-                      color: '#666',
-                      background: '#f3f4f6',
-                      padding: '2px 6px',
-                      borderRadius: '10px',
-                      marginLeft: '4px'
-                    }}>
-                      {category.count}
+                  
+                  {isRenaming ? (
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          renameCategory(category.label);
+                        } else if (e.key === 'Escape') {
+                          cancelRenaming();
+                        }
+                      }}
+                      onBlur={() => renameCategory(category.label)}
+                      autoFocus
+                      style={{
+                        padding: '2px 6px',
+                        border: '1px solid #667eea',
+                        borderRadius: '3px',
+                        fontSize: '0.8rem',
+                        fontWeight: '500',
+                        minWidth: '120px'
+                      }}
+                    />
+                  ) : (
+                    <span 
+                      style={{
+                        fontWeight: '500',
+                        color: isHidden ? '#dc2626' : '#059669',
+                        cursor: 'pointer'
+                      }}
+                      onDoubleClick={() => startRenaming(category.label)}
+                      title="Double-click to rename"
+                    >
+                      {category.label}
                     </span>
                   )}
-                </div>
-                <button
-                  onClick={() => toggleCategoryVisibility(category.value)}
-                  style={{
-                    padding: '4px 8px',
-                    background: isHidden ? '#10b981' : '#ef4444',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '3px',
+                  
+                  <span style={{
                     fontSize: '0.7rem',
-                    cursor: 'pointer',
-                    fontWeight: '500',
-                    minWidth: '50px'
-                  }}
-                >
-                  {isHidden ? 'Show' : 'Hide'}
-                </button>
+                    color: hasProducts ? '#666' : '#ef4444',
+                    background: hasProducts ? '#f3f4f6' : '#fef2f2',
+                    padding: '2px 6px',
+                    borderRadius: '10px',
+                    marginLeft: '4px',
+                    fontWeight: hasProducts ? 'normal' : '600'
+                  }}>
+                    {category.count || 0} products
+                  </span>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  {!isRenaming && (
+                    <>
+                      <button
+                        onClick={() => toggleCategoryVisibility(category.value)}
+                        style={{
+                          padding: '4px 8px',
+                          background: isHidden ? '#10b981' : '#ef4444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          minWidth: '50px'
+                        }}
+                      >
+                        {isHidden ? 'Show' : 'Hide'}
+                      </button>
+                      
+                      <button
+                        onClick={() => startRenaming(category.label)}
+                        style={{
+                          padding: '4px 8px',
+                          background: '#667eea',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          minWidth: '50px'
+                        }}
+                        title="Rename category"
+                      >
+                        ✏️ Rename
+                      </button>
+                      
+                      <button
+                        onClick={() => deleteCategory(category.label)}
+                        disabled={isDeleting}
+                        style={{
+                          padding: '4px 8px',
+                          background: isDeleting ? '#9ca3af' : '#dc2626',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          cursor: isDeleting ? 'not-allowed' : 'pointer',
+                          fontWeight: '500',
+                          minWidth: '50px'
+                        }}
+                        title={hasProducts ? `Delete category (${category.count} products will lose their category)` : "Delete empty category permanently"}
+                      >
+                        {isDeleting ? '⏳' : '🗑️'}
+                      </button>
+                    </>
+                  )}
+                  
+                  {isRenaming && (
+                    <>
+                      <button
+                        onClick={() => renameCategory(category.label)}
+                        style={{
+                          padding: '4px 8px',
+                          background: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          fontWeight: '500'
+                        }}
+                      >
+                        ✅ Save
+                      </button>
+                      <button
+                        onClick={cancelRenaming}
+                        style={{
+                          padding: '4px 8px',
+                          background: '#ef4444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          fontWeight: '500'
+                        }}
+                      >
+                        ❌ Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             );
           })

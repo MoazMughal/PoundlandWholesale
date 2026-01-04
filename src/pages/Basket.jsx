@@ -3,12 +3,13 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useBasket } from '../context/BasketContext'
 import { useCurrency } from '../context/CurrencyContext'
 import { getImageUrl } from '../utils/imageImports'
+import { optimizeImageUrl } from '../utils/imageOptimization'
 import ScrollToTop from '../components/ScrollToTop'
 
 const Basket = () => {
   const navigate = useNavigate()
   const { basket, userType, removeFromBasket, updateQuantity, clearBasket, getBasketTotal } = useBasket()
-  const { formatPrice } = useCurrency()
+  const { formatPrice, currency } = useCurrency()
   const [showClearConfirm, setShowClearConfirm] = useState(false)
 
   const getUserTypeLabel = () => {
@@ -59,10 +60,10 @@ const Basket = () => {
   }
 
   return (
-    <div style={{ minHeight: '60vh', padding: '20px 15px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="basket-mobile mobile-padding" style={{ minHeight: '60vh', padding: '20px 15px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ marginBottom: '30px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '10px', color: '#111' }}>
+        <h1 className="mobile-spacing" style={{ fontSize: '28px', fontWeight: '700', marginBottom: '10px', color: '#111' }}>
           <i className="fas fa-shopping-basket"></i> Shopping Basket
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
@@ -88,6 +89,7 @@ const Basket = () => {
           {basket.map((item) => (
             <div 
               key={item.id}
+              className="basket-item mobile-spacing"
               style={{
                 display: 'flex',
                 gap: '15px',
@@ -100,6 +102,7 @@ const Basket = () => {
             >
               {/* Product Image */}
               <div 
+                className="basket-item-image mobile-image-sm"
                 onClick={() => {
                   const params = new URLSearchParams({
                     name: item.name,
@@ -129,7 +132,8 @@ const Basket = () => {
               >
                 {item.image ? (
                   <img 
-                    src={getImageUrl(item.image)} 
+                    className="mobile-image"
+                    src={optimizeImageUrl(getImageUrl(item.image), { width: 200, height: 200, quality: 75 })} 
                     alt={item.name}
                     style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                     onError={(e) => {
@@ -139,6 +143,7 @@ const Basket = () => {
                   />
                 ) : (
                   <img 
+                    className="mobile-image"
                     src="https://via.placeholder.com/100x100?text=No+Image"
                     alt="No image available"
                     style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
@@ -147,7 +152,7 @@ const Basket = () => {
               </div>
 
               {/* Product Details */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="basket-item-details" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <h3 
                   onClick={() => {
                     const params = new URLSearchParams({
@@ -174,12 +179,33 @@ const Basket = () => {
                   {item.name}
                 </h3>
 
-                <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981' }}>
-                  {formatPrice(item.price)}
+                <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#10b981', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
+                  {(() => {
+                    // For products from AmazonsChoice that already have proper formatting, display as is
+                    if (typeof item.price === 'string' && item.price.includes('£') && currency === 'GBP') {
+                      console.log('Basket item price (direct display):', {
+                        itemName: item.name,
+                        originalPrice: item.price,
+                        displayPrice: item.price,
+                        currency: currency
+                      });
+                      return item.price;
+                    }
+                    
+                    // Otherwise use formatPrice for conversion
+                    const formatted = formatPrice(item.price);
+                    console.log('Basket item price (formatted):', {
+                      itemName: item.name,
+                      originalPrice: item.price,
+                      formattedPrice: formatted,
+                      currency: currency
+                    });
+                    return formatted;
+                  })()}
                 </div>
 
                 {/* Quantity Controls */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 'auto' }}>
+                <div className="quantity-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 'auto' }}>
                   <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: '6px', overflow: 'hidden' }}>
                     <button
                       onClick={() => updateQuantity(item.id, (item.quantity || 1) - 1)}
@@ -194,7 +220,7 @@ const Basket = () => {
                     >
                       -
                     </button>
-                    <span style={{ padding: '6px 15px', fontSize: '14px', fontWeight: '600' }}>
+                    <span style={{ padding: '6px 15px', fontSize: '1rem', fontWeight: '700', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
                       {item.quantity || 1}
                     </span>
                     <button
@@ -268,16 +294,40 @@ const Basket = () => {
             <div style={{ marginBottom: '15px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
                 <span style={{ color: '#6b7280' }}>Subtotal ({basket.reduce((sum, item) => sum + (item.quantity || 1), 0)} items)</span>
-                <span style={{ fontWeight: '600' }}>{formatPrice(getBasketTotal().toFixed(2))}</span>
+                <span style={{ fontWeight: '700', fontSize: '1rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
+                  {(() => {
+                    const total = getBasketTotal();
+                    // If we're in GBP, format directly as GBP
+                    const formattedTotal = currency === 'GBP' ? `£${total.toFixed(2)}` : formatPrice(total.toFixed(2));
+                    console.log('Basket subtotal debug:', {
+                      rawTotal: total,
+                      formattedTotal: formattedTotal,
+                      currency: currency
+                    });
+                    return formattedTotal;
+                  })()}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
                 <span style={{ color: '#6b7280' }}>Shipping</span>
                 <span style={{ fontWeight: '600', color: '#10b981' }}>FREE</span>
               </div>
               <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '10px', marginTop: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
                   <span style={{ fontWeight: '700' }}>Total</span>
-                  <span style={{ fontWeight: '800', color: '#10b981' }}>{formatPrice(getBasketTotal().toFixed(2))}</span>
+                  <span style={{ fontWeight: '800', color: '#10b981', fontSize: '1.2rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
+                    {(() => {
+                      const total = getBasketTotal();
+                      // If we're in GBP, format directly as GBP
+                      const formattedTotal = currency === 'GBP' ? `£${total.toFixed(2)}` : formatPrice(total.toFixed(2));
+                      console.log('Final basket total debug:', {
+                        rawTotal: total,
+                        formattedTotal: formattedTotal,
+                        currency: currency
+                      });
+                      return formattedTotal;
+                    })()}
+                  </span>
                 </div>
               </div>
             </div>

@@ -65,5 +65,10 @@ export default defineConfig({
       // Allow serving files from assets
       allow: ['..']
     }
+  },
+  // Handle client-side routing
+  preview: {
+    port: 3000,
+    strictPort: true
   }
 })

@@ -46,21 +46,51 @@ export const CurrencyProvider = ({ children }) => {
   const convertPrice = (price) => {
     // Handle different price formats
     let numericPrice = price;
+    let originalCurrency = 'GBP'; // Default assumption
     
     if (typeof price === 'string') {
-      numericPrice = parseFloat(price.replace(/[£$₨Rs]/g, '').trim());
+      // Detect original currency from the string
+      if (price.includes('£')) originalCurrency = 'GBP';
+      else if (price.includes('$')) originalCurrency = 'USD';
+      else if (price.includes('₨') || price.includes('Rs')) originalCurrency = 'PKR';
+      else if (price.includes('د.إ')) originalCurrency = 'AED';
+      
+      numericPrice = parseFloat(price.replace(/[£$₨Rs]/g, '').replace('د.إ', '').trim());
     }
     
     if (isNaN(numericPrice)) {
-      return `${currencySymbols[currency]}0.00`;
+      return '0.00';
     }
 
-    const converted = numericPrice * currencyRates[currency];
+    // If the price is already in the target currency, return as is
+    if (originalCurrency === currency) {
+      return numericPrice.toFixed(2);
+    }
+
+    // Convert from original currency to target currency
+    // First convert to PKR (base currency), then to target
+    let priceInPKR;
+    if (originalCurrency === 'PKR') {
+      priceInPKR = numericPrice;
+    } else {
+      // Convert from original currency to PKR
+      priceInPKR = numericPrice / currencyRates[originalCurrency];
+    }
+    
+    // Then convert from PKR to target currency
+    const converted = priceInPKR * currencyRates[currency];
     return converted.toFixed(2);
   };
 
   const formatPrice = (price) => {
-    return `${currencySymbols[currency]}${convertPrice(price)}`;
+    // Special handling for when price is already properly formatted
+    if (typeof price === 'string' && price.includes(currencySymbols[currency])) {
+      // If the price already has the correct currency symbol, return as is
+      return price;
+    }
+    
+    const convertedPrice = convertPrice(price);
+    return `${currencySymbols[currency]}${convertedPrice}`;
   };
 
   const value = {

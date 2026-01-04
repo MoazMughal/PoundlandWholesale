@@ -500,7 +500,9 @@ router.post('/forgot-password', async (req, res) => {
     await user.save();
 
     // Create reset URL with original (unhashed) token
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}?type=${userType}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}?type=${userType}`;
+
+    console.log('🔗 Generated reset URL:', resetUrl); // Debug log
 
     // Send email with reset link
     const userName = userType === 'buyer' 
@@ -523,10 +525,19 @@ router.post('/forgot-password', async (req, res) => {
       });
     }
 
-    res.json({
+    // In development, also return the reset URL for testing
+    const responseData = {
       success: true,
       message: 'If an account exists with this email, a password reset link has been sent.'
-    });
+    };
+
+    // Add development URL for testing (only in development)
+    if (process.env.NODE_ENV !== 'production') {
+      responseData.developmentUrl = resetUrl;
+      console.log('🔧 Development reset URL:', resetUrl);
+    }
+
+    res.json(responseData);
 
   } catch (error) {
     res.status(500).json({ 
@@ -540,6 +551,7 @@ router.post('/forgot-password', async (req, res) => {
 router.post('/reset-password-token', async (req, res) => {
   try {
     const { token, newPassword, userType } = req.body;
+    console.log('🔄 Password reset request:', { token: token?.substring(0, 10) + '...', userType });
 
     if (!token || !newPassword || !userType) {
       return res.status(400).json({ 
@@ -568,6 +580,8 @@ router.post('/reset-password-token', async (req, res) => {
       .update(token)
       .digest('hex');
 
+    console.log('🔍 Looking for user with hashed token...');
+
     // Find user with matching token and valid expiry
     let user;
     if (userType === 'buyer') {
@@ -588,11 +602,14 @@ router.post('/reset-password-token', async (req, res) => {
     }
 
     if (!user) {
+      console.log('❌ No user found with valid reset token');
       return res.status(400).json({ 
         success: false,
         message: 'Invalid or expired reset token. Please request a new password reset link.' 
       });
     }
+
+    console.log('✅ User found, updating password...');
 
     // Update password and clear reset token fields
     user.password = newPassword; // Will be hashed by pre-save middleware
@@ -600,12 +617,15 @@ router.post('/reset-password-token', async (req, res) => {
     user.passwordResetTokenExpiry = undefined;
     await user.save();
 
+    console.log('✅ Password reset successfully for user:', user.email);
+
     res.json({
       success: true,
       message: 'Password reset successfully. You can now login with your new password.'
     });
 
   } catch (error) {
+    console.error('❌ Password reset error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error. Please try again later.' 
@@ -618,6 +638,7 @@ router.get('/verify-reset-token/:token', async (req, res) => {
   try {
     const { token } = req.params;
     const { type: userType } = req.query;
+    console.log('🔍 Token verification request:', { token: token?.substring(0, 10) + '...', userType });
 
     if (!token || !userType) {
       return res.status(400).json({ 
@@ -639,6 +660,8 @@ router.get('/verify-reset-token/:token', async (req, res) => {
       .update(token)
       .digest('hex');
 
+    console.log('🔍 Looking for user with hashed token for verification...');
+
     // Find user with matching token and valid expiry
     let user;
     if (userType === 'buyer') {
@@ -659,11 +682,14 @@ router.get('/verify-reset-token/:token', async (req, res) => {
     }
 
     if (!user) {
+      console.log('❌ No user found with valid reset token for verification');
       return res.status(400).json({ 
         success: false,
         message: 'Invalid or expired reset token' 
       });
     }
+
+    console.log('✅ Token verification successful for user:', user.email);
 
     res.json({
       success: true,
@@ -672,6 +698,7 @@ router.get('/verify-reset-token/:token', async (req, res) => {
     });
 
   } catch (error) {
+    console.error('❌ Token verification error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error. Please try again later.' 

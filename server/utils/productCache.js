@@ -23,7 +23,7 @@ class ProductCache {
         const parsed = JSON.parse(data);
         this.cache.set('products', parsed.products || []);
         this.lastUpdate = parsed.lastUpdate ? new Date(parsed.lastUpdate) : null;
-        console.log(`📦 Loaded ${parsed.products?.length || 0} products from cache`);
+        // Cache loaded silently
       }
     } catch (error) {
       console.error('❌ Error loading cache:', error.message);
@@ -102,6 +102,26 @@ class ProductCache {
     const ageMs = Date.now() - this.lastUpdate.getTime();
     const ageMinutes = Math.floor(ageMs / (60 * 1000));
     return `${ageMinutes} minutes`;
+  }
+
+  // Clear all cache data
+  clear() {
+    this.cache.clear();
+    this.lastUpdate = null;
+    try {
+      if (fs.existsSync(this.cacheFile)) {
+        fs.unlinkSync(this.cacheFile);
+      }
+      console.log('🗑️ Product cache cleared');
+    } catch (error) {
+      console.error('❌ Error clearing cache file:', error.message);
+    }
+  }
+
+  // Invalidate cache (mark as stale)
+  invalidate() {
+    this.lastUpdate = null;
+    console.log('⚠️ Product cache invalidated');
   }
 }
 

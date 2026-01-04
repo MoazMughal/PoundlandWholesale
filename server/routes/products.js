@@ -41,7 +41,6 @@ async function syncExcelProductsOnDelete(mainProductId) {
 async function getProductsWithFallback(query = {}, options = {}) {
   try {
     // Try to get from database first
-    console.log('🔍 Attempting database query...');
     
     const dbProducts = await Product.find(query)
       .populate(options.populate || '')
@@ -51,8 +50,6 @@ async function getProductsWithFallback(query = {}, options = {}) {
       .select(options.select || '')
       .maxTimeMS(5000) // 5 second timeout
       .lean();
-    
-    console.log(`✅ Database query successful: ${dbProducts.length} products`);
     
     // Update cache with fresh data
     if (dbProducts.length > 0) {
@@ -71,7 +68,10 @@ async function getProductsWithFallback(query = {}, options = {}) {
     
     // Try cache first
     if (productCache.isFresh()) {
-      console.log('📦 Using fresh cache data');
+      // Only show cache usage in development
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('📦 Using fresh cache data');
+      }
       const cacheResult = productCache.getProducts({
         ...query,
         page: options.page,
@@ -92,7 +92,6 @@ async function getProductsWithFallback(query = {}, options = {}) {
     });
     
     if (cacheResult.products.length > 0) {
-      console.log('📦 Using stale cache data');
       return {
         ...cacheResult,
         source: 'stale_cache',
@@ -101,7 +100,6 @@ async function getProductsWithFallback(query = {}, options = {}) {
     }
     
     // Quick fallback with 20 products
-    console.log('🆘 Using quick fallback data');
     
     // Generate 50 diverse quick fallback products
     const fallbackNames = [
@@ -203,24 +201,82 @@ router.get('/public/debug/amazons-choice-count', async (req, res) => {
 // Get unique categories from database (public)
 router.get('/public/categories', async (req, res) => {
   try {
-    console.log('🔍 Fetching categories from database...');
+    const { includeCounts, includeExcel, includeEmpty } = req.query;
     
-    // Get unique categories from active products
-    const categories = await Product.distinct('category', { 
-      status: 'active',
-      category: { $exists: true, $ne: null, $ne: '' }
-    }).maxTimeMS(5000);
+    // Get unique categories from main products
+    const categoryFilter = includeEmpty === 'true' 
+      ? { category: { $exists: true, $ne: null, $ne: '' } } // All products
+      : { status: 'active', category: { $exists: true, $ne: null, $ne: '' } }; // Only active products
     
-    console.log('✅ Categories fetched:', categories);
+    const mainCategories = await Product.distinct('category', categoryFilter);
     
-    // Format categories for frontend
-    const formattedCategories = [
-      { value: 'all', label: 'All' },
-      ...categories.map(cat => ({
-        value: cat.toLowerCase().replace(/\s+/g, '-'),
-        label: cat
-      }))
-    ];
+    // Also get categories from Excel products if requested
+    let excelCategories = [];
+    if (includeExcel === 'true') {
+      try {
+        const ExcelProduct = (await import('../models/ExcelProduct.js')).default;
+        excelCategories = await ExcelProduct.distinct('category', {
+          category: { $exists: true, $ne: null, $ne: '' }
+        });
+        console.log('📂 Excel categories found:', excelCategories);
+      } catch (excelError) {
+        console.log('ℹ️ Excel model not available');
+      }
+    }
+    
+    // Combine and deduplicate categories
+    const categories = [...new Set([...mainCategories, ...excelCategories])];
+    console.log('📂 Combined categories:', categories);
+    
+    let formattedCategories;
+    
+    if (includeCounts === 'true') {
+      // Get product counts for each category using exact category names (not transformed)
+      const categoryCounts = await Product.aggregate([
+        {
+          $match: {
+            status: 'active',
+            category: { $exists: true, $ne: null, $ne: '' }
+          }
+        },
+        {
+          $group: {
+            _id: '$category',
+            count: { $sum: 1 }
+          }
+        }
+      ]).exec();
+      
+      const countMap = {};
+      categoryCounts.forEach(item => {
+        countMap[item._id] = item.count;
+      });
+      
+      console.log('📊 Category counts from database:', countMap);
+      
+      // Get total count for "All" category
+      const totalCount = await Product.countDocuments({ status: 'active' });
+      
+      formattedCategories = [
+        { value: 'all', label: 'All', count: totalCount },
+        ...categories.map(cat => ({
+          value: cat.toLowerCase().replace(/\s+/g, '-'),
+          label: cat,
+          count: countMap[cat] || 0 // Use exact category name for count lookup
+        }))
+      ];
+      
+      console.log('📊 Final formatted categories with counts:', formattedCategories);
+    } else {
+      // Original format without counts
+      formattedCategories = [
+        { value: 'all', label: 'All' },
+        ...categories.map(cat => ({
+          value: cat.toLowerCase().replace(/\s+/g, '-'),
+          label: cat
+        }))
+      ];
+    }
     
     res.json({
       categories: formattedCategories,
@@ -249,12 +305,349 @@ router.get('/public/categories', async (req, res) => {
   }
 });
 
+// Create new category (admin only)
+router.post('/public/categories', authenticateAdmin, async (req, res) => {
+  try {
+    const { category } = req.body;
+    
+    if (!category || !category.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category name is required'
+      });
+    }
+    
+    const categoryName = category.trim();
+    
+    // Check if category already exists in ACTIVE main products only
+    // (Don't check Excel products or inactive products)
+    const existingActiveCategory = await Product.findOne({ 
+      category: { $regex: new RegExp(`^${categoryName}$`, 'i') },
+      status: 'active'
+    });
+    
+    if (existingActiveCategory) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category already exists in active products'
+      });
+    }
+    
+    // Check if there are any Excel products with this category that could be converted
+    let hasExcelProducts = false;
+    try {
+      const ExcelProduct = (await import('../models/ExcelProduct.js')).default;
+      const excelProductsCount = await ExcelProduct.countDocuments({
+        category: { $regex: new RegExp(`^${categoryName}$`, 'i') }
+      });
+      hasExcelProducts = excelProductsCount > 0;
+      
+      if (hasExcelProducts) {
+        console.log(`ℹ️ Found ${excelProductsCount} Excel products with category "${categoryName}"`);
+        // Allow creation - Excel products can use this category
+        return res.json({
+          success: true,
+          message: `Category "${categoryName}" is available (found in Excel products)`,
+          category: {
+            value: categoryName.toLowerCase().replace(/\s+/g, '-'),
+            label: categoryName
+          },
+          existsInExcel: true
+        });
+      }
+    } catch (excelError) {
+      console.log('ℹ️ Excel model not available or no Excel products found');
+    }
+    
+    // Create a placeholder product to establish the category
+    const placeholderProduct = new Product({
+      name: `${categoryName} - Category Placeholder`,
+      price: 0,
+      category: categoryName,
+      brand: 'System',
+      description: 'This is a placeholder product to establish the category. You can delete this later.',
+      stock: 0,
+      status: 'inactive',
+      isAmazonsChoice: false,
+      currency: 'GBP',
+      images: []
+    });
+    
+    await placeholderProduct.save();
+    
+    // Return the new category in the expected format
+    const newCategory = {
+      value: categoryName.toLowerCase().replace(/\s+/g, '-'),
+      label: categoryName
+    };
+    
+    console.log(`✅ Category "${categoryName}" created successfully with placeholder product`);
+    
+    res.json({
+      success: true,
+      message: `Category "${categoryName}" created successfully`,
+      category: newCategory
+    });
+    
+  } catch (error) {
+    console.error('❌ Error creating category:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create category',
+      error: error.message
+    });
+  }
+});
+
+// Admin endpoint to rename a category (updates all products and Excel products)
+router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (req, res) => {
+  try {
+    const { categoryName } = req.params;
+    const { newCategoryName } = req.body;
+    
+    if (!newCategoryName || !newCategoryName.trim()) {
+      return res.status(400).json({ 
+        message: 'New category name is required',
+        success: false
+      });
+    }
+    
+    const trimmedNewName = newCategoryName.trim();
+    
+    console.log(`🏷️ Renaming category "${categoryName}" to "${trimmedNewName}"`);
+    
+    // Find the actual category name in the database (case-insensitive)
+    const actualCategoryProduct = await Product.findOne({
+      category: { $regex: new RegExp(`^${categoryName}$`, 'i') }
+    }).select('category');
+    
+    let sourceCategoryName = categoryName;
+    if (actualCategoryProduct) {
+      sourceCategoryName = actualCategoryProduct.category;
+      console.log(`🔍 Found actual category name: "${sourceCategoryName}" (searched for: "${categoryName}")`);
+    }
+    
+    // Check if new category name already exists
+    const existingCategory = await Product.findOne({ 
+      category: { $regex: new RegExp(`^${trimmedNewName}$`, 'i') }
+    });
+    
+    if (existingCategory && trimmedNewName.toLowerCase() !== sourceCategoryName.toLowerCase()) {
+      return res.status(400).json({ 
+        message: `Category "${trimmedNewName}" already exists. Please choose a different name.`,
+        success: false
+      });
+    }
+    
+    // Update all products with this category (case-insensitive)
+    const productUpdateResult = await Product.updateMany(
+      { category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') } },
+      { $set: { category: trimmedNewName } }
+    );
+    
+    console.log(`✅ Updated ${productUpdateResult.modifiedCount} products from "${sourceCategoryName}" to "${trimmedNewName}"`);
+    
+    // Update Excel products if they exist
+    let excelUpdateCount = 0;
+    try {
+      const ExcelProduct = (await import('../models/ExcelProduct.js')).default;
+      const excelUpdateResult = await ExcelProduct.updateMany(
+        { category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') } },
+        { $set: { category: trimmedNewName } }
+      );
+      excelUpdateCount = excelUpdateResult.modifiedCount;
+      console.log(`✅ Updated ${excelUpdateCount} Excel products from "${sourceCategoryName}" to "${trimmedNewName}"`);
+    } catch (excelError) {
+      console.log('ℹ️ No Excel products to update or Excel model not available');
+    }
+    
+    // Clear caches to ensure updates appear everywhere
+    productCache.clear();
+    
+    res.json({ 
+      message: `Category "${sourceCategoryName}" renamed to "${trimmedNewName}" successfully`,
+      updatedProducts: productUpdateResult.modifiedCount,
+      updatedExcelProducts: excelUpdateCount,
+      oldCategoryName: sourceCategoryName,
+      newCategoryName: trimmedNewName,
+      success: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Error renaming category:', error);
+    res.status(500).json({ 
+      message: 'Error renaming category', 
+      error: error.message,
+      success: false
+    });
+  }
+});
+
+// Admin endpoint to delete categories (smart deletion - only affects active/listed products)
+router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, res) => {
+  try {
+    const { categoryName } = req.params;
+    const { force } = req.query;
+    
+    console.log('🗑️ Smart category deletion for:', categoryName, force ? '(forced)' : '');
+    
+    // Find the actual category name in the database (case-insensitive)
+    const actualCategoryProduct = await Product.findOne({
+      category: { $regex: new RegExp(`^${categoryName}$`, 'i') }
+    }).select('category');
+    
+    let sourceCategoryName = categoryName;
+    if (actualCategoryProduct) {
+      sourceCategoryName = actualCategoryProduct.category;
+      console.log(`🔍 Found actual category name: "${sourceCategoryName}" (searched for: "${categoryName}")`);
+    }
+    
+    // Find active/listed main products in this category
+    const activeProducts = await Product.find({ 
+      category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') },
+      status: 'active' // Only active products
+    });
+    
+    // Find all products in this category (for reporting)
+    const allProducts = await Product.find({ 
+      category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') }
+    });
+    
+    // Find Excel products in this category
+    let pendingExcelProducts = [];
+    let listedExcelProducts = [];
+    try {
+      const ExcelProduct = (await import('../models/ExcelProduct.js')).default;
+      const allExcelProducts = await ExcelProduct.find({ 
+        category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') }
+      });
+      
+      pendingExcelProducts = allExcelProducts.filter(p => p.status === 'pending' || !p.isConverted);
+      listedExcelProducts = allExcelProducts.filter(p => p.status === 'listed' && p.isConverted);
+      
+    } catch (excelError) {
+      console.log('ℹ️ No Excel products found or Excel model not available');
+    }
+    
+    console.log('📊 Category analysis:', {
+      activeMainProducts: activeProducts.length,
+      totalMainProducts: allProducts.length,
+      pendingExcelProducts: pendingExcelProducts.length,
+      listedExcelProducts: listedExcelProducts.length
+    });
+    
+    // Smart deletion logic
+    if (activeProducts.length === 0 && listedExcelProducts.length === 0) {
+      // Category is empty of active/listed products - safe to delete
+      console.log('✅ Category is empty of active/listed products - proceeding with deletion');
+      
+      // Remove category from any remaining inactive main products
+      const inactiveProducts = allProducts.filter(p => p.status !== 'active');
+      if (inactiveProducts.length > 0) {
+        await Product.updateMany(
+          { 
+            category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') },
+            status: { $ne: 'active' }
+          },
+          { $unset: { category: "" } }
+        );
+        console.log(`🗑️ Removed category from ${inactiveProducts.length} inactive main products`);
+      }
+      
+      // Leave pending Excel products untouched - they keep their category for future conversion
+      console.log(`ℹ️ Keeping category for ${pendingExcelProducts.length} pending Excel products`);
+      
+      res.json({ 
+        message: `Category "${sourceCategoryName}" deleted successfully. ${activeProducts.length} active products deleted, ${pendingExcelProducts.length} pending Excel products preserved.`,
+        deletedActiveProducts: activeProducts.length,
+        preservedExcelProducts: pendingExcelProducts.length,
+        removedFromInactiveProducts: inactiveProducts.length,
+        success: true
+      });
+      
+    } else if (force === 'true') {
+      // Force deletion - delete everything including active products
+      console.log('⚠️ Force deletion - removing all products');
+      
+      // Delete all active main products
+      if (activeProducts.length > 0) {
+        await Product.deleteMany({
+          category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') },
+          status: 'active'
+        });
+        console.log(`🗑️ Deleted ${activeProducts.length} active main products`);
+      }
+      
+      // Remove category from inactive main products
+      const inactiveProducts = allProducts.filter(p => p.status !== 'active');
+      if (inactiveProducts.length > 0) {
+        await Product.updateMany(
+          { 
+            category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') },
+            status: { $ne: 'active' }
+          },
+          { $unset: { category: "" } }
+        );
+        console.log(`🗑️ Removed category from ${inactiveProducts.length} inactive main products`);
+      }
+      
+      // Remove category from listed Excel products, leave pending ones
+      if (listedExcelProducts.length > 0) {
+        const ExcelProduct = (await import('../models/ExcelProduct.js')).default;
+        await ExcelProduct.updateMany(
+          { 
+            category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') },
+            status: 'listed',
+            isConverted: true
+          },
+          { $unset: { category: "" } }
+        );
+        console.log(`🗑️ Removed category from ${listedExcelProducts.length} listed Excel products`);
+      }
+      
+      console.log(`ℹ️ Preserved ${pendingExcelProducts.length} pending Excel products`);
+      
+      res.json({ 
+        message: `Category "${sourceCategoryName}" force deleted. ${activeProducts.length} active products deleted, ${pendingExcelProducts.length} pending Excel products preserved.`,
+        deletedActiveProducts: activeProducts.length,
+        preservedExcelProducts: pendingExcelProducts.length,
+        removedFromInactiveProducts: inactiveProducts.length,
+        removedFromListedExcelProducts: listedExcelProducts.length,
+        success: true
+      });
+      
+    } else {
+      // Category has active products - cannot delete without force
+      const productList = activeProducts.slice(0, 5).map(p => `• ${p.name}`).join('\n');
+      const moreProducts = activeProducts.length > 5 ? `\n• ... and ${activeProducts.length - 5} more` : '';
+      
+      return res.status(400).json({ 
+        message: `Cannot delete category "${sourceCategoryName}" because it contains ${activeProducts.length} active product(s). Use force=true to delete anyway.`,
+        productCount: activeProducts.length,
+        pendingExcelProducts: pendingExcelProducts.length,
+        productPreview: productList + moreProducts,
+        success: false
+      });
+    }
+    
+    // Clear caches to ensure updates appear everywhere
+    productCache.clear();
+    
+  } catch (error) {
+    console.error('❌ Error deleting category:', error);
+    res.status(500).json({ 
+      message: 'Error deleting category', 
+      error: error.message,
+      success: false
+    });
+  }
+});
+
 // Admin endpoint to clear cache manually
 router.post('/admin/clear-cache', authenticateAdmin, async (req, res) => {
   try {
     fastProductsCache = null;
     cacheTimestamp = Date.now();
-    console.log('🗑️ Cache manually cleared by admin, new timestamp:', cacheTimestamp);
     
     res.json({ 
       message: 'Cache cleared successfully',
@@ -279,8 +672,6 @@ router.post('/admin/mark-amazons-choice', authenticateAdmin, async (req, res) =>
       { _id: { $in: productIds } },
       { $set: { isAmazonsChoice: markAsAmazonsChoice } }
     );
-    
-    console.log(`🏆 Updated ${result.modifiedCount} products as Amazon Choice: ${markAsAmazonsChoice}`);
     
     // Clear cache after update
     fastProductsCache = null;
@@ -307,8 +698,6 @@ router.post('/admin/mark-all-amazons-choice', authenticateAdmin, async (req, res
       { $set: { isAmazonsChoice: true } }
     );
     
-    console.log(`🏆 Marked ALL ${result.modifiedCount} active products as Amazon Choice`);
-    
     // Clear cache after update
     fastProductsCache = null;
     cacheTimestamp = Date.now();
@@ -324,16 +713,129 @@ router.post('/admin/mark-all-amazons-choice', authenticateAdmin, async (req, res
   }
 });
 
+// Admin endpoint for bulk operations (update multiple products)
+router.post('/admin/bulk-update', authenticateAdmin, async (req, res) => {
+  try {
+    const { productIds, updateData, updateMode = 'replace' } = req.body;
+    
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+      return res.status(400).json({ message: 'productIds array is required' });
+    }
+    
+    if (!updateData || Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'updateData is required' });
+    }
+    
+    console.log(`🔄 Bulk update request: ${productIds.length} products, mode: ${updateMode}`);
+    console.log('📝 Update data:', updateData);
+    
+    let successCount = 0;
+    let failCount = 0;
+    const errors = [];
+    
+    for (const productId of productIds) {
+      try {
+        let finalUpdateData = { ...updateData };
+        
+        // Handle different update modes
+        if (updateMode === 'add' || updateMode === 'multiply') {
+          // Get current product data for mathematical operations
+          const currentProduct = await Product.findById(productId);
+          if (!currentProduct) {
+            failCount++;
+            errors.push({ productId, error: 'Product not found' });
+            continue;
+          }
+          
+          // Process numeric fields based on update mode
+          Object.keys(finalUpdateData).forEach(key => {
+            if (typeof finalUpdateData[key] === 'object' && finalUpdateData[key] !== null) {
+              // Handle nested objects (like profitCalculations, profitEvaluation)
+              Object.keys(finalUpdateData[key]).forEach(subKey => {
+                const newValue = parseFloat(finalUpdateData[key][subKey]);
+                const currentValue = parseFloat(currentProduct[key]?.[subKey]) || 0;
+                
+                if (!isNaN(newValue)) {
+                  if (updateMode === 'add') {
+                    finalUpdateData[key][subKey] = currentValue + newValue;
+                  } else if (updateMode === 'multiply') {
+                    finalUpdateData[key][subKey] = currentValue * newValue;
+                  }
+                }
+              });
+            } else {
+              // Handle top-level numeric fields
+              const newValue = parseFloat(finalUpdateData[key]);
+              const currentValue = parseFloat(currentProduct[key]) || 0;
+              
+              if (!isNaN(newValue)) {
+                if (updateMode === 'add') {
+                  finalUpdateData[key] = currentValue + newValue;
+                } else if (updateMode === 'multiply') {
+                  finalUpdateData[key] = currentValue * newValue;
+                }
+              }
+            }
+          });
+        }
+        
+        // Convert string booleans to actual booleans
+        Object.keys(finalUpdateData).forEach(key => {
+          if (finalUpdateData[key] === 'true') {
+            finalUpdateData[key] = true;
+          } else if (finalUpdateData[key] === 'false') {
+            finalUpdateData[key] = false;
+          }
+        });
+        
+        // Update the product
+        const result = await Product.findByIdAndUpdate(
+          productId,
+          { $set: finalUpdateData },
+          { new: true, runValidators: true }
+        );
+        
+        if (result) {
+          successCount++;
+        } else {
+          failCount++;
+          errors.push({ productId, error: 'Update failed' });
+        }
+        
+      } catch (error) {
+        failCount++;
+        errors.push({ productId, error: error.message });
+        console.error(`❌ Error updating product ${productId}:`, error);
+      }
+    }
+    
+    // Clear cache after bulk update
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+    
+    console.log(`✅ Bulk update completed: ${successCount} success, ${failCount} failed`);
+    
+    res.json({
+      message: `Bulk update completed: ${successCount} successful, ${failCount} failed`,
+      successCount,
+      failCount,
+      errors: errors.length > 0 ? errors : undefined
+    });
+    
+  } catch (error) {
+    console.error('❌ Error in bulk update:', error);
+    res.status(500).json({ message: 'Error performing bulk update', error: error.message });
+  }
+});
+
 // Fast endpoint for 50 products (optimized)
 router.get('/public/fast', async (req, res) => {
   const startTime = Date.now();
   
   try {
-    console.log('🚀 Fast products API called');
 
     // Check cache first
     if (fastProductsCache && (Date.now() - cacheTimestamp) < CACHE_DURATION) {
-      console.log('📦 Using cached products');
       return res.json({
         products: fastProductsCache,
         totalPages: 1,
@@ -385,16 +887,10 @@ router.get('/public/fast', async (req, res) => {
         }}
       ]).maxTimeMS(5000);
       
-      console.log(`✅ Fast aggregation successful: ${products.length} products in ${Date.now() - startTime}ms`);
-      console.log('📂 Categories in results:', [...new Set(products.map(p => p.category))]);
-      
       // Cache the results (only for unfiltered requests)
       if (!isAmazonsChoice && !category) {
         fastProductsCache = products;
         cacheTimestamp = Date.now();
-        console.log('📦 Results cached for future requests');
-      } else {
-        console.log('📦 Filtered results not cached');
       }
       
     } catch (error) {
@@ -414,7 +910,19 @@ router.get('/public/fast', async (req, res) => {
           fallbackQuery.isAmazonsChoice = true;
         }
         if (category && category !== 'all') {
-          fallbackQuery.category = { $regex: category, $options: 'i' };
+          // Handle both URL-friendly values and display names in fallback too
+          if (category.includes('-')) {
+            const properCase = category.split('-').map(word => 
+              word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+            fallbackQuery.$or = [
+              ...(fallbackQuery.$or || []),
+              { category: { $regex: category, $options: 'i' } },
+              { category: { $regex: properCase, $options: 'i' } }
+            ];
+          } else {
+            fallbackQuery.category = { $regex: category, $options: 'i' };
+          }
         }
         
         products = await Product.find(fallbackQuery)
@@ -423,8 +931,6 @@ router.get('/public/fast', async (req, res) => {
         .lean()
         .maxTimeMS(3000);
         
-        console.log(`✅ Simple fallback query successful: ${products.length} products`);
-        
       } catch (fallbackError) {
         console.error('❌ All queries failed, no products available');
         products = []; // Return empty array instead of fake products
@@ -432,7 +938,6 @@ router.get('/public/fast', async (req, res) => {
     }
 
     const responseTime = Date.now() - startTime;
-    console.log(`📊 Fast API Response: ${products.length} products, ${responseTime}ms`);
 
     res.json({
       products,
@@ -475,26 +980,17 @@ router.get('/public', async (req, res) => {
       source
     } = req.query;
 
-    console.log('🔍 Products API called:', { 
-      page, limit, search, category, isAmazonsChoice, 
-      connectionState: mongoose.connection.readyState 
-    });
-
     // Check database connection state
     if (mongoose.connection.readyState !== 1) {
-      console.log('⚠️ Database not connected, using fallback mechanism');
-      return await getProductsWithFallback(
-        { isAmazonsChoice: isAmazonsChoice === 'true', category }, 
-        { page: parseInt(page), limit: parseInt(limit) }
-      ).then(result => {
-        res.json({
-          products: result.products,
-          totalPages: result.totalPages || 1,
-          currentPage: parseInt(page),
-          total: result.total || result.products.length,
-          source: result.source,
-          responseTime: Date.now() - startTime
-        });
+      return res.status(503).json({
+        products: [],
+        totalPages: 1,
+        currentPage: parseInt(page),
+        total: 0,
+        source: 'database_disconnected',
+        responseTime: Date.now() - startTime,
+        success: false,
+        error: 'Database connection unavailable. Please try again.'
       });
     }
 
@@ -519,6 +1015,22 @@ router.get('/public', async (req, res) => {
     
     // Enhanced search with relevance
     let sortOptions = { [sortBy]: order === 'desc' ? -1 : 1 };
+    
+    // For Amazon's Choice products without search, use random sorting that changes on each request
+    if (isAmazonsChoice === 'true' && !search) {
+      // Create a truly random sort that changes on each page load
+      // Use current timestamp and random number for maximum randomization
+      const randomSeed = Math.floor(Math.random() * 1000000) + Date.now();
+      sortOptions = { 
+        // Mix of random seed with product ID for true randomization on each request
+        $expr: { 
+          $add: [
+            { $mod: [randomSeed, 1000] },
+            { $mod: [{ $toInt: { $substr: [{ $toString: "$_id" }, -4, -1] } }, 997] }
+          ]
+        }
+      };
+    }
     
     if (search) {
       // Escape special regex characters to prevent MongoDB errors
@@ -566,8 +1078,8 @@ router.get('/public', async (req, res) => {
         ]
       };
       
-      // Debug logging for ID searches (public route)
-      if (search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
+      // Debug logging for ID searches (public route) - only in development
+      if (process.env.NODE_ENV !== 'production' && search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
         console.log('🔍 Public ID Search Debug:', {
           searchTerm: search,
           isValidObjectId,
@@ -580,101 +1092,151 @@ router.get('/public', async (req, res) => {
     }
     
     if (category && category !== 'all') {
-      query.category = { $regex: category, $options: 'i' }; // Case-insensitive category match
+      // Decode URL-encoded category first
+      const decodedCategory = decodeURIComponent(category);
+      
+      // Handle both URL-friendly values (e.g., 'remote-controls') and display names (e.g., 'Remote Controls')
+      const categoryQuery = {
+        $or: [
+          { category: decodedCategory }, // Exact match with decoded category
+          { category: category }, // Exact match with original category
+          { category: { $regex: `^${decodedCategory.replace(/-/g, ' ')}$`, $options: 'i' } }, // Convert dashes to spaces
+          { category: { $regex: `^${decodedCategory.replace(/-/g, '\\s+')}$`, $options: 'i' } } // Handle multiple spaces
+        ]
+      };
+      
+      // If category looks like a URL-friendly value, also try the proper case version
+      if (decodedCategory.includes('-')) {
+        const properCase = decodedCategory.split('-').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+        categoryQuery.$or.push({ category: properCase });
+        categoryQuery.$or.push({ category: { $regex: `^${properCase}$`, $options: 'i' } });
+      }
+      
+      // Handle special characters like & in category names
+      if (decodedCategory.includes('&')) {
+        // Try variations with and without spaces around &
+        const withSpaces = decodedCategory.replace(/&/g, ' & ');
+        const withoutSpaces = decodedCategory.replace(/\s*&\s*/g, '&');
+        categoryQuery.$or.push({ category: withSpaces });
+        categoryQuery.$or.push({ category: withoutSpaces });
+        categoryQuery.$or.push({ category: { $regex: `^${withSpaces}$`, $options: 'i' } });
+        categoryQuery.$or.push({ category: { $regex: `^${withoutSpaces}$`, $options: 'i' } });
+      }
+      
+      console.log('🔍 Category filtering for:', decodedCategory, 'Query options:', categoryQuery.$or.length);
+      
+      query = { ...query, ...categoryQuery };
     }
     if (isAmazonsChoice === 'true') query.isAmazonsChoice = true;
     if (isBestSeller === 'true') query.isBestSeller = true;
     if (isLatestDeal === 'true') query.isLatestDeal = true;
     if (showOnHome === 'true') query.showOnHome = true;
 
-    console.log('🔍 Final query for products:', JSON.stringify(query, null, 2));
-
     // Enhanced query execution with multiple fallback strategies
     let products;
     let querySource = 'database';
     
     try {
-      console.log('🔍 Executing database query...', { query, limit: parseInt(limit) });
       
-      // Simplified single query approach for better reliability
-      console.log('🔍 Executing simplified database query...', { query, limit: parseInt(limit) });
+      // For Amazon's Choice products without search, use aggregation with random sampling
+      if (isAmazonsChoice === 'true' && !search) {
+        console.log('🎲 Using random sampling for Amazon\'s Choice products');
+        
+        const pipeline = [
+          { $match: query },
+          // Add a random field to each document for better shuffling
+          { $addFields: { randomField: { $rand: {} } } },
+          // Sort by the random field to shuffle the results
+          { $sort: { randomField: 1 } },
+          { $skip: (parseInt(page) - 1) * parseInt(limit) },
+          { $limit: parseInt(limit) },
+          {
+            $project: {
+              name: 1,
+              description: 1,
+              price: 1,
+              originalPrice: 1,
+              discount: 1,
+              category: 1,
+              brand: 1,
+              images: 1,
+              rating: 1,
+              reviews: 1,
+              stock: 1,
+              dealUnits: 1,
+              currency: 1,
+              isAmazonsChoice: 1,
+              isBestSeller: 1,
+              seller: 1,
+              isAdminProduct: 1,
+              sellerInfo: 1,
+              profitCalculations: 1,
+              profitEvaluation: 1,
+              platformComparison: 1,
+              showEvaluation: 1,
+              asin: 1,
+              variations: 1
+            }
+          }
+        ];
+        
+        products = await Product.aggregate(pipeline);
+        
+        // Get total count for pagination (separate query for performance)
+        const totalCount = await Product.countDocuments(query);
+        const totalPages = Math.ceil(totalCount / parseInt(limit));
+        
+        console.log(`✅ Random sampling successful: ${products.length} products (showing different order each time)`);
+        
+        // Process and return results
+        const processedProducts = products.map(product => ({
+          ...product,
+          // Ensure proper price formatting
+          price: parseFloat(product.price || 0),
+          originalPrice: parseFloat(product.originalPrice || 0),
+          rating: parseFloat(product.rating || 4.0),
+          reviews: parseInt(product.reviews || 0),
+          stock: parseInt(product.stock || 0),
+          dealUnits: parseInt(product.dealUnits || 1)
+        }));
+
+        const responseTime = Date.now() - startTime;
+
+        return res.json({
+          products: processedProducts,
+          totalPages: totalPages,
+          currentPage: parseInt(page),
+          total: totalCount,
+          source: 'database_random',
+          responseTime,
+          success: true
+        });
+      }
       
+      // Regular query for non-Amazon's Choice or when searching
       products = await Product.find(query)
         .sort(sortOptions)
         .limit(parseInt(limit))
         .select('name description price originalPrice discount category brand images rating reviews stock dealUnits currency isAmazonsChoice isBestSeller seller isAdminProduct sellerInfo profitCalculations profitEvaluation platformComparison showEvaluation asin variations')
         .maxTimeMS(10000) // Increased timeout to 10 seconds
         .lean();
-      console.log(`✅ Database query successful: ${products.length} products in ${Date.now() - startTime}ms`);
       
     } catch (queryError) {
       console.error('❌ Database query failed:', queryError.message);
-      console.log('🔄 Attempting fallback mechanism...');
       
-      // Use fallback mechanism
-      try {
-        const fallbackResult = await getProductsWithFallback(query, {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          sort: sortOptions
-        });
-        
-        products = fallbackResult.products;
-        querySource = fallbackResult.source;
-        console.log(`📦 Fallback successful: ${products.length} products from ${querySource}`);
-        
-      } catch (fallbackError) {
-        console.error('❌ Fallback also failed:', fallbackError.message);
-        
-        // Final emergency fallback - return 20 sample products
-        querySource = 'emergency';
-        
-        // Create 50 diverse sample products for better user experience
-        const diverseProductNames = [
-          // Electronics (15)
-          'Wireless Gaming Headset RGB', '4K Webcam Auto Focus', 'Portable SSD 1TB', 'Magnetic Car Phone Mount', 
-          'Mechanical Keyboard RGB', 'Wireless Charging Pad 15W', 'USB-C Hub 7-in-1', 'Smart Security Camera',
-          'Bluetooth Speaker 20W', 'LED Strip Lights 5M', 'Power Bank 20000mAh', 'Gaming Mouse Wireless',
-          'Smartphone Gimbal Stabilizer', 'Tablet Stand Adjustable', 'Wireless Earbuds Pro',
-          
-          // Clothing (12)
-          'Premium Cotton Hoodie', 'Leather Wallet RFID', 'Running Shoes Lightweight', 'Denim Jacket Classic',
-          'Silk Scarf Luxury', 'Baseball Cap Adjustable', 'Yoga Leggings High Waist', 'Formal Dress Shirt',
-          'Winter Gloves Touchscreen', 'Sunglasses Polarized', 'Casual Sneakers White', 'Crossbody Bag Leather',
-          
-          // Home & Garden (12)
-          'Ceramic Plant Pot Set', 'Essential Oil Diffuser', 'Memory Foam Pillow', 'Modern Wall Clock',
-          'Bamboo Cutting Board Set', 'Vacuum Storage Bags', 'Coffee Mug Set Ceramic', 'Throw Blanket Soft',
-          'Picture Frame Set', 'Candle Set Aromatherapy', 'Kitchen Scale Digital', 'Shower Curtain Waterproof',
-          
-          // Books & Education (6)
-          'Programming Guide Complete', 'Notebook Set Leather', 'Educational World Map Puzzle', 'Art Supplies Set',
-          'Language Learning Cards', 'Scientific Calculator Advanced',
-          
-          // Sports & Fitness (5)
-          'Resistance Bands Set', 'Yoga Mat Non-Slip', 'Water Bottle Insulated', 'Fitness Tracker Smart', 'Dumbbells Adjustable'
-        ];
-
-        const categories = ['Electronics', 'Clothing', 'Home & Garden', 'Books', 'Sports'];
-        const brands = ['TechPro', 'StyleMax', 'HomeComfort', 'BookWorld', 'SportsFit', 'QualityPlus', 'PremiumChoice'];
-
-        products = Array.from({ length: 50 }, (_, i) => ({
-          _id: `507f1f77bcf86cd79943901${i.toString().padStart(2, '0')}`,
-          name: diverseProductNames[i] || `Quality Product ${i + 1}`,
-          description: `High-quality ${diverseProductNames[i]?.toLowerCase() || 'product'} with excellent features and great value for money.`,
-          price: Math.floor(Math.random() * 4000) + 800,
-          originalPrice: Math.floor(Math.random() * 6000) + 1500,
-          discount: Math.floor(Math.random() * 40) + 15,
-          category: categories[Math.floor(i / 10)] || categories[i % 5],
-          brand: brands[i % brands.length],
-          images: [`https://via.placeholder.com/300x300?text=${encodeURIComponent(diverseProductNames[i]?.split(' ')[0] || 'Product')}`],
-          rating: 4.0 + Math.random() * 1,
-          reviews: Math.floor(Math.random() * 200) + 50,
-          stock: Math.floor(Math.random() * 100) + 10,
-          isAmazonsChoice: isAmazonsChoice === 'true' || Math.random() > 0.6,
-          isBestSeller: Math.random() > 0.7
-        }));
-      }
+      // Return empty result instead of fallback products
+      return res.json({
+        products: [],
+        totalPages: 1,
+        currentPage: parseInt(page),
+        total: 0,
+        source: 'database_error',
+        responseTime: Date.now() - startTime,
+        success: false,
+        error: 'Database temporarily unavailable. Please try again.'
+      });
     }
 
     // Custom sorting for search results (relevance-based)
@@ -745,7 +1307,6 @@ router.get('/public', async (req, res) => {
     }
 
     const responseTime = Date.now() - startTime;
-    console.log(`📊 API Response: ${processedProducts.length} products, ${responseTime}ms, source: ${querySource}`);
 
     res.json({
       products: processedProducts,
@@ -760,33 +1321,14 @@ router.get('/public', async (req, res) => {
   } catch (error) {
     console.error('❌ Products API critical error:', error);
     
-    // Emergency fallback response
-    const emergencyProducts = isAmazonsChoice === 'true' ? [
-      {
-        _id: '507f1f77bcf86cd799439011',
-        name: 'Emergency Fallback Product',
-        price: 19.99,
-        originalPrice: 29.99,
-        discount: 33,
-        category: category || 'electronics',
-        brand: 'Generic',
-        images: ['fallback-product.jpg'],
-        rating: 4.0,
-        reviews: 100,
-        stock: 25,
-        isAmazonsChoice: true,
-        dealUnits: 1
-      }
-    ] : [];
-    
-    res.status(200).json({ 
-      products: emergencyProducts,
+    // Return empty result instead of emergency fallback
+    res.status(500).json({ 
+      products: [],
       totalPages: 1,
       currentPage: parseInt(page),
-      total: emergencyProducts.length,
-      source: 'emergency',
-      error: 'Database temporarily unavailable',
-      message: 'Using emergency fallback data',
+      total: 0,
+      source: 'error',
+      error: 'Server error occurred. Please try again later.',
       success: false
     });
   }
@@ -903,33 +1445,46 @@ router.get('/admin/fast', authenticateAdmin, async (req, res) => {
   const startTime = Date.now();
   
   try {
-    console.log('🚀 Fast admin products API called');
+    const { 
+      limit = '50',
+      page = '1'
+    } = req.query;
+
+    const limitNum = parseInt(limit);
+    const pageNum = parseInt(page);
+    const skip = (pageNum - 1) * limitNum;
 
     // Get products without images for speed
     let products;
+    let totalCount;
+    
     try {
+      // Get total count for pagination
+      totalCount = await Product.countDocuments({});
+      
+      // Get paginated products
       products = await Product.find({})
-        .limit(50) // Limit to 50 for admin dashboard
+        .skip(skip)
+        .limit(limitNum)
         .select('name price category status createdAt dealUnits currency asin') // Minimal fields for speed including ASIN
         .sort({ createdAt: -1 })
-        .maxTimeMS(3000) // 3 second timeout
+        .maxTimeMS(5000) // Increased timeout for larger datasets
         .lean();
       
-      console.log(`✅ Fast admin query successful: ${products.length} products in ${Date.now() - startTime}ms`);
-      
     } catch (error) {
-      console.log('❌ Fast admin query failed, using fallback');
+      console.error('Fast admin query error:', error);
       products = [];
+      totalCount = 0;
     }
 
+    const totalPages = Math.ceil(totalCount / limitNum);
     const responseTime = Date.now() - startTime;
-    console.log(`📊 Fast Admin API Response: ${products.length} products, ${responseTime}ms`);
 
     res.json({
       products,
-      totalPages: 1,
-      currentPage: 1,
-      total: products.length,
+      totalPages,
+      currentPage: pageNum,
+      total: totalCount,
       source: 'fast_admin',
       responseTime,
       success: true
@@ -962,11 +1517,15 @@ router.get('/', authenticateAdmin, async (req, res) => {
     let query = {};
     
     // Optionally exclude seller copies (products with originalAdminProductId)
+    // But for admin interface, we want to show all products that are visible to users
     if (excludeSellerCopies === 'true') {
+      // More inclusive filter for admin: show admin products OR products visible in Amazon's Choice
       query.$or = [
         { isAdminProduct: true },
         { originalAdminProductId: { $exists: false } },
-        { originalAdminProductId: null }
+        { originalAdminProductId: null },
+        { isAmazonsChoice: true }, // Also include Amazon's Choice products even if they're seller copies
+        { status: 'active' } // Include all active products
       ];
     }
     
@@ -1026,8 +1585,8 @@ router.get('/', authenticateAdmin, async (req, res) => {
         searchQuery.$or.unshift({ asin: { $regex: search.toUpperCase(), $options: 'i' } });
       }
       
-      // Debug logging for ID and ASIN searches
-      if (search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
+      // Debug logging for ID and ASIN searches - only in development
+      if (process.env.NODE_ENV !== 'production' && search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
         console.log('🔍 ID Search Debug:', {
           searchTerm: search,
           isValidObjectId,
@@ -1048,10 +1607,35 @@ router.get('/', authenticateAdmin, async (req, res) => {
       query = { ...query, ...searchQuery };
     }
     
-    if (category) query.category = category;
+    if (category) {
+      // Handle both URL-friendly values (e.g., 'remote-controls') and display names (e.g., 'Remote Controls')
+      const categoryQuery = {
+        $or: [
+          { category: category }, // Exact match
+          { category: { $regex: `^${category.replace(/-/g, ' ')}$`, $options: 'i' } }, // Convert dashes to spaces
+          { category: { $regex: `^${category.replace(/-/g, '\\s+')}$`, $options: 'i' } } // Handle multiple spaces
+        ]
+      };
+      
+      // If category looks like a URL-friendly value, also try the proper case version
+      if (category.includes('-')) {
+        const properCase = category.split('-').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+        categoryQuery.$or.push({ category: properCase });
+      }
+      
+      query = { ...query, ...categoryQuery };
+    }
     if (status) query.status = status;
 
-    console.log('🔍 Final Query:', JSON.stringify(query, null, 2));
+    console.log('🔍 Products query debug:', {
+      search,
+      category,
+      status,
+      excludeSellerCopies,
+      finalQuery: JSON.stringify(query, null, 2)
+    });
 
     let products;
     try {
@@ -1789,6 +2373,149 @@ router.get('/admin/category/:category/with-profit', authenticateAdmin, async (re
     console.error('❌ Error fetching category products with profit data:', error);
     res.status(500).json({ 
       message: 'Error fetching products', 
+      error: error.message,
+      success: false
+    });
+  }
+});
+
+// Move selected products to a new category (admin only) - MUST be before /:id route
+router.put('/move-selected', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🔄 Move-selected endpoint hit');
+    console.log('🔄 Request body:', req.body);
+    console.log('🔄 Admin user:', req.admin?.username || req.admin?.email);
+    
+    const { productIds, newCategory } = req.body;
+    
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+      console.log('❌ Invalid productIds:', productIds);
+      return res.status(400).json({ 
+        message: 'Product IDs array is required',
+        success: false
+      });
+    }
+    
+    if (!newCategory || !newCategory.trim()) {
+      console.log('❌ Invalid newCategory:', newCategory);
+      return res.status(400).json({ 
+        message: 'New category is required',
+        success: false
+      });
+    }
+    
+    const trimmedNewCategory = newCategory.trim();
+    
+    console.log(`🔄 Admin moving ${productIds.length} selected products to "${trimmedNewCategory}"`);
+    console.log('🔄 Product IDs to move:', productIds);
+    
+    // Validate that all product IDs exist and are active
+    const productsToMove = await Product.find({ 
+      _id: { $in: productIds },
+      $or: [
+        { status: 'active' },
+        { status: { $exists: false } }
+      ]
+    });
+    
+    console.log(`🔄 Found ${productsToMove.length} products to move:`, productsToMove.map(p => ({ id: p._id, name: p.name, category: p.category })));
+    
+    if (productsToMove.length === 0) {
+      console.log('❌ No active products found with provided IDs');
+      return res.json({ 
+        message: 'No active products found with the provided IDs',
+        updatedCount: 0,
+        excelUpdatedCount: 0,
+        success: true
+      });
+    }
+    
+    if (productsToMove.length !== productIds.length) {
+      console.log(`⚠️ Warning: ${productIds.length - productsToMove.length} products were not found or not active`);
+    }
+    
+    console.log(`🔄 Moving ${productsToMove.length} active products to category: ${trimmedNewCategory}`);
+    
+    // Update the selected products
+    const moveResult = await Product.updateMany(
+      { 
+        _id: { $in: productsToMove.map(p => p._id) },
+        $or: [
+          { status: 'active' },
+          { status: { $exists: false } }
+        ]
+      },
+      { $set: { category: trimmedNewCategory } }
+    );
+    
+    console.log(`✅ Update result:`, moveResult);
+    console.log(`✅ Modified count: ${moveResult.modifiedCount}`);
+    
+    // Verify the update worked
+    const verifyProducts = await Product.find({ 
+      _id: { $in: productsToMove.map(p => p._id) }
+    }).select('_id name category');
+    
+    console.log('🔍 Verification - products after update:', verifyProducts.map(p => ({ id: p._id, name: p.name, category: p.category })));
+    
+    // Update related Excel products (if ExcelProduct model exists)
+    let excelUpdatedCount = 0;
+    try {
+      const ExcelProduct = mongoose.model('ExcelProduct');
+      
+      // Get the original categories of the moved products
+      const originalCategories = [...new Set(productsToMove.map(p => p.category))];
+      
+      // Update Excel products that match the moved products by name or other criteria
+      for (const originalCategory of originalCategories) {
+        const excelMoveResult = await ExcelProduct.updateMany(
+          { category: originalCategory },
+          { $set: { category: trimmedNewCategory } }
+        );
+        excelUpdatedCount += excelMoveResult.modifiedCount;
+      }
+      
+      if (excelUpdatedCount > 0) {
+        console.log(`📊 Updated ${excelUpdatedCount} Excel products to category: ${trimmedNewCategory}`);
+      }
+      
+    } catch (excelError) {
+      console.log('ℹ️ No Excel products to update or ExcelProduct model not found');
+    }
+    
+    // Clear all caches to ensure updates appear everywhere
+    productCache.clear();
+    
+    // Clear any other caches that might exist
+    try {
+      if (global.amazonsChoiceCache) {
+        global.amazonsChoiceCache = null;
+      }
+      if (global.categoriesCache) {
+        global.categoriesCache = null;
+      }
+    } catch (cacheError) {
+      console.log('ℹ️ Additional cache clearing completed');
+    }
+    
+    const responseData = {
+      message: `Successfully moved ${moveResult.modifiedCount} selected products to "${trimmedNewCategory}"`,
+      updatedCount: moveResult.modifiedCount,
+      movedCount: moveResult.modifiedCount, // Add this for frontend compatibility
+      excelUpdatedCount: excelUpdatedCount,
+      newCategory: trimmedNewCategory,
+      movedProducts: productsToMove.map(p => ({ id: p._id, name: p.name })),
+      success: true
+    };
+    
+    console.log('🔄 Sending response:', responseData);
+    
+    res.json(responseData);
+    
+  } catch (error) {
+    console.error('❌ Error moving selected products:', error);
+    res.status(500).json({ 
+      message: 'Error moving selected products', 
       error: error.message,
       success: false
     });
@@ -4190,6 +4917,478 @@ router.post('/variations/fix-animals', authenticateAdmin, async (req, res) => {
   } catch (error) {
     console.error('❌ Error fixing animal variations:', error);
     res.status(500).json({ message: 'Error fixing animal variations', error: error.message });
+  }
+});
+
+// Delete all products in a category (admin only) - Enhanced with comprehensive updates
+router.delete('/category/:categoryValue', authenticateAdmin, async (req, res) => {
+  try {
+    const { categoryValue } = req.params;
+    
+    console.log(`🗑️ Admin deleting all products in category: ${categoryValue}`);
+    
+    // Find all products in this category
+    const productsToDelete = await Product.find({ category: categoryValue });
+    
+    if (productsToDelete.length === 0) {
+      return res.json({ 
+        message: 'No products found in this category',
+        deletedCount: 0,
+        excelUpdatedCount: 0
+      });
+    }
+    
+    console.log(`🗑️ Found ${productsToDelete.length} products to delete in category: ${categoryValue}`);
+    
+    // Get product IDs for Excel sync
+    const productIds = productsToDelete.map(p => p._id);
+    
+    // Update related Excel products first (if ExcelProduct model exists)
+    let excelUpdatedCount = 0;
+    try {
+      // Check if any Excel products are linked to these main products
+      const ExcelProduct = mongoose.model('ExcelProduct');
+      
+      // Update Excel products that were converted from these main products
+      const excelUpdateResult = await ExcelProduct.updateMany(
+        { mainProductId: { $in: productIds } },
+        {
+          $set: {
+            isConverted: false,
+            status: 'pending',
+            convertedAt: null
+          },
+          $unset: {
+            mainProductId: 1
+          }
+        }
+      );
+      
+      excelUpdatedCount = excelUpdateResult.modifiedCount;
+      
+      if (excelUpdatedCount > 0) {
+        console.log(`📊 Updated ${excelUpdatedCount} Excel products after category deletion`);
+      }
+      
+    } catch (excelError) {
+      console.log('ℹ️ No Excel products to update or ExcelProduct model not found');
+    }
+    
+    // Delete all products in the category
+    const deleteResult = await Product.deleteMany({ category: categoryValue });
+    
+    console.log(`✅ Deleted ${deleteResult.deletedCount} products from category: ${categoryValue}`);
+    
+    // Clear all caches to ensure updates appear everywhere
+    productCache.clear();
+    
+    // Clear any other caches that might exist
+    try {
+      // Clear Amazon's Choice cache if it exists
+      if (global.amazonsChoiceCache) {
+        global.amazonsChoiceCache = null;
+      }
+      
+      // Clear categories cache if it exists
+      if (global.categoriesCache) {
+        global.categoriesCache = null;
+      }
+    } catch (cacheError) {
+      console.log('ℹ️ Additional cache clearing completed');
+    }
+    
+    res.json({
+      message: `Successfully deleted category "${categoryValue}" with ${deleteResult.deletedCount} products`,
+      deletedCount: deleteResult.deletedCount,
+      excelUpdatedCount: excelUpdatedCount,
+      categoryValue: categoryValue,
+      success: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Error deleting products by category:', error);
+    res.status(500).json({ 
+      message: 'Error deleting products by category', 
+      error: error.message,
+      success: false
+    });
+  }
+});
+
+// Rename a category (admin only) - Updates all products and Excel products
+router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, res) => {
+  try {
+    const { oldCategoryValue } = req.params;
+    const { newCategoryName } = req.body;
+    
+    if (!newCategoryName || !newCategoryName.trim()) {
+      return res.status(400).json({ 
+        message: 'New category name is required',
+        success: false
+      });
+    }
+    
+    const trimmedNewName = newCategoryName.trim();
+    
+    console.log(`🏷️ Admin renaming category: "${oldCategoryValue}" → "${trimmedNewName}"`);
+    
+    // Check if the new category name already exists (case-insensitive)
+    const existingCategory = await Product.findOne({ 
+      category: { $regex: `^${trimmedNewName}$`, $options: 'i' }
+    });
+    
+    if (existingCategory && existingCategory.category.toLowerCase() !== oldCategoryValue.toLowerCase()) {
+      return res.status(400).json({
+        message: `Category "${trimmedNewName}" already exists. Please choose a different name.`,
+        success: false,
+        existingCategory: existingCategory.category
+      });
+    }
+    
+    // Find all products in the old category
+    const productsToUpdate = await Product.find({ category: oldCategoryValue });
+    
+    if (productsToUpdate.length === 0) {
+      return res.json({ 
+        message: 'No products found in this category',
+        updatedCount: 0,
+        excelUpdatedCount: 0,
+        success: true
+      });
+    }
+    
+    console.log(`🏷️ Found ${productsToUpdate.length} products to rename in category: ${oldCategoryValue}`);
+    
+    // Update all products in the category
+    const updateResult = await Product.updateMany(
+      { category: oldCategoryValue },
+      { $set: { category: trimmedNewName } }
+    );
+    
+    console.log(`✅ Updated ${updateResult.modifiedCount} products to new category: ${trimmedNewName}`);
+    
+    // Update related Excel products (if ExcelProduct model exists)
+    let excelUpdatedCount = 0;
+    try {
+      const ExcelProduct = mongoose.model('ExcelProduct');
+      
+      // Update Excel products with the old category name
+      const excelUpdateResult = await ExcelProduct.updateMany(
+        { category: oldCategoryValue },
+        { $set: { category: trimmedNewName } }
+      );
+      
+      excelUpdatedCount = excelUpdateResult.modifiedCount;
+      
+      if (excelUpdatedCount > 0) {
+        console.log(`📊 Updated ${excelUpdatedCount} Excel products to new category: ${trimmedNewName}`);
+      }
+      
+    } catch (excelError) {
+      console.log('ℹ️ No Excel products to update or ExcelProduct model not found');
+    }
+    
+    // Clear all caches to ensure updates appear everywhere
+    productCache.clear();
+    
+    // Clear any other caches that might exist
+    try {
+      if (global.amazonsChoiceCache) {
+        global.amazonsChoiceCache = null;
+      }
+      if (global.categoriesCache) {
+        global.categoriesCache = null;
+      }
+    } catch (cacheError) {
+      console.log('ℹ️ Additional cache clearing completed');
+    }
+    
+    res.json({
+      message: `Successfully renamed category "${oldCategoryValue}" to "${trimmedNewName}" (${updateResult.modifiedCount} products updated)`,
+      updatedCount: updateResult.modifiedCount,
+      excelUpdatedCount: excelUpdatedCount,
+      oldCategoryValue: oldCategoryValue,
+      newCategoryName: trimmedNewName,
+      success: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Error renaming category:', error);
+    res.status(500).json({ 
+      message: 'Error renaming category', 
+      error: error.message,
+      success: false
+    });
+  }
+});
+
+// Move all products from one category to another (admin only)
+router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async (req, res) => {
+  try {
+    const { oldCategoryValue } = req.params;
+    const { newCategory, onlyActive = false } = req.body;
+    
+    if (!newCategory || !newCategory.trim()) {
+      return res.status(400).json({ 
+        message: 'New category is required',
+        success: false
+      });
+    }
+    
+    const trimmedNewCategory = newCategory.trim();
+    
+    console.log(`🔄 Admin moving products: "${oldCategoryValue}" → "${trimmedNewCategory}" (onlyActive: ${onlyActive})`);
+    
+    // First, find the actual category name in the database (case-insensitive)
+    const actualCategoryName = await Product.findOne({
+      category: { $regex: new RegExp(`^${oldCategoryValue}$`, 'i') }
+    }).select('category');
+    
+    let sourceCategory = oldCategoryValue;
+    if (actualCategoryName) {
+      sourceCategory = actualCategoryName.category;
+      console.log(`🔍 Found actual category name: "${sourceCategory}" (searched for: "${oldCategoryValue}")`);
+    } else {
+      console.log(`⚠️ No products found with category matching: "${oldCategoryValue}"`);
+    }
+    
+    // Build query based on onlyActive parameter
+    let query = { category: sourceCategory };
+    if (onlyActive) {
+      query.$or = [
+        { status: 'active' },
+        { status: { $exists: false } }
+      ];
+    }
+    
+    // Find products to move
+    const productsToMove = await Product.find(query);
+    
+    if (productsToMove.length === 0) {
+      return res.json({ 
+        message: onlyActive ? `No active products found in source category "${sourceCategory}"` : `No products found in source category "${sourceCategory}"`,
+        movedCount: 0,
+        excelUpdatedCount: 0,
+        searchedCategory: oldCategoryValue,
+        actualCategory: sourceCategory,
+        success: true
+      });
+    }
+    
+    console.log(`🔄 Found ${productsToMove.length} products to move from category: ${sourceCategory}`);
+    
+    // Update products
+    const moveResult = await Product.updateMany(
+      query,
+      { $set: { category: trimmedNewCategory } }
+    );
+    
+    console.log(`✅ Moved ${moveResult.modifiedCount} products to category: ${trimmedNewCategory}`);
+    
+    // Update related Excel products (if ExcelProduct model exists)
+    let excelUpdatedCount = 0;
+    try {
+      const ExcelProduct = mongoose.model('ExcelProduct');
+      
+      // Update Excel products with the old category name (case-insensitive)
+      const excelMoveResult = await ExcelProduct.updateMany(
+        { category: { $regex: new RegExp(`^${sourceCategory}$`, 'i') } },
+        { $set: { category: trimmedNewCategory } }
+      );
+      
+      excelUpdatedCount = excelMoveResult.modifiedCount;
+      
+      if (excelUpdatedCount > 0) {
+        console.log(`📊 Updated ${excelUpdatedCount} Excel products to category: ${trimmedNewCategory}`);
+      }
+      
+    } catch (excelError) {
+      console.log('ℹ️ No Excel products to update or ExcelProduct model not found');
+    }
+    
+    // Clear all caches to ensure updates appear everywhere
+    productCache.clear();
+    
+    // Clear any other caches that might exist
+    try {
+      if (global.amazonsChoiceCache) {
+        global.amazonsChoiceCache = null;
+      }
+      if (global.categoriesCache) {
+        global.categoriesCache = null;
+      }
+    } catch (cacheError) {
+      console.log('ℹ️ Additional cache clearing completed');
+    }
+    
+    res.json({
+      message: `Successfully moved ${moveResult.modifiedCount} ${onlyActive ? 'active ' : ''}products from "${sourceCategory}" to "${trimmedNewCategory}"`,
+      movedCount: moveResult.modifiedCount,
+      excelUpdatedCount: excelUpdatedCount,
+      searchedCategory: oldCategoryValue,
+      actualCategory: sourceCategory,
+      newCategory: trimmedNewCategory,
+      onlyActive: onlyActive,
+      success: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Error moving products between categories:', error);
+    res.status(500).json({ 
+      message: 'Error moving products between categories', 
+      error: error.message,
+      success: false
+    });
+  }
+});
+
+// Normalize category name to prevent duplicates during Excel import
+function normalizeCategoryName(categoryName) {
+  if (!categoryName) return '';
+  
+  const normalized = categoryName.trim();
+  
+  // Define category mapping to prevent duplicates
+  const categoryMappings = {
+    // Clothing variations
+    'clothing': 'Clothing',
+    'cloth': 'Clothing',
+    'clothes': 'Clothing',
+    
+    // Automotive variations
+    'automotive': 'Automotive',
+    'automotives': 'Automotive',
+    'auto': 'Automotive',
+    
+    // Remote control variations
+    'remote': 'Remote Controls',
+    'remotes': 'Remote Controls',
+    'remote-controls': 'Remote Controls',
+    'remote control': 'Remote Controls',
+    'remote controls': 'Remote Controls',
+    
+    // Watch strap variations
+    'watch strap': 'Watch Strap',
+    'watchstrap': 'Watch Strap',
+    'watch-strap': 'Watch Strap',
+    'watch straps': 'Watch Strap',
+    
+    // Lampshade variations
+    'lampshade': 'Lampshades',
+    'lamp shade': 'Lampshades',
+    'lamp-shade': 'Lampshades',
+    
+    // Car bulb variations
+    'car bulb': 'Car Bulb',
+    'carbulb': 'Car Bulb',
+    'car-bulb': 'Car Bulb',
+    'car bulbs': 'Car Bulb',
+    
+    // Electronics variations
+    'electronic': 'Electronics',
+    'electronics': 'Electronics',
+    
+    // Home variations
+    'home': 'Home & Garden',
+    'home & garden': 'Home & Garden',
+    'home and garden': 'Home & Garden',
+    'home-garden': 'Home & Garden',
+    'home & decore': 'Home & Garden',
+    'home decor': 'Home & Garden',
+    
+    // Accessories variations
+    'accessory': 'Accessories',
+    'accessories': 'Accessories',
+    'accessorie': 'Accessories'
+  };
+  
+  // Check for exact match (case-insensitive)
+  const lowerNormalized = normalized.toLowerCase();
+  if (categoryMappings[lowerNormalized]) {
+    return categoryMappings[lowerNormalized];
+  }
+  
+  // Return original with proper capitalization
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+// Add category normalization middleware for Excel imports
+router.use('/excel-import', (req, res, next) => {
+  if (req.body && req.body.category) {
+    req.body.category = normalizeCategoryName(req.body.category);
+  }
+  next();
+});
+
+// Debug endpoint for category filtering (public)
+router.get('/public/debug/category/:categoryValue', async (req, res) => {
+  try {
+    const { categoryValue } = req.params;
+    
+    console.log(`🔍 Debug: Testing category filtering for "${categoryValue}"`);
+    
+    // Test the exact query logic used in the main products endpoint
+    const categoryQuery = {
+      $or: [
+        { category: categoryValue }, // Exact match
+        { category: { $regex: `^${categoryValue.replace(/-/g, ' ')}$`, $options: 'i' } }, // Convert dashes to spaces
+        { category: { $regex: `^${categoryValue.replace(/-/g, '\\s+')}$`, $options: 'i' } } // Handle multiple spaces
+      ]
+    };
+    
+    // If category looks like a URL-friendly value, also try the proper case version
+    if (categoryValue.includes('-')) {
+      const properCase = categoryValue.split('-').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ');
+      categoryQuery.$or.push({ category: properCase });
+    }
+    
+    const query = {
+      $or: [
+        { status: 'active' },
+        { status: { $exists: false } }
+      ],
+      isAmazonsChoice: true,
+      ...categoryQuery
+    };
+    
+    console.log('🔍 Debug query:', JSON.stringify(query, null, 2));
+    
+    const products = await Product.find(query).limit(10);
+    const totalCount = await Product.countDocuments(query);
+    
+    // Also get all categories to show available options
+    const allCategories = await Product.distinct('category');
+    const matchingCategories = allCategories.filter(cat => 
+      cat.toLowerCase().includes(categoryValue.toLowerCase()) ||
+      categoryValue.toLowerCase().includes(cat.toLowerCase())
+    );
+    
+    res.json({
+      debug: true,
+      searchedFor: categoryValue,
+      query: query,
+      totalFound: totalCount,
+      sampleProducts: products.map(p => ({
+        id: p._id,
+        name: p.name,
+        category: p.category,
+        isAmazonsChoice: p.isAmazonsChoice,
+        status: p.status
+      })),
+      allCategories: allCategories.sort(),
+      matchingCategories: matchingCategories,
+      suggestions: matchingCategories.length > 0 ? matchingCategories : ['No matching categories found']
+    });
+    
+  } catch (error) {
+    console.error('❌ Debug endpoint error:', error);
+    res.status(500).json({ 
+      debug: true,
+      error: error.message,
+      searchedFor: req.params.categoryValue
+    });
   }
 });
 
