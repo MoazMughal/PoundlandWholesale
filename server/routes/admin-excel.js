@@ -1948,6 +1948,126 @@ router.post('/migrate/set-converted-as-amazons-choice', authenticateAdmin, async
   }
 });
 
+// POST /api/admin-excel/fix-amazons-choice-categories - Fix Amazon's Choice status for problematic categories
+router.post('/fix-amazons-choice-categories', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🔧 Starting Amazon\'s Choice categories fix...');
+    
+    // Categories that are having issues (including common variations and typos)
+    const problematicCategories = [
+      'DIY & tools',
+      'Home & Kitchen', 
+      'Toys and Games',
+      'diy & tools',
+      'home & kitchen',
+      'toys and games',
+      'DIY & Tools',
+      'Home & Kitche', // Note: typo from the original request
+      'Toys & Games',
+      'Tools & Home Improvement',
+      'Kitchen & Dining',
+      'Toys, Kids & Baby'
+    ];
+    
+    let totalUpdated = 0;
+    let categoryResults = [];
+    
+    // Process each category
+    for (const category of problematicCategories) {
+      try {
+        // Find products in this category that are NOT marked as Amazon's Choice
+        const productsToUpdate = await Product.find({
+          category: { $regex: new RegExp(category, 'i') }, // Case insensitive search
+          status: { $in: ['active', 'approved'] },
+          isAmazonsChoice: { $ne: true }
+        }).select('name category');
+        
+        if (productsToUpdate.length > 0) {
+          // Update products to be Amazon's Choice
+          const result = await Product.updateMany(
+            {
+              category: { $regex: new RegExp(category, 'i') },
+              status: { $in: ['active', 'approved'] },
+              isAmazonsChoice: { $ne: true }
+            },
+            {
+              $set: {
+                isAmazonsChoice: true,
+                isBestSeller: true // Also mark as best seller for extra visibility
+              }
+            }
+          );
+          
+          if (result.modifiedCount > 0) {
+            console.log(`✅ Updated ${result.modifiedCount} products in category: ${category}`);
+            totalUpdated += result.modifiedCount;
+            
+            categoryResults.push({
+              category: category,
+              updated: result.modifiedCount,
+              sampleProducts: productsToUpdate.slice(0, 3).map(p => p.name)
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error processing category ${category}:`, error);
+      }
+    }
+    
+    // Get verification data
+    const amazonsChoiceByCategory = await Product.aggregate([
+      {
+        $match: {
+          isAmazonsChoice: true,
+          status: { $in: ['active', 'approved'] }
+        }
+      },
+      {
+        $group: {
+          _id: '$category',
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { count: -1 }
+      }
+    ]);
+    
+    // Check specific problematic categories
+    const specificCounts = {};
+    for (const category of ['DIY & tools', 'Home & Kitchen', 'Toys and Games']) {
+      const count = await Product.countDocuments({
+        category: { $regex: new RegExp(category, 'i') },
+        isAmazonsChoice: true,
+        status: { $in: ['active', 'approved'] }
+      });
+      specificCounts[category] = count;
+    }
+    
+    res.json({
+      success: true,
+      message: 'Amazon\'s Choice categories fix completed',
+      results: {
+        totalUpdated,
+        categoriesProcessed: categoryResults.length,
+        categoryResults,
+        verification: {
+          amazonsChoiceByCategory: amazonsChoiceByCategory.slice(0, 10), // Top 10 categories
+          specificCounts
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error fixing Amazon\'s Choice categories:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fix Amazon\'s Choice categories',
+      error: error.message 
+    });
+  }
+});
+
 // POST /api/admin-excel/migrate/fix-image-paths - Fix existing image paths
 router.post('/migrate/fix-image-paths', authenticateAdmin, async (req, res) => {
   try {

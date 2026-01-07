@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import cacheManager from '../../utils/cacheManager';
 import { getImageUrl } from '../../utils/imageImports';
 import { getValidAdminToken, cleanupAuthTokens } from '../../utils/authFix';
+import { getApiUrl } from '../../utils/api';
 import CategoryVisibilityToggle from '../../components/CategoryVisibilityToggle';
 import CategoryManagementModal from '../../components/CategoryManagementModal';
 import BulkOperationsModal from '../../components/BulkOperationsModal';
@@ -84,7 +85,7 @@ const LinkedProductPreview = ({ productId }) => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/products/public/${productId}`);
+        const response = await fetch(getApiUrl(`products/public/${productId}`));
         if (response.ok) {
           const data = await response.json();
           setProductData(data);
@@ -893,7 +894,7 @@ const AdminProducts = () => {
     try {
       console.log('📂 Frontend: Fetching categories...');
       // Include Excel categories for admin use
-      const response = await fetch('http://localhost:5000/api/products/public/categories?includeExcel=true');
+      const response = await fetch(getApiUrl('products/public/categories?includeExcel=true'));
       if (response.ok) {
         const data = await response.json();
         console.log('📂 Frontend: Received categories from API:', data.categories.map(c => c.value));

@@ -849,10 +849,10 @@ router.get('/public/fast', async (req, res) => {
     }
 
     // Get diverse products from different categories
-    let fastProducts;
+    let products;
     try {
       // Use aggregation for better diversity like the category endpoints
-      fastProducts = await Product.aggregate([
+      products = await Product.aggregate([
         // Match active products
         { $match: { 
           $or: [
@@ -925,7 +925,7 @@ router.get('/public/fast', async (req, res) => {
           }
         }
         
-        fastProducts = await Product.find(fallbackQuery)
+        products = await Product.find(fallbackQuery)
         .limit(50)
         .select('name price category brand images dealUnits currency rating reviews isAmazonsChoice isBestSeller profitCalculations profitEvaluation platformComparison showEvaluation asin variations')
         .lean()
@@ -933,17 +933,17 @@ router.get('/public/fast', async (req, res) => {
         
       } catch (fallbackError) {
         console.error('❌ All queries failed, no products available');
-        fastProducts = []; // Return empty array instead of fake products
+        products = []; // Return empty array instead of fake products
       }
     }
 
     const responseTime = Date.now() - startTime;
 
     res.json({
-      products: fastProducts,
+      products,
       totalPages: 1,
       currentPage: 1,
-      total: fastProducts.length,
+      total: products.length,
       source: 'fast',
       responseTime,
       success: true,
@@ -967,7 +967,7 @@ router.get('/public', async (req, res) => {
   try {
     const { 
       page = 1, 
-      limit = 100, // Increased default limit for Amazon's Choice page
+      limit = 20, // Reduced from 200 to 20 for better performance
       search, 
       category, 
       status = 'active',
@@ -1455,7 +1455,7 @@ router.get('/admin/fast', authenticateAdmin, async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
 
     // Get products without images for speed
-    let allProducts;
+    let products;
     let totalCount;
     
     try {
@@ -1463,7 +1463,7 @@ router.get('/admin/fast', authenticateAdmin, async (req, res) => {
       totalCount = await Product.countDocuments({});
       
       // Get paginated products
-      allProducts = await Product.find({})
+      products = await Product.find({})
         .skip(skip)
         .limit(limitNum)
         .select('name price category status createdAt dealUnits currency asin') // Minimal fields for speed including ASIN
@@ -1473,7 +1473,7 @@ router.get('/admin/fast', authenticateAdmin, async (req, res) => {
       
     } catch (error) {
       console.error('Fast admin query error:', error);
-      allProducts = [];
+      products = [];
       totalCount = 0;
     }
 
@@ -1481,7 +1481,7 @@ router.get('/admin/fast', authenticateAdmin, async (req, res) => {
     const responseTime = Date.now() - startTime;
 
     res.json({
-      products: allProducts,
+      products,
       totalPages,
       currentPage: pageNum,
       total: totalCount,
@@ -1637,10 +1637,10 @@ router.get('/', authenticateAdmin, async (req, res) => {
       finalQuery: JSON.stringify(query, null, 2)
     });
 
-    let adminProducts;
+    let products;
     try {
       // Optimized admin query with timeout
-      adminProducts = await Product.find(query)
+      products = await Product.find(query)
         .populate('seller', 'businessName email')
         .sort(sortOptions)
         .limit(limit * 1)
@@ -1663,7 +1663,7 @@ router.get('/', authenticateAdmin, async (req, res) => {
 
     // Custom sorting for search results (relevance-based) - Admin
     if (search) {
-      adminProducts = adminProducts.sort((a, b) => {
+      products = products.sort((a, b) => {
         const searchLower = search.toLowerCase();
         const aName = a.name.toLowerCase();
         const bName = b.name.toLowerCase();
@@ -1703,19 +1703,19 @@ router.get('/', authenticateAdmin, async (req, res) => {
     }
 
     // Optimized count with timeout for admin
-    let adminCount;
+    let count;
     try {
-      adminCount = await Product.countDocuments(query).maxTimeMS(3000);
+      count = await Product.countDocuments(query).maxTimeMS(3000);
     } catch (countError) {
       console.error('❌ Admin count query timeout:', countError);
-      adminCount = adminProducts.length; // Use current page count as fallback
+      count = products.length; // Use current page count as fallback
     }
 
     res.json({
-      products: adminProducts,
-      totalPages: Math.ceil(adminCount / limit),
+      products,
+      totalPages: Math.ceil(count / limit),
       currentPage: page,
-      total: adminCount
+      total: count
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

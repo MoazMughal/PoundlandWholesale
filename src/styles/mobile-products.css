@@ -1945,3 +1945,170 @@ MOBILE FIXES - Badge Visibility and Profit Positioning */
     font-size: 6px !important;
   }
 }
+
+/* Mobile Image Loading and Display Fixes */
+@media (max-width: 576px) {
+  /* Ensure all product images are visible and properly loaded */
+  .product-image-container img,
+  .product-card .product-image-container img,
+  #products-grid .product-card .product-image-container img {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+    transform: none !important;
+    position: relative !important;
+    z-index: 1 !important;
+    /* Ensure images load on mobile networks */
+    image-rendering: auto !important;
+    -webkit-image-rendering: auto !important;
+    -moz-image-rendering: auto !important;
+    -o-image-rendering: auto !important;
+    /* Force hardware acceleration for better mobile performance */
+    -webkit-transform: translateZ(0) !important;
+    transform: translateZ(0) !important;
+    will-change: auto !important;
+  }
+  
+  /* Fix for lazy loading images */
+  .product-image-container img[loading="lazy"] {
+    loading: eager !important;
+  }
+  
+  /* Fallback for images that fail to load */
+  .product-image-container img::before {
+    content: "📷" !important;
+    display: block !important;
+    text-align: center !important;
+    font-size: 24px !important;
+    color: #ccc !important;
+    background: #f5f5f5 !important;
+    width: 100% !important;
+    height: 100% !important;
+    line-height: 120px !important;
+  }
+  
+  /* Ensure image containers have proper background */
+  .product-image-container,
+  .product-card .product-image-container {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    border: 1px solid #f0f0f0 !important;
+    position: relative !important;
+    overflow: visible !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 120px !important;
+    max-height: 120px !important;
+  }
+  
+  /* Fix for WebP format issues on older mobile browsers */
+  .product-image-container img[src*=".webp"] {
+    /* Fallback will be handled by JavaScript error handler */
+  }
+  
+  /* Ensure proper aspect ratio maintenance */
+  .product-image-container::before {
+    content: "" !important;
+    display: block !important;
+    width: 100% !important;
+    height: 0 !important;
+    padding-bottom: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 0 !important;
+  }
+  
+  /* Fix for images with srcset attribute */
+  .product-image-container img[srcset] {
+    srcset: none !important;
+  }
+  
+  /* Ensure images don't get hidden by other elements */
+  .product-card {
+    position: relative !important;
+    z-index: 1 !important;
+  }
+  
+  .product-image-container {
+    position: relative !important;
+    z-index: 2 !important;
+  }
+  
+  .product-image-container img {
+    position: relative !important;
+    z-index: 3 !important;
+  }
+  
+  /* Fix for images with inline styles that might hide them */
+  .product-image-container img[style*="display: none"] {
+    display: block !important;
+  }
+  
+  .product-image-container img[style*="visibility: hidden"] {
+    visibility: visible !important;
+  }
+  
+  .product-image-container img[style*="opacity: 0"] {
+    opacity: 1 !important;
+  }
+}
+
+/* Additional mobile image fixes for different screen sizes */
+@media (max-width: 480px) {
+  .product-image-container {
+    min-height: 110px !important;
+    max-height: 110px !important;
+  }
+}
+
+@media (max-width: 400px) {
+  .product-image-container {
+    min-height: 100px !important;
+    max-height: 100px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .product-image-container {
+    min-height: 90px !important;
+    max-height: 90px !important;
+  }
+}
+
+/* Fix for touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .product-image-container img {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -khtml-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    pointer-events: none !important;
+  }
+}
+
+/* Network-aware image loading for mobile */
+@media (max-width: 576px) {
+  /* Preload critical images */
+  .product-image-container img:nth-child(-n+6) {
+    loading: eager !important;
+  }
+  
+  /* Lazy load images further down */
+  .product-image-container img:nth-child(n+7) {
+    loading: lazy !important;
+  }
+}

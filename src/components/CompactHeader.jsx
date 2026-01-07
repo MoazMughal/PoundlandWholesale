@@ -584,7 +584,7 @@ const CompactHeader = () => {
           {categories.map(cat => (
             <Link
               key={cat.value}
-              to={cat.value === 'all' ? '/' : `/?cat=${cat.value}`}
+              to={cat.value === 'all' ? '/' : `/?cat=${encodeURIComponent(cat.label)}`}
               style={{
                 fontSize: '10px',
                 color: '#111',

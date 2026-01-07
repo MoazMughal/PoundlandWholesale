@@ -12,7 +12,7 @@ import { useSeller } from '../context/SellerContext'
 import { useBasket } from '../context/BasketContext'
 import { useAdmin } from '../context/AdminContext'
 import { getImageUrl } from '../utils/imageImports'
-import { optimizeImageUrl } from '../utils/imageOptimization'
+import { optimizeImageUrl, getMobileOptimizedImageUrl } from '../utils/imageOptimization'
 import { getApiUrl } from '../utils/api'
 import { logDeviceInfo } from '../utils/deviceDetection'
 import '../styles/mobile-products.css'
@@ -98,6 +98,28 @@ const AmazonsChoice = () => {
         .desktop-badge {
           display: none !important;
         }
+        
+        /* Mobile image fixes */
+        .product-image-container img {
+          max-width: 100% !important;
+          max-height: 100% !important;
+          width: auto !important;
+          height: auto !important;
+          object-fit: contain !important;
+          display: block !important;
+        }
+        
+        /* Ensure product cards are properly sized on mobile */
+        .product-card {
+          min-height: 200px !important;
+        }
+        
+        .product-image-container {
+          background: #fff !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
       }
       
       /* Ensure badges show on desktop screens */
@@ -139,7 +161,7 @@ const AmazonsChoice = () => {
   // Pagination state
   const [totalPages, setTotalPages] = useState(1)
   const [totalProducts, setTotalProducts] = useState(0)
-  const [productsPerPage] = useState(48) // Show 48 products per page
+  const [productsPerPage] = useState(100) // Show 100 products per page
 
   // Context hooks
   const { formatPrice } = useCurrency()
@@ -791,14 +813,32 @@ const AmazonsChoice = () => {
                 padding: windowWidth < 576 ? '5px' : '8px'
               }}>
                 <img 
-                  src={optimizeImageUrl(getImageUrl(product.image), { width: 300, height: 300, quality: 80 })}
+                  src={getMobileOptimizedImageUrl(getImageUrl(product.image), windowWidth <= 576)}
                   alt={product.name} 
                   loading="lazy"
-                  onError={(e) => e.target.style.display = 'none'}
+                  onError={(e) => {
+                    // Try fallback image sources for mobile compatibility
+                    if (!e.target.dataset.fallbackAttempted) {
+                      e.target.dataset.fallbackAttempted = 'true';
+                      // Try original image without optimization
+                      e.target.src = getImageUrl(product.image);
+                    } else if (!e.target.dataset.secondFallbackAttempted) {
+                      e.target.dataset.secondFallbackAttempted = 'true';
+                      // Try placeholder image
+                      e.target.src = 'https://via.placeholder.com/300x300?text=Product+Image';
+                    } else {
+                      // Hide image if all fallbacks fail
+                      e.target.style.display = 'none';
+                    }
+                  }}
                   style={{
                     maxWidth: '100%', 
                     maxHeight: '100%', 
-                    objectFit: 'contain'
+                    objectFit: 'contain',
+                    // Ensure images load properly on mobile
+                    width: 'auto',
+                    height: 'auto',
+                    display: 'block'
                   }} 
                 />
                 

@@ -2,6 +2,8 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import compression from 'compression';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
@@ -15,6 +17,17 @@ import easypaisaRoutes from './routes/easypaisa.js';
 dotenv.config();
 
 const app = express();
+
+// Get current directory for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve static files (uploaded images) in production
+if (process.env.NODE_ENV === 'production') {
+  // Serve uploaded images from uploads directory
+  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+  console.log('📁 Static file serving enabled for production');
+}
 
 // Enable gzip compression for all responses
 app.use(compression());

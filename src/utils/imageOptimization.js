@@ -20,8 +20,22 @@ export const optimizeImageUrl = (imageUrl, options = {}) => {
     if (imageUrl.includes('cloudinary.com')) {
       const parts = imageUrl.split('/upload/');
       if (parts.length === 2) {
-        return `${parts[0]}/upload/w_${width},h_${height},c_fill,f_${format},q_${quality}/${parts[1]}`;
+        return `${parts[0]}/upload/w_${width},h_${height},c_fill,f_auto,q_${quality}/${parts[1]}`;
       }
+    }
+    
+    // For other CDNs, return original URL with mobile-friendly parameters
+    try {
+      const url = new URL(imageUrl);
+      // Add mobile-friendly parameters if supported
+      if (url.hostname.includes('amazonaws.com') || url.hostname.includes('cloudfront.net')) {
+        url.searchParams.set('w', width.toString());
+        url.searchParams.set('h', height.toString());
+        url.searchParams.set('q', quality.toString());
+        return url.toString();
+      }
+    } catch (e) {
+      // If URL parsing fails, return original
     }
     
     // For other CDNs, return original URL
@@ -49,6 +63,35 @@ export const preloadImage = (src) => {
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = src;
+    
+    // Add timeout for mobile networks
+    setTimeout(() => {
+      if (!img.complete) {
+        reject(new Error('Image load timeout'));
+      }
+    }, 10000); // 10 second timeout
+  });
+};
+
+export const getMobileOptimizedImageUrl = (imageUrl, isMobile = false) => {
+  if (!imageUrl) return null;
+  
+  // For mobile devices, use smaller, more compressed images
+  if (isMobile) {
+    return optimizeImageUrl(imageUrl, { 
+      width: 200, 
+      height: 200, 
+      quality: 70,
+      format: 'auto' // Let the CDN decide the best format
+    });
+  }
+  
+  // For desktop, use higher quality
+  return optimizeImageUrl(imageUrl, { 
+    width: 400, 
+    height: 400, 
+    quality: 85,
+    format: 'auto'
   });
 };
 

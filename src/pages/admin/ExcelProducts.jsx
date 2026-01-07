@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getApiUrl } from '../../utils/api';
 import '../../styles/AdminLayout.css';
 
 const ExcelProducts = () => {
@@ -37,7 +38,7 @@ const ExcelProducts = () => {
   const fetchAvailableCategories = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin-excel/uploads/${uploadId}/categories`, {
+      const response = await fetch(getApiUrl(`admin-excel/uploads/${uploadId}/categories`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -70,7 +71,7 @@ const ExcelProducts = () => {
         status: statusFilter
       });
 
-      const response = await fetch(`http://localhost:5000/api/admin-excel/uploads/${uploadId}/products?${params}`, {
+      const response = await fetch(getApiUrl(`admin-excel/uploads/${uploadId}/products?${params}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -123,7 +124,7 @@ const ExcelProducts = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin-excel/uploads/${uploadId}/convert-products`, {
+      const response = await fetch(getApiUrl(`admin-excel/uploads/${uploadId}/convert-products`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -150,7 +151,7 @@ const ExcelProducts = () => {
   const handleSyncStatus = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin-excel/uploads/${uploadId}/sync-status`, {
+      const response = await fetch(getApiUrl(`admin-excel/uploads/${uploadId}/sync-status`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -240,7 +241,7 @@ const ExcelProducts = () => {
         }
       }
 
-      const response = await fetch(`http://localhost:5000/api/admin-excel/uploads/${uploadId}/products/${productId}/update-field`, {
+      const response = await fetch(getApiUrl(`admin-excel/uploads/${uploadId}/products/${productId}/update-field`), {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -716,7 +717,7 @@ const ExcelProducts = () => {
                             background: '#f8fafc'
                           }}>
                             <img
-                              src={`http://localhost:5000/api/admin-excel/public/images/by-asin/${product.asin}`}
+                              src={getApiUrl(`admin-excel/public/images/by-asin/${product.asin}`)}
                               alt={product.asin}
                               style={{
                                 width: '100%',

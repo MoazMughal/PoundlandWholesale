@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiUrl } from '../../utils/api';
 import '../../styles/AdminLayout.css';
 
 // Add some inline styles for better table interaction
@@ -41,7 +42,7 @@ const ExcelManager = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin-excel/uploads?page=${currentPage}&limit=20`, {
+      const response = await fetch(getApiUrl(`admin-excel/uploads?page=${currentPage}&limit=20`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -60,7 +61,7 @@ const ExcelManager = () => {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin-excel/stats', {
+      const response = await fetch(getApiUrl('admin-excel/stats'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -76,7 +77,7 @@ const ExcelManager = () => {
   const fetchImageUploads = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin-excel/image-uploads', {
+      const response = await fetch(getApiUrl('admin-excel/image-uploads'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -107,7 +108,7 @@ const ExcelManager = () => {
       formData.append('imageZip', selectedImageFile);
 
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin-excel/upload-images', {
+      const response = await fetch(getApiUrl('admin-excel/upload-images'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -139,7 +140,7 @@ const ExcelManager = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin-excel/image-uploads/${uploadId}`, {
+      const response = await fetch(getApiUrl(`admin-excel/image-uploads/${uploadId}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -161,7 +162,7 @@ const ExcelManager = () => {
   const handleDebugImages = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin-excel/debug/images', {
+      const response = await fetch(getApiUrl('admin-excel/debug/images'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -201,7 +202,7 @@ const ExcelManager = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin-excel/migrate/fix-image-paths', {
+      const response = await fetch(getApiUrl('admin-excel/migrate/fix-image-paths'), {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -227,7 +228,7 @@ const ExcelManager = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin-excel/migrate/add-images-to-converted', {
+      const response = await fetch(getApiUrl('admin-excel/migrate/add-images-to-converted'), {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -252,7 +253,7 @@ const ExcelManager = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin-excel/migrate/set-converted-as-amazons-choice', {
+      const response = await fetch(getApiUrl('admin-excel/migrate/set-converted-as-amazons-choice'), {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -270,6 +271,48 @@ const ExcelManager = () => {
     }
   };
 
+  const handleFixAmazonsChoiceCategories = async () => {
+    if (!confirm('🔧 This will fix Amazon\'s Choice status for products in problematic categories (DIY & tools, Home & Kitchen, Toys and Games). Continue?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(getApiUrl('admin-excel/fix-amazons-choice-categories'), {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        let message = `✅ Amazon's Choice categories fix completed!\n\n📊 Results:\n- Total products updated: ${result.results.totalUpdated}\n- Categories processed: ${result.results.categoriesProcessed}\n\n`;
+        
+        if (result.results.categoryResults.length > 0) {
+          message += `Updated categories:\n`;
+          result.results.categoryResults.forEach(cat => {
+            message += `- ${cat.category}: ${cat.updated} products\n`;
+          });
+        }
+        
+        if (result.results.verification.specificCounts) {
+          message += `\nVerification - Amazon's Choice products:\n`;
+          Object.entries(result.results.verification.specificCounts).forEach(([cat, count]) => {
+            message += `- ${cat}: ${count} products\n`;
+          });
+        }
+        
+        alert(message);
+        fetchStats(); // Refresh stats
+      } else {
+        const error = await response.json();
+        alert(`❌ Failed to fix categories: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Error fixing Amazon\'s Choice categories:', error);
+      alert('❌ Failed to fix Amazon\'s Choice categories');
+    }
+  };
+
   const handleFixProductCategories = async () => {
     if (!confirm('🔧 This will fix products with missing or invalid categories. Products without categories will be set to "uncategorized". Continue?')) {
       return;
@@ -277,7 +320,7 @@ const ExcelManager = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin-excel/fix-product-categories', {
+      const response = await fetch(getApiUrl('admin-excel/fix-product-categories'), {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -305,7 +348,7 @@ const ExcelManager = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin-excel/uploads/${uploadId}`, {
+      const response = await fetch(getApiUrl(`admin-excel/uploads/${uploadId}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -332,7 +375,7 @@ const ExcelManager = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin-excel/sync-excel-products', {
+      const response = await fetch(getApiUrl('admin-excel/sync-excel-products'), {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -660,6 +703,21 @@ const ExcelManager = () => {
                 }}
               >
                 🏆 Set as Amazon's Choice
+              </button>
+              <button
+                onClick={handleFixAmazonsChoiceCategories}
+                style={{
+                  padding: '8px 16px',
+                  background: '#e74c3c',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                🏆 Fix Amazon's Choice Categories
               </button>
               <button
                 onClick={handleFixProductCategories}
