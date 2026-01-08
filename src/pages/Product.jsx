@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import ProductCard from '../components/ProductCard'
+import EnhancedImage from '../components/EnhancedImage'
+import { getImageUrl } from '../utils/imageImports'
+import '../styles/enhanced-images.css'
+import '../styles/mobile-image-optimization.css'
 
 // Import sample images
 import noseRingImg from '../assets/main-pics/nose ring.jpg'
@@ -28,28 +32,76 @@ const Product = () => {
 
   const fetchProduct = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/products/${id}`)
+      // Use proper API URL for both development and production
+      const apiUrl = process.env.NODE_ENV === 'production' 
+        ? `https://generic-wholesale-backend.onrender.com/api/products/${id}`
+        : `http://localhost:5000/api/products/${id}`;
+        
+      const response = await fetch(apiUrl)
       if (response.ok) {
         const productData = await response.json()
         console.log('🔍 Full Product Data Loaded:', productData);
         console.log('📊 Key Fields:', {
           dealUnits: productData.dealUnits,
           name: productData.name,
+          images: productData.images,
+          image: productData.image,
+          asin: productData.asin,
           profitEvaluation: productData.profitEvaluation,
-          hasAllFields: !!(productData.dealUnits && productData.profitEvaluation)
+          hasAllFields: !!(productData.dealUnits && productData.profitEvaluation),
+          // Debug image fields specifically
+          hasImages: !!(productData.images && productData.images.length > 0),
+          hasImage: !!productData.image,
+          hasAsin: !!productData.asin
         });
+        
+        // Process images properly with enhanced fallback logic
+        let processedImages = [];
+        
+        // Priority 1: Use existing images array
+        if (productData.images && productData.images.length > 0) {
+          processedImages = productData.images.map(img => getImageUrl(img));
+          console.log('📸 Using product.images:', processedImages);
+        } 
+        // Priority 2: Use single image field
+        else if (productData.image) {
+          processedImages = [getImageUrl(productData.image)];
+          console.log('📸 Using product.image:', processedImages);
+        } 
+        // Priority 3: Generate from ASIN if available
+        else if (productData.asin) {
+          const baseUrl = process.env.NODE_ENV === 'production' 
+            ? 'https://generic-wholesale-backend.onrender.com' 
+            : 'http://localhost:5000';
+          processedImages = [`${baseUrl}/api/admin-excel/public/images/by-asin/${productData.asin}`];
+          console.log('📸 Using ASIN-based image:', processedImages);
+        } 
+        else {
+          console.log('📸 No images found, will use mock images');
+        }
+        
+        console.log('📸 Final processed images:', processedImages);
+        
+        // Ensure we have at least one image for the product detail page
+        const finalImages = processedImages.length > 0 ? processedImages : 
+          (productData.asin ? [`${process.env.NODE_ENV === 'production' ? 'https://generic-wholesale-backend.onrender.com' : 'http://localhost:5000'}/api/admin-excel/public/images/by-asin/${productData.asin}`] : getMockProduct().images);
         
         // Ensure we have all required fields, merge with defaults if needed
         const completeProduct = {
           ...getMockProduct(), // Start with mock data as base
           ...productData, // Override with real data
+          images: finalImages, // Use the enhanced final images array
           // Ensure critical fields are present
-          dealUnits: Math.floor((productData.platformUnits || 200) / 12), // Calculate as platformUnits / 12
+          dealUnits: productData.dealUnits || Math.floor((productData.platformUnits || 200) / 12), // Calculate as platformUnits / 12
           profitEvaluation: productData.profitEvaluation || getMockProduct().profitEvaluation
         };
         
         console.log('✅ Final Product Data:', {
           dealUnits: completeProduct.dealUnits,
+          images: completeProduct.images,
+          imageCount: completeProduct.images?.length || 0,
+          firstImage: completeProduct.images?.[0] || 'none',
+          asin: completeProduct.asin,
           hasProfitEvaluation: !!completeProduct.profitEvaluation
         });
         
@@ -220,12 +272,26 @@ const Product = () => {
             {/* Product Images */}
             <div className="col-lg-6 mb-4">
               <div className="product-images">
-                <div className="main-image mb-3">
-                  <img 
-                    src={product.images[selectedImage]} 
+                <div className="main-image mb-3" style={{ position: 'relative' }}>
+                  <EnhancedImage
+                    src={product.images[selectedImage]}
+                    asin={product.asin} // Pass ASIN for Excel products
                     alt={product.name}
-                    className="img-fluid rounded shadow"
-                    style={{width: '100%', height: '400px', objectFit: 'contain', backgroundColor: '#f8f9fa'}}
+                    eager={true}
+                    style={{
+                      width: '100%', 
+                      height: '400px', 
+                      objectFit: 'contain', 
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                    }}
+                    onError={() => {
+                      console.warn('Main image failed to load:', product.images[selectedImage], 'ASIN:', product.asin);
+                    }}
+                    onLoad={() => {
+                      console.log('Main image loaded successfully:', product.images[selectedImage]);
+                    }}
                   />
                   <div className="amazon-choice-badge position-absolute" style={{top: '15px', left: '15px'}}>
                     Amazon's Choice
@@ -236,13 +302,28 @@ const Product = () => {
                   <div className="row">
                     {product.images.map((image, index) => (
                       <div key={index} className="col-3">
-                        <img 
-                          src={image} 
-                          alt={`${product.name} ${index + 1}`}
-                          className={`img-fluid rounded cursor-pointer ${selectedImage === index ? 'border border-primary' : ''}`}
-                          style={{height: '80px', objectFit: 'contain', backgroundColor: '#f8f9fa'}}
+                        <div 
+                          className={`cursor-pointer ${selectedImage === index ? 'border border-primary' : ''}`}
+                          style={{
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            height: '80px',
+                            backgroundColor: '#f8f9fa'
+                          }}
                           onClick={() => setSelectedImage(index)}
-                        />
+                        >
+                          <EnhancedImage
+                            src={image}
+                            asin={product.asin}
+                            alt={`${product.name} ${index + 1}`}
+                            eager={true}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'contain'
+                            }}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>

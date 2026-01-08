@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiUrl } from '../../utils/api';
+import EnhancedImage from '../../components/EnhancedImage';
 import '../../styles/AdminLayout.css';
+import '../../styles/enhanced-images.css';
+import '../../styles/mobile-image-optimization.css';
 
 const ImageViewer = () => {
   const navigate = useNavigate();
@@ -302,40 +305,25 @@ const ImageViewer = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    position: 'relative'
+                    position: 'relative',
+                    padding: '12px' // Added padding to zoom out images
                   }}>
-                    <img
-                      src={getApiUrl(`admin-excel/public/images/by-asin/${image.asin}`)}
+                    <EnhancedImage
+                      asin={image.asin}
                       alt={image.asin}
+                      eager={true}
                       style={{
-                        maxWidth: '100%',
-                        maxHeight: '100%',
+                        maxWidth: '85%', // Reduced from 100% to 85% to zoom out
+                        maxHeight: '85%', // Reduced from 100% to 85% to zoom out
                         objectFit: 'contain'
                       }}
-                      onLoad={(e) => {
-                        // Image loaded successfully
-                        e.target.style.display = 'block';
-                        if (e.target.nextSibling) {
-                          e.target.nextSibling.style.display = 'none';
-                        }
+                      onLoad={() => {
+                        console.log(`✅ Image loaded for ASIN: ${image.asin}`);
                       }}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        if (e.target.nextSibling) {
-                          e.target.nextSibling.style.display = 'flex';
-                        }
+                      onError={() => {
+                        console.warn(`❌ Image failed to load for ASIN: ${image.asin}`);
                       }}
                     />
-                    <div style={{
-                      display: 'none',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      height: '100%',
-                      color: '#666',
-                      fontSize: '0.9rem'
-                    }}>
-                      🖼️ Image not available
-                    </div>
                     
                     {/* Match Status Badge */}
                     <div style={{

@@ -635,6 +635,25 @@ const ExcelProducts = () => {
           </div>
         </div>
 
+        {/* Debug Info - Remove in production */}
+        {process.env.NODE_ENV !== 'production' && (
+          <div style={{
+            background: '#f0f9ff',
+            border: '1px solid #0ea5e9',
+            borderRadius: '4px',
+            padding: '8px',
+            marginBottom: '16px',
+            fontSize: '0.75rem',
+            fontFamily: 'monospace'
+          }}>
+            <strong>Debug Info:</strong><br/>
+            API Base: {getApiUrl('')}<br/>
+            Environment: {import.meta.env.MODE}<br/>
+            VITE_API_URL: {import.meta.env.VITE_API_URL}<br/>
+            Sample Image URL: {getApiUrl('admin-excel/public/images/by-asin/TEST123')}
+          </div>
+        )}
+
         {/* Products Table - Main Focus */}
         <div style={{
           background: 'white',
@@ -763,7 +782,11 @@ const ExcelProducts = () => {
                             background: '#f8fafc'
                           }}>
                             <img
-                              src={`${getApiUrl('admin-excel/public/images/by-asin')}/${product.asin}`}
+                              src={(() => {
+                                const imageUrl = `${getApiUrl('admin-excel/public/images/by-asin')}/${product.asin}`;
+                                console.log('🖼️ Loading image for ASIN:', product.asin, 'URL:', imageUrl);
+                                return imageUrl;
+                              })()}
                               alt={product.asin}
                               style={{
                                 width: '100%',
@@ -771,6 +794,7 @@ const ExcelProducts = () => {
                                 objectFit: 'cover'
                               }}
                               onLoad={(e) => {
+                                console.log('✅ Image loaded successfully for ASIN:', product.asin);
                                 // Image loaded successfully
                                 e.target.style.display = 'block';
                                 if (e.target.nextSibling) {
@@ -778,6 +802,7 @@ const ExcelProducts = () => {
                                 }
                               }}
                               onError={(e) => {
+                                console.error('❌ Image failed to load for ASIN:', product.asin, 'URL:', e.target.src);
                                 // Image failed to load
                                 e.target.style.display = 'none';
                                 if (e.target.nextSibling) {

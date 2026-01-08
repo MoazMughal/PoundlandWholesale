@@ -32,7 +32,7 @@ const Basket = () => {
 
   if (basket.length === 0) {
     return (
-      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0px 20px' }}>
         <div style={{ textAlign: 'center', maxWidth: '400px' }}>
           <i className="fas fa-shopping-basket" style={{ fontSize: '80px', color: '#d1d5db', marginBottom: '20px' }}></i>
           <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '10px', color: '#111' }}>Your Basket is Empty</h2>
@@ -61,7 +61,7 @@ const Basket = () => {
   }
 
   return (
-    <div className="basket-mobile mobile-padding" style={{ minHeight: '60vh', padding: '20px 15px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="basket-mobile mobile-padding" style={{ minHeight: '60vh', padding: '0px 15px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ marginBottom: '30px' }}>
         <h1 className="mobile-spacing" style={{ fontSize: '28px', fontWeight: '700', marginBottom: '10px', color: '#111' }}>

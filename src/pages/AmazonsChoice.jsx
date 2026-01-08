@@ -8,17 +8,21 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import { ProductCardSkeleton as NewProductCardSkeleton } from '../components/SkeletonLoaders'
 import Pagination from '../components/Pagination'
 import MobileImage from '../components/MobileImage'
+import EnhancedImage from '../components/EnhancedImage'
 import { useCurrency } from '../context/CurrencyContext'
 import { useSeller } from '../context/SellerContext'
 import { useBasket } from '../context/BasketContext'
 import { useAdmin } from '../context/AdminContext'
 import { getImageUrl } from '../utils/imageImports'
 import { optimizeImageUrl, getMobileOptimizedImageUrl } from '../utils/imageOptimization'
+import { preloadProductImages } from '../utils/imagePreloader'
 import { getApiUrl } from '../utils/api'
 import { logDeviceInfo } from '../utils/deviceDetection'
 import '../styles/mobile-products.css'
 import '../styles/enhanced-theme.css'
 import '../styles/mobile-improvements.css'
+import '../styles/enhanced-images.css'
+import '../styles/mobile-image-optimization.css'
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
@@ -241,11 +245,15 @@ const AmazonsChoice = () => {
         params.append('search', search)
       }
       
-      const apiUrl = `products/public?${params.toString()}`
+      // Use proper API URL for both development and production
+      const baseApiUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://generic-wholesale-backend.onrender.com/api' 
+        : 'http://localhost:5000/api';
+      const apiUrl = `${baseApiUrl}/products/public?${params.toString()}`
       
       // API URL and Amazon Choice filter applied
       
-      const response = await fetch(getApiUrl(apiUrl), {
+      const response = await fetch(apiUrl, {
         headers: { 'Accept': 'application/json' }
       })
       
@@ -261,29 +269,30 @@ const AmazonsChoice = () => {
           
           // Simplified: All prices in GBP (£) only - use actual database price
           const transformedProducts = data.products.map(p => {
-            // Debug amber bulb specifically
-            const isAmberBulb = p.name && p.name.toLowerCase().includes('amber glass');
-            if (isAmberBulb) {
-              console.log('🔍 AMBER BULB DEBUG IN AMAZONS CHOICE:', {
+            // Debug specific products
+            const isWatchStrap = p.name && p.name.toLowerCase().includes('leather watch strap');
+            if (isWatchStrap) {
+              console.log('🔍 WATCH STRAP DEBUG IN AMAZONS CHOICE:', {
                 name: p.name,
-                platformUnits: p.platformUnits,
-                dealUnits: p.dealUnits,
-                calculatedDealUnits: Math.floor((p.platformUnits || 200) / 12),
-                hasplatformUnits: !!p.platformUnits,
-                platformUnitsType: typeof p.platformUnits
+                category: p.category,
+                isAmazonsChoice: p.isAmazonsChoice,
+                asin: p.asin,
+                image: p.images?.[0] || p.image,
+                hasImages: !!(p.images?.[0] || p.image)
               });
             }
             
             return {
               id: p._id,
               name: p.name,
+              asin: p.asin, // Ensure ASIN is included for image loading
               // Store the raw database price (this might be per-unit or total price)
               price: `£${parseFloat(p.price || 0).toFixed(2)}`,
               rawPrice: parseFloat(p.price || 0), // Keep raw number for calculations
               originalPrice: p.originalPrice ? `£${parseFloat(p.originalPrice).toFixed(2)}` : null,
               category: p.category,
               brand: p.brand,
-              image: p.images?.[0] || '',
+              image: p.images?.[0] || p.image || '', // Prioritize images array, fallback to image field
               images: p.images || [],
               rating: p.rating || 4.5,
               reviews: p.reviews || 0,
@@ -375,6 +384,15 @@ const AmazonsChoice = () => {
           setLastFetchKey(fetchKey)
           setDataSource(data.source || 'unknown')
           
+          // Preload images for better performance
+          if (transformedProducts.length > 0) {
+            preloadProductImages(transformedProducts, 'high').then(() => {
+              // Images preloaded successfully
+            }).catch(() => {
+              // Preloading failed, but products will still load images individually
+            });
+          }
+          
           // Products loaded successfully
           
         } else {
@@ -459,7 +477,10 @@ const AmazonsChoice = () => {
   useEffect(() => {
     const checkApiHealth = async () => {
       try {
-        const healthUrl = getApiUrl('../health');
+        const baseApiUrl = process.env.NODE_ENV === 'production' 
+          ? 'https://generic-wholesale-backend.onrender.com/api' 
+          : 'http://localhost:5000/api';
+        const healthUrl = `${baseApiUrl}/health`;
         const response = await fetch(healthUrl);
         await response.json();
         // API Health check completed
@@ -476,7 +497,7 @@ const AmazonsChoice = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '20px 15px'}}>
+      <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '0px 15px', marginTop: '0px'}}>
         <ScrollToTop />
         
         {/* Enhanced Loading Message */}
@@ -539,7 +560,7 @@ const AmazonsChoice = () => {
   // No products state - only show if we've tried loading and have no products
   if (!loading && products.length === 0 && hasLoadedOnce) {
     return (
-      <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '20px 15px'}}>
+      <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '0px 15px', marginTop: '0px'}}>
         <ScrollToTop />
         <div style={{
           display: 'flex',
@@ -652,8 +673,7 @@ const AmazonsChoice = () => {
   // Rendering with current state
 
   return (
-    <div>
-      <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '5px 15px', marginTop: '10px'}}>
+      <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '0px 15px', marginTop: '0px', marginBottom: '0px'}}>
         <ScrollToTop />
 
         {/* Data Source Indicator for Debugging - Only show for problematic sources */}
@@ -703,7 +723,7 @@ const AmazonsChoice = () => {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '20px',
+            marginBottom: '10px',
             padding: '15px 20px',
             background: 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
             borderRadius: '12px',
@@ -811,21 +831,26 @@ const AmazonsChoice = () => {
                 alignItems: 'center', 
                 justifyContent: 'center', 
                 background: '#fff',
-                padding: windowWidth < 576 ? '5px' : '8px'
+                padding: windowWidth < 576 ? '12px' : '16px' // Increased padding even more for better spacing
               }}>
-                <MobileImage
+                <EnhancedImage
                   src={product.image}
                   alt={product.name}
+                  asin={product.asin} // Pass ASIN for Excel products
+                  eager={true} // Force eager loading for Amazon's Choice products
                   style={{
-                    maxWidth: '100%', 
-                    maxHeight: '100%', 
+                    maxWidth: '70%', // Reduced from 85% to 70% for more zoom out
+                    maxHeight: '70%', // Reduced from 85% to 70% for more zoom out
                     objectFit: 'contain',
                     width: 'auto',
                     height: 'auto',
                     display: 'block'
                   }}
                   onError={() => {
-                    console.warn('Image failed to load for product:', product.name, 'Image:', product.image);
+                    console.warn('Image failed to load for product:', product.name, 'Image:', product.image, 'ASIN:', product.asin);
+                  }}
+                  onLoad={() => {
+                    // Image loaded successfully
                   }}
                 />
                 
@@ -1378,7 +1403,6 @@ const AmazonsChoice = () => {
           />
         )}
       </div>
-    </div>
   )
 }
 

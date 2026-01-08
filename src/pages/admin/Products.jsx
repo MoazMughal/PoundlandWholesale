@@ -2282,7 +2282,7 @@ const AdminProducts = () => {
   };
 
   return (
-    <div className="admin-products" style={{ fontSize: '0.85rem' }}>
+    <div className="admin-products" style={{ fontSize: '0.85rem', width: '100%', margin: 0, padding: 0, overflowX: 'hidden' }}>
       
       {/* Header Section */}
       <div style={{

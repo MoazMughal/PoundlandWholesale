@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import EnhancedImage from '../../components/EnhancedImage';
 import '../../styles/AdminLayout.css';
+import '../../styles/enhanced-images.css';
+import '../../styles/mobile-image-optimization.css';
 
 const ExcelImport = () => {
   const navigate = useNavigate();
@@ -185,7 +188,12 @@ const ExcelImport = () => {
       const method = action === 'delete' ? 'DELETE' : 'POST';
       const body = action === 'delete'
         ? { productIds: Array.from(selectedProducts) }
-        : { productIds: Array.from(selectedProducts), action };
+        : { 
+            productIds: Array.from(selectedProducts), 
+            action,
+            // Ensure images are properly handled during listing
+            ensureImages: true 
+          };
 
       const response = await fetch(endpoint, {
         method,
@@ -199,7 +207,7 @@ const ExcelImport = () => {
       const result = await response.json();
       
       if (result.success) {
-        alert(`✅ Successfully ${actionText}ed ${result.modifiedCount || result.deletedCount} products`);
+        alert(`✅ Successfully ${actionText}ed ${result.modifiedCount || result.deletedCount} products${action === 'list' ? ' with images' : ''}`);
         setSelectedProducts(new Set());
         fetchPendingProducts();
         fetchStats();
@@ -548,7 +556,7 @@ const ExcelImport = () => {
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="excel-import-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#f9fafb' }}>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
@@ -558,6 +566,7 @@ const ExcelImport = () => {
                         onChange={handleSelectAll}
                       />
                     </th>
+                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Image</th>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Product</th>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>ASIN</th>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Category</th>
@@ -576,6 +585,39 @@ const ExcelImport = () => {
                           checked={selectedProducts.has(product._id)}
                           onChange={() => handleSelectProduct(product._id)}
                         />
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        <div style={{ 
+                          width: '60px', 
+                          height: '60px', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          background: '#f8f9fa',
+                          borderRadius: '8px',
+                          border: '1px solid #e9ecef'
+                        }}>
+                          {product.asin ? (
+                            <EnhancedImage
+                              asin={product.asin}
+                              alt={product.name}
+                              eager={true}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'contain'
+                              }}
+                            />
+                          ) : (
+                            <div style={{ 
+                              fontSize: '10px', 
+                              color: '#6c757d', 
+                              textAlign: 'center' 
+                            }}>
+                              No ASIN
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td style={{ padding: '12px' }}>
                         <div style={{ fontWeight: '600', marginBottom: '4px' }}>{product.name}</div>
@@ -611,7 +653,36 @@ const ExcelImport = () => {
                       <td style={{ padding: '12px' }}>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button
-                            onClick={() => handleBulkAction('list')}
+                            onClick={async () => {
+                              try {
+                                const token = localStorage.getItem('adminToken');
+                                const response = await fetch('http://localhost:5000/api/admin-excel/toggle-listing', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json'
+                                  },
+                                  body: JSON.stringify({ 
+                                    productIds: [product._id], 
+                                    action: 'list',
+                                    ensureImages: true 
+                                  })
+                                });
+
+                                const result = await response.json();
+                                
+                                if (result.success) {
+                                  alert('✅ Product listed successfully with image!');
+                                  fetchPendingProducts();
+                                  fetchStats();
+                                } else {
+                                  alert(`❌ Failed to list product: ${result.message}`);
+                                }
+                              } catch (error) {
+                                console.error('Error listing product:', error);
+                                alert('❌ Failed to list product');
+                              }
+                            }}
                             style={{
                               padding: '6px 12px',
                               background: '#10b981',
@@ -625,7 +696,7 @@ const ExcelImport = () => {
                             ✅ List
                           </button>
                           <button
-                            onClick={() => navigate(`/admin/products/edit/${product._id}`)}
+                            onClick={() => navigate(`/admin/excel-product/edit/${product._id}`)}
                             style={{
                               padding: '6px 12px',
                               background: '#667eea',

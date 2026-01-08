@@ -33,7 +33,7 @@ const AboutUs = () => {
       {/* Hero Section */}
       <div style={{
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '60px 20px',
+        padding: '20px 20px',
         color: '#fff',
         textAlign: 'center'
       }}>
@@ -48,7 +48,7 @@ const AboutUs = () => {
       </div>
 
       {/* About Content */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px 20px' }}>
         
         {/* Mission Section */}
         <div style={{

@@ -1,0 +1,248 @@
+/* Mobile Image Optimization Styles */
+
+/* Ensure images load properly on mobile devices */
+@media (max-width: 768px) {
+  /* Amazon's Choice product grid images */
+  .product-card .product-image-container {
+    background: #fff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    border-radius: 8px !important;
+    padding: 12px !important; /* Increased padding for better spacing */
+  }
+  
+  .product-card .enhanced-image-container {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  .product-card .enhanced-image {
+    max-width: 70% !important; /* Reduced from 100% to 70% for more zoom out */
+    max-height: 70% !important; /* Reduced from 100% to 70% for more zoom out */
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    display: block !important;
+  }
+  
+  /* Product detail page images */
+  .product-images .main-image {
+    background: #fff !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+  }
+  
+  .product-images .enhanced-image-container {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #fff !important;
+  }
+  
+  .product-images .enhanced-image {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    display: block !important;
+  }
+  
+  /* Thumbnail images */
+  .thumbnail-images .enhanced-image-container {
+    width: 100% !important;
+    height: 80px !important;
+    background: #f8f9fa !important;
+    border-radius: 6px !important;
+    overflow: hidden !important;
+  }
+  
+  .thumbnail-images .enhanced-image {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+  }
+  
+  /* Admin image viewer */
+  .admin-layout .enhanced-image-container {
+    background: #f8fafc !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  .admin-layout .enhanced-image {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+  }
+  
+  /* Excel import table images */
+  .excel-import-table .enhanced-image-container {
+    width: 60px !important;
+    height: 60px !important;
+    background: #f8f9fa !important;
+    border-radius: 6px !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  .excel-import-table .enhanced-image {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+  }
+}
+
+/* High DPI displays (Retina, etc.) */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .enhanced-image {
+    image-rendering: -webkit-optimize-contrast !important;
+    image-rendering: crisp-edges !important;
+  }
+}
+
+/* Slow connection optimization */
+@media (prefers-reduced-data: reduce) {
+  .enhanced-image {
+    image-rendering: pixelated !important;
+  }
+  
+  .enhanced-image-container .loading-state {
+    background: rgba(255, 255, 255, 0.95) !important;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .product-card {
+    transform: none !important;
+    transition: box-shadow 0.2s ease !important;
+  }
+  
+  .product-card:active {
+    box-shadow: 0 8px 25px rgba(255, 102, 0, 0.3) !important;
+    transform: scale(0.98) !important;
+  }
+  
+  .thumbnail-images > div {
+    cursor: pointer !important;
+  }
+  
+  .thumbnail-images > div:active {
+    transform: scale(0.95) !important;
+  }
+}
+
+/* Network-aware loading */
+.enhanced-image-container[data-connection="slow"] .enhanced-image {
+  filter: blur(1px) !important;
+  transition: filter 0.5s ease !important;
+}
+
+.enhanced-image-container[data-connection="slow"] .enhanced-image.loaded {
+  filter: none !important;
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .enhanced-image,
+  .enhanced-image-container,
+  .product-card {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .enhanced-image-container {
+    background: #1f2937 !important;
+  }
+  
+  .product-image-container {
+    background: #1f2937 !important;
+  }
+  
+  .enhanced-image-container .error-state {
+    color: #9ca3af !important;
+    background: rgba(31, 41, 55, 0.8) !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .enhanced-image-container .loading-state,
+  .enhanced-image-container .attempt-indicator {
+    display: none !important;
+  }
+  
+  .enhanced-image {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}
+
+/* Very small screens (phones in portrait) */
+@media (max-width: 480px) {
+  .product-card .product-image-container {
+    height: 100px !important;
+    padding: 4px !important;
+  }
+  
+  .product-images .main-image {
+    height: 250px !important;
+  }
+  
+  .thumbnail-images .enhanced-image-container {
+    height: 60px !important;
+  }
+}
+
+/* Large screens optimization */
+@media (min-width: 1200px) {
+  .enhanced-image {
+    image-rendering: -webkit-optimize-contrast !important;
+  }
+}
+
+/* Ensure images are visible and properly sized */
+.enhanced-image-container img,
+.enhanced-image {
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+}
+
+/* Force hardware acceleration for smooth scrolling */
+.enhanced-image-container {
+  transform: translateZ(0) !important;
+  will-change: transform !important;
+}
+
+/* Prevent layout shift during image loading */
+.enhanced-image-container {
+  contain: layout style paint !important;
+}
+
+/* Optimize for mobile Safari */
+@supports (-webkit-touch-callout: none) {
+  .enhanced-image {
+    -webkit-transform: translateZ(0) !important;
+    -webkit-backface-visibility: hidden !important;
+  }
+  
+  .enhanced-image-container {
+    -webkit-overflow-scrolling: touch !important;
+  }
+}

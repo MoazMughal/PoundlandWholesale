@@ -144,7 +144,7 @@ const Categories = () => {
   }
 
   return (
-    <div style={{padding: '20px 0', background: 'linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%)'}}>
+    <div style={{padding: '0px 0', background: 'linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%)'}}>
       <div className="container">
         {/* Header with Stats */}
         <div style={{textAlign: 'center', marginBottom: '20px'}}>

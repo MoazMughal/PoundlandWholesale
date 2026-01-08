@@ -20,6 +20,7 @@ import './styles/accessibility.css'
 import './styles/login-animations.css'
 import './styles/mobile-improvements.css'
 import './styles/micro-interactions.css'
+import './styles/layout-fix.css'
 
 // Lazy load pages for better performance
 const AmazonsChoice = lazy(() => import('./pages/AmazonsChoice'))
@@ -113,10 +114,10 @@ function App() {
         <SellerProvider>
           <AdminProvider>
           <Router>
-        <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', margin: 0, padding: 0, overflowX: 'hidden' }}>
           <ScrollToTopOnRouteChange />
           <MobileHeader />
-          <main style={{ flex: '1 0 auto' }}>
+          <main style={{ flex: '1 0 auto', margin: 0, padding: 0 }}>
           <Suspense fallback={<PageLoader />}>
           <Routes>
           <Route path="/" element={<AmazonsChoice />} />
@@ -189,6 +190,7 @@ function App() {
           <Route path="/admin/excel-manager" element={<ProtectedRoute><ExcelManager /></ProtectedRoute>} />
           <Route path="/admin/excel-products/:uploadId" element={<ProtectedRoute><AdminExcelProducts /></ProtectedRoute>} />
           <Route path="/admin/excel-products/:uploadId/edit/:productId" element={<ProtectedRoute><ExcelProductEdit /></ProtectedRoute>} />
+          <Route path="/admin/excel-product/edit/:productId" element={<ProtectedRoute><ExcelProductEdit /></ProtectedRoute>} />
           <Route path="/admin/excel-manager/images/:uploadId" element={<ProtectedRoute><ImageViewer /></ProtectedRoute>} />
           
           {/* Legal Pages */}

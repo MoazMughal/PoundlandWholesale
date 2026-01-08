@@ -58,14 +58,25 @@ const ExcelProductEdit = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(getApiUrl(`admin-excel/uploads/${uploadId}/products/${productId}`), {
+      
+      // Handle both routes: with uploadId and without uploadId
+      let apiUrl;
+      if (uploadId) {
+        // Original route with uploadId
+        apiUrl = getApiUrl(`admin-excel/uploads/${uploadId}/products/${productId}`);
+      } else {
+        // Simple route without uploadId - fetch product directly
+        apiUrl = getApiUrl(`admin-excel/products/${productId}`);
+      }
+      
+      const response = await fetch(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (response.ok) {
         const data = await response.json();
         setProduct(data.product);
-        setUpload(data.upload);
+        setUpload(data.upload || null); // upload might not be available in simple route
         
         // Initialize form data with product data
         setFormData({
@@ -124,12 +135,22 @@ const ExcelProductEdit = () => {
         }
       } else {
         alert('Failed to fetch product details');
-        navigate(`/admin/excel-products/${uploadId}`);
+        // Navigate back based on which route we came from
+        if (uploadId) {
+          navigate(`/admin/excel-products/${uploadId}`);
+        } else {
+          navigate('/admin/excel-import');
+        }
       }
     } catch (error) {
       console.error('Error fetching product:', error);
       alert('Error fetching product details');
-      navigate(`/admin/excel-products/${uploadId}`);
+      // Navigate back based on which route we came from
+      if (uploadId) {
+        navigate(`/admin/excel-products/${uploadId}`);
+      } else {
+        navigate('/admin/excel-import');
+      }
     } finally {
       setLoading(false);
     }
@@ -419,7 +440,6 @@ const ExcelProductEdit = () => {
       // Final safety check - if we somehow lost all images and had original images, restore them
       if (finalImageUrls.length === 0 && originalImages.length > 0) {
         finalImageUrls.push(...originalImages);
-        
       }
 
       const token = localStorage.getItem('adminToken');
@@ -430,7 +450,54 @@ const ExcelProductEdit = () => {
         fileName: upload?.originalFileName
       };
 
-      const response = await fetch(getApiUrl(`admin-excel/uploads/${uploadId}/products/${productId}/save-to-main`), {
+      // Choose the correct API endpoint based on whether we have uploadId
+      let apiUrl;
+      if (uploadId) {
+        // Original route with uploadId
+        apiUrl = getApiUrl(`admin-excel/uploads/${uploadId}/products/${productId}/save-to-main`);
+      } else {
+        // Simple route - first update the Excel product, then convert to main
+        // Update the Excel product first
+        await fetch(getApiUrl(`admin-excel/products/${productId}`), {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(saveData)
+        });
+        
+        // Then use the toggle-listing endpoint to convert to main product
+        apiUrl = getApiUrl('admin-excel/toggle-listing');
+        const toggleResponse = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            productIds: [productId],
+            action: 'list',
+            ensureImages: true
+          })
+        });
+        
+        const toggleResult = await toggleResponse.json();
+        
+        if (toggleResult.success) {
+          // Clear cache to ensure updated product appears immediately
+          cacheManager.clearAll();
+          
+          alert('✅ Product saved to main website successfully! Changes will appear immediately.');
+          navigate('/admin/excel-import');
+          return;
+        } else {
+          throw new Error(toggleResult.message || 'Failed to list product');
+        }
+      }
+
+      // For the original route with uploadId
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -468,7 +535,10 @@ const ExcelProductEdit = () => {
         <div style={{ padding: '40px', textAlign: 'center' }}>
           <div style={{ fontSize: '2rem', marginBottom: '20px' }}>❌</div>
           <h2>Product Not Found</h2>
-          <button onClick={() => navigate(`/admin/excel-products/${uploadId}`)} style={{ marginTop: '20px', padding: '10px 20px' }}>
+          <button 
+            onClick={() => uploadId ? navigate(`/admin/excel-products/${uploadId}`) : navigate('/admin/excel-import')} 
+            style={{ marginTop: '20px', padding: '10px 20px' }}
+          >
             ← Back to Products
           </button>
         </div>

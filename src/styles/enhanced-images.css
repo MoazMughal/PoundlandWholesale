@@ -1,0 +1,142 @@
+/* Enhanced Image Loading Styles */
+
+.enhanced-image-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.enhanced-image {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity, filter;
+}
+
+.enhanced-image.loading {
+  opacity: 0.7;
+  filter: blur(1px);
+}
+
+.enhanced-image.error {
+  opacity: 0.5;
+  filter: grayscale(100%);
+}
+
+/* Smooth fade-in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.enhanced-image:not(.loading):not(.error) {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Skeleton loading animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.image-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Mobile optimizations */
+@media (max-width: 576px) {
+  .enhanced-image-container {
+    background: #fff;
+  }
+  
+  .enhanced-image {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* High DPI display optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .enhanced-image {
+    image-rendering: -webkit-optimize-contrast;
+  }
+}
+
+/* Preload hint for critical images */
+.enhanced-image[data-priority="high"] {
+  content-visibility: auto;
+  contain-intrinsic-size: 300px 300px;
+}
+
+/* Error state styling */
+.enhanced-image-container .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  font-size: 12px;
+  text-align: center;
+  padding: 10px;
+}
+
+/* Loading state styling */
+.enhanced-image-container .loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  padding: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Attempt indicator styling */
+.enhanced-image-container .attempt-indicator {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: rgba(255, 102, 0, 0.8);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: bold;
+  z-index: 2;
+}
+
+/* Smooth transitions for all states */
+.enhanced-image-container * {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Focus and hover states for accessibility */
+.enhanced-image:focus {
+  outline: 2px solid #ff6600;
+  outline-offset: 2px;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .enhanced-image,
+  .enhanced-image-container * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

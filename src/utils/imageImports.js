@@ -55,6 +55,14 @@ export const getImageUrl = (imagePath) => {
     }
   }
   
+  // Handle ASIN-only strings (for Excel products)
+  if (imagePath.match(/^[A-Z0-9]{10}$/)) {
+    const baseUrl = import.meta.env.PROD 
+      ? 'https://generic-wholesale-backend.onrender.com' 
+      : 'http://localhost:5000';
+    return `${baseUrl}/api/admin-excel/public/images/by-asin/${imagePath}`;
+  }
+  
   // Extract just the filename for local assets
   const filename = imagePath.split('/').pop();
   

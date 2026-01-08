@@ -1782,6 +1782,8 @@ router.get('/public/images/by-asin/:asin', async (req, res) => {
   try {
     const asin = req.params.asin.toUpperCase();
     console.log('🖼️ Public image request for ASIN:', asin);
+    console.log('🌐 Request from:', req.get('origin') || req.get('referer') || 'unknown');
+    console.log('📱 User-Agent:', req.get('user-agent')?.substring(0, 100) || 'unknown');
     
     const imageUpload = await ImageUpload.findOne({
       'images.asin': asin,
@@ -1832,7 +1834,7 @@ router.get('/public/images/by-asin/:asin', async (req, res) => {
     // Serve the image file
     res.sendFile(path.resolve(image.filePath));
   } catch (error) {
-    console.error('Error serving public image:', error);
+    console.error('❌ Error serving public image:', error);
     res.status(500).json({ 
       success: false,
       message: 'Failed to serve image' 
@@ -2205,6 +2207,242 @@ router.get('/debug/images', authenticateAdmin, async (req, res) => {
       success: false,
       message: 'Debug endpoint failed',
       error: error.message 
+    });
+  }
+});
+
+// GET /api/admin-excel/products/:productId - Get single Excel product (for simple edit route)
+router.get('/products/:productId', authenticateAdmin, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    
+    const product = await ExcelProduct.findById(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      product: product
+    });
+    
+  } catch (error) {
+    console.error('Error fetching Excel product:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch product',
+      error: error.message
+    });
+  }
+});
+
+// PUT /api/admin-excel/products/:productId - Update single Excel product
+router.put('/products/:productId', authenticateAdmin, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const updateData = req.body;
+    
+    // Remove any fields that shouldn't be updated directly
+    delete updateData._id;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+    
+    const product = await ExcelProduct.findByIdAndUpdate(
+      productId,
+      { ...updateData, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    );
+    
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Product updated successfully',
+      product: product
+    });
+    
+  } catch (error) {
+    console.error('Error updating Excel product:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update product',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/admin-excel/toggle-listing - Toggle listing status for products
+router.post('/toggle-listing', authenticateAdmin, async (req, res) => {
+  try {
+    const { productIds, action, ensureImages } = req.body;
+    
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Product IDs are required'
+      });
+    }
+    
+    if (!['list', 'unlist'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Action must be either "list" or "unlist"'
+      });
+    }
+    
+    let modifiedCount = 0;
+    const errors = [];
+    
+    for (const productId of productIds) {
+      try {
+        // Find the Excel product
+        const excelProduct = await ExcelProduct.findById(productId);
+        if (!excelProduct) {
+          errors.push(`Excel product not found: ${productId}`);
+          continue;
+        }
+        
+        if (action === 'list') {
+          // Convert Excel product to main Product
+          const baseUrl = process.env.NODE_ENV === 'production' 
+            ? 'https://generic-wholesale-backend.onrender.com' 
+            : 'http://localhost:5000';
+          
+          // Always prepare image URL if ASIN exists (not just when ensureImages is true)
+          let imageUrl = null;
+          let imageArray = [];
+          if (excelProduct.asin) {
+            imageUrl = `${baseUrl}/api/admin-excel/public/images/by-asin/${excelProduct.asin}`;
+            imageArray = [imageUrl]; // Create array with the image URL
+          }
+          
+          // Also check if the Excel product already has images
+          if (excelProduct.images && excelProduct.images.length > 0) {
+            imageArray = [...excelProduct.images]; // Use existing images
+            if (imageUrl && !imageArray.includes(imageUrl)) {
+              imageArray.unshift(imageUrl); // Add ASIN image as first image if not already present
+            }
+          }
+          
+          const productData = {
+            name: excelProduct.name,
+            price: excelProduct.price,
+            originalPrice: excelProduct.originalPrice,
+            category: excelProduct.category,
+            brand: excelProduct.brand || 'Generic',
+            description: excelProduct.description || `High-quality ${excelProduct.name}`,
+            images: imageArray, // Use the properly constructed image array
+            image: imageArray.length > 0 ? imageArray[0] : '', // Set main image as first in array
+            rating: excelProduct.rating || 4.5,
+            reviews: excelProduct.reviews || 0,
+            stock: excelProduct.stock || 100,
+            discount: excelProduct.discount || 0,
+            dealUnits: excelProduct.dealUnits || Math.floor((excelProduct.platformUnits || 2400) / 12),
+            platformUnits: excelProduct.platformUnits || 2400,
+            currency: 'GBP',
+            isAmazonsChoice: true, // Always set as Amazon's Choice
+            asin: excelProduct.asin,
+            isListed: true, // Ensure it's marked as listed
+            status: 'active', // Make it active
+            // Copy profit data if available
+            profitEvaluation: excelProduct.profitEvaluation,
+            profitCalculations: excelProduct.profitCalculations,
+            platformComparison: excelProduct.platformComparison,
+            evaluation: excelProduct.evaluation,
+            savings: excelProduct.savings
+          };
+          
+          console.log(`📦 Converting Excel product to main product:`, {
+            name: excelProduct.name,
+            category: excelProduct.category,
+            asin: excelProduct.asin,
+            imageUrl: imageUrl,
+            imageArray: imageArray,
+            isAmazonsChoice: true,
+            hasImageUrl: !!imageUrl,
+            hasImageArray: imageArray.length > 0
+          });
+          
+          // Check if product already exists in main collection
+          const existingProduct = await Product.findOne({
+            $or: [
+              { name: excelProduct.name },
+              { asin: excelProduct.asin }
+            ]
+          });
+          
+          let savedProduct;
+          if (existingProduct) {
+            // Update existing product with all data including Amazon's Choice status
+            savedProduct = await Product.findByIdAndUpdate(existingProduct._id, productData, { new: true });
+            console.log(`✅ Updated existing product:`, {
+              id: savedProduct._id,
+              name: savedProduct.name,
+              images: savedProduct.images,
+              image: savedProduct.image,
+              asin: savedProduct.asin
+            });
+          } else {
+            // Create new product
+            savedProduct = await Product.create(productData);
+            console.log(`✅ Created new product:`, {
+              id: savedProduct._id,
+              name: savedProduct.name,
+              images: savedProduct.images,
+              image: savedProduct.image,
+              asin: savedProduct.asin
+            });
+          }
+          
+          // Mark Excel product as listed
+          excelProduct.isListed = true;
+          excelProduct.listedAt = new Date();
+          await excelProduct.save();
+          
+        } else if (action === 'unlist') {
+          // Remove from main Product collection
+          await Product.deleteMany({
+            $or: [
+              { name: excelProduct.name },
+              { asin: excelProduct.asin }
+            ]
+          });
+          
+          // Mark Excel product as unlisted
+          excelProduct.isListed = false;
+          excelProduct.listedAt = null;
+          await excelProduct.save();
+        }
+        
+        modifiedCount++;
+        
+      } catch (error) {
+        console.error(`Error ${action}ing product ${productId}:`, error);
+        errors.push(`Failed to ${action} product ${productId}: ${error.message}`);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Successfully ${action}ed ${modifiedCount} products${ensureImages ? ' with images' : ''}`,
+      modifiedCount,
+      errors: errors.length > 0 ? errors : undefined
+    });
+    
+  } catch (error) {
+    console.error('Error in toggle-listing:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to toggle listing status',
+      error: error.message
     });
   }
 });

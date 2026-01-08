@@ -19,11 +19,13 @@ const CompactFooter = () => {
     <footer style={{
       background: 'linear-gradient(135deg, #232f3e 0%, #1a252f 100%)',
       color: '#fff',
-      padding: '40px 20px 20px',
+      padding: '20px 20px 10px',
       marginTop: 'auto',
       flexShrink: 0,
       borderTop: '3px solid #ff9900',
-      boxShadow: '0 -2px 10px rgba(255, 153, 0, 0.2)'
+      boxShadow: '0 -2px 10px rgba(255, 153, 0, 0.2)',
+      width: '100%',
+      margin: 0
     }}>
       <div style={{
         maxWidth: '1200px',
@@ -33,9 +35,9 @@ const CompactFooter = () => {
         <div style={{
           display: 'grid',
           gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)',
-          gap: isMobile ? '25px' : '30px',
-          marginBottom: '30px',
-          paddingBottom: '25px',
+          gap: isMobile ? '15px' : '20px',
+          marginBottom: '15px',
+          paddingBottom: '15px',
           borderBottom: '1px solid rgba(255,255,255,0.15)'
         }}>
           {/* About Section */}
@@ -312,7 +314,7 @@ const CompactFooter = () => {
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: '20px',
-          paddingTop: '20px'
+          paddingTop: '10px'
         }}>
           {/* Social Media Icons */}
           <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>

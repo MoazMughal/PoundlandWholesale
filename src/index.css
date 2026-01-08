@@ -1,6 +1,166 @@
 /* Import Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap');
 
+/* Comprehensive Global Reset - Fix all spacing issues */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow-x: hidden; /* Prevent horizontal scroll */
+    font-family: 'Open Sans', sans-serif;
+    background-color: #f5f5f5;
+    color: #4a5568;
+    line-height: 1.6;
+}
+
+/* Remove default spacing from common elements */
+div, section, article, main, header, footer, nav {
+    margin: 0;
+    padding: 0;
+}
+
+/* Ensure no extra space at top of page */
+body > div:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Remove default margins from headings */
+h1, h2, h3, h4, h5, h6 {
+    margin: 0;
+    padding: 0;
+}
+
+/* Fix container and wrapper spacing */
+.container, .container-fluid {
+    margin: 0 auto;
+    padding-left: 15px;
+    padding-right: 15px;
+    max-width: 100%;
+}
+
+/* Ensure full width usage */
+.row {
+    margin: 0;
+    width: 100%;
+}
+
+.col, .col-* {
+    padding: 0;
+}
+
+/* Fix viewport and scrolling issues */
+#root {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* App container fixes */
+.App {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Main content area fixes */
+main {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    flex: 1;
+    overflow-x: hidden;
+}
+
+/* Header fixes */
+header {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+/* Footer fixes */
+footer {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    margin-top: auto;
+}
+
+/* Remove any default list spacing */
+ul, ol {
+    margin: 0;
+    padding: 0;
+}
+
+/* Remove default form spacing */
+form {
+    margin: 0;
+    padding: 0;
+}
+
+/* Fix button spacing */
+button {
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+}
+
+/* Fix input spacing */
+input, textarea, select {
+    margin: 0;
+    padding: 0;
+    border: none;
+    outline: none;
+}
+
+/* Prevent horizontal overflow on all elements */
+* {
+    max-width: 100%;
+}
+
+/* Fix mobile viewport issues */
+@media (max-width: 768px) {
+    html, body {
+        overflow-x: hidden;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+    
+    .App {
+        overflow-x: hidden;
+        width: 100%;
+    }
+    
+    main {
+        overflow-x: hidden;
+        width: 100%;
+    }
+}
+
 :root {
     --bs-primary: #ff9900;
     --bs-primary-rgb: 255, 153, 0;
@@ -8,14 +168,6 @@
     --bs-dark-rgb: 35, 47, 62;
     --bs-light: #f8f9fa;
     --bs-white: #ffffff;
-}
-
-body {
-    font-family: 'Open Sans', sans-serif;
-    background-color: #f5f5f5;
-    color: #4a5568;
-    line-height: 1.6;
-    margin: 0;
 }
 
 /* Enhanced Hero Section */

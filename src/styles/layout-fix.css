@@ -1,0 +1,135 @@
+/* Layout Fix CSS - Comprehensive solution for spacing issues */
+
+/* Prevent horizontal scroll and fix viewport issues */
+html, body, #root, .App {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Fix all page containers */
+.admin-products,
+.products-container,
+.enhanced-container,
+.basket-mobile,
+.mobile-padding,
+.container,
+.container-fluid {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Fix header spacing */
+header, .mobile-header, .desktop-header {
+  width: 100% !important;
+  margin: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Fix footer spacing */
+footer {
+  width: 100% !important;
+  margin: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Fix main content area */
+main {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow-x: hidden !important;
+}
+
+/* Remove any default margins from page wrappers */
+.page-wrapper,
+.content-wrapper,
+.main-wrapper {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+/* Fix grid and flex containers */
+.row, .d-flex, .flex {
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Fix columns */
+[class*="col-"] {
+  padding-left: 15px !important;
+  padding-right: 15px !important;
+  margin: 0 !important;
+}
+
+/* Mobile specific fixes */
+@media (max-width: 768px) {
+  * {
+    max-width: 100% !important;
+  }
+  
+  .container {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+  
+  [class*="col-"] {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}
+
+/* Tablet specific fixes */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .container {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+}
+
+/* Desktop specific fixes */
+@media (min-width: 1025px) {
+  .container {
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+}
+
+/* Fix any remaining spacing issues */
+body > div:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Ensure no elements extend beyond viewport */
+* {
+  box-sizing: border-box !important;
+}
+
+/* Fix scrollbar issues */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
