@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getApiUrl } from '../../utils/api';
 import '../../styles/AdminLayout.css';
 
 const ImageViewer = () => {
@@ -304,7 +305,7 @@ const ImageViewer = () => {
                     position: 'relative'
                   }}>
                     <img
-                      src={`http://localhost:5000/api/admin-excel/public/images/by-asin/${image.asin}`}
+                      src={getApiUrl(`admin-excel/public/images/by-asin/${image.asin}`)}
                       alt={image.asin}
                       style={{
                         maxWidth: '100%',

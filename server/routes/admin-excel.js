@@ -1091,8 +1091,11 @@ router.post('/uploads/:uploadId/convert-products', authenticateAdmin, async (req
           if (imageUpload) {
             const matchingImage = imageUpload.images.find(img => img.asin === excelProduct.asin.toUpperCase());
             if (matchingImage && fs.existsSync(matchingImage.filePath)) {
-              // Add the uploaded image as the main image
-              const imageUrl = `http://localhost:5000/api/admin-excel/public/images/by-asin/${excelProduct.asin}`;
+              // Add the uploaded image as the main image - use environment-aware URL
+              const baseUrl = process.env.NODE_ENV === 'production' 
+                ? 'https://generic-wholesale-backend.onrender.com' 
+                : 'http://localhost:5000';
+              const imageUrl = `${baseUrl}/api/admin-excel/public/images/by-asin/${excelProduct.asin}`;
               
               // Add to the beginning of images array (main image)
               if (!productImages.includes(imageUrl)) {
@@ -1855,8 +1858,11 @@ router.post('/migrate/add-images-to-converted', authenticateAdmin, async (req, r
         if (imageUpload) {
           const matchingImage = imageUpload.images.find(img => img.asin === product.asin.toUpperCase());
           if (matchingImage && fs.existsSync(matchingImage.filePath)) {
-            // Add the uploaded image as the main image
-            const imageUrl = `http://localhost:5000/api/admin-excel/public/images/by-asin/${product.asin}`;
+            // Add the uploaded image as the main image - use environment-aware URL
+            const baseUrl = process.env.NODE_ENV === 'production' 
+              ? 'https://generic-wholesale-backend.onrender.com' 
+              : 'http://localhost:5000';
+            const imageUrl = `${baseUrl}/api/admin-excel/public/images/by-asin/${product.asin}`;
             
             // Update the product with the image and set as Amazon's Choice
             await Product.updateOne(

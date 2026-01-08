@@ -173,6 +173,35 @@ const ExcelProducts = () => {
     }
   };
 
+  const handleMigrateImages = async () => {
+    if (!confirm('This will add images to already converted products that are missing images. Continue?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(getApiUrl('admin-excel/migrate/add-images-to-converted'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(`✅ Image migration completed!\n\n🖼️ Updated: ${result.updatedCount} products\n❌ Errors: ${result.errorCount}\n📦 Total checked: ${result.totalChecked}`);
+        fetchProducts(); // Refresh the list
+      } else {
+        alert(`❌ Failed to migrate images: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error migrating images:', error);
+      alert('❌ Failed to migrate images');
+    }
+  };
+
   const formatPrice = (price) => `£${parseFloat(price || 0).toFixed(2)}`;
 
   const formatDate = (dateString) => {
@@ -586,6 +615,23 @@ const ExcelProducts = () => {
             >
               🔄 Sync Status
             </button>
+
+            <button
+              onClick={handleMigrateImages}
+              style={{
+                padding: '6px 12px',
+                background: '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+              title="Add images to already converted products"
+            >
+              🖼️ Fix Images
+            </button>
           </div>
         </div>
 
@@ -717,7 +763,7 @@ const ExcelProducts = () => {
                             background: '#f8fafc'
                           }}>
                             <img
-                              src={getApiUrl(`admin-excel/public/images/by-asin/${product.asin}`)}
+                              src={`${getApiUrl('admin-excel/public/images/by-asin')}/${product.asin}`}
                               alt={product.asin}
                               style={{
                                 width: '100%',

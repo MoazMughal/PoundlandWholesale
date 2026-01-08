@@ -29,7 +29,33 @@ export const getImageUrl = (imagePath) => {
     return imagePath;
   }
   
-  // Extract just the filename
+  // Handle API URLs for Excel uploaded images - convert to full URL
+  if (imagePath.startsWith('/api/admin-excel/public/images/by-asin/') || 
+      imagePath.startsWith('api/admin-excel/public/images/by-asin/')) {
+    // Get the base URL from environment
+    const baseUrl = import.meta.env.PROD 
+      ? 'https://generic-wholesale-backend.onrender.com' 
+      : 'http://localhost:5000';
+    
+    // Ensure the path starts with /
+    const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+    return `${baseUrl}${cleanPath}`;
+  }
+  
+  // Handle relative API URLs that might be missing the /api prefix
+  if (imagePath.includes('admin-excel/public/images/by-asin/')) {
+    const baseUrl = import.meta.env.PROD 
+      ? 'https://generic-wholesale-backend.onrender.com' 
+      : 'http://localhost:5000';
+    
+    // Extract the ASIN part and construct proper URL
+    const asinMatch = imagePath.match(/by-asin\/([A-Z0-9]{10})/);
+    if (asinMatch) {
+      return `${baseUrl}/api/admin-excel/public/images/by-asin/${asinMatch[1]}`;
+    }
+  }
+  
+  // Extract just the filename for local assets
   const filename = imagePath.split('/').pop();
   
   // Try exact match first

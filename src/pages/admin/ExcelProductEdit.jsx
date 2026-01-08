@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { uploadMultipleImages, validateImageFile } from '../../utils/imageUpload';
 import cacheManager from '../../utils/cacheManager';
+import { getApiUrl } from '../../utils/api';
 import '../../styles/AdminProductForm.css';
 
 const ExcelProductEdit = () => {
@@ -57,7 +58,7 @@ const ExcelProductEdit = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin-excel/uploads/${uploadId}/products/${productId}`, {
+      const response = await fetch(getApiUrl(`admin-excel/uploads/${uploadId}/products/${productId}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -112,7 +113,7 @@ const ExcelProductEdit = () => {
           
           if (data.product.asin) {
             // Try to use uploaded image as main image
-            const uploadedImageUrl = `http://localhost:5000/api/admin-excel/public/images/by-asin/${data.product.asin}`;
+            const uploadedImageUrl = getApiUrl(`admin-excel/public/images/by-asin/${data.product.asin}`);
             imageUrlsArray[0] = uploadedImageUrl;
           }
           
@@ -137,7 +138,7 @@ const ExcelProductEdit = () => {
   const fetchCategories = async () => {
     try {
       // Include Excel categories for admin use
-      const response = await fetch('http://localhost:5000/api/products/public/categories?includeExcel=true');
+      const response = await fetch(getApiUrl('products/public/categories?includeExcel=true'));
       if (response.ok) {
         const data = await response.json();
         setCategories(data.categories || []);
@@ -162,7 +163,7 @@ const ExcelProductEdit = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/products/public/categories', {
+      const response = await fetch(getApiUrl('products/public/categories'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -429,7 +430,7 @@ const ExcelProductEdit = () => {
         fileName: upload?.originalFileName
       };
 
-      const response = await fetch(`http://localhost:5000/api/admin-excel/uploads/${uploadId}/products/${productId}/save-to-main`, {
+      const response = await fetch(getApiUrl(`admin-excel/uploads/${uploadId}/products/${productId}/save-to-main`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
