@@ -260,7 +260,7 @@ router.get('/public/categories', async (req, res) => {
       formattedCategories = [
         { value: 'all', label: 'All', count: totalCount },
         ...categories.map(cat => ({
-          value: cat.toLowerCase().replace(/\s+/g, '-'),
+          value: cat.toLowerCase().replace(/\s+/g, '-'), // Keep original logic but ensure proper URL encoding
           label: cat,
           count: countMap[cat] || 0 // Use exact category name for count lookup
         }))
@@ -272,7 +272,7 @@ router.get('/public/categories', async (req, res) => {
       formattedCategories = [
         { value: 'all', label: 'All' },
         ...categories.map(cat => ({
-          value: cat.toLowerCase().replace(/\s+/g, '-'),
+          value: cat.toLowerCase().replace(/\s+/g, '-'), // Keep original logic but ensure proper URL encoding
           label: cat
         }))
       ];
@@ -1141,8 +1141,9 @@ router.get('/public', async (req, res) => {
     try {
       
       // For Amazon's Choice products without search, use aggregation with random sampling
+      // This includes category filtering - the query object already contains category filters
       if (isAmazonsChoice === 'true' && !search) {
-        console.log('🎲 Using random sampling for Amazon\'s Choice products');
+        console.log('🎲 Using random sampling for Amazon\'s Choice products', category ? `with category: ${category}` : '');
         
         const pipeline = [
           { $match: query },

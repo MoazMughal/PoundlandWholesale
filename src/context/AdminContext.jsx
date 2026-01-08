@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import sessionManager from '../utils/sessionManager'
+import { getApiUrl } from '../utils/api'
 
 const AdminContext = createContext()
 
@@ -118,7 +119,7 @@ export const AdminProvider = ({ children }) => {
       setIsAuthenticating(true)
       
       try {
-        const response = await fetch('http://localhost:5000/api/auth/verify', {
+        const response = await fetch(getApiUrl('auth/verify'), {
           headers: { 'Authorization': `Bearer ${token}` },
           signal: AbortSignal.timeout(5000) // 5 second timeout
         })
@@ -150,7 +151,7 @@ export const AdminProvider = ({ children }) => {
 
     const attemptTokenRefresh = async (token) => {
       try {
-        const refreshResponse = await fetch('http://localhost:5000/api/auth/refresh', {
+        const refreshResponse = await fetch(getApiUrl('auth/refresh'), {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -230,7 +231,7 @@ export const AdminProvider = ({ children }) => {
       // Clear server-side cache
       const token = localStorage.getItem('adminToken')
       if (token) {
-        await fetch('http://localhost:5000/api/products/admin/clear-cache', {
+        await fetch(getApiUrl('products/admin/clear-cache'), {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -263,7 +264,7 @@ export const AdminProvider = ({ children }) => {
     setIsAuthenticating(true)
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify', {
+      const response = await fetch(getApiUrl('auth/verify'), {
         headers: { 'Authorization': `Bearer ${token}` },
         signal: AbortSignal.timeout(5000)
       })
@@ -280,7 +281,7 @@ export const AdminProvider = ({ children }) => {
       } else if (response.status === 401) {
 
         try {
-          const refreshResponse = await fetch('http://localhost:5000/api/auth/refresh', {
+          const refreshResponse = await fetch(getApiUrl('auth/refresh'), {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,

@@ -1820,6 +1820,15 @@ router.get('/public/images/by-asin/:asin', async (req, res) => {
     res.setHeader('Content-Type', mimeTypes[ext] || 'image/jpeg');
     res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
     
+    // Add mobile-friendly headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    // Add headers for better mobile compatibility
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Accept-Ranges', 'bytes');
+    
     // Serve the image file
     res.sendFile(path.resolve(image.filePath));
   } catch (error) {

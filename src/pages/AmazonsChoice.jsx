@@ -7,6 +7,7 @@ import Breadcrumb from '../components/Breadcrumb'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { ProductCardSkeleton as NewProductCardSkeleton } from '../components/SkeletonLoaders'
 import Pagination from '../components/Pagination'
+import MobileImage from '../components/MobileImage'
 import { useCurrency } from '../context/CurrencyContext'
 import { useSeller } from '../context/SellerContext'
 import { useBasket } from '../context/BasketContext'
@@ -812,34 +813,20 @@ const AmazonsChoice = () => {
                 background: '#fff',
                 padding: windowWidth < 576 ? '5px' : '8px'
               }}>
-                <img 
-                  src={getMobileOptimizedImageUrl(getImageUrl(product.image), windowWidth <= 576)}
-                  alt={product.name} 
-                  loading="lazy"
-                  onError={(e) => {
-                    // Try fallback image sources for mobile compatibility
-                    if (!e.target.dataset.fallbackAttempted) {
-                      e.target.dataset.fallbackAttempted = 'true';
-                      // Try original image without optimization
-                      e.target.src = getImageUrl(product.image);
-                    } else if (!e.target.dataset.secondFallbackAttempted) {
-                      e.target.dataset.secondFallbackAttempted = 'true';
-                      // Try placeholder image
-                      e.target.src = 'https://via.placeholder.com/300x300?text=Product+Image';
-                    } else {
-                      // Hide image if all fallbacks fail
-                      e.target.style.display = 'none';
-                    }
-                  }}
+                <MobileImage
+                  src={product.image}
+                  alt={product.name}
                   style={{
                     maxWidth: '100%', 
                     maxHeight: '100%', 
                     objectFit: 'contain',
-                    // Ensure images load properly on mobile
                     width: 'auto',
                     height: 'auto',
                     display: 'block'
-                  }} 
+                  }}
+                  onError={() => {
+                    console.warn('Image failed to load for product:', product.name, 'Image:', product.image);
+                  }}
                 />
                 
                 {/* SIMPLIFIED BADGE - Always visible on all devices */}

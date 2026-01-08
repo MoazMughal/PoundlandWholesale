@@ -76,6 +76,12 @@ export const preloadImage = (src) => {
 export const getMobileOptimizedImageUrl = (imageUrl, isMobile = false) => {
   if (!imageUrl) return null;
   
+  // For API URLs (like Excel uploaded images), return as-is since they don't support optimization parameters
+  if (imageUrl.includes('/api/admin-excel/public/images/by-asin/') || 
+      imageUrl.includes('admin-excel/public/images/by-asin/')) {
+    return imageUrl;
+  }
+  
   // For mobile devices, use smaller, more compressed images
   if (isMobile) {
     return optimizeImageUrl(imageUrl, { 

@@ -1,4 +1,9 @@
 /* Compact layout for admin pages */
+.admin-layout {
+  min-height: 100vh;
+  background-color: #f8fafc;
+}
+
 body.admin-page {
   overflow-x: hidden;
 }

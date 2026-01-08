@@ -958,7 +958,7 @@ const MobileHeader = () => {
               return (
                 <div key={cat.value} style={{ display: 'flex', alignItems: 'center' }}>
                   <Link
-                    to={cat.value === 'all' ? '/' : `/?cat=${cat.value}`}
+                    to={cat.value === 'all' ? '/' : `/?cat=${encodeURIComponent(cat.value)}`}
                     style={{
                       fontSize: '10px',
                       color: isActive ? '#ffffff' : '#1a1a1a',

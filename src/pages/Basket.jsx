@@ -4,6 +4,7 @@ import { useBasket } from '../context/BasketContext'
 import { useCurrency } from '../context/CurrencyContext'
 import { getImageUrl } from '../utils/imageImports'
 import { optimizeImageUrl } from '../utils/imageOptimization'
+import MobileImage from '../components/MobileImage'
 import ScrollToTop from '../components/ScrollToTop'
 
 const Basket = () => {
@@ -131,14 +132,13 @@ const Basket = () => {
                 }}
               >
                 {item.image ? (
-                  <img 
-                    className="mobile-image"
-                    src={optimizeImageUrl(getImageUrl(item.image), { width: 200, height: 200, quality: 75 })} 
+                  <MobileImage
+                    src={item.image}
                     alt={item.name}
+                    className="mobile-image"
                     style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                    onError={(e) => {
-                      console.error('Image failed to load:', item.image)
-                      e.target.src = 'https://via.placeholder.com/100x100?text=No+Image'
+                    onError={() => {
+                      console.error('Image failed to load:', item.image);
                     }}
                   />
                 ) : (
