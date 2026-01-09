@@ -22,12 +22,9 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Serve static files (uploaded images) in production
-if (process.env.NODE_ENV === 'production') {
-  // Serve uploaded images from uploads directory
-  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-  console.log('📁 Static file serving enabled for production');
-}
+// Serve static files (uploaded images) for both development and production
+// Serve uploaded images from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Enable gzip compression for all responses
 app.use(compression());
@@ -77,10 +74,6 @@ const maxRetries = 3;
 async function connectWithRetry() {
   try {
     connectionAttempts++;
-    // Only show connection attempts in development
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`🔄 Connection attempt ${connectionAttempts}/${maxRetries}`);
-    }
     
     await mongoose.connect(process.env.MONGODB_URI, mongoOptions);
     
@@ -92,18 +85,9 @@ async function connectWithRetry() {
     
   } catch (err) {
     console.error(`❌ MongoDB connection attempt ${connectionAttempts} failed:`, err.message);
-    console.error('🔍 Error details:', {
-      name: err.name,
-      code: err.code,
-      reason: err.reason?.type,
-      codeName: err.codeName
-    });
     
     if (connectionAttempts < maxRetries) {
       const delay = connectionAttempts * 2000; // Exponential backoff
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`⏳ Retrying in ${delay/1000} seconds...`);
-      }
       setTimeout(connectWithRetry, delay);
     } else {
       console.error('💥 MongoDB connection failed after all attempts');
@@ -111,11 +95,9 @@ async function connectWithRetry() {
   }
 }
 
-// Handle connection events - only show in development
+// Handle connection events
 mongoose.connection.on('connected', () => {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('🟢 Mongoose connected to MongoDB');
-  }
+  // Connected successfully
 });
 
 mongoose.connection.on('error', (err) => {

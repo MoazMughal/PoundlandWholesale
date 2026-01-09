@@ -1,0 +1,135 @@
+.admin-sellers {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.filters-section {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+.filters-section button {
+  padding: 10px 20px;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.filters-section button.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.sellers-table {
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.sellers-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sellers-table th {
+  background: #f8f9fa;
+  padding: 15px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.sellers-table td {
+  padding: 15px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.verified {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.not-verified {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.status-badge {
+  padding: 5px 10px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-badge.approved {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.rejected {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.approve-btn, .reject-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-right: 5px;
+}
+
+.approve-btn {
+  background: #28a745;
+  color: white;
+}
+
+.approve-btn:hover {
+  background: #218838;
+}
+
+.reject-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.reject-btn:hover {
+  background: #c82333;
+}
+
+
+.status-select {
+  padding: 6px 12px;
+  border: 2px solid #667eea;
+  border-radius: 6px;
+  background: white;
+  color: #667eea;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.3s;
+}
+
+.status-select:hover {
+  background: #667eea;
+  color: white;
+}
+
+.status-select:focus {
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}

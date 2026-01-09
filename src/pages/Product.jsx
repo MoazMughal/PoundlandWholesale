@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import ProductCard from '../components/ProductCard'
 import EnhancedImage from '../components/EnhancedImage'
 import { getImageUrl } from '../utils/imageImports'
@@ -14,8 +14,34 @@ import watchImg from '../assets/main-pics/Black Watch.jpg'
 
 const Product = () => {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [selectedImage, setSelectedImage] = useState(0)
   const [quantity, setQuantity] = useState(1) // Will be updated to match dealUnits
+  const [product, setProduct] = useState(null)
+  const [loading, setLoading] = useState(true)
+  
+  // Handle return navigation and URL parameters
+  const urlParams = new URLSearchParams(window.location.search)
+  const returnTo = urlParams.get('returnTo')
+  const returnPage = urlParams.get('page')
+  const returnSearch = urlParams.get('search')
+  const returnCategory = urlParams.get('category')
+  const returnStatus = urlParams.get('status')
+  const returnPageSize = urlParams.get('pageSize')
+  
+  // Get product data from URL parameters (passed from Amazon's Choice)
+  const urlProductName = urlParams.get('name')
+  const urlProductImage = urlParams.get('img')
+  const urlProductPrice = urlParams.get('price')
+  const urlProductRating = urlParams.get('rating')
+  const urlProductReviews = urlParams.get('reviews')
+  const urlProductCategory = urlParams.get('category')
+  const urlProductBrand = urlParams.get('brand')
+  const urlProductDiscount = urlParams.get('discount')
+  const urlBadgeText = urlParams.get('badgeText')
+  const urlBadgeColor = urlParams.get('badgeColor')
+  const urlBadgeIcon = urlParams.get('badgeIcon')
+  const urlIsAmazonsChoice = urlParams.get('isAmazonsChoice') === 'true'
 
   // Update quantity to match dealUnits when product loads
   useEffect(() => {
@@ -23,8 +49,6 @@ const Product = () => {
       setQuantity(product.dealUnits);
     }
   }, [product?.dealUnits]);
-  const [product, setProduct] = useState(null)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchProduct()
@@ -40,32 +64,34 @@ const Product = () => {
       const response = await fetch(apiUrl)
       if (response.ok) {
         const productData = await response.json()
-        console.log('🔍 Full Product Data Loaded:', productData);
-        console.log('📊 Key Fields:', {
-          dealUnits: productData.dealUnits,
-          name: productData.name,
-          images: productData.images,
-          image: productData.image,
-          asin: productData.asin,
-          profitEvaluation: productData.profitEvaluation,
-          hasAllFields: !!(productData.dealUnits && productData.profitEvaluation),
-          // Debug image fields specifically
-          hasImages: !!(productData.images && productData.images.length > 0),
-          hasImage: !!productData.image,
-          hasAsin: !!productData.asin
-        });
         
         // Process images properly with enhanced fallback logic
         let processedImages = [];
         
+        // Priority 0: Use URL parameter image if available (from Amazon's Choice navigation)
+        if (urlProductImage) {
+          processedImages = [decodeURIComponent(urlProductImage)];
+        }
         // Priority 1: Use existing images array
-        if (productData.images && productData.images.length > 0) {
-          processedImages = productData.images.map(img => getImageUrl(img));
+        else if (productData.images && productData.images.length > 0) {
+          processedImages = productData.images.map(img => {
+            // If it's already a full URL (from Excel conversion), use it directly
+            if (img.startsWith('http')) {
+              return img;
+            }
+            // Otherwise process through getImageUrl
+            return getImageUrl(img);
+          });
           console.log('📸 Using product.images:', processedImages);
         } 
         // Priority 2: Use single image field
         else if (productData.image) {
-          processedImages = [getImageUrl(productData.image)];
+          // If it's already a full URL (from Excel conversion), use it directly
+          if (productData.image.startsWith('http')) {
+            processedImages = [productData.image];
+          } else {
+            processedImages = [getImageUrl(productData.image)];
+          }
           console.log('📸 Using product.image:', processedImages);
         } 
         // Priority 3: Generate from ASIN if available
@@ -86,14 +112,31 @@ const Product = () => {
         const finalImages = processedImages.length > 0 ? processedImages : 
           (productData.asin ? [`${process.env.NODE_ENV === 'production' ? 'https://generic-wholesale-backend.onrender.com' : 'http://localhost:5000'}/api/admin-excel/public/images/by-asin/${productData.asin}`] : getMockProduct().images);
         
-        // Ensure we have all required fields, merge with defaults if needed
+        // Merge URL parameters with database data (URL parameters take priority for display)
         const completeProduct = {
           ...getMockProduct(), // Start with mock data as base
           ...productData, // Override with real data
+          // Override with URL parameters if available (from Amazon's Choice)
+          ...(urlProductName && { name: decodeURIComponent(urlProductName) }),
+          ...(urlProductPrice && { price: `£${urlProductPrice}` }),
+          ...(urlProductRating && { rating: parseFloat(urlProductRating) }),
+          ...(urlProductReviews && { reviews: parseInt(urlProductReviews) }),
+          ...(urlProductCategory && { category: decodeURIComponent(urlProductCategory) }),
+          ...(urlProductBrand && { brand: decodeURIComponent(urlProductBrand) }),
+          ...(urlProductDiscount && { discount: parseInt(urlProductDiscount) }),
+          ...(urlIsAmazonsChoice !== undefined && { isAmazonsChoice: urlIsAmazonsChoice }),
           images: finalImages, // Use the enhanced final images array
           // Ensure critical fields are present
           dealUnits: productData.dealUnits || Math.floor((productData.platformUnits || 200) / 12), // Calculate as platformUnits / 12
-          profitEvaluation: productData.profitEvaluation || getMockProduct().profitEvaluation
+          profitEvaluation: productData.profitEvaluation || getMockProduct().profitEvaluation,
+          // Add badge information from URL
+          ...(urlBadgeText && { 
+            badge: {
+              text: decodeURIComponent(urlBadgeText),
+              color: urlBadgeColor ? decodeURIComponent(urlBadgeColor) : '#ff6600',
+              icon: urlBadgeIcon ? decodeURIComponent(urlBadgeIcon) : '🏆'
+            }
+          })
         };
         
         console.log('✅ Final Product Data:', {
@@ -102,20 +145,70 @@ const Product = () => {
           imageCount: completeProduct.images?.length || 0,
           firstImage: completeProduct.images?.[0] || 'none',
           asin: completeProduct.asin,
-          hasProfitEvaluation: !!completeProduct.profitEvaluation
+          hasProfitEvaluation: !!completeProduct.profitEvaluation,
+          usedUrlParams: !!(urlProductName || urlProductImage)
         });
         
         setProduct(completeProduct)
       } else {
-        // Fallback to mock data if product not found
-        console.log('📦 Using Mock Product Data (Not Found)');
-        setProduct(getMockProduct())
+        // Fallback: Use URL parameters to create product data
+        if (urlProductName && urlProductImage) {
+          console.log('📦 Using URL Parameter Product Data (API Failed)');
+          const urlBasedProduct = {
+            ...getMockProduct(),
+            id: parseInt(id),
+            name: decodeURIComponent(urlProductName),
+            images: [decodeURIComponent(urlProductImage)],
+            price: urlProductPrice ? `£${urlProductPrice}` : getMockProduct().price,
+            rating: urlProductRating ? parseFloat(urlProductRating) : getMockProduct().rating,
+            reviews: urlProductReviews ? parseInt(urlProductReviews) : getMockProduct().reviews,
+            category: urlProductCategory ? decodeURIComponent(urlProductCategory) : getMockProduct().category,
+            brand: urlProductBrand ? decodeURIComponent(urlProductBrand) : getMockProduct().brand,
+            discount: urlProductDiscount ? parseInt(urlProductDiscount) : getMockProduct().discount,
+            isAmazonsChoice: urlIsAmazonsChoice,
+            badge: urlBadgeText ? {
+              text: decodeURIComponent(urlBadgeText),
+              color: urlBadgeColor ? decodeURIComponent(urlBadgeColor) : '#ff6600',
+              icon: urlBadgeIcon ? decodeURIComponent(urlBadgeIcon) : '🏆'
+            } : null
+          };
+          setProduct(urlBasedProduct);
+        } else {
+          // Fallback to mock data if product not found and no URL params
+          console.log('📦 Using Mock Product Data (Not Found)');
+          setProduct(getMockProduct())
+        }
       }
     } catch (error) {
       console.error('Error fetching product:', error)
-      // Fallback to mock data
-      console.log('📦 Using Mock Product Data (Error)');
-      setProduct(getMockProduct())
+      
+      // Fallback: Use URL parameters if available
+      if (urlProductName && urlProductImage) {
+        console.log('📦 Using URL Parameter Product Data (Error)');
+        const urlBasedProduct = {
+          ...getMockProduct(),
+          id: parseInt(id),
+          name: decodeURIComponent(urlProductName),
+          images: [decodeURIComponent(urlProductImage)],
+          price: urlProductPrice ? `£${urlProductPrice}` : getMockProduct().price,
+          rating: urlProductRating ? parseFloat(urlProductRating) : getMockProduct().rating,
+          reviews: urlProductReviews ? parseInt(urlProductReviews) : getMockProduct().reviews,
+          category: urlProductCategory ? decodeURIComponent(urlProductCategory) : getMockProduct().category,
+          brand: urlProductBrand ? decodeURIComponent(urlProductBrand) : getMockProduct().brand,
+          discount: urlProductDiscount ? parseInt(urlProductDiscount) : getMockProduct().discount,
+          isAmazonsChoice: urlIsAmazonsChoice,
+          badge: urlBadgeText ? {
+            text: decodeURIComponent(urlBadgeText),
+            color: urlBadgeColor ? decodeURIComponent(urlBadgeColor) : '#ff6600',
+            icon: urlBadgeIcon ? decodeURIComponent(urlBadgeIcon) : '🏆'
+          } : null
+        };
+        setProduct(urlBasedProduct);
+      } else {
+        // Fallback to mock data
+        console.log('📦 Using Mock Product Data (Error)');
+        setProduct(getMockProduct())
+      }
     } finally {
       setLoading(false)
     }
@@ -254,11 +347,42 @@ const Product = () => {
               <li className="breadcrumb-item">
                 <Link to="/">Home</Link>
               </li>
-              <li className="breadcrumb-item">
-                <Link to="/categories">Categories</Link>
-              </li>
+              {returnTo ? (
+                <li className="breadcrumb-item">
+                  <button
+                    onClick={() => {
+                      // Construct return URL with preserved state
+                      const params = new URLSearchParams();
+                      if (returnPage) params.set('page', returnPage);
+                      if (returnSearch) params.set('search', returnSearch);
+                      if (returnCategory && returnCategory !== 'all') params.set('category', returnCategory);
+                      if (returnStatus && returnStatus !== 'all') params.set('status', returnStatus);
+                      if (returnPageSize) params.set('pageSize', returnPageSize);
+                      
+                      const queryString = params.toString();
+                      const fullReturnUrl = queryString ? `${returnTo}?${queryString}` : returnTo;
+                      navigate(fullReturnUrl);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#007bff',
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                      padding: 0,
+                      font: 'inherit'
+                    }}
+                  >
+                    ← Back to Excel Products
+                  </button>
+                </li>
+              ) : (
+                <li className="breadcrumb-item">
+                  <Link to="/categories">Categories</Link>
+                </li>
+              )}
               <li className="breadcrumb-item active">
-                {product.name}
+                {product?.name || 'Product'}
               </li>
             </ol>
           </nav>
@@ -280,11 +404,13 @@ const Product = () => {
                     eager={true}
                     style={{
                       width: '100%', 
-                      height: '400px', 
+                      height: '450px', // Increased from 400px to 450px
                       objectFit: 'contain', 
                       backgroundColor: '#f8f9fa',
                       borderRadius: '8px',
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                      transform: 'scale(1.05)', // Added zoom effect
+                      padding: '10px' // Added padding to prevent clipping
                     }}
                     onError={() => {
                       console.warn('Main image failed to load:', product.images[selectedImage], 'ASIN:', product.asin);
@@ -320,7 +446,9 @@ const Product = () => {
                             style={{
                               width: '100%',
                               height: '100%',
-                              objectFit: 'contain'
+                              objectFit: 'contain',
+                              transform: 'scale(1.1)', // Added zoom for thumbnails
+                              padding: '2px' // Added padding to prevent clipping
                             }}
                           />
                         </div>
@@ -334,7 +462,35 @@ const Product = () => {
             {/* Product Info */}
             <div className="col-lg-6">
               <div className="product-info">
-                <h1 className="h3 mb-3">{product.name}</h1>
+                <h1 className="h3 mb-3">
+                  {product.name}
+                  {urlProductName && (
+                    <span style={{
+                      fontSize: '0.6rem',
+                      background: '#e3f2fd',
+                      color: '#1976d2',
+                      padding: '2px 6px',
+                      borderRadius: '3px',
+                      marginLeft: '8px',
+                      fontWeight: 'normal'
+                    }}>
+                      📋 From URL
+                    </span>
+                  )}
+                  {product.isAmazonsChoice && (
+                    <span style={{
+                      fontSize: '0.7rem',
+                      background: '#ff6600',
+                      color: 'white',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      marginLeft: '8px',
+                      fontWeight: 'bold'
+                    }}>
+                      🏆 Amazon's Choice
+                    </span>
+                  )}
+                </h1>
                 
                 <div className="rating-section mb-3">
                   <div className="d-flex align-items-center">
@@ -412,6 +568,91 @@ const Product = () => {
                       <i className="fas fa-heart"></i>
                     </button>
                   </div>
+                  
+                  {/* Debug button for Excel products - only show in development */}
+                  {process.env.NODE_ENV !== 'production' && product.asin && (
+                    <div className="mt-2">
+                      <button 
+                        className="btn btn-warning btn-sm"
+                        onClick={() => {
+                          const imageUrl = `${process.env.NODE_ENV === 'production' ? 'https://generic-wholesale-backend.onrender.com' : 'http://localhost:5000'}/api/admin-excel/public/images/by-asin/${product.asin}`;
+                          console.log('🧪 Testing image URL:', imageUrl);
+                          window.open(imageUrl, '_blank');
+                        }}
+                      >
+                        🧪 Test Image URL (ASIN: {product.asin})
+                      </button>
+                      <div style={{ 
+                        background: '#f8f9fa', 
+                        padding: '10px', 
+                        borderRadius: '5px', 
+                        marginTop: '10px',
+                        fontSize: '12px',
+                        fontFamily: 'monospace'
+                      }}>
+                        <strong>🔧 Debug Info:</strong><br/>
+                        <strong>Product Data:</strong><br/>
+                        • ASIN: {product.asin || 'N/A'}<br/>
+                        • Images Array: {JSON.stringify(product.images)}<br/>
+                        • Image Field: {product.image || 'N/A'}<br/>
+                        • Selected Image: {product.images?.[selectedImage] || 'N/A'}<br/>
+                        • Environment: {process.env.NODE_ENV || 'development'}<br/>
+                        <br/>
+                        <strong>URL Parameters:</strong><br/>
+                        • Name: {urlProductName ? decodeURIComponent(urlProductName) : 'N/A'}<br/>
+                        • Image: {urlProductImage ? decodeURIComponent(urlProductImage) : 'N/A'}<br/>
+                        • Price: {urlProductPrice || 'N/A'}<br/>
+                        • Category: {urlProductCategory ? decodeURIComponent(urlProductCategory) : 'N/A'}<br/>
+                        • Is Amazon's Choice: {urlIsAmazonsChoice ? 'Yes' : 'No'}<br/>
+                        <br/>
+                        <strong>Image Loading Test:</strong><br/>
+                        <button 
+                          onClick={() => {
+                            if (product.images?.[selectedImage]) {
+                              window.open(product.images[selectedImage], '_blank');
+                            }
+                          }}
+                          style={{
+                            background: '#007bff',
+                            color: 'white',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: '3px',
+                            fontSize: '10px',
+                            cursor: 'pointer',
+                            marginRight: '5px'
+                          }}
+                        >
+                          🔗 Open Image URL
+                        </button>
+                        <button 
+                          onClick={() => {
+                            console.log('🔍 Product Debug Info:', {
+                              product,
+                              urlParams: {
+                                name: urlProductName,
+                                image: urlProductImage,
+                                price: urlProductPrice,
+                                category: urlProductCategory
+                              },
+                              currentImage: product.images?.[selectedImage]
+                            });
+                          }}
+                          style={{
+                            background: '#28a745',
+                            color: 'white',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: '3px',
+                            fontSize: '10px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          📋 Log to Console
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="supplier-info card">

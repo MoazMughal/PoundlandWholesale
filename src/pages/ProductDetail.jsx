@@ -2653,9 +2653,11 @@ const ProductDetail = () => {
                     className="img-fluid"
                     style={{
                       width: '100%', 
-                      height: window.innerWidth < 768 ? '200px' : '250px', 
+                      height: window.innerWidth < 768 ? '220px' : '280px', // Increased height
                       objectFit: 'contain',
-                      borderRadius: '4px'
+                      borderRadius: '4px',
+                      transform: 'scale(1.08)', // Added zoom effect
+                      padding: '8px' // Added padding to prevent clipping
                     }}
                   />
                   {/* Compact Badge */}
@@ -2747,7 +2749,9 @@ const ProductDetail = () => {
                           width: '100%', 
                           height: '100%', 
                           objectFit: 'contain',
-                          borderRadius: '6px'
+                          borderRadius: '6px',
+                          transform: 'scale(1.1)', // Added zoom for thumbnails
+                          padding: '2px' // Added padding to prevent clipping
                         }}
                       />
                     </div>

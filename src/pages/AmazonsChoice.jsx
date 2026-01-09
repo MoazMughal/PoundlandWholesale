@@ -8,14 +8,12 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import { ProductCardSkeleton as NewProductCardSkeleton } from '../components/SkeletonLoaders'
 import Pagination from '../components/Pagination'
 import MobileImage from '../components/MobileImage'
-import EnhancedImage from '../components/EnhancedImage'
+import SimpleImage from '../components/SimpleImage'
 import { useCurrency } from '../context/CurrencyContext'
 import { useSeller } from '../context/SellerContext'
 import { useBasket } from '../context/BasketContext'
 import { useAdmin } from '../context/AdminContext'
 import { getImageUrl } from '../utils/imageImports'
-import { optimizeImageUrl, getMobileOptimizedImageUrl } from '../utils/imageOptimization'
-import { preloadProductImages } from '../utils/imagePreloader'
 import { getApiUrl } from '../utils/api'
 import { logDeviceInfo } from '../utils/deviceDetection'
 import '../styles/mobile-products.css'
@@ -23,6 +21,7 @@ import '../styles/enhanced-theme.css'
 import '../styles/mobile-improvements.css'
 import '../styles/enhanced-images.css'
 import '../styles/mobile-image-optimization.css'
+import '../styles/image-fixes.css'
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
@@ -153,6 +152,7 @@ const AmazonsChoice = () => {
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [isLoadingRequest, setIsLoadingRequest] = useState(false) // Track active requests
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('cat') || 'all')
@@ -223,14 +223,23 @@ const AmazonsChoice = () => {
       // Create a key for this fetch to avoid duplicate requests
       const fetchKey = `${category || 'all'}-${search || ''}-${page}`
       
-      // Skip if we just fetched the same data
-      if (fetchKey === lastFetchKey && products.length > 0) {
-        // Skipping duplicate fetch
+      // Skip if we just fetched the same data and we have products
+      if (fetchKey === lastFetchKey && products.length > 0 && !loading) {
+        console.log('Skipping duplicate fetch for:', fetchKey)
         return
       }
       
-      // Always show loading for new page requests
+      // Prevent multiple simultaneous requests
+      if (isLoadingRequest) {
+        console.log('Request already in progress, skipping:', fetchKey)
+        return
+      }
+      
+      console.log('Fetching products for:', fetchKey)
+      
+      // Set loading states
       setLoading(true)
+      setIsLoadingRequest(true)
       
       // Build API parameters
       const params = new URLSearchParams()
@@ -251,36 +260,18 @@ const AmazonsChoice = () => {
         : 'http://localhost:5000/api';
       const apiUrl = `${baseApiUrl}/products/public?${params.toString()}`
       
-      // API URL and Amazon Choice filter applied
-      
       const response = await fetch(apiUrl, {
         headers: { 'Accept': 'application/json' }
       })
       
-      // Response received
-      
       if (response.ok) {
-        // Parsing JSON response
         const data = await response.json()
-        // Raw data received
         
         if (data.products && data.products.length > 0) {
-          // Database fetch successful
-          
           // Simplified: All prices in GBP (£) only - use actual database price
           const transformedProducts = data.products.map(p => {
             // Debug specific products
             const isWatchStrap = p.name && p.name.toLowerCase().includes('leather watch strap');
-            if (isWatchStrap) {
-              console.log('🔍 WATCH STRAP DEBUG IN AMAZONS CHOICE:', {
-                name: p.name,
-                category: p.category,
-                isAmazonsChoice: p.isAmazonsChoice,
-                asin: p.asin,
-                image: p.images?.[0] || p.image,
-                hasImages: !!(p.images?.[0] || p.image)
-              });
-            }
             
             return {
               id: p._id,
@@ -292,7 +283,28 @@ const AmazonsChoice = () => {
               originalPrice: p.originalPrice ? `£${parseFloat(p.originalPrice).toFixed(2)}` : null,
               category: p.category,
               brand: p.brand,
-              image: p.images?.[0] || p.image || '', // Prioritize images array, fallback to image field
+              image: (() => {
+                // Enhanced image URL processing for better reliability
+                let imageUrl = '';
+                
+                // Priority 1: Use images array first element
+                if (p.images && p.images.length > 0 && p.images[0]) {
+                  imageUrl = p.images[0];
+                }
+                // Priority 2: Use image field
+                else if (p.image) {
+                  imageUrl = p.image;
+                }
+                // Priority 3: Generate from ASIN if available
+                else if (p.asin && p.asin.match(/^[A-Z0-9]{10}$/)) {
+                  const baseUrl = process.env.NODE_ENV === 'production' 
+                    ? 'https://generic-wholesale-backend.onrender.com' 
+                    : 'http://localhost:5000';
+                  imageUrl = `${baseUrl}/api/admin-excel/public/images/by-asin/${p.asin}`;
+                }
+                
+                return imageUrl || '';
+              })(),
               images: p.images || [],
               rating: p.rating || 4.5,
               reviews: p.reviews || 0,
@@ -319,18 +331,6 @@ const AmazonsChoice = () => {
                 // If we found platformUnits, calculate dealUnits
                 if (platformUnits && platformUnits > 0) {
                   const calculatedDealUnits = Math.floor(platformUnits / 12);
-                  
-                  // Debug specific products
-                  const isAmberBulb = p.name && p.name.toLowerCase().includes('amber glass');
-                  if (isAmberBulb) {
-                    console.log('🔍 AMBER BULB CALCULATION SUCCESS:', {
-                      name: p.name,
-                      platformUnits: platformUnits,
-                      calculatedDealUnits: calculatedDealUnits,
-                      source: p.platformUnits ? 'direct' : p.profitEvaluation?.platformUnits ? 'profitEval' : 'platformComparison'
-                    });
-                  }
-                  
                   return calculatedDealUnits;
                 }
                 
@@ -338,29 +338,12 @@ const AmazonsChoice = () => {
                 // (i.e., if it's already been calculated and stored)
                 if (p.dealUnits && p.dealUnits > 1 && p.dealUnits < 1000) {
                   // Use the existing dealUnits value (it might already be calculated correctly)
-                  const isAmberBulb = p.name && p.name.toLowerCase().includes('amber glass');
-                  if (isAmberBulb) {
-                    console.log('🔍 AMBER BULB USING EXISTING DEALUNITS:', {
-                      name: p.name,
-                      existingDealUnits: p.dealUnits,
-                      reason: 'No platformUnits found, using existing dealUnits'
-                    });
-                  }
                   return p.dealUnits;
                 }
                 
                 // Final fallback - calculate from default platformUnits
                 const defaultPlatformUnits = 2400;
                 const fallbackDealUnits = Math.floor(defaultPlatformUnits / 12);
-                
-                const isAmberBulb = p.name && p.name.toLowerCase().includes('amber glass');
-                if (isAmberBulb) {
-                  console.log('🔍 AMBER BULB USING FALLBACK:', {
-                    name: p.name,
-                    fallbackDealUnits: fallbackDealUnits,
-                    reason: 'No data found, using default calculation'
-                  });
-                }
                 
                 return fallbackDealUnits;
               })(), // Auto-calculate as platformUnits / 12
@@ -380,20 +363,19 @@ const AmazonsChoice = () => {
           setTotalPages(data.totalPages || 1)
           setTotalProducts(data.total || transformedProducts.length)
           setLoading(false)
+          setIsLoadingRequest(false)
           setHasLoadedOnce(true)
           setLastFetchKey(fetchKey)
           setDataSource(data.source || 'unknown')
           
-          // Preload images for better performance
-          if (transformedProducts.length > 0) {
-            preloadProductImages(transformedProducts, 'high').then(() => {
-              // Images preloaded successfully
-            }).catch(() => {
-              // Preloading failed, but products will still load images individually
-            });
-          }
-          
-          // Products loaded successfully
+          // Preload images for better performance (disabled to reduce console messages)
+          // if (transformedProducts.length > 0) {
+          //   preloadProductImages(transformedProducts, 'high').then(() => {
+          //     // Images preloaded
+          //   }).catch(() => {
+          //     // Preloading failed, but products will still load images individually
+          //   });
+          // }
           
         } else {
           // No Amazon Choice products found in database
@@ -402,35 +384,23 @@ const AmazonsChoice = () => {
           setTotalPages(1)
           setTotalProducts(0)
           setLoading(false)
+          setIsLoadingRequest(false)
         }
       } else {
         throw new Error(`Failed to fetch products: ${response.status}`)
       }
     } catch (error) {
-      // Database fetch failed
       alert('Failed to load products. Please refresh the page.')
       setProducts([])
       setLoading(false)
+      setIsLoadingRequest(false)
     }
   }
 
   // Server-side filtering - fetch products with filters and pagination
   const applyFilters = async (category, search, page = currentPage) => {
-    // Applying filters with pagination
     await fetchProducts(category, search, page)
   }
-
-  // Force refresh for admin
-  const forceRefresh = async () => {
-    // Force refreshing products from database
-    setLoading(true)
-    await fetchProducts()
-  }
-
-  // Track products state changes
-  useEffect(() => {
-    // Products state changed
-  }, [products, currentProducts, loading, hasLoadedOnce])
 
   // Check admin status
   useEffect(() => {
@@ -459,19 +429,23 @@ const AmazonsChoice = () => {
     const searchParam = searchParams.get('search') || ''
     const pageParam = parseInt(searchParams.get('page')) || 1
     
-    // URL params changed
-    
-    // Log device info for debugging mobile issues
-    logDeviceInfo()
+    // Log device info for debugging mobile issues (only once)
+    if (!hasLoadedOnce) {
+      logDeviceInfo()
+    }
     
     // Update state
     setSelectedCategory(catParam)
     setSearchQuery(searchParam)
     setCurrentPage(pageParam)
     
-    // Fetch products with filters and pagination
-    applyFilters(catParam, searchParam, pageParam)
-  }, [searchParams])
+    // Only fetch if parameters have actually changed or it's the first load
+    const newFetchKey = `${catParam}-${searchParam}-${pageParam}`
+    if (newFetchKey !== lastFetchKey || !hasLoadedOnce) {
+      // Fetch products with filters and pagination
+      applyFilters(catParam, searchParam, pageParam)
+    }
+  }, [searchParams, hasLoadedOnce, lastFetchKey])
 
   // Health check on component mount
   useEffect(() => {
@@ -483,9 +457,8 @@ const AmazonsChoice = () => {
         const healthUrl = `${baseApiUrl}/health`;
         const response = await fetch(healthUrl);
         await response.json();
-        // API Health check completed
       } catch (error) {
-        // API Health check failed
+        // Health check failed - continue anyway
       }
     };
     
@@ -699,7 +672,9 @@ const AmazonsChoice = () => {
               onClick={() => {
                 setProducts([]);
                 setLoading(true);
+                setIsLoadingRequest(false);
                 setDataSource('');
+                setLastFetchKey(''); // Reset fetch key to allow refetch
                 fetchProducts();
               }}
               style={{
@@ -833,25 +808,15 @@ const AmazonsChoice = () => {
                 background: '#fff',
                 padding: windowWidth < 576 ? '12px' : '16px' // Increased padding even more for better spacing
               }}>
-                <EnhancedImage
+                <SimpleImage
                   src={product.image}
                   alt={product.name}
-                  asin={product.asin} // Pass ASIN for Excel products
-                  eager={true} // Force eager loading for Amazon's Choice products
                   style={{
-                    maxWidth: '70%', // Reduced from 85% to 70% for more zoom out
-                    maxHeight: '70%', // Reduced from 85% to 70% for more zoom out
+                    maxWidth: '90%', // Increased from 85% to 90% for better zoom
+                    maxHeight: '90%', // Increased from 85% to 90% for better zoom
                     objectFit: 'contain',
-                    width: 'auto',
-                    height: 'auto',
-                    display: 'block'
-                  }}
-                  onError={() => {
-                    console.warn('Image failed to load for product:', product.name, 'Image:', product.image, 'ASIN:', product.asin);
-                  }}
-                  onLoad={() => {
-                    // Image loaded successfully
-                  }}
+                    transform: 'scale(1.1)' // Added scale transform for additional zoom
+                  }} 
                 />
                 
                 {/* SIMPLIFIED BADGE - Always visible on all devices */}
@@ -1094,17 +1059,8 @@ const AmazonsChoice = () => {
                       // For new products, check if they have a valid price to calculate profit from
                       const productPrice = parseFloat(String(product.price || 0).replace(/[£₨$€]/g, '')) || 0;
                       if (productPrice > 0) {
-                        console.log(`✅ Showing profit for new product: ${product.name} (price: ${product.price}, extracted: ${productPrice})`);
                         return true;
                       }
-
-                      console.log(`❌ No valid profit data found for: ${product.name}`, {
-                        price: product.price,
-                        extractedPrice: productPrice,
-                        hasProfitCalculations: !!product?.profitCalculations,
-                        hasEvaluation: !!product?.evaluation,
-                        showEvaluation: !!product?.showEvaluation
-                      });
 
                       return false;
                     };
@@ -1146,12 +1102,6 @@ const AmazonsChoice = () => {
                           // For new products without profit data, calculate based on price and standard markup
                           const productPrice = parseFloat(String(product.price || 0).replace(/[£₨$€]/g, '')) || 0;
                           
-                          console.log(`🔍 Calculating profit for new product: ${product.name}`, {
-                            originalPrice: product.price,
-                            extractedPrice: productPrice,
-                            hasValidPrice: productPrice > 0
-                          });
-                          
                           if (productPrice > 0) {
                             // Convert price to GBP if it's in other currency
                             let costPriceGBP = productPrice;
@@ -1168,16 +1118,6 @@ const AmazonsChoice = () => {
                             // Calculate profit assuming 200% markup (selling price = cost * 3)
                             // So profit per unit = cost * 2
                             profitPerUnit = costPriceGBP * 2;
-                            
-                            console.log(`💰 Calculated profit for ${product.name}:`, {
-                              originalPrice: product.price,
-                              costPriceGBP: costPriceGBP.toFixed(2),
-                              profitPerUnit: profitPerUnit.toFixed(2),
-                              markup: '200%',
-                              currency: isPKR ? 'PKR->GBP' : isGBP ? 'GBP' : 'Assumed GBP'
-                            });
-                          } else {
-                            console.log(`❌ No valid price found for ${product.name}, cannot calculate profit`);
                           }
                         }
                       }
@@ -1189,16 +1129,8 @@ const AmazonsChoice = () => {
                     const dealUnits = product.dealUnits || 1;
                     const totalProfit = profitPerUnit * dealUnits;
 
-                    console.log(`📊 Final profit calculation for ${product.name}:`, {
-                      profitPerUnit: profitPerUnit.toFixed(2),
-                      dealUnits: dealUnits,
-                      totalProfit: totalProfit.toFixed(2),
-                      willShow: profitPerUnit > 0
-                    });
-
                     // Don't show if profit is 0 or invalid
                     if (profitPerUnit <= 0) {
-                      console.log(`❌ Not showing profit for ${product.name} - profit is ${profitPerUnit}`);
                       return null;
                     }
 
@@ -1259,18 +1191,7 @@ const AmazonsChoice = () => {
                   }}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '2px'}}>
                       <span style={{fontSize: '8px', color: '#cc3300', fontWeight: '700'}}>
-                        💰 Deal of {(() => {
-                          const isAmberBulb = product.name && product.name.toLowerCase().includes('amber glass');
-                          if (isAmberBulb) {
-                            console.log('🔍 AMBER BULB DISPLAY DEBUG:', {
-                              productName: product.name,
-                              productDealUnits: product.dealUnits,
-                              productPlatformUnits: product.platformUnits,
-                              fallbackValue: product.dealUnits || 1
-                            });
-                          }
-                          return product.dealUnits || 1;
-                        })()} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
+                        💰 Deal of {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{fontSize: '8px', fontWeight: '800', color: '#ff3300'}}>
                         {(() => {

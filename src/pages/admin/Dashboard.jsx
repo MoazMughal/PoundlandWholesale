@@ -16,6 +16,7 @@ const AdminDashboard = () => {
   const [recentProducts, setRecentProducts] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
   const [amazonsChoice, setAmazonsChoice] = useState([]);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
 
   const [categories, setCategories] = useState({});
   const [sellers, setSellers] = useState([]);
@@ -44,6 +45,7 @@ const AdminDashboard = () => {
     fetchAllProducts();
     fetchAmazonsChoice();
     fetchSellers();
+    fetchPendingApprovals();
   }, []);
 
   // Set currency to GBP for admin dashboard (only once on mount)
@@ -126,6 +128,17 @@ const AdminDashboard = () => {
       setSellers(data.sellers);
     } catch (error) {
       console.error('Error fetching sellers:', error);
+    }
+  };
+
+  const fetchPendingApprovals = async () => {
+    try {
+      const response = await adminGet('http://localhost:5000/api/products/pending-approval');
+      const data = await response.json();
+      setPendingApprovals(data.products?.length || 0);
+    } catch (error) {
+      console.error('Error fetching pending approvals:', error);
+      setPendingApprovals(0);
     }
   };
 
@@ -1056,6 +1069,9 @@ const AdminDashboard = () => {
       <div className="quick-tools compact">
         <button onClick={() => navigate('/admin/products')} className="tool-btn">
           📦 Manage All ({stats?.products.total || 0})
+        </button>
+        <button onClick={() => navigate('/admin/approval')} className="tool-btn info">
+          ✅ Approval ({pendingApprovals} pending)
         </button>
         <button onClick={importHardcodedProducts} className="tool-btn success" style={{color: 'black'}}>
           📥 Import JSON

@@ -5,6 +5,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import ExcelProduct from '../models/ExcelProduct.js';
+import { authenticateAdmin } from '../middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,8 +72,11 @@ function extractProductName(row, allKeys, index) {
 async function fetchAmazonImage(asin) {
   if (!asin) return null;
   
+  console.log(`🖼️ Fetching Amazon image for ASIN: ${asin}`);
+  
   // Check cache first
   if (imageCache.has(asin)) {
+    console.log(`📷 Using cached image for ASIN ${asin}`);
     return imageCache.get(asin);
   }
   
@@ -121,17 +126,22 @@ async function fetchAmazonImage(asin) {
         if (imageUrl) {
           // Clean up the URL
           imageUrl = imageUrl.replace(/\._.*?_\./, '._AC_SL1500_.');
+          console.log(`✅ Successfully found image: ${imageUrl}`);
           imageCache.set(asin, imageUrl);
           return imageUrl;
+        } else {
+          console.log(`⚠️ No image found on ${domain}`);
         }
       } catch (err) {
-
+        console.log(`⚠️ Failed to scrape ${domain}:`, err.message);
         continue;
       }
     }
     
     // If all methods fail, return a constructed URL (may or may not work)
+    console.log(`⚠️ All scraping methods failed, trying fallback URL for ASIN: ${asin}`);
     const fallbackUrl = `https://images-na.ssl-images-amazon.com/images/P/${asin}.jpg`;
+    console.log(`🔄 Fallback URL: ${fallbackUrl}`);
     imageCache.set(asin, fallbackUrl);
     return fallbackUrl;
     
@@ -280,6 +290,524 @@ router.get('/info', async (req, res) => {
 let productsCache = null;
 let cacheTimestamp = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Get product by ASIN from Excel data (database first, then files)
+router.get('/asin/:asin', authenticateAdmin, async (req, res) => {
+  try {
+    const { asin } = req.params;
+    
+    console.log('🔍 ASIN Fetch Request:', asin);
+    
+    if (!asin || asin.length !== 10) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid ASIN format. ASIN must be 10 characters long.' 
+      });
+    }
+    
+    // First, check ExcelProduct database (from admin/excel-manager)
+    try {
+      console.log('🗄️ Checking ExcelProduct database for ASIN:', asin);
+      
+      const excelProduct = await ExcelProduct.findOne({ 
+        asin: asin.toUpperCase(),
+        status: { $in: ['pending', 'active'] } // Only get non-converted products
+      }).populate('excelUploadId');
+      
+      if (excelProduct) {
+        console.log('✅ Found ASIN in ExcelProduct database:', excelProduct.name);
+        console.log('📷 ExcelProduct images:', excelProduct.images);
+        
+        // Prepare images array
+        let productImages = [];
+        
+        // First, add any existing images from ExcelProduct
+        if (excelProduct.images && excelProduct.images.length > 0) {
+          productImages = [...excelProduct.images];
+          console.log('📷 Using ExcelProduct images:', productImages);
+        }
+        
+        // If no images or we want to ensure we have Amazon images, try to fetch from Amazon
+        if (productImages.length === 0) {
+          console.log('📷 No images in ExcelProduct, trying to fetch from Amazon...');
+          try {
+            const amazonImage = await fetchAmazonImage(asin);
+            if (amazonImage) {
+              productImages.push(amazonImage);
+              console.log('📷 Fetched Amazon image:', amazonImage);
+            }
+          } catch (error) {
+            console.log('⚠️ Could not fetch Amazon image for ASIN:', asin, error.message);
+          }
+        }
+        
+        // If still no images, try to construct Amazon image URLs
+        if (productImages.length === 0) {
+          console.log('📷 Trying direct Amazon image URLs...');
+          const directAmazonUrls = [
+            `https://images-na.ssl-images-amazon.com/images/I/${asin}._AC_SL1500_.jpg`,
+            `https://m.media-amazon.com/images/I/${asin}._AC_SL1500_.jpg`,
+            `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX500_.jpg`,
+            `https://images.amazon.com/images/P/${asin}.01.L.jpg`
+          ];
+          
+          // Test each URL to see if it works
+          for (const url of directAmazonUrls) {
+            try {
+              const response = await axios.head(url, { timeout: 3000 });
+              if (response.status === 200) {
+                productImages.push(url);
+                console.log('📷 Found working Amazon image URL:', url);
+                break; // Use the first working URL
+              }
+            } catch (error) {
+              // URL doesn't work, try next one
+              continue;
+            }
+          }
+        }
+        
+        console.log('📷 Final images array:', productImages);
+        
+        return res.json({
+          success: true,
+          product: {
+            name: excelProduct.name,
+            price: excelProduct.price || 0,
+            category: excelProduct.category || 'General',
+            brand: excelProduct.brand || '',
+            asin: excelProduct.asin,
+            rating: excelProduct.rating || 4.5,
+            reviews: excelProduct.reviews || 0,
+            description: excelProduct.description || '',
+            features: [], // ExcelProduct doesn't have features field, could be added
+            images: productImages,
+            stock: excelProduct.stock || 0,
+            dealUnits: excelProduct.dealUnits || 1,
+            source: 'ExcelManager',
+            uploadId: excelProduct.excelUploadId?._id,
+            uploadName: excelProduct.excelUploadId?.fileName
+          }
+        });
+      }
+      
+      console.log('❌ ASIN not found in ExcelProduct database, checking static files...');
+    } catch (dbError) {
+      console.error('⚠️ Error checking ExcelProduct database:', dbError.message);
+      console.log('📁 Falling back to static Excel files...');
+    }
+    
+    // Fallback: Check static Excel files
+    const excelFiles = [
+      { path: path.join(__dirname, '../../Products.xlsx'), name: 'Products' },
+      { path: path.join(__dirname, '../../Amazon10.xlsx'), name: 'Amazon10' },
+      { path: path.join(__dirname, '../../uae-asin.xlsx'), name: 'UAE' }
+    ];
+    
+    console.log('📁 Checking static Excel files:', excelFiles.map(f => ({ name: f.name, exists: fs.existsSync(f.path) })));
+    
+    for (const file of excelFiles) {
+      if (!fs.existsSync(file.path)) {
+        console.log(`❌ File not found: ${file.path}`);
+        continue;
+      }
+      
+      try {
+        console.log(`📖 Reading file: ${file.name}`);
+        const workbook = xlsx.readFile(file.path);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(worksheet);
+        
+        console.log(`📊 ${file.name} has ${data.length} rows`);
+        
+        // Find product by ASIN
+        const product = data.find(row => {
+          // Check various possible ASIN column names (expanded list)
+          const asinValue = row.ASIN || row.asin || row['Product ASIN'] || row['ASIN Code'] || 
+                           row['Product ID'] || row['ProductASIN'] || row['Asin'] || 
+                           row['PRODUCT_ASIN'] || row['product_asin'] || row['ID'] || 
+                           row['ProductId'] || row['Product_ID'] || row['PRODUCT_ID'];
+          const match = asinValue && asinValue.toString().toUpperCase() === asin.toUpperCase();
+          if (match) {
+            console.log(`✅ Found ASIN ${asin} in ${file.name}:`, row);
+          }
+          return match;
+        });
+        
+        if (product) {
+          console.log(`🎉 Product found in ${file.name}:`, product);
+          
+          // Extract product details
+          const allKeys = Object.keys(product);
+          const productName = extractProductName(product, allKeys, 0);
+          
+          // Extract other details with more column variations
+          const price = product.Price || product.price || product['Sale Price'] || product['Current Price'] || 
+                       product['Product Price'] || product['ListPrice'] || product['List Price'] || 
+                       product['PRICE'] || product['SalePrice'] || 0;
+          
+          const category = product.Category || product.category || product['Product Category'] || 
+                          product['CATEGORY'] || product['ProductCategory'] || product['Cat'] || 'General';
+          
+          const brand = product.Brand || product.brand || product['Brand Name'] || 
+                       product['BRAND'] || product['BrandName'] || product['Manufacturer'] || '';
+          
+          const rating = product.Rating || product.rating || product['Product Rating'] || 
+                        product['RATING'] || product['ProductRating'] || product['Stars'] || 4.5;
+          
+          const reviews = product.Reviews || product.reviews || product['Review Count'] || 
+                         product['REVIEWS'] || product['ReviewCount'] || product['NumReviews'] || 0;
+          
+          const description = product.Description || product.description || product['Product Description'] || 
+                             product['DESCRIPTION'] || product['ProductDescription'] || product['Details'] || '';
+          
+          // Extract features (look for feature columns)
+          const features = [];
+          allKeys.forEach(key => {
+            if (key.toLowerCase().includes('feature') || key.toLowerCase().includes('bullet')) {
+              const value = product[key];
+              if (value && value.toString().trim()) {
+                features.push(value.toString().trim());
+              }
+            }
+          });
+          
+          // Extract images with more column variations
+          const images = [];
+          allKeys.forEach(key => {
+            const keyLower = key.toLowerCase();
+            if (keyLower.includes('image') || keyLower.includes('img') || keyLower.includes('photo') || 
+                keyLower.includes('picture') || keyLower.includes('url') && keyLower.includes('image')) {
+              const value = product[key];
+              if (value && isImageUrl(value)) {
+                images.push(value.toString());
+              }
+            }
+          });
+          
+          // Try to fetch Amazon image if no images found
+          if (images.length === 0) {
+            try {
+              const amazonImage = await fetchAmazonImage(asin);
+              if (amazonImage) {
+                images.push(amazonImage);
+              }
+            } catch (error) {
+              console.log('Could not fetch Amazon image for ASIN:', asin);
+            }
+          }
+          
+          const result = {
+            success: true,
+            product: {
+              name: productName,
+              price: parseFloat(price) || 0,
+              category,
+              brand,
+              asin: asin.toUpperCase(),
+              rating: parseFloat(rating) || 4.5,
+              reviews: parseInt(reviews) || 0,
+              description,
+              features,
+              images,
+              source: `StaticFile_${file.name}`
+            }
+          };
+          
+          console.log('📤 Sending response:', result);
+          return res.json(result);
+        }
+      } catch (fileError) {
+        console.error(`❌ Error reading ${file.name}:`, fileError.message);
+        continue;
+      }
+    }
+    
+    console.log(`❌ ASIN ${asin} not found in ExcelProduct database or static files`);
+    
+    // ASIN not found in database or any file
+    res.status(404).json({
+      success: false,
+      message: 'ASIN not found in Excel database or uploaded files'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching product by ASIN:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch product by ASIN' 
+    });
+  }
+});
+
+// Debug endpoint to check ExcelProduct database statistics
+router.get('/debug/excel-database', authenticateAdmin, async (req, res) => {
+  try {
+    const stats = {
+      totalProducts: 0,
+      byStatus: {},
+      byUpload: [],
+      withAsin: 0,
+      sampleProducts: []
+    };
+    
+    // Get total count
+    stats.totalProducts = await ExcelProduct.countDocuments();
+    
+    // Get count by status
+    const statusCounts = await ExcelProduct.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+    statusCounts.forEach(item => {
+      stats.byStatus[item._id] = item.count;
+    });
+    
+    // Get count by upload
+    const uploadCounts = await ExcelProduct.aggregate([
+      { 
+        $lookup: {
+          from: 'exceluploads',
+          localField: 'excelUploadId',
+          foreignField: '_id',
+          as: 'upload'
+        }
+      },
+      { $unwind: '$upload' },
+      { 
+        $group: { 
+          _id: '$excelUploadId', 
+          count: { $sum: 1 },
+          fileName: { $first: '$upload.fileName' },
+          uploadDate: { $first: '$upload.createdAt' }
+        } 
+      },
+      { $sort: { uploadDate: -1 } }
+    ]);
+    stats.byUpload = uploadCounts;
+    
+    // Get count with ASIN
+    stats.withAsin = await ExcelProduct.countDocuments({ 
+      asin: { $exists: true, $ne: null, $ne: '' } 
+    });
+    
+    // Get sample products
+    stats.sampleProducts = await ExcelProduct.find()
+      .populate('excelUploadId', 'fileName')
+      .limit(5)
+      .select('name asin price category status excelUploadId')
+      .lean();
+    
+    res.json({
+      success: true,
+      stats
+    });
+  } catch (error) {
+    console.error('Error getting ExcelProduct database stats:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to get database statistics' 
+    });
+  }
+});
+
+// Debug endpoint to check Excel files structure
+router.get('/debug/files', async (req, res) => {
+  try {
+    const excelFiles = [
+      { path: path.join(__dirname, '../../Products.xlsx'), name: 'Products' },
+      { path: path.join(__dirname, '../../Amazon10.xlsx'), name: 'Amazon10' },
+      { path: path.join(__dirname, '../../uae-asin.xlsx'), name: 'UAE' }
+    ];
+    
+    const filesInfo = [];
+    
+    for (const file of excelFiles) {
+      const fileInfo = {
+        name: file.name,
+        path: file.path,
+        exists: fs.existsSync(file.path),
+        columns: [],
+        sampleData: [],
+        rowCount: 0
+      };
+      
+      if (fileInfo.exists) {
+        try {
+          const workbook = xlsx.readFile(file.path);
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const data = xlsx.utils.sheet_to_json(worksheet);
+          
+          fileInfo.rowCount = data.length;
+          if (data.length > 0) {
+            fileInfo.columns = Object.keys(data[0]);
+            fileInfo.sampleData = data.slice(0, 3).map(row => {
+              const sample = {};
+              fileInfo.columns.forEach(col => {
+                sample[col] = row[col];
+              });
+              return sample;
+            });
+          }
+        } catch (error) {
+          fileInfo.error = error.message;
+        }
+      }
+      
+      filesInfo.push(fileInfo);
+    }
+    
+    res.json({
+      success: true,
+      files: filesInfo
+    });
+  } catch (error) {
+    console.error('Error checking Excel files:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to check Excel files' 
+    });
+  }
+});
+
+// Debug endpoint to search for specific ASIN across all sources (database + files)
+router.get('/debug/search/:asin', authenticateAdmin, async (req, res) => {
+  try {
+    const { asin } = req.params;
+    
+    const searchResults = {
+      searchTerm: asin,
+      excelDatabase: {
+        found: false,
+        products: [],
+        error: null
+      },
+      staticFiles: []
+    };
+    
+    // First check ExcelProduct database
+    try {
+      console.log('🗄️ Searching ExcelProduct database for ASIN:', asin);
+      
+      const excelProducts = await ExcelProduct.find({ 
+        asin: { $regex: new RegExp(asin, 'i') }
+      }).populate('excelUploadId').limit(10);
+      
+      searchResults.excelDatabase.found = excelProducts.length > 0;
+      searchResults.excelDatabase.products = excelProducts.map(product => ({
+        id: product._id,
+        name: product.name,
+        asin: product.asin,
+        price: product.price,
+        category: product.category,
+        status: product.status,
+        uploadId: product.excelUploadId?._id,
+        uploadName: product.excelUploadId?.fileName,
+        exactMatch: product.asin?.toUpperCase() === asin.toUpperCase()
+      }));
+      
+      console.log(`📊 Found ${excelProducts.length} products in ExcelProduct database`);
+    } catch (dbError) {
+      console.error('⚠️ Error searching ExcelProduct database:', dbError.message);
+      searchResults.excelDatabase.error = dbError.message;
+    }
+    
+    // Then check static Excel files
+    const excelFiles = [
+      { path: path.join(__dirname, '../../Products.xlsx'), name: 'Products' },
+      { path: path.join(__dirname, '../../Amazon10.xlsx'), name: 'Amazon10' },
+      { path: path.join(__dirname, '../../uae-asin.xlsx'), name: 'UAE' }
+    ];
+    
+    for (const file of excelFiles) {
+      const fileResult = {
+        name: file.name,
+        path: file.path,
+        exists: fs.existsSync(file.path),
+        matches: [],
+        asinColumns: [],
+        totalRows: 0
+      };
+      
+      if (fileResult.exists) {
+        try {
+          const workbook = xlsx.readFile(file.path);
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const data = xlsx.utils.sheet_to_json(worksheet);
+          
+          fileResult.totalRows = data.length;
+          
+          if (data.length > 0) {
+            // Find ASIN-related columns
+            const columns = Object.keys(data[0]);
+            fileResult.asinColumns = columns.filter(col => 
+              col.toLowerCase().includes('asin') || 
+              col.toLowerCase().includes('id') ||
+              col.toLowerCase().includes('product')
+            );
+            
+            // Search for ASIN matches
+            data.forEach((row, index) => {
+              columns.forEach(col => {
+                const value = row[col];
+                if (value && value.toString().toUpperCase().includes(asin.toUpperCase())) {
+                  fileResult.matches.push({
+                    rowIndex: index,
+                    column: col,
+                    value: value,
+                    exactMatch: value.toString().toUpperCase() === asin.toUpperCase(),
+                    fullRow: row
+                  });
+                }
+              });
+            });
+          }
+        } catch (error) {
+          fileResult.error = error.message;
+        }
+      }
+      
+      searchResults.staticFiles.push(fileResult);
+    }
+    
+    res.json({
+      success: true,
+      ...searchResults
+    });
+  } catch (error) {
+    console.error('Error searching for ASIN:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to search for ASIN' 
+    });
+  }
+});
+
+// Test endpoint to fetch Amazon image for ASIN
+router.get('/test-image/:asin', async (req, res) => {
+  try {
+    const { asin } = req.params;
+    console.log(`🧪 Testing image fetch for ASIN: ${asin}`);
+    
+    const imageUrl = await fetchAmazonImage(asin);
+    
+    res.json({
+      success: true,
+      asin,
+      imageUrl,
+      message: imageUrl ? 'Image found successfully' : 'No image found'
+    });
+  } catch (error) {
+    console.error('Error testing image fetch:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to test image fetch',
+      error: error.message
+    });
+  }
+});
 
 // Clear cache endpoint (for debugging)
 router.get('/clear-cache', (req, res) => {

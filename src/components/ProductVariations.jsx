@@ -202,7 +202,6 @@ const ProductVariations = ({
   };
 
   if (!product.variations || product.variations.length === 0) {
-    console.log('🎨 No variations found for product:', product.name);
     return null;
   }
 

@@ -1,0 +1,207 @@
+/* Enhanced Image Loading Fixes for All Platforms */
+
+/* Base image container styles */
+.enhanced-image-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Enhanced image styles */
+.enhanced-image {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+/* Loading state */
+.enhanced-image.loading {
+  opacity: 0.7;
+  filter: blur(1px);
+}
+
+/* Error state */
+.enhanced-image.error {
+  opacity: 0.5;
+  filter: grayscale(100%);
+}
+
+/* Product card image containers */
+.product-image-container {
+  position: relative;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.product-image-container img {
+  max-width: 85%;
+  max-height: 85%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+/* Mobile-specific image fixes */
+@media (max-width: 576px) {
+  .product-image-container {
+    min-height: 120px;
+    padding: 12px;
+  }
+  
+  .product-image-container img {
+    max-width: 70%;
+    max-height: 70%;
+  }
+  
+  /* Ensure images are properly centered on mobile */
+  .enhanced-image-container {
+    min-height: 100px;
+  }
+  
+  /* Mobile loading spinner */
+  .enhanced-image-container .loading-spinner {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+  }
+}
+
+/* Desktop optimizations */
+@media (min-width: 577px) {
+  .product-image-container {
+    min-height: 140px;
+    padding: 16px;
+  }
+  
+  .product-image-container:hover img {
+    transform: scale(1.05);
+  }
+  
+  .enhanced-image-container {
+    min-height: 120px;
+  }
+}
+
+/* Loading spinner animation */
+@keyframes imageSpinner {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ff6600;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: imageSpinner 1s linear infinite;
+}
+
+/* Image error placeholder */
+.image-error-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
+}
+
+.image-error-placeholder .icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+/* Lazy loading optimization */
+.enhanced-image[loading="lazy"] {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.enhanced-image[loading="lazy"].loaded {
+  opacity: 1;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .product-image-container {
+    border: 2px solid #000;
+  }
+  
+  .enhanced-image.loading {
+    filter: none;
+    opacity: 0.8;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .enhanced-image,
+  .product-image-container img {
+    transition: none;
+  }
+  
+  .loading-spinner {
+    animation: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .enhanced-image-container .loading-spinner,
+  .image-error-placeholder {
+    display: none;
+  }
+  
+  .enhanced-image {
+    opacity: 1 !important;
+    filter: none !important;
+  }
+}
+
+/* Force hardware acceleration for smooth animations */
+.enhanced-image,
+.product-image-container img {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Ensure images don't break layout */
+.product-card .enhanced-image-container {
+  flex-shrink: 0;
+}
+
+/* Amazon's Choice specific image styles */
+.amazons-choice-page .product-image-container {
+  background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.amazons-choice-page .enhanced-image {
+  border-radius: 4px;
+}
+
+/* Network-aware loading */
+@media (prefers-reduced-data: reduce) {
+  .enhanced-image {
+    image-rendering: optimizeSpeed;
+  }
+}

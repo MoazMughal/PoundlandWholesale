@@ -125,8 +125,6 @@ const LinkedProductPreview = ({ productId }) => {
 };
 
 const AdminProducts = () => {
-  console.log('🔍 AdminProducts component loading...');
-  
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -1049,6 +1047,44 @@ const AdminProducts = () => {
     }
   };
 
+  const handleCleanupDuplicateCategories = async () => {
+    if (!confirm('🧹 This will clean up duplicate categories by normalizing their names.\n\nFor example:\n• "electronics" and "Electronics" → "Electronics"\n• "home & garden" and "Home & Garden" → "Home & Garden"\n\nThis action cannot be undone. Continue?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch('http://localhost:5000/api/products/admin/cleanup-duplicate-categories', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Duplicate categories cleaned up:', data);
+        
+        // Clear cache and refresh data
+        cacheManager.clearAll();
+        localStorage.setItem('categoriesUpdated', Date.now().toString());
+        window.dispatchEvent(new CustomEvent('refreshCategories'));
+        
+        alert(`✅ Cleanup completed!\n\n• ${data.duplicateGroups} duplicate category groups fixed\n• ${data.totalProductsUpdated} products updated\n• ${data.excelProductsUpdated} Excel products updated\n\nThe page will refresh to show the updated categories.`);
+        
+        // Refresh the page to show updated data
+        window.location.reload();
+      } else {
+        const errorData = await response.json();
+        alert(`❌ Error cleaning up categories: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error('❌ Error cleaning up duplicate categories:', error);
+      alert('❌ Failed to clean up duplicate categories. Please try again.');
+    }
+  };
+
   const handleSelectProduct = (productId) => {
     setSelectedProducts(prev => {
       const newSet = new Set(prev);
@@ -1194,8 +1230,8 @@ const AdminProducts = () => {
 
   const handleCellClick = (productId, field, currentValue) => {
     setEditingCell(`${productId}-${field}`);
-    // Ensure ASIN field has a proper initial value (empty string if null/undefined)
-    const initialValue = field === 'asin' ? (currentValue || '') : currentValue;
+    // Ensure ASIN and SKU fields have proper initial values (empty string if null/undefined)
+    const initialValue = (field === 'asin' || field === 'sku') ? (currentValue || '') : currentValue;
     setEditValues({ ...editValues, [`${productId}-${field}`]: initialValue });
   };
 
@@ -1207,8 +1243,8 @@ const AdminProducts = () => {
     const cellKey = `${productId}-${field}`;
     const newValue = editValues[cellKey];
 
-    // Allow empty values for ASIN field, but not for price/stock
-    if (newValue === undefined || (newValue === '' && field !== 'asin')) {
+    // Allow empty values for ASIN and SKU fields, but not for price/stock
+    if (newValue === undefined || (newValue === '' && field !== 'asin' && field !== 'sku')) {
       return;
     }
 
@@ -1220,6 +1256,9 @@ const AdminProducts = () => {
         parsedValue = parseFloat(newValue);
       } else if (field === 'asin') {
         // Handle ASIN field - trim and convert to uppercase, allow empty string
+        parsedValue = newValue ? newValue.trim().toUpperCase() : '';
+      } else if (field === 'sku') {
+        // Handle SKU field - trim and convert to uppercase, allow empty string
         parsedValue = newValue ? newValue.trim().toUpperCase() : '';
       } else {
         parsedValue = newValue;
@@ -1233,6 +1272,16 @@ const AdminProducts = () => {
       // Debug logging for ASIN updates
       if (field === 'asin') {
         console.log('🏷️ Saving ASIN:', {
+          productId,
+          originalValue: newValue,
+          parsedValue,
+          updateData
+        });
+      }
+
+      // Debug logging for SKU updates
+      if (field === 'sku') {
+        console.log('🏷️ Saving SKU:', {
           productId,
           originalValue: newValue,
           parsedValue,
@@ -2333,6 +2382,37 @@ const AdminProducts = () => {
             <span style={{ fontSize: '1.1rem' }}>📂</span>
             Manage Categories
           </button>
+          
+          <button
+            onClick={handleCleanupDuplicateCategories}
+            style={{
+              background: 'rgba(255, 193, 7, 0.9)',
+              border: '2px solid rgba(255, 193, 7, 0.3)',
+              color: '#212529',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.3s ease',
+              backdropFilter: 'blur(10px)'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.background = 'rgba(255, 193, 7, 1)';
+              e.target.style.transform = 'translateY(-2px)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.background = 'rgba(255, 193, 7, 0.9)';
+              e.target.style.transform = 'translateY(0)';
+            }}
+            title="Clean up duplicate categories (e.g., 'electronics' and 'Electronics')"
+          >
+            <span style={{ fontSize: '1.1rem' }}>🧹</span>
+            Fix Duplicates
+          </button>
           <button
             onClick={() => {
               console.log('🔄 Manual refresh triggered');
@@ -2408,6 +2488,36 @@ const AdminProducts = () => {
               Bulk Edit ({selectedProducts.size})
             </button>
           )}
+          <button
+            onClick={() => navigate('/admin/approval')}
+            style={{
+              background: 'rgba(34, 197, 94, 0.9)',
+              border: '2px solid rgba(34, 197, 94, 0.3)',
+              color: 'white',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.3s ease',
+              backdropFilter: 'blur(10px)'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.background = 'rgba(34, 197, 94, 1)';
+              e.target.style.transform = 'translateY(-2px)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.background = 'rgba(34, 197, 94, 0.9)';
+              e.target.style.transform = 'translateY(0)';
+            }}
+            title="Review and approve pending products"
+          >
+            <span style={{ fontSize: '1.1rem' }}>✅</span>
+            Approval
+          </button>
           <button
             onClick={() => navigate('/admin/products/add')}
             style={{
@@ -2917,6 +3027,7 @@ const AdminProducts = () => {
                   </th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Product</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>ASIN</th>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>SKU</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Category</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Price</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Stock</th>
@@ -2996,6 +3107,46 @@ const AdminProducts = () => {
                           fontWeight: product.asin ? '600' : '400'
                         }}>
                           {product.asin || 'No ASIN'}
+                          <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      className="sku"
+                      style={{ padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s' }}
+                      data-cell={`${product._id}-sku`}
+                      onClick={() => handleCellClick(product._id, 'sku', product.sku)}
+                      onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
+                      onMouseLeave={(e) => e.target.style.background = ''}
+                      title="Click to edit SKU"
+                    >
+                      {editingCell === `${product._id}-sku` ? (
+                        <input
+                          type="text"
+                          value={editValues[`${product._id}-sku`] || ''}
+                          onChange={(e) => handleEditChange(product._id, 'sku', e.target.value.toUpperCase())}
+                          onBlur={() => handleSaveEdit(product._id, 'sku')}
+                          onKeyDown={(e) => handleKeyPress(e, product._id, 'sku')}
+                          autoFocus
+                          style={{
+                            width: '100px',
+                            padding: '3px',
+                            fontSize: '0.7rem',
+                            border: '2px solid #667eea',
+                            borderRadius: '4px',
+                            outline: 'none',
+                            textTransform: 'uppercase',
+                            fontFamily: 'monospace'
+                          }}
+                        />
+                      ) : (
+                        <span style={{
+                          fontSize: '0.65rem',
+                          fontFamily: 'monospace',
+                          color: product.sku ? '#374151' : '#9ca3af',
+                          fontWeight: product.sku ? '600' : '400'
+                        }}>
+                          {product.sku || 'No SKU'}
                           <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
                         </span>
                       )}

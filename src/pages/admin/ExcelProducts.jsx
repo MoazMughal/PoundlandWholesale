@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiUrl } from '../../utils/api';
+import BulkConvertModal from '../../components/BulkConvertModal';
+import CategorySelectionModal from '../../components/CategorySelectionModal';
 import '../../styles/AdminLayout.css';
 
 const ExcelProducts = () => {
@@ -10,17 +12,49 @@ const ExcelProducts = () => {
   const [upload, setUpload] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState(new Set());
-  const [currentPage, setCurrentPage] = useState(1);
+  
+  // Initialize state from URL parameters if available
+  const urlParams = new URLSearchParams(window.location.search);
+  const [currentPage, setCurrentPage] = useState(parseInt(urlParams.get('page')) || 1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [pageSize, setPageSize] = useState(50); // Default to 50 products per page
+  const [searchQuery, setSearchQuery] = useState(urlParams.get('search') || '');
+  const [categoryFilter, setCategoryFilter] = useState(urlParams.get('category') || 'all');
+  const [statusFilter, setStatusFilter] = useState(urlParams.get('status') || 'all');
+  const [pageSize, setPageSize] = useState(parseInt(urlParams.get('pageSize')) || 100); // Default to 100 products per page
   const [editingCell, setEditingCell] = useState(null); // { productId, field }
   const [editingValue, setEditingValue] = useState('');
   const [savedCell, setSavedCell] = useState(null); // { productId, field } for showing save feedback
   const [availableCategories, setAvailableCategories] = useState([]);
+  const [showBulkConvertModal, setShowBulkConvertModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categoryModalData, setCategoryModalData] = useState({ categories: [] });
+
+  // Function to update URL with current state
+  const updateUrlWithState = (newState = {}) => {
+    const params = new URLSearchParams();
+    const state = {
+      page: currentPage,
+      search: searchQuery,
+      category: categoryFilter,
+      status: statusFilter,
+      pageSize: pageSize,
+      ...newState
+    };
+    
+    // Only add non-default values to URL
+    if (state.page > 1) params.set('page', state.page);
+    if (state.search) params.set('search', state.search);
+    if (state.category && state.category !== 'all') params.set('category', state.category);
+    if (state.status && state.status !== 'all') params.set('status', state.status);
+    if (state.pageSize !== 100) params.set('pageSize', state.pageSize);
+    
+    const queryString = params.toString();
+    const newUrl = queryString ? `?${queryString}` : '';
+    
+    // Update URL without triggering navigation
+    window.history.replaceState({}, '', `/admin/excel-products/${uploadId}${newUrl}`);
+  };
 
   useEffect(() => {
     // Debounce the search to avoid too many API calls
@@ -118,33 +152,42 @@ const ExcelProducts = () => {
       return;
     }
 
-    if (!confirm(`Are you sure you want to convert ${selectedProducts.size} selected products to main products? They will appear on the website.`)) {
-      return;
-    }
+    // Show the confirmation modal
+    setShowBulkConvertModal(true);
+  };
 
-    try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(getApiUrl(`admin-excel/uploads/${uploadId}/convert-products`), {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ productIds: Array.from(selectedProducts) })
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        alert(`✅ Successfully converted ${result.convertedProducts.length} products to main products!`);
-        setSelectedProducts(new Set());
-        fetchProducts();
+  const handleBulkConvertSuccess = (result) => {
+    alert(`✅ Successfully converted ${result.convertedProducts.length} products!\n\n📊 Categories created/used: ${result.categoriesProcessed}\n🖼️ Products with images: ${result.productsWithImages}\n🌟 All products listed on Amazon's Choice!`);
+    setSelectedProducts(new Set());
+    fetchProducts();
+    
+    // Use the categories from the result
+    const convertedCategories = result.convertedCategories || [];
+    
+    // Ask if user wants to view Amazon's Choice page
+    if (confirm('🌟 Would you like to view the products on Amazon\'s Choice page?')) {
+      if (convertedCategories.length === 1) {
+        // Single category - navigate directly to that category
+        const category = convertedCategories[0];
+        window.open(`/amazons-choice?cat=${encodeURIComponent(category)}`, '_blank');
+      } else if (convertedCategories.length > 1) {
+        // Multiple categories - show category selection modal
+        setCategoryModalData({ categories: convertedCategories });
+        setShowCategoryModal(true);
       } else {
-        alert(`❌ Failed to convert products: ${result.message}`);
+        // No specific categories - show all
+        window.open('/amazons-choice', '_blank');
       }
-    } catch (error) {
-      console.error('Error converting products:', error);
-      alert('❌ Failed to convert products');
+    }
+  };
+
+  const handleCategorySelect = (selectedCategory) => {
+    if (selectedCategory) {
+      // Navigate to specific category
+      window.open(`/amazons-choice?cat=${encodeURIComponent(selectedCategory)}`, '_blank');
+    } else {
+      // Navigate to all products
+      window.open('/amazons-choice', '_blank');
     }
   };
 
@@ -202,6 +245,51 @@ const ExcelProducts = () => {
     }
   };
 
+  const handleSingleListToAmazonsChoice = async (productId, productName) => {
+    if (!confirm(`🏆 List "${productName}" to Amazon's Choice?\n\nThis will:\n✅ Convert the product to main products\n🌟 Set it as Amazon's Choice\n🔗 Make it visible on the Amazon's Choice page\n\nContinue?`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(getApiUrl('admin-excel/single-list-to-amazons-choice'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ productId })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(`✅ ${result.message}\n\n🔗 Product ID: ${result.productId}\n🌟 You can now view it on the Amazon's Choice page!`);
+        fetchProducts(); // Refresh the list to show updated status
+        
+        // Get the product category for navigation
+        const product = products.find(p => p._id === productId);
+        const productCategory = product?.category;
+        
+        // Ask if user wants to view the product
+        if (confirm('🌟 Would you like to view the product on Amazon\'s Choice page?')) {
+          if (productCategory) {
+            // Navigate to the specific category
+            window.open(`/amazons-choice?cat=${encodeURIComponent(productCategory)}`, '_blank');
+          } else {
+            // Fallback to all products
+            window.open('/amazons-choice', '_blank');
+          }
+        }
+      } else {
+        alert(`❌ Failed to list product: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error listing product to Amazon\'s Choice:', error);
+      alert('❌ Failed to list product to Amazon\'s Choice');
+    }
+  };
+
   const formatPrice = (price) => `£${parseFloat(price || 0).toFixed(2)}`;
 
   const formatDate = (dateString) => {
@@ -217,6 +305,7 @@ const ExcelProducts = () => {
   const handlePageSizeChange = (newPageSize) => {
     setPageSize(newPageSize);
     setCurrentPage(1); // Reset to first page when changing page size
+    updateUrlWithState({ pageSize: newPageSize, page: 1 });
   };
 
   const startEditing = (productId, field, currentValue) => {
@@ -465,19 +554,34 @@ const ExcelProducts = () => {
           alignItems: 'center',
           marginBottom: '16px',
           padding: '12px 16px',
-          background: 'linear-gradient(135deg, #d18344ff 0%, #d83722ff 100%)',
+          background: import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true'
+            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
+            : 'linear-gradient(135deg, #d18344ff 0%, #d83722ff 100%)',
           borderRadius: '8px',
           color: 'white'
         }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>
               📊 {upload?.originalFileName || 'Excel Products'}
+              {import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' && (
+                <span style={{
+                  marginLeft: '8px',
+                  padding: '2px 6px',
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px',
+                  fontSize: '0.7rem',
+                  fontWeight: '500'
+                }}>
+                  🚀 DEV MODE
+                </span>
+              )}
             </h1>
             <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', opacity: 0.9 }}>
               {totalProducts} products • Uploaded {upload ? formatDate(upload.uploadedAt) : ''}
             </p>
             <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', opacity: 0.8 }}>
               💡 Click cells to edit inline • Enter to save • Escape to cancel
+              {import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' && ' • 🚀 Bulk conversion available'}
             </p>
           </div>
           <button
@@ -504,8 +608,22 @@ const ExcelProducts = () => {
           padding: '12px 16px',
           borderRadius: '8px',
           boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          marginBottom: '16px'
+          marginBottom: '16px',
+          border: import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' ? '2px solid #10b981' : 'none'
         }}>
+          {import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' && (
+            <div style={{
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: 'white',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              marginBottom: '12px',
+              fontSize: '0.8rem',
+              fontWeight: '600'
+            }}>
+              🚀 DEVELOPMENT MODE: Enhanced bulk conversion available - Select multiple products and click "Bulk Convert" to automatically create categories and list products with images on Amazon's Choice!
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <input
               type="text"
@@ -515,6 +633,7 @@ const ExcelProducts = () => {
                 console.log('Search query changed to:', e.target.value);
                 setSearchQuery(e.target.value);
                 setCurrentPage(1); // Reset to first page when search changes
+                updateUrlWithState({ search: e.target.value, page: 1 });
               }}
               style={{
                 padding: '6px 10px',
@@ -531,6 +650,7 @@ const ExcelProducts = () => {
                 console.log('Category filter changed to:', e.target.value);
                 setCategoryFilter(e.target.value);
                 setCurrentPage(1); // Reset to first page when filter changes
+                updateUrlWithState({ category: e.target.value, page: 1 });
               }}
               style={{
                 padding: '6px 10px',
@@ -551,6 +671,7 @@ const ExcelProducts = () => {
                 console.log('Status filter changed to:', e.target.value);
                 setStatusFilter(e.target.value);
                 setCurrentPage(1); // Reset to first page when filter changes
+                updateUrlWithState({ status: e.target.value, page: 1 });
               }}
               style={{
                 padding: '6px 10px',
@@ -579,6 +700,7 @@ const ExcelProducts = () => {
               <option value={20}>20/page</option>
               <option value={50}>50/page</option>
               <option value={100}>100/page</option>
+              <option value={200}>200/page</option>
             </select>
 
             {selectedProducts.size > 0 && (
@@ -594,8 +716,9 @@ const ExcelProducts = () => {
                   cursor: 'pointer',
                   fontWeight: '600'
                 }}
+                title="Show confirmation modal to convert selected products to Amazon's Choice with images and categories"
               >
-                🌐 Convert ({selectedProducts.size})
+                💡 Bulk Convert ({selectedProducts.size})
               </button>
             )}
 
@@ -635,24 +758,6 @@ const ExcelProducts = () => {
           </div>
         </div>
 
-        {/* Debug Info - Remove in production */}
-        {process.env.NODE_ENV !== 'production' && (
-          <div style={{
-            background: '#f0f9ff',
-            border: '1px solid #0ea5e9',
-            borderRadius: '4px',
-            padding: '8px',
-            marginBottom: '16px',
-            fontSize: '0.75rem',
-            fontFamily: 'monospace'
-          }}>
-            <strong>Debug Info:</strong><br/>
-            API Base: {getApiUrl('')}<br/>
-            Environment: {import.meta.env.MODE}<br/>
-            VITE_API_URL: {import.meta.env.VITE_API_URL}<br/>
-            Sample Image URL: {getApiUrl('admin-excel/public/images/by-asin/TEST123')}
-          </div>
-        )}
 
         {/* Products Table - Main Focus */}
         <div style={{
@@ -697,7 +802,21 @@ const ExcelProducts = () => {
                         type="checkbox"
                         checked={selectedProducts.size === products.length && products.length > 0}
                         onChange={handleSelectAll}
+                        style={{
+                          transform: import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' ? 'scale(1.2)' : 'scale(1)',
+                          accentColor: import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' ? '#10b981' : undefined
+                        }}
                       />
+                      {import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' && (
+                        <span style={{
+                          marginLeft: '4px',
+                          fontSize: '0.6rem',
+                          color: '#10b981',
+                          fontWeight: '600'
+                        }}>
+                          All
+                        </span>
+                      )}
                     </th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>Product</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>ASIN</th>
@@ -737,7 +856,21 @@ const ExcelProducts = () => {
                           checked={selectedProducts.has(product._id)}
                           onChange={() => handleSelectProduct(product._id)}
                           disabled={product.isConverted}
+                          style={{
+                            transform: import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' ? 'scale(1.2)' : 'scale(1)',
+                            accentColor: import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' ? '#10b981' : undefined
+                          }}
                         />
+                        {import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' && !product.isConverted && (
+                          <span style={{
+                            marginLeft: '4px',
+                            fontSize: '0.6rem',
+                            color: '#10b981',
+                            fontWeight: '600'
+                          }}>
+                            ✓
+                          </span>
+                        )}
                       </td>
                       <td style={{ padding: '8px 10px' }}>
                         <div style={{ fontWeight: '600', marginBottom: '2px', fontSize: '0.8rem' }}>
@@ -910,7 +1043,7 @@ const ExcelProducts = () => {
                         #{product.rowNumber}
                       </td>
                       <td style={{ padding: '8px 10px' }}>
-                        <div style={{ display: 'flex', gap: '4px' }}>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                           <button
                             onClick={() => navigate(`/admin/excel-products/${uploadId}/edit/${product._id}`)}
                             style={{
@@ -926,9 +1059,42 @@ const ExcelProducts = () => {
                           >
                             ✏️ Edit
                           </button>
+                          
+                          {/* Single List to Amazon's Choice Button */}
+                          {!product.isConverted && (
+                            <button
+                              onClick={() => handleSingleListToAmazonsChoice(product._id, product.name)}
+                              style={{
+                                padding: '4px 8px',
+                                background: '#ff6600',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '3px',
+                                fontSize: '0.7rem',
+                                cursor: 'pointer',
+                                fontWeight: '500',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title="List this product to Amazon's Choice"
+                            >
+                              🏆 List
+                            </button>
+                          )}
+                          
                           {product.isConverted && product.mainProductId && (
                             <button
-                              onClick={() => navigate(`/product/${product.mainProductId}`)}
+                              onClick={() => {
+                                // Preserve current page state in URL
+                                const currentState = {
+                                  page: currentPage,
+                                  search: searchQuery,
+                                  category: categoryFilter,
+                                  status: statusFilter,
+                                  pageSize: pageSize
+                                };
+                                const stateParams = new URLSearchParams(currentState).toString();
+                                navigate(`/product/${product.mainProductId}?returnTo=/admin/excel-products/${uploadId}&${stateParams}`);
+                              }}
                               style={{
                                 padding: '4px 8px',
                                 background: '#10b981',
@@ -941,6 +1107,26 @@ const ExcelProducts = () => {
                               }}
                             >
                               👁️ View
+                            </button>
+                          )}
+                          
+                          {product.isConverted && (
+                            <button
+                              onClick={() => window.open('/amazons-choice', '_blank')}
+                              style={{
+                                padding: '4px 8px',
+                                background: '#8b5cf6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '3px',
+                                fontSize: '0.7rem',
+                                cursor: 'pointer',
+                                fontWeight: '500',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title="View on Amazon's Choice page"
+                            >
+                              🌟 Amazon's Choice
                             </button>
                           )}
                         </div>
@@ -989,6 +1175,7 @@ const ExcelProducts = () => {
                           const page = parseInt(e.target.value);
                           if (page >= 1 && page <= totalPages) {
                             setCurrentPage(page);
+                            updateUrlWithState({ page: page });
                             e.target.value = '';
                           }
                         }
@@ -997,6 +1184,7 @@ const ExcelProducts = () => {
                         const page = parseInt(e.target.value);
                         if (page >= 1 && page <= totalPages) {
                           setCurrentPage(page);
+                          updateUrlWithState({ page: page });
                           e.target.value = '';
                         }
                       }}
@@ -1008,7 +1196,10 @@ const ExcelProducts = () => {
               <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
                 {/* First and Previous buttons */}
                 <button
-                  onClick={() => setCurrentPage(1)}
+                  onClick={() => {
+                    setCurrentPage(1);
+                    updateUrlWithState({ page: 1 });
+                  }}
                   disabled={currentPage === 1}
                   style={{
                     padding: '5px 8px',
@@ -1024,7 +1215,11 @@ const ExcelProducts = () => {
                   First
                 </button>
                 <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  onClick={() => {
+                    const newPage = Math.max(1, currentPage - 1);
+                    setCurrentPage(newPage);
+                    updateUrlWithState({ page: newPage });
+                  }}
                   disabled={currentPage === 1}
                   style={{
                     padding: '5px 8px',
@@ -1057,7 +1252,10 @@ const ExcelProducts = () => {
                     pageNumbers.push(
                       <button
                         key={1}
-                        onClick={() => setCurrentPage(1)}
+                        onClick={() => {
+                          setCurrentPage(1);
+                          updateUrlWithState({ page: 1 });
+                        }}
                         style={{
                           padding: '5px 8px',
                           background: 1 === currentPage ? '#667eea' : 'white',
@@ -1092,7 +1290,10 @@ const ExcelProducts = () => {
                     pageNumbers.push(
                       <button
                         key={i}
-                        onClick={() => setCurrentPage(i)}
+                        onClick={() => {
+                          setCurrentPage(i);
+                          updateUrlWithState({ page: i });
+                        }}
                         style={{
                           padding: '5px 8px',
                           background: i === currentPage ? '#667eea' : 'white',
@@ -1138,7 +1339,10 @@ const ExcelProducts = () => {
                     pageNumbers.push(
                       <button
                         key={totalPages}
-                        onClick={() => setCurrentPage(totalPages)}
+                        onClick={() => {
+                          setCurrentPage(totalPages);
+                          updateUrlWithState({ page: totalPages });
+                        }}
                         style={{
                           padding: '5px 8px',
                           background: totalPages === currentPage ? '#667eea' : 'white',
@@ -1161,7 +1365,11 @@ const ExcelProducts = () => {
 
                 {/* Next and Last buttons */}
                 <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  onClick={() => {
+                    const newPage = Math.min(totalPages, currentPage + 1);
+                    setCurrentPage(newPage);
+                    updateUrlWithState({ page: newPage });
+                  }}
                   disabled={currentPage === totalPages}
                   style={{
                     padding: '5px 8px',
@@ -1177,7 +1385,10 @@ const ExcelProducts = () => {
                   →
                 </button>
                 <button
-                  onClick={() => setCurrentPage(totalPages)}
+                  onClick={() => {
+                    setCurrentPage(totalPages);
+                    updateUrlWithState({ page: totalPages });
+                  }}
                   disabled={currentPage === totalPages}
                   style={{
                     padding: '5px 8px',
@@ -1197,6 +1408,24 @@ const ExcelProducts = () => {
           )}
         </div>
       </div>
+
+      {/* Bulk Convert Modal */}
+      <BulkConvertModal
+        isOpen={showBulkConvertModal}
+        onClose={() => setShowBulkConvertModal(false)}
+        selectedProducts={selectedProducts}
+        products={products}
+        uploadId={uploadId}
+        onSuccess={handleBulkConvertSuccess}
+      />
+
+      {/* Category Selection Modal */}
+      <CategorySelectionModal
+        isOpen={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+        categories={categoryModalData.categories}
+        onCategorySelect={handleCategorySelect}
+      />
     </div>
   );
 };

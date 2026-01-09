@@ -6,43 +6,33 @@ import Seller from '../models/Seller.js';
 export const authenticateAdmin = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    console.log('🔑 Admin auth - Authorization header:', authHeader ? 'Present' : 'Missing');
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('🔑 Admin auth - Invalid authorization header format');
       return res.status(401).json({ message: 'Authentication required - Invalid header format' });
     }
 
     const token = authHeader.split(' ')[1];
-    console.log('🔑 Admin auth - Token extracted:', token ? `${token.substring(0, 10)}...` : 'No token');
     
     if (!token || token === 'null' || token === 'undefined') {
-      console.log('🔑 Admin auth - No valid token provided');
       return res.status(401).json({ message: 'Authentication required - No token' });
     }
 
     // Check if JWT_SECRET exists
     if (!process.env.JWT_SECRET) {
-      console.log('🔑 Admin auth - JWT_SECRET not configured');
       return res.status(500).json({ message: 'Server configuration error' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('🔑 Admin auth - Token decoded, admin ID:', decoded.id);
     
     const admin = await Admin.findById(decoded.id).select('-password');
     
     if (!admin) {
-      console.log('🔑 Admin auth - Admin not found in database');
       return res.status(401).json({ message: 'Admin not found' });
     }
 
-    console.log('🔑 Admin auth - Admin found:', admin.username || admin.email);
     req.admin = admin;
     next();
   } catch (error) {
-    console.log('🔑 Admin auth - Error:', error.message);
-    
     // Provide more specific error messages
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ message: 'Invalid token format' });
@@ -85,24 +75,18 @@ export const authenticateBuyer = async (req, res, next) => {
 export const authenticateSeller = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    console.log('Seller auth - Token received:', token ? 'Yes' : 'No'); // Debug
     
     if (!token) {
-      console.log('Seller auth - No token provided'); // Debug
       return res.status(401).json({ message: 'Authentication required' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Seller auth - Token decoded, seller ID:', decoded.id); // Debug
     
     const seller = await Seller.findById(decoded.id).select('-password');
     
     if (!seller) {
-      console.log('Seller auth - Seller not found in database'); // Debug
       return res.status(401).json({ message: 'Seller not found' });
     }
-
-    console.log('Seller auth - Seller found:', seller.username); // Debug
 
     if (seller.status === 'suspended' || seller.status === 'rejected') {
       return res.status(403).json({ message: 'Account is suspended or rejected' });
@@ -111,7 +95,6 @@ export const authenticateSeller = async (req, res, next) => {
     req.seller = seller;
     next();
   } catch (error) {
-    console.log('Seller auth - Error:', error.message); // Debug
     res.status(401).json({ message: 'Invalid token' });
   }
 };

@@ -101,8 +101,6 @@ const MobileHeader = () => {
           );
           
           // Use categories from API (which already includes "All" at the beginning)
-          console.log('📱 Mobile header categories loaded:', visibleCategories.length, 'categories');
-          console.log('📱 Hidden categories:', hiddenCategories);
           setCategories(visibleCategories);
         }
       } catch (error) {
@@ -115,7 +113,6 @@ const MobileHeader = () => {
 
     // Listen for category refresh events
     const handleCategoryRefresh = () => {
-      console.log('📱 Refreshing mobile header categories...');
       fetchCategories();
     };
 

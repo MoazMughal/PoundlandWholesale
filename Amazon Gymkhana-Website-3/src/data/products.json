@@ -1,0 +1,360 @@
+{
+  "products": [
+    {
+      "id": "leather-handbag",
+      "title": "Premium Leather Handbag with Traditional Embroidery",
+      "description": "Handcrafted premium leather handbag featuring traditional Pakistani embroidery. Made from genuine leather with intricate hand-stitched patterns. Perfect for everyday use or special occasions. Features multiple compartments and adjustable strap.",
+      "price": 224.48,
+      "rrp": 438.89,
+      "wholesalePrice": 11.00,
+      "markup": 315,
+      "rating": 4.5,
+      "reviewCount": 128,
+      "images": [
+        "https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=1200&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?q=80&w=400&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1595341888016-a392ef81b7de?q=80&w=400&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=400&auto=format&fit=crop"
+      ],
+      "platforms": [
+        {
+          "name": "RRP",
+          "price": 438.89,
+          "grossProfit": 214.41,
+          "markup": 95.51,
+          "verifyLink": ""
+        },
+        {
+          "name": "Amazon",
+          "price": 418.48,
+          "grossProfit": 194.01,
+          "markup": 86.43,
+          "verifyLink": "#"
+        },
+        {
+          "name": "eBay",
+          "price": 398.25,
+          "grossProfit": 173.77,
+          "markup": 77.45,
+          "verifyLink": "#"
+        },
+        {
+          "name": "Walmart",
+          "price": 385.50,
+          "grossProfit": 161.02,
+          "markup": 71.75,
+          "verifyLink": "#"
+        }
+      ],
+      "dealInfo": {
+        "location": "Pakistan",
+        "flag": "🇵🇰",
+        "minOrder": "1 Unit",
+        "grade": "New",
+        "condition": "Excellent"
+      },
+      "specifications": {
+        "material": "Genuine Leather",
+        "dimensions": "12\" x 8\" x 4\"",
+        "weight": "1.2 lbs",
+        "color": "Brown with Gold Embroidery",
+        "compartments": "3 Main + 2 Side",
+        "strapType": "Adjustable Leather",
+        "closure": "Magnetic Snap",
+        "origin": "Made in Pakistan"
+      },
+      "features": [
+        "Genuine Leather Material",
+        "Hand-stitched Embroidery",
+        "Multiple Compartments",
+        "Adjustable Strap",
+        "Traditional Pakistani Design"
+      ]
+    },
+    {
+      "id": "traditional-jewelry",
+      "title": "Handcrafted Silver Jewelry Set with Precious Stones",
+      "description": "Exquisite handcrafted silver jewelry set featuring traditional Pakistani designs with precious stones. Each piece is carefully crafted by skilled artisans using traditional techniques passed down through generations. Perfect for special occasions or as a meaningful gift.",
+      "price": 29.99,
+      "rrp": 438.89,
+      "wholesalePrice": 7.89,
+      "markup": 280,
+      "rating": 4.0,
+      "reviewCount": 94,
+      "images": [
+        "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=1200&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=400&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?q=80&w=400&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1595341888016-a392ef81b7de?q=80&w=400&auto=format&fit=crop"
+      ],
+      "platforms": [
+        {
+          "name": "RRP",
+          "price": 438.89,
+          "grossProfit": 214.41,
+          "markup": 95.51,
+          "verifyLink": ""
+        },
+        {
+          "name": "Amazon",
+          "price": 418.48,
+          "grossProfit": 194.01,
+          "markup": 86.43,
+          "verifyLink": "#"
+        },
+        {
+          "name": "eBay",
+          "price": 398.25,
+          "grossProfit": 173.77,
+          "markup": 77.45,
+          "verifyLink": "#"
+        },
+        {
+          "name": "Walmart",
+          "price": 385.50,
+          "grossProfit": 161.02,
+          "markup": 71.75,
+          "verifyLink": "#"
+        }
+      ],
+      "dealInfo": {
+        "location": "Pakistan",
+        "flag": "🇵🇰",
+        "minOrder": "1 Unit",
+        "grade": "New",
+        "condition": "Excellent"
+      },
+      "specifications": {
+        "material": "925 Sterling Silver",
+        "dimensions": "18 inches chain",
+        "weight": "45g",
+        "color": "Polished Silver",
+        "stones": "Semi-precious Stones",
+        "setIncludes": "Necklace, Earrings, Ring",
+        "packaging": "Gift Box",
+        "origin": "Made in Pakistan"
+      },
+      "features": [
+        "925 Sterling Silver",
+        "Handcrafted by Artisans",
+        "Precious Stones Included",
+        "Traditional Pakistani Design",
+        "Gift Box Included"
+      ]
+    },
+    {
+      "id": "handmade-carpet",
+      "title": "Traditional Pakistani Wool Carpet with Intricate Designs",
+      "description": "Exquisite handmade Pakistani wool carpet featuring traditional intricate designs. Each carpet is hand-woven by skilled artisans using traditional techniques passed down through generations. Made from premium wool with natural dyes, this carpet adds elegance and warmth to any space.",
+      "price": 89.99,
+      "rrp": 438.89,
+      "wholesalePrice": 20.45,
+      "markup": 340,
+      "rating": 5.0,
+      "reviewCount": 67,
+      "images": [
+        "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=1200&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=400&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?q=80&w=400&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1595341888016-a392ef81b7de?q=80&w=400&auto=format&fit=crop"
+      ],
+      "platforms": [
+        {
+          "name": "RRP",
+          "price": 438.89,
+          "grossProfit": 214.41,
+          "markup": 95.51,
+          "verifyLink": ""
+        },
+        {
+          "name": "Amazon",
+          "price": 418.48,
+          "grossProfit": 194.01,
+          "markup": 86.43,
+          "verifyLink": "#"
+        },
+        {
+          "name": "eBay",
+          "price": 398.25,
+          "grossProfit": 173.77,
+          "markup": 77.45,
+          "verifyLink": "#"
+        },
+        {
+          "name": "Walmart",
+          "price": 385.50,
+          "grossProfit": 161.02,
+          "markup": 71.75,
+          "verifyLink": "#"
+        }
+      ],
+      "dealInfo": {
+        "location": "Pakistan",
+        "flag": "🇵🇰",
+        "minOrder": "1 Unit",
+        "grade": "New",
+        "condition": "Excellent"
+      },
+      "specifications": {
+        "material": "100% Premium Wool",
+        "dimensions": "6' x 9' (72\" x 108\")",
+        "weight": "15 lbs",
+        "color": "Traditional Red & Blue",
+        "weave": "Hand-knotted",
+        "knotsPerSqInch": "120",
+        "backing": "Cotton Canvas",
+        "origin": "Made in Pakistan"
+      },
+      "features": [
+        "100% Hand-woven",
+        "Premium Wool Material",
+        "Natural Dyes",
+        "Traditional Pakistani Design",
+        "Durable Construction"
+      ]
+    },
+    {
+      "id": "wooden-decor",
+      "title": "Hand Carved Wooden Home Decor Pieces",
+      "description": "Beautiful hand-carved wooden home decor pieces featuring traditional Pakistani craftsmanship. Each piece is carefully carved from premium wood and finished with natural oils. Perfect for adding warmth and traditional charm to any home decor.",
+      "price": 24.99,
+      "rrp": 438.89,
+      "wholesalePrice": 6.33,
+      "markup": 295,
+      "rating": 4.5,
+      "reviewCount": 156,
+      "images": [
+        "https://images.unsplash.com/photo-1595341888016-a392ef81b7de?q=80&w=1200&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=400&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=400&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?q=80&w=400&auto=format&fit=crop"
+      ],
+      "platforms": [
+        {
+          "name": "RRP",
+          "price": 438.89,
+          "grossProfit": 214.41,
+          "markup": 95.51,
+          "verifyLink": ""
+        },
+        {
+          "name": "Amazon",
+          "price": 418.48,
+          "grossProfit": 194.01,
+          "markup": 86.43,
+          "verifyLink": "#"
+        },
+        {
+          "name": "eBay",
+          "price": 398.25,
+          "grossProfit": 173.77,
+          "markup": 77.45,
+          "verifyLink": "#"
+        },
+        {
+          "name": "Walmart",
+          "price": 385.50,
+          "grossProfit": 161.02,
+          "markup": 71.75,
+          "verifyLink": "#"
+        }
+      ],
+      "dealInfo": {
+        "location": "Pakistan",
+        "flag": "🇵🇰",
+        "minOrder": "1 Unit",
+        "grade": "New",
+        "condition": "Excellent"
+      },
+      "specifications": {
+        "material": "Premium Teak Wood",
+        "dimensions": "8\" x 6\" x 4\"",
+        "weight": "2.5 lbs",
+        "color": "Natural Wood",
+        "carvingType": "Hand-carved",
+        "design": "Traditional Pakistani",
+        "packaging": "Gift Box",
+        "origin": "Made in Pakistan"
+      },
+      "features": [
+        "Hand-carved Design",
+        "Premium Wood Material",
+        "Natural Wood Finish",
+        "Traditional Pakistani Craftsmanship",
+        "Eco-friendly Materials"
+      ]
+    },
+    {
+      "id": "embroidered-fabric",
+      "title": "Traditional Pakistani Embroidered Cloth for Dresses",
+      "description": "Beautiful traditional Pakistani embroidered fabric perfect for creating stunning dresses and garments. Each piece features intricate hand-embroidered patterns using traditional techniques. Made from high-quality cotton with vibrant colors and detailed embroidery work.",
+      "price": 18.99,
+      "rrp": 438.89,
+      "wholesalePrice": 4.52,
+      "markup": 320,
+      "rating": 4.0,
+      "reviewCount": 203,
+      "images": [
+        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?q=80&w=1200&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=400&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=400&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1595341888016-a392ef81b7de?q=80&w=400&auto=format&fit=crop"
+      ],
+      "platforms": [
+        {
+          "name": "RRP",
+          "price": 438.89,
+          "grossProfit": 214.41,
+          "markup": 95.51,
+          "verifyLink": ""
+        },
+        {
+          "name": "Amazon",
+          "price": 418.48,
+          "grossProfit": 194.01,
+          "markup": 86.43,
+          "verifyLink": "#"
+        },
+        {
+          "name": "eBay",
+          "price": 398.25,
+          "grossProfit": 173.77,
+          "markup": 77.45,
+          "verifyLink": "#"
+        },
+        {
+          "name": "Walmart",
+          "price": 385.50,
+          "grossProfit": 161.02,
+          "markup": 71.75,
+          "verifyLink": "#"
+        }
+      ],
+      "dealInfo": {
+        "location": "Pakistan",
+        "flag": "🇵🇰",
+        "minOrder": "1 Unit",
+        "grade": "New",
+        "condition": "Excellent"
+      },
+      "specifications": {
+        "material": "100% Premium Cotton",
+        "dimensions": "2.5 yards x 45 inches",
+        "weight": "8 oz per yard",
+        "color": "Multiple Options Available",
+        "embroidery": "Hand-embroidered",
+        "pattern": "Traditional Pakistani",
+        "care": "Hand Wash Recommended",
+        "origin": "Made in Pakistan"
+      },
+      "features": [
+        "Hand-embroidered Design",
+        "Premium Cotton Material",
+        "Traditional Pakistani Patterns",
+        "Vibrant Color Options",
+        "Perfect for Dress Making"
+      ]
+    }
+  ]
+}
+

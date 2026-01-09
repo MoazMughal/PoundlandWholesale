@@ -167,14 +167,16 @@ router.get('/public/debug/amazons-choice-count', async (req, res) => {
     
     const amazonsChoiceProducts = await Product.countDocuments({ 
       $or: [{ status: 'active' }, { status: { $exists: false } }],
-      isAmazonsChoice: true 
+      isAmazonsChoice: true,
+      approvalStatus: 'approved' // Only count approved products
     });
     
     const categoryCounts = await Product.aggregate([
       { 
         $match: { 
           $or: [{ status: 'active' }, { status: { $exists: false } }],
-          isAmazonsChoice: true 
+          isAmazonsChoice: true,
+          approvalStatus: 'approved' // Only count approved products
         } 
       },
       { 
@@ -218,15 +220,13 @@ router.get('/public/categories', async (req, res) => {
         excelCategories = await ExcelProduct.distinct('category', {
           category: { $exists: true, $ne: null, $ne: '' }
         });
-        console.log('📂 Excel categories found:', excelCategories);
       } catch (excelError) {
-        console.log('ℹ️ Excel model not available');
+        // Excel model not available - continue with main categories only
       }
     }
     
     // Combine and deduplicate categories
     const categories = [...new Set([...mainCategories, ...excelCategories])];
-    console.log('📂 Combined categories:', categories);
     
     let formattedCategories;
     
@@ -317,12 +317,13 @@ router.post('/public/categories', authenticateAdmin, async (req, res) => {
       });
     }
     
-    const categoryName = category.trim();
+    // Normalize the category name to prevent duplicates
+    const normalizedCategoryName = normalizeCategoryName(category.trim());
     
     // Check if category already exists in ACTIVE main products only
     // (Don't check Excel products or inactive products)
     const existingActiveCategory = await Product.findOne({ 
-      category: { $regex: new RegExp(`^${categoryName}$`, 'i') },
+      category: { $regex: new RegExp(`^${normalizedCategoryName}$`, 'i') },
       status: 'active'
     });
     
@@ -338,19 +339,19 @@ router.post('/public/categories', authenticateAdmin, async (req, res) => {
     try {
       const ExcelProduct = (await import('../models/ExcelProduct.js')).default;
       const excelProductsCount = await ExcelProduct.countDocuments({
-        category: { $regex: new RegExp(`^${categoryName}$`, 'i') }
+        category: { $regex: new RegExp(`^${normalizedCategoryName}$`, 'i') }
       });
       hasExcelProducts = excelProductsCount > 0;
       
       if (hasExcelProducts) {
-        console.log(`ℹ️ Found ${excelProductsCount} Excel products with category "${categoryName}"`);
+        console.log(`ℹ️ Found ${excelProductsCount} Excel products with category "${normalizedCategoryName}"`);
         // Allow creation - Excel products can use this category
         return res.json({
           success: true,
-          message: `Category "${categoryName}" is available (found in Excel products)`,
+          message: `Category "${normalizedCategoryName}" is available (found in Excel products)`,
           category: {
-            value: categoryName.toLowerCase().replace(/\s+/g, '-'),
-            label: categoryName
+            value: normalizedCategoryName.toLowerCase().replace(/\s+/g, '-'),
+            label: normalizedCategoryName
           },
           existsInExcel: true
         });
@@ -361,9 +362,9 @@ router.post('/public/categories', authenticateAdmin, async (req, res) => {
     
     // Create a placeholder product to establish the category
     const placeholderProduct = new Product({
-      name: `${categoryName} - Category Placeholder`,
+      name: `${normalizedCategoryName} - Category Placeholder`,
       price: 0,
-      category: categoryName,
+      category: normalizedCategoryName,
       brand: 'System',
       description: 'This is a placeholder product to establish the category. You can delete this later.',
       stock: 0,
@@ -377,15 +378,15 @@ router.post('/public/categories', authenticateAdmin, async (req, res) => {
     
     // Return the new category in the expected format
     const newCategory = {
-      value: categoryName.toLowerCase().replace(/\s+/g, '-'),
-      label: categoryName
+      value: normalizedCategoryName.toLowerCase().replace(/\s+/g, '-'),
+      label: normalizedCategoryName
     };
     
-    console.log(`✅ Category "${categoryName}" created successfully with placeholder product`);
+    console.log(`✅ Category "${normalizedCategoryName}" created successfully with placeholder product`);
     
     res.json({
       success: true,
-      message: `Category "${categoryName}" created successfully`,
+      message: `Category "${normalizedCategoryName}" created successfully`,
       category: newCategory
     });
     
@@ -639,6 +640,270 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
       message: 'Error deleting category', 
       error: error.message,
       success: false
+    });
+  }
+});
+
+// Check if ASIN already exists in database
+router.get('/check-asin/:asin', authenticateAdmin, async (req, res) => {
+  try {
+    const { asin } = req.params;
+    
+    if (!asin || asin.length !== 10) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid ASIN format. ASIN must be 10 characters long.' 
+      });
+    }
+    
+    const existingProduct = await Product.findOne({ 
+      asin: asin.toUpperCase(),
+      approvalStatus: { $ne: 'disapproved' } // Exclude disapproved products
+    });
+    
+    // If product exists and is approved + Amazon's Choice, it cannot be reused
+    if (existingProduct && existingProduct.approvalStatus === 'approved' && existingProduct.isAmazonsChoice) {
+      return res.json({
+        success: true,
+        exists: true,
+        blocked: true,
+        message: 'This ASIN is already used by an approved Amazon\'s Choice product and cannot be reused',
+        product: {
+          id: existingProduct._id,
+          name: existingProduct.name,
+          asin: existingProduct.asin,
+          isAmazonsChoice: existingProduct.isAmazonsChoice,
+          approvalStatus: existingProduct.approvalStatus
+        }
+      });
+    }
+    
+    res.json({
+      success: true,
+      exists: !!existingProduct,
+      blocked: false,
+      product: existingProduct ? {
+        id: existingProduct._id,
+        name: existingProduct.name,
+        asin: existingProduct.asin,
+        isAmazonsChoice: existingProduct.isAmazonsChoice,
+        approvalStatus: existingProduct.approvalStatus
+      } : null
+    });
+  } catch (error) {
+    console.error('Error checking ASIN:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to check ASIN' 
+    });
+  }
+});
+
+// Check if SKU already exists in database
+router.get('/check-sku/:sku', authenticateAdmin, async (req, res) => {
+  try {
+    const { sku } = req.params;
+    
+    if (!sku || sku.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'SKU cannot be empty.' 
+      });
+    }
+    
+    // Check for existing products with this SKU
+    // Exclude disapproved products, but include approved and pending
+    const existingProduct = await Product.findOne({ 
+      sku: sku.toUpperCase(),
+      approvalStatus: { $ne: 'disapproved' }
+    });
+    
+    // If product exists and is approved + Amazon's Choice, it cannot be reused
+    if (existingProduct && existingProduct.approvalStatus === 'approved' && existingProduct.isAmazonsChoice) {
+      return res.json({
+        success: true,
+        exists: true,
+        blocked: true,
+        message: 'This SKU is already used by an approved Amazon\'s Choice product and cannot be reused',
+        product: {
+          id: existingProduct._id,
+          name: existingProduct.name,
+          sku: existingProduct.sku,
+          isAmazonsChoice: existingProduct.isAmazonsChoice,
+          approvalStatus: existingProduct.approvalStatus
+        }
+      });
+    }
+    
+    res.json({
+      success: true,
+      exists: !!existingProduct,
+      blocked: false,
+      product: existingProduct ? {
+        id: existingProduct._id,
+        name: existingProduct.name,
+        sku: existingProduct.sku,
+        approvalStatus: existingProduct.approvalStatus
+      } : null
+    });
+  } catch (error) {
+    console.error('Error checking SKU:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to check SKU' 
+    });
+  }
+});
+
+// Debug endpoint to check SKU values in products
+router.get('/debug/sku-check', authenticateAdmin, async (req, res) => {
+  try {
+    const products = await Product.find({}, 'name asin sku approvalStatus').limit(10);
+    
+    const skuStats = {
+      total: products.length,
+      withSku: products.filter(p => p.sku && p.sku.trim() !== '').length,
+      withoutSku: products.filter(p => !p.sku || p.sku.trim() === '').length,
+      sampleProducts: products.map(p => ({
+        id: p._id,
+        name: p.name,
+        asin: p.asin || 'No ASIN',
+        sku: p.sku || 'No SKU',
+        approvalStatus: p.approvalStatus
+      }))
+    };
+    
+    res.json({
+      success: true,
+      stats: skuStats
+    });
+  } catch (error) {
+    console.error('Error checking SKU values:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to check SKU values' 
+    });
+  }
+});
+
+// Get products pending approval
+router.get('/pending-approval', authenticateAdmin, async (req, res) => {
+  try {
+    const pendingProducts = await Product.find({ 
+      approvalStatus: 'pending' 
+    })
+    .sort({ createdAt: -1 })
+    .lean();
+    
+    res.json({
+      success: true,
+      products: pendingProducts
+    });
+  } catch (error) {
+    console.error('Error fetching pending products:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch pending products' 
+    });
+  }
+});
+
+// Approve or disapprove a product
+router.post('/:id/approval', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, approvalStatus } = req.body;
+    
+    if (!['approve', 'disapprove'].includes(action)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid action. Must be "approve" or "disapprove"' 
+      });
+    }
+    
+    if (action === 'disapprove') {
+      // Delete the product instead of just marking as disapproved
+      const deletedProduct = await Product.findByIdAndDelete(id);
+      
+      if (!deletedProduct) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Product not found' 
+        });
+      }
+      
+      // Clear cache after deletion
+      productCache.clear();
+      
+      return res.json({
+        success: true,
+        message: 'Product disapproved and removed successfully',
+        product: deletedProduct
+      });
+    }
+    
+    // For approve action, update the product
+    const updateData = {
+      approvalStatus: 'approved',
+      approvedAt: new Date(),
+      approvedBy: req.admin.id
+    };
+    
+    const product = await Product.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+    
+    if (!product) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Product not found' 
+      });
+    }
+    
+    // Sync Excel product status if this product was converted from Excel
+    try {
+      const excelProduct = await ExcelProduct.findOne({ mainProductId: id });
+      if (excelProduct) {
+        console.log('🔄 Syncing Excel product status after approval:', excelProduct.name);
+        
+        let correctStatus = 'active'; // Approved but not necessarily in Amazon's Choice yet
+        if (product.isAmazonsChoice) {
+          correctStatus = 'listed'; // Listed and showing in Amazon's Choice
+        }
+        
+        await ExcelProduct.updateOne(
+          { _id: excelProduct._id },
+          { 
+            $set: { 
+              status: correctStatus,
+              isListed: true,
+              listedAt: new Date()
+            }
+          }
+        );
+        
+        console.log(`✅ Excel product status updated to: ${correctStatus}`);
+      }
+    } catch (syncError) {
+      console.error('⚠️ Error syncing Excel product status:', syncError);
+      // Don't fail the approval if sync fails
+    }
+    
+    // Clear cache after approval status change
+    productCache.clear();
+    
+    res.json({
+      success: true,
+      message: 'Product approved successfully',
+      product
+    });
+  } catch (error) {
+    console.error('Error processing approval:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to process approval' 
     });
   }
 });
@@ -908,6 +1173,7 @@ router.get('/public/fast', async (req, res) => {
         // Add filters to fallback query too
         if (isAmazonsChoice === 'true') {
           fallbackQuery.isAmazonsChoice = true;
+          fallbackQuery.approvalStatus = 'approved'; // Only approved products
         }
         if (category && category !== 'all') {
           // Handle both URL-friendly values and display names in fallback too
@@ -927,7 +1193,7 @@ router.get('/public/fast', async (req, res) => {
         
         fastProducts = await Product.find(fallbackQuery)
         .limit(50)
-        .select('name price category brand images dealUnits currency rating reviews isAmazonsChoice isBestSeller profitCalculations profitEvaluation platformComparison showEvaluation asin variations')
+        .select('name price category brand images dealUnits currency rating reviews isAmazonsChoice isBestSeller profitCalculations profitEvaluation platformComparison showEvaluation asin sku variations')
         .lean()
         .maxTimeMS(3000);
         
@@ -1129,7 +1395,10 @@ router.get('/public', async (req, res) => {
       
       query = { ...query, ...categoryQuery };
     }
-    if (isAmazonsChoice === 'true') query.isAmazonsChoice = true;
+    if (isAmazonsChoice === 'true') {
+      query.isAmazonsChoice = true;
+      query.approvalStatus = 'approved'; // Only show approved Amazon's Choice products
+    }
     if (isBestSeller === 'true') query.isBestSeller = true;
     if (isLatestDeal === 'true') query.isLatestDeal = true;
     if (showOnHome === 'true') query.showOnHome = true;
@@ -1143,7 +1412,6 @@ router.get('/public', async (req, res) => {
       // For Amazon's Choice products without search, use aggregation with random sampling
       // This includes category filtering - the query object already contains category filters
       if (isAmazonsChoice === 'true' && !search) {
-        console.log('🎲 Using random sampling for Amazon\'s Choice products', category ? `with category: ${category}` : '');
         
         const pipeline = [
           { $match: query },
@@ -1189,8 +1457,6 @@ router.get('/public', async (req, res) => {
         const totalCount = await Product.countDocuments(query);
         const totalPages = Math.ceil(totalCount / parseInt(limit));
         
-        console.log(`✅ Random sampling successful: ${products.length} products (showing different order each time)`);
-        
         // Process and return results
         const processedProducts = products.map(product => ({
           ...product,
@@ -1220,7 +1486,7 @@ router.get('/public', async (req, res) => {
       products = await Product.find(query)
         .sort(sortOptions)
         .limit(parseInt(limit))
-        .select('name description price originalPrice discount category brand images rating reviews stock dealUnits currency isAmazonsChoice isBestSeller seller isAdminProduct sellerInfo profitCalculations profitEvaluation platformComparison showEvaluation asin variations')
+        .select('name description price originalPrice discount category brand images rating reviews stock dealUnits currency isAmazonsChoice isBestSeller seller isAdminProduct sellerInfo profitCalculations profitEvaluation platformComparison showEvaluation asin sku variations')
         .maxTimeMS(10000) // Increased timeout to 10 seconds
         .lean();
       
@@ -1467,7 +1733,7 @@ router.get('/admin/fast', authenticateAdmin, async (req, res) => {
       allProducts = await Product.find({})
         .skip(skip)
         .limit(limitNum)
-        .select('name price category status createdAt dealUnits currency asin') // Minimal fields for speed including ASIN
+        .select('name price category status createdAt dealUnits currency asin sku') // Minimal fields for speed including ASIN and SKU
         .sort({ createdAt: -1 })
         .maxTimeMS(5000) // Increased timeout for larger datasets
         .lean();
@@ -1515,7 +1781,10 @@ router.get('/', authenticateAdmin, async (req, res) => {
       excludeSellerCopies = 'false' // New parameter to exclude seller copies
     } = req.query;
 
-    let query = {};
+    let query = {
+      // Include approved and pending products, exclude disapproved
+      approvalStatus: { $in: ['approved', 'pending'] }
+    };
     
     // Optionally exclude seller copies (products with originalAdminProductId)
     // But for admin interface, we want to show all products that are visible to users
@@ -1638,6 +1907,8 @@ router.get('/', authenticateAdmin, async (req, res) => {
       finalQuery: JSON.stringify(query, null, 2)
     });
 
+    console.log('📊 Admin products endpoint called - SKU field should be included');
+
     let adminProducts;
     try {
       // Optimized admin query with timeout
@@ -1648,6 +1919,12 @@ router.get('/', authenticateAdmin, async (req, res) => {
         .skip((page - 1) * limit)
         .maxTimeMS(5000) // 5 second timeout for admin
         .lean(); // Use lean for better performance
+      
+      // Debug: Check if SKU is present in the results
+      if (adminProducts.length > 0) {
+        console.log('📋 Sample product fields:', Object.keys(adminProducts[0]));
+        console.log('🏷️ First product SKU:', adminProducts[0].sku || 'NO SKU FIELD');
+      }
     } catch (queryError) {
       console.error('❌ MongoDB Query Error:', queryError);
       
@@ -1746,17 +2023,39 @@ router.post('/', authenticateAdmin, async (req, res) => {
       currency: 'GBP'
     };
     
+    // Normalize category to prevent duplicates
+    if (productData.category) {
+      productData.category = normalizeCategoryName(productData.category);
+    }
+    
+    console.log('📦 Creating product with data:', {
+      name: productData.name,
+      asin: productData.asin,
+      sku: productData.sku,
+      approvalStatus: productData.approvalStatus
+    });
+    
     const product = new Product(productData);
     await product.save();
+    
+    console.log('✅ Product created successfully:', {
+      id: product._id,
+      name: product.name,
+      asin: product.asin,
+      sku: product.sku,
+      approvalStatus: product.approvalStatus
+    });
     
     // Clear cache when new product is created
     fastProductsCache = null;
     cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
     console.log('🗑️ Cache cleared after product creation, new timestamp:', cacheTimestamp);
     console.log('💰 New product created with currency:', product.currency);
+    console.log('🏷️ Product category normalized to:', product.category);
     
     res.status(201).json(product);
   } catch (error) {
+    console.error('❌ Error creating product:', error);
     res.status(400).json({ message: 'Error creating product', error: error.message });
   }
 });
@@ -2570,6 +2869,12 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
       ...(cleanedVariations && { variations: cleanedVariations })
     };
     
+    // Normalize category to prevent duplicates
+    if (updateData.category) {
+      updateData.category = normalizeCategoryName(updateData.category);
+      console.log('🏷️ Product category normalized to:', updateData.category);
+    }
+    
     console.log('🔍 Searching for product with ID:', req.params.id);
     
     const product = await Product.findByIdAndUpdate(
@@ -3185,7 +3490,7 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images asin dealUnits');
+      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images asin sku dealUnits');
 
     const count = await Product.countDocuments(query);
 
@@ -5321,6 +5626,111 @@ router.use('/excel-import', (req, res, next) => {
   next();
 });
 
+// Clean up duplicate categories (admin only)
+router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🧹 Starting duplicate category cleanup...');
+    
+    // Get all unique categories from products
+    const allCategories = await Product.distinct('category');
+    console.log(`📊 Found ${allCategories.length} unique categories`);
+    
+    // Group categories by their normalized form
+    const categoryGroups = {};
+    const duplicateGroups = [];
+    
+    for (const category of allCategories) {
+      const normalized = normalizeCategoryName(category);
+      
+      if (!categoryGroups[normalized]) {
+        categoryGroups[normalized] = [];
+      }
+      categoryGroups[normalized].push(category);
+    }
+    
+    // Find groups with duplicates
+    for (const [normalized, categories] of Object.entries(categoryGroups)) {
+      if (categories.length > 1) {
+        duplicateGroups.push({
+          normalized,
+          duplicates: categories
+        });
+      }
+    }
+    
+    console.log(`🔍 Found ${duplicateGroups.length} groups with duplicate categories`);
+    
+    let totalUpdated = 0;
+    const updateResults = [];
+    
+    // Process each duplicate group
+    for (const group of duplicateGroups) {
+      const { normalized, duplicates } = group;
+      
+      console.log(`🔄 Processing group: ${normalized}`);
+      console.log(`   Duplicates: ${duplicates.join(', ')}`);
+      
+      // Update all products in this group to use the normalized category name
+      const updateResult = await Product.updateMany(
+        { category: { $in: duplicates } },
+        { $set: { category: normalized } }
+      );
+      
+      totalUpdated += updateResult.modifiedCount;
+      
+      updateResults.push({
+        normalizedCategory: normalized,
+        originalCategories: duplicates,
+        productsUpdated: updateResult.modifiedCount
+      });
+      
+      console.log(`✅ Updated ${updateResult.modifiedCount} products to "${normalized}"`);
+    }
+    
+    // Also update Excel products if they exist
+    let excelUpdated = 0;
+    try {
+      const ExcelProduct = require('../models/ExcelProduct');
+      
+      for (const group of duplicateGroups) {
+        const { normalized, duplicates } = group;
+        
+        const excelUpdateResult = await ExcelProduct.updateMany(
+          { category: { $in: duplicates } },
+          { $set: { category: normalized } }
+        );
+        
+        excelUpdated += excelUpdateResult.modifiedCount;
+      }
+      
+      console.log(`📊 Updated ${excelUpdated} Excel products`);
+    } catch (excelError) {
+      console.log('ℹ️ No Excel products to update or Excel model not available');
+    }
+    
+    // Clear cache
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+    
+    res.json({
+      success: true,
+      message: `Successfully cleaned up ${duplicateGroups.length} duplicate category groups`,
+      totalProductsUpdated: totalUpdated,
+      excelProductsUpdated: excelUpdated,
+      duplicateGroups: duplicateGroups.length,
+      updateResults: updateResults
+    });
+    
+  } catch (error) {
+    console.error('❌ Error cleaning up duplicate categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clean up duplicate categories',
+      error: error.message
+    });
+  }
+});
+
 // Debug endpoint for category filtering (public)
 router.get('/public/debug/category/:categoryValue', async (req, res) => {
   try {
@@ -5351,6 +5761,7 @@ router.get('/public/debug/category/:categoryValue', async (req, res) => {
         { status: { $exists: false } }
       ],
       isAmazonsChoice: true,
+      approvalStatus: 'approved', // Only approved products
       ...categoryQuery
     };
     

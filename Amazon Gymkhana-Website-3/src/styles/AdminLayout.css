@@ -1,0 +1,73 @@
+/* Compact layout for admin pages */
+body.admin-page {
+  overflow-x: hidden;
+}
+
+/* Make navbar more compact on admin pages */
+.admin-dashboard ~ footer,
+.admin-products ~ footer,
+.admin-product-form ~ footer {
+  padding: 15px 20px;
+  font-size: 12px;
+}
+
+/* Reduce spacing */
+.admin-dashboard *,
+.admin-products *,
+.admin-product-form * {
+  box-sizing: border-box;
+}
+
+/* Compact scrollbar */
+.admin-dashboard::-webkit-scrollbar,
+.products-table.compact::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.admin-dashboard::-webkit-scrollbar-track,
+.products-table.compact::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.admin-dashboard::-webkit-scrollbar-thumb,
+.products-table.compact::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.admin-dashboard::-webkit-scrollbar-thumb:hover,
+.products-table.compact::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Zoom out effect for better overview */
+@media (min-width: 1200px) {
+  .admin-dashboard.compact {
+    zoom: 0.95;
+  }
+}
+
+@media (min-width: 1400px) {
+  .admin-dashboard.compact {
+    zoom: 0.9;
+  }
+}
+
+/* Print styles for admin */
+@media print {
+  .dashboard-header,
+  .header-actions,
+  .quick-tools,
+  .actions {
+    display: none !important;
+  }
+  
+  .admin-dashboard {
+    padding: 0;
+  }
+  
+  .products-table.compact table {
+    font-size: 10px;
+  }
+}

@@ -88,6 +88,16 @@ const EditProduct = () => {
       setOriginalPrice(productPrice);
       setOriginalCurrency('GBP');
       
+      console.log('📊 Loading product data:', {
+        id: product._id,
+        name: product.name,
+        category: product.category,
+        isAmazonsChoice: product.isAmazonsChoice,
+        images: product.images,
+        image: product.image,
+        asin: product.asin
+      });
+      
       setFormData({
         name: product.name || '',
         price: productPrice,
@@ -119,6 +129,11 @@ const EditProduct = () => {
           monthlyProfit: product.profitEvaluation?.monthlyProfit || 0,
           yearlyProfit: product.profitEvaluation?.yearlyProfit || 0
         }
+      });
+      
+      console.log('📊 Form data set to:', {
+        category: product.category || '',
+        isAmazonsChoice: product.isAmazonsChoice || false
       });
 
       // Set existing image URLs for display and store original images
@@ -206,11 +221,17 @@ const EditProduct = () => {
         const data = await response.json();
         const newCategory = data.category;
         
-        // Add new category to the list
-        setCategories(prev => [...prev, newCategory]);
+        // Add new category to the list if it doesn't already exist
+        setCategories(prev => {
+          const exists = prev.some(cat => cat.value === newCategory.value);
+          if (exists) {
+            return prev;
+          }
+          return [...prev, newCategory];
+        });
         
-        // Select the new category
-        setFormData(prev => ({ ...prev, category: newCategory.value }));
+        // Select the new category using the normalized label
+        setFormData(prev => ({ ...prev, category: newCategory.label }));
         
         // Reset the input
         setNewCategoryName('');
@@ -593,6 +614,27 @@ const EditProduct = () => {
     <div className="admin-product-form">
       <header className="form-header">
         <h1>✏️ Edit Product</h1>
+        
+        {/* Debug Panel - only show in development */}
+        {process.env.NODE_ENV !== 'production' && (
+          <div style={{
+            background: '#f8f9fa',
+            border: '1px solid #dee2e6',
+            borderRadius: '5px',
+            padding: '15px',
+            margin: '15px 0',
+            fontSize: '12px',
+            fontFamily: 'monospace'
+          }}>
+            <strong>🔍 Debug Info:</strong><br/>
+            Category: "{formData.category}"<br/>
+            Amazon's Choice: {formData.isAmazonsChoice ? 'true' : 'false'}<br/>
+            Available Categories: {categories.length}<br/>
+            Categories: {JSON.stringify(categories.map(c => c.label))}<br/>
+            Images: {JSON.stringify(imageUrls.filter(Boolean))}<br/>
+            ASIN: {formData.asin}
+          </div>
+        )}
         <div className="header-actions">
           <button onClick={handleDelete} className="delete-btn">
             🗑️ Delete Product
@@ -631,11 +673,14 @@ const EditProduct = () => {
                 <div style={{ flex: 1 }}>
                   <select name="category" value={formData.category} onChange={handleChange} required>
                     <option value="">Select Category</option>
-                    {categories.map(cat => (
-                      <option key={cat.value} value={cat.label}>
-                        {cat.label}
-                      </option>
-                    ))}
+                    {categories.map(cat => {
+                      console.log('📂 Rendering category option:', cat, 'Selected:', formData.category, 'Match:', cat.label === formData.category);
+                      return (
+                        <option key={cat.value} value={cat.label}>
+                          {cat.label}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
                 <button

@@ -1,0 +1,59 @@
+services:
+  # Backend API Service
+  - type: web
+    name: generic-wholesale-backend
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGODB_URI
+        value: mongodb+srv://Admin:iW0UgtS1d5Fnf1gt@cluster0.v6qyt5k.mongodb.net/amazon-gymkhana?retryWrites=true&w=majority
+      - key: JWT_SECRET
+        value: my_secret_key_12345
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_SECURE
+        value: false
+      - key: EMAIL_USER
+        value: moazmughal786@gmail.com
+      - key: EMAIL_PASS
+        value: jzepgkmxmhiuuykx
+      - key: EMAIL_FROM_NAME
+        value: Generic Wholesale
+      - key: FRONTEND_URL
+        value: https://www.genericwholesale.pk
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      - key: EASYPAISA_MERCHANT_ID
+        sync: false
+      - key: EASYPAISA_STORE_ID
+        sync: false
+      - key: EASYPAISA_SECRET_KEY
+        sync: false
+
+  # Frontend Static Site
+  - type: web
+    name: generic-wholesale-frontend
+    env: static
+    region: singapore
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://generic-wholesale-backend.onrender.com/api

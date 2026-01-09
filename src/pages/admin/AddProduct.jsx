@@ -27,6 +27,7 @@ const AddProduct = () => {
     category: '',
     brand: '',
     asin: '',
+    sku: '',
     rating: 4.5,
     reviews: 0,
     stock: 0,
@@ -37,26 +38,14 @@ const AddProduct = () => {
     status: 'active',
     description: '',
     features: [],
-    // Profit Analysis fields
-    profitEvaluation: {
-      salesProceeds: 0,
-      commission: 0,
-      commissionTax: 0,
-      digitalServicesFee: 0,
-      digitalServicesTax: 0,
-      fbaFulfilmentFee: 0,
-      fbaFulfilmentTax: 0,
-      balanceChange: 0,
-      productCost: 0,
-      netProfit: 0,
-      monthlyProfit: 0,
-      yearlyProfit: 0
-    }
   });
 
   const [imageFiles, setImageFiles] = useState([]);
   const [imageUrls, setImageUrls] = useState([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [fetchingAsin, setFetchingAsin] = useState(false);
+  const [asinError, setAsinError] = useState('');
+  const [skuError, setSkuError] = useState('');
   const fileInputRef = useRef(null);
   const additionalFileInputRefs = useRef([null, null, null, null]); // Refs for 4 additional image inputs
 
@@ -131,11 +120,17 @@ const AddProduct = () => {
         const data = await response.json();
         const newCategory = data.category;
         
-        // Add new category to the list
-        setCategories(prev => [...prev, newCategory]);
+        // Add new category to the list if it doesn't already exist
+        setCategories(prev => {
+          const exists = prev.some(cat => cat.value === newCategory.value);
+          if (exists) {
+            return prev;
+          }
+          return [...prev, newCategory];
+        });
         
-        // Select the new category
-        setFormData(prev => ({ ...prev, category: newCategory.value }));
+        // Select the new category using the normalized value
+        setFormData(prev => ({ ...prev, category: newCategory.label }));
         
         // Reset the input
         setNewCategoryName('');
@@ -232,17 +227,135 @@ const AddProduct = () => {
     });
   };
 
-  // Handle profit evaluation changes
-  const handleProfitChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      profitEvaluation: {
-        ...prev.profitEvaluation,
-        [name]: parseFloat(value) || 0
+  // Fetch product details by ASIN
+  const fetchProductByAsin = async (asin) => {
+    if (!asin || asin.length !== 10) return;
+    
+    setFetchingAsin(true);
+    setAsinError('');
+    
+    try {
+      const token = localStorage.getItem('adminToken');
+      
+      // Check if ASIN already exists in database
+      const checkResponse = await fetch(`http://localhost:5000/api/products/check-asin/${asin}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (checkResponse.ok) {
+        const checkData = await checkResponse.json();
+        if (checkData.exists) {
+          if (checkData.blocked) {
+            setAsinError(`❌ ${checkData.message}`);
+          } else {
+            setAsinError('⚠️ This ASIN is already used by another product');
+          }
+          setFetchingAsin(false);
+          return;
+        }
       }
-    }));
+      
+      // Fetch from excel-products
+      const response = await fetch(`http://localhost:5000/api/excel/asin/${asin}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.product) {
+          const product = data.product;
+          
+          // Auto-fill form with fetched data
+          setFormData(prev => ({
+            ...prev,
+            name: product.name || prev.name,
+            price: product.price || prev.price,
+            category: product.category || prev.category,
+            brand: product.brand || prev.brand,
+            rating: product.rating || prev.rating,
+            reviews: product.reviews || prev.reviews,
+            description: product.description || prev.description,
+            features: product.features || prev.features
+          }));
+          
+          // Set images if available
+          if (product.images && product.images.length > 0) {
+            console.log('📷 Setting images from fetched product:', product.images);
+            setImageUrls(product.images.slice(0, 5)); // Max 5 images
+          } else {
+            console.log('⚠️ No images found in fetched product data');
+          }
+          
+          // Show success message with source information
+          const sourceMessage = product.source === 'ExcelManager' 
+            ? `✅ Product details fetched from Excel Manager (${product.uploadName || 'Database'})!`
+            : `✅ Product details fetched from ${product.source}!`;
+          
+          alert(sourceMessage);
+        } else {
+          setAsinError('⚠️ ASIN not found in Excel Manager or uploaded files');
+        }
+      } else {
+        setAsinError('⚠️ ASIN not found in Excel Manager or uploaded files');
+      }
+    } catch (error) {
+      console.error('Error fetching ASIN:', error);
+      setAsinError('❌ Error fetching product details');
+    } finally {
+      setFetchingAsin(false);
+    }
   };
+
+  // Handle ASIN input change with debounce
+  const handleAsinChange = (e) => {
+    const asin = e.target.value.toUpperCase();
+    setFormData(prev => ({ ...prev, asin }));
+    setAsinError('');
+    
+    // Auto-fetch when ASIN is 10 characters
+    if (asin.length === 10) {
+      setTimeout(() => fetchProductByAsin(asin), 500);
+    }
+  };
+
+  // Handle SKU input change with validation
+  const handleSkuChange = (e) => {
+    const sku = e.target.value.toUpperCase();
+    setFormData(prev => ({ ...prev, sku }));
+    setSkuError('');
+    
+    // Validate SKU when it has content
+    if (sku.trim().length > 0) {
+      setTimeout(() => validateSku(sku), 500);
+    }
+  };
+
+  // Validate SKU for duplicates
+  const validateSku = async (sku) => {
+    if (!sku || sku.trim().length === 0) return;
+    
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`http://localhost:5000/api/products/check-sku/${sku}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const checkData = await response.json();
+        if (checkData.exists) {
+          if (checkData.blocked) {
+            setSkuError(`❌ ${checkData.message}`);
+          } else {
+            setSkuError('⚠️ This SKU is already used by another product');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking SKU:', error);
+    }
+  };
+
+
 
   // Image handling functions
   const handleImageSelect = async (e, index = 0) => {
@@ -326,8 +439,20 @@ const AddProduct = () => {
         }
       }
 
-      // Filter out empty slots
+      // Filter out empty slots and add any fetched image URLs
       finalImageUrls = finalImageUrls.filter(url => url && url.trim() !== '');
+      
+      // Add any image URLs that were fetched from ASIN (not uploaded files)
+      imageUrls.forEach((url, index) => {
+        if (url && url.trim() !== '' && !finalImageUrls[index]) {
+          finalImageUrls[index] = url;
+        }
+      });
+      
+      // Remove empty slots again and flatten
+      finalImageUrls = finalImageUrls.filter(url => url && url.trim() !== '');
+      
+      console.log('📷 Final images to save:', finalImageUrls);
 
       // Save price in GBP - no conversion needed
       const priceInGBP = parseFloat(formData.price) || 0;
@@ -341,6 +466,7 @@ const AddProduct = () => {
         category: formData.category,
         brand: formData.brand || '',
         asin: formData.asin.trim() || '',
+        sku: formData.sku.trim() || '',
         rating: parseFloat(formData.rating) || 4.5,
         reviews: parseInt(formData.reviews) || 0,
         stock: parseInt(formData.stock) || 0,
@@ -351,19 +477,20 @@ const AddProduct = () => {
         isLatestDeal: false,
         showOnHome: false,
         status: formData.status || 'active',
-        approvalStatus: 'approved',
+        approvalStatus: 'pending', // Changed to pending for approval workflow
         isAdminProduct: true,
         listedBy: 'admin',
-        images: finalImageUrls,
-        profitEvaluation: formData.profitEvaluation
+        images: finalImageUrls
       };
+
+      console.log('📦 Product data being sent:', productData);
 
       const response = await adminPost('http://localhost:5000/api/products', productData);
       
       if (response.ok) {
         const createdProduct = await response.json();
         
-        // Show modern success toast instead of basic alert
+        // Show modern success toast for pending approval
         setCreatedProductName(createdProduct.name || formData.name);
         setShowSuccessToast(true);
         
@@ -379,12 +506,12 @@ const AddProduct = () => {
         localStorage.setItem('categoriesUpdated', Date.now().toString());
         window.dispatchEvent(new CustomEvent('refreshCategories'));
         
-        // Navigate back to products list
-        const returnUrl = returnCategory 
-          ? `/admin/products?category=${returnCategory}`
-          : '/admin/products';
-        navigate(returnUrl, {
-          state: { category: returnCategory }
+        // Navigate to approval page instead of products list
+        navigate('/admin/approval', {
+          state: { 
+            newProduct: createdProduct,
+            message: 'Product submitted for approval successfully!'
+          }
         });
       } else {
         const errorData = await response.json();
@@ -442,7 +569,7 @@ const AddProduct = () => {
                   <select name="category" value={formData.category} onChange={handleChange} required>
                     <option value="">Select Category</option>
                     {categories.map(cat => (
-                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                      <option key={cat.value} value={cat.label}>{cat.label}</option>
                     ))}
                   </select>
                 </div>
@@ -572,20 +699,62 @@ const AddProduct = () => {
           <div className="form-row">
             <div className="form-group">
               <label>ASIN (Amazon Standard Identification Number)</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  name="asin"
+                  value={formData.asin}
+                  onChange={handleAsinChange}
+                  placeholder="Enter ASIN (e.g., B08N5WRWNW)"
+                  maxLength="10"
+                  style={{
+                    textTransform: 'uppercase',
+                    fontFamily: 'monospace',
+                    letterSpacing: '1px',
+                    paddingRight: fetchingAsin ? '40px' : '12px'
+                  }}
+                />
+                {fetchingAsin && (
+                  <div style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: '14px'
+                  }}>
+                    ⏳
+                  </div>
+                )}
+              </div>
+              {asinError && (
+                <small style={{ color: '#dc3545', fontWeight: 'bold' }}>{asinError}</small>
+              )}
+              {!asinError && (
+                <small>Optional: 10-character Amazon product identifier. Auto-fetches details when entered.</small>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label>SKU (Stock Keeping Unit) *</label>
               <input
                 type="text"
-                name="asin"
-                value={formData.asin}
-                onChange={handleChange}
-                placeholder="Enter ASIN (e.g., B08N5WRWNW)"
-                maxLength="10"
+                name="sku"
+                value={formData.sku}
+                onChange={handleSkuChange}
+                required
+                placeholder="Enter unique SKU (e.g., SKU123456ABC)"
                 style={{
                   textTransform: 'uppercase',
                   fontFamily: 'monospace',
                   letterSpacing: '1px'
                 }}
               />
-              <small>Optional: 10-character Amazon product identifier for admin tracking</small>
+              {skuError && (
+                <small style={{ color: '#dc3545', fontWeight: 'bold' }}>{skuError}</small>
+              )}
+              {!skuError && (
+                <small>Enter a unique identifier for inventory management.</small>
+              )}
             </div>
           </div>
 
@@ -924,185 +1093,7 @@ const AddProduct = () => {
           </div>
         </div>
 
-        <div className="form-section">
-          <h2>💰 Profit Analysis</h2>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label>Sales Proceeds (£)</label>
-              <input
-                type="number"
-                name="salesProceeds"
-                value={formData.profitEvaluation.salesProceeds}
-                onChange={handleProfitChange}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-              <small>Revenue from product sales</small>
-            </div>
 
-            <div className="form-group">
-              <label>Commission (£)</label>
-              <input
-                type="number"
-                name="commission"
-                value={formData.profitEvaluation.commission}
-                onChange={handleProfitChange}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-              <small>Amazon commission fees</small>
-            </div>
-
-            <div className="form-group">
-              <label>Commission Tax (£)</label>
-              <input
-                type="number"
-                name="commissionTax"
-                value={formData.profitEvaluation.commissionTax}
-                onChange={handleProfitChange}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-              <small>Tax on commission</small>
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Digital Services Fee (£)</label>
-              <input
-                type="number"
-                name="digitalServicesFee"
-                value={formData.profitEvaluation.digitalServicesFee}
-                onChange={handleProfitChange}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-              <small>Digital services charges</small>
-            </div>
-
-            <div className="form-group">
-              <label>Digital Services Tax (£)</label>
-              <input
-                type="number"
-                name="digitalServicesTax"
-                value={formData.profitEvaluation.digitalServicesTax}
-                onChange={handleProfitChange}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-              <small>Tax on digital services</small>
-            </div>
-
-            <div className="form-group">
-              <label>FBA Fulfilment Fee (£)</label>
-              <input
-                type="number"
-                name="fbaFulfilmentFee"
-                value={formData.profitEvaluation.fbaFulfilmentFee}
-                onChange={handleProfitChange}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-              <small>Amazon FBA fees</small>
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>FBA Fulfilment Tax (£)</label>
-              <input
-                type="number"
-                name="fbaFulfilmentTax"
-                value={formData.profitEvaluation.fbaFulfilmentTax}
-                onChange={handleProfitChange}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-              <small>Tax on FBA fees</small>
-            </div>
-
-            <div className="form-group">
-              <label>Balance Change (£)</label>
-              <input
-                type="number"
-                name="balanceChange"
-                value={formData.profitEvaluation.balanceChange}
-                onChange={handleProfitChange}
-                step="0.01"
-                placeholder="0.00"
-              />
-              <small>Auto-calculated: Sales Proceeds - All Fees</small>
-            </div>
-
-            <div className="form-group">
-              <label>Product Cost (£) *</label>
-              <input
-                type="number"
-                name="productCost"
-                value={formData.profitEvaluation.productCost}
-                onChange={handleProfitChange}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                style={{
-                  border: '2px solid #007bff',
-                  backgroundColor: '#f8f9ff'
-                }}
-              />
-              <small>Enter the actual cost of the product (manually editable)</small>
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Net Profit (£)</label>
-              <input
-                type="number"
-                name="netProfit"
-                value={formData.profitEvaluation.netProfit}
-                onChange={handleProfitChange}
-                step="0.01"
-                placeholder="0.00"
-              />
-              <small>Balance Change - Product Cost</small>
-            </div>
-
-            <div className="form-group">
-              <label>Monthly Profit (£)</label>
-              <input
-                type="number"
-                name="monthlyProfit"
-                value={formData.profitEvaluation.monthlyProfit}
-                onChange={handleProfitChange}
-                step="0.01"
-                placeholder="0.00"
-              />
-              <small>Estimated monthly profit</small>
-            </div>
-
-            <div className="form-group">
-              <label>Yearly Profit (£)</label>
-              <input
-                type="number"
-                name="yearlyProfit"
-                value={formData.profitEvaluation.yearlyProfit}
-                onChange={handleProfitChange}
-                step="0.01"
-                placeholder="0.00"
-              />
-              <small>Estimated yearly profit</small>
-            </div>
-          </div>
-        </div>
 
         <div className="form-actions">
           <button type="submit" className="submit-btn" disabled={saving || uploadingImages}>
@@ -1168,7 +1159,7 @@ const AddProduct = () => {
                 fontWeight: 'bold',
                 textShadow: '0 1px 2px rgba(0,0,0,0.1)'
               }}>
-                Product Created Successfully!
+                Product Submitted for Approval!
               </h3>
               <p style={{
                 margin: 0,
@@ -1176,7 +1167,7 @@ const AddProduct = () => {
                 opacity: 0.9,
                 lineHeight: '1.4'
               }}>
-                "{createdProductName}" has been added to your product catalog.
+                "{createdProductName}" has been submitted and is pending approval.
               </p>
             </div>
             <button

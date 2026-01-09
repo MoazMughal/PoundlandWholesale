@@ -40,8 +40,10 @@ const JoinNow = lazy(() => import('./pages/onboarding/JoinNow'))
 const ProductDetail = lazy(() => import('./pages/ProductDetail'))
 const AdminLogin = lazy(() => import('./pages/admin/Login'))
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
+const AdminAuthTest = lazy(() => import('./pages/admin/AuthTest'))
 const AdminProducts = lazy(() => import('./pages/admin/Products'))
 const AdminAddProduct = lazy(() => import('./pages/admin/AddProduct'))
+const AdminApproval = lazy(() => import('./pages/admin/Approval'))
 const EditProduct = lazy(() => import('./pages/admin/EditProduct'))
 const ExcelProducts = lazy(() => import('./pages/ExcelProducts'))
 const AdminSellers = lazy(() => import('./pages/admin/Sellers'))
@@ -52,6 +54,8 @@ const ExcelManager = lazy(() => import('./pages/admin/ExcelManager'))
 const AdminExcelProducts = lazy(() => import('./pages/admin/ExcelProducts'))
 const ExcelProductEdit = lazy(() => import('./pages/admin/ExcelProductEdit'))
 const ImageViewer = lazy(() => import('./pages/admin/ImageViewer'))
+const ImageDebug = lazy(() => import('./pages/admin/ImageDebug'))
+const ImageDiagnostic = lazy(() => import('./pages/ImageDiagnostic'))
 const AdminBuyers = lazy(() => import('./pages/admin/Buyers'))
 const AdminPendingPayments = lazy(() => import('./pages/admin/PendingPayments'))
 const AdminSellerListings = lazy(() => import('./pages/admin/SellerListings'))
@@ -176,9 +180,11 @@ function App() {
           
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/auth-test" element={<AdminAuthTest />} />
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/products" element={<ProtectedRoute><AdminProducts /></ProtectedRoute>} />
           <Route path="/admin/products/add" element={<ProtectedRoute><AdminAddProduct /></ProtectedRoute>} />
+          <Route path="/admin/approval" element={<ProtectedRoute><AdminApproval /></ProtectedRoute>} />
           <Route path="/admin/products/edit/:id" element={<ProtectedRoute><EditProduct /></ProtectedRoute>} />
           <Route path="/admin/sellers" element={<ProtectedRoute><AdminSellers /></ProtectedRoute>} />
           <Route path="/admin/seller-products" element={<ProtectedRoute><AdminSellerProducts /></ProtectedRoute>} />
@@ -192,6 +198,8 @@ function App() {
           <Route path="/admin/excel-products/:uploadId/edit/:productId" element={<ProtectedRoute><ExcelProductEdit /></ProtectedRoute>} />
           <Route path="/admin/excel-product/edit/:productId" element={<ProtectedRoute><ExcelProductEdit /></ProtectedRoute>} />
           <Route path="/admin/excel-manager/images/:uploadId" element={<ProtectedRoute><ImageViewer /></ProtectedRoute>} />
+          <Route path="/admin/image-debug" element={<ProtectedRoute><ImageDebug /></ProtectedRoute>} />
+          <Route path="/image-diagnostic" element={<ImageDiagnostic />} />
           
           {/* Legal Pages */}
           <Route path="/terms-of-service" element={<TermsOfService />} />

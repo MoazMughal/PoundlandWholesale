@@ -30,37 +30,33 @@ export const getImageUrl = (imagePath) => {
   }
   
   // Handle API URLs for Excel uploaded images - convert to full URL
-  if (imagePath.startsWith('/api/admin-excel/public/images/by-asin/') || 
-      imagePath.startsWith('api/admin-excel/public/images/by-asin/')) {
-    // Get the base URL from environment
-    const baseUrl = import.meta.env.PROD 
-      ? 'https://generic-wholesale-backend.onrender.com' 
-      : 'http://localhost:5000';
-    
-    // Ensure the path starts with /
-    const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
-    return `${baseUrl}${cleanPath}`;
-  }
-  
-  // Handle relative API URLs that might be missing the /api prefix
   if (imagePath.includes('admin-excel/public/images/by-asin/')) {
-    const baseUrl = import.meta.env.PROD 
+    // Get the base URL from environment
+    const baseUrl = process.env.NODE_ENV === 'production' 
       ? 'https://generic-wholesale-backend.onrender.com' 
       : 'http://localhost:5000';
     
-    // Extract the ASIN part and construct proper URL
-    const asinMatch = imagePath.match(/by-asin\/([A-Z0-9]{10})/);
-    if (asinMatch) {
-      return `${baseUrl}/api/admin-excel/public/images/by-asin/${asinMatch[1]}`;
+    // Ensure the path starts with /api/
+    let cleanPath = imagePath;
+    if (!cleanPath.startsWith('/api/')) {
+      if (cleanPath.startsWith('/')) {
+        cleanPath = `/api${cleanPath}`;
+      } else {
+        cleanPath = `/api/${cleanPath}`;
+      }
     }
+    
+    const fullUrl = `${baseUrl}${cleanPath}`;
+    return fullUrl;
   }
   
   // Handle ASIN-only strings (for Excel products)
   if (imagePath.match(/^[A-Z0-9]{10}$/)) {
-    const baseUrl = import.meta.env.PROD 
+    const baseUrl = process.env.NODE_ENV === 'production' 
       ? 'https://generic-wholesale-backend.onrender.com' 
       : 'http://localhost:5000';
-    return `${baseUrl}/api/admin-excel/public/images/by-asin/${imagePath}`;
+    const asinUrl = `${baseUrl}/api/admin-excel/public/images/by-asin/${imagePath}`;
+    return asinUrl;
   }
   
   // Extract just the filename for local assets
@@ -77,7 +73,6 @@ export const getImageUrl = (imagePath) => {
   }
   
   // Fallback: return original path (will likely 404 but won't break the app)
-  console.warn(`Image not found: ${imagePath}`);
   return imagePath;
 };
 

@@ -109,6 +109,19 @@ const productSchema = new mongoose.Schema({
       message: 'ASIN must be exactly 10 alphanumeric characters'
     }
   },
+  sku: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    sparse: true, // Allow multiple null values but enforce uniqueness for non-null values
+    validate: {
+      validator: function(v) {
+        // Allow empty string or any non-empty string for SKU
+        return !v || (typeof v === 'string' && v.trim().length > 0);
+      },
+      message: 'SKU must be a non-empty string'
+    }
+  },
   marketplace: {
     type: String,
     enum: ['UK', 'UAE', 'US', 'Amazon10', 'Other'],
@@ -275,6 +288,7 @@ productSchema.index({ price: 1 }); // Price sorting
 productSchema.index({ rating: -1 }); // Rating sorting
 productSchema.index({ createdAt: -1 }); // Latest products
 productSchema.index({ asin: 1 }, { sparse: true }); // ASIN index for Excel uploads (sparse allows nulls)
+productSchema.index({ sku: 1 }, { sparse: true }); // SKU index (sparse allows nulls)
 productSchema.index({ name: 1 }); // Product title index for Excel uploads
 productSchema.index({ category: 1 }); // Category index for Excel uploads
 productSchema.index({ isAdminProduct: 1, status: 1 }); // Admin products index
