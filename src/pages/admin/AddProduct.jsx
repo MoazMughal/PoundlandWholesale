@@ -58,10 +58,34 @@ const AddProduct = () => {
   const [showRenameCategoryInput, setShowRenameCategoryInput] = useState(false);
   const [renameCategoryName, setRenameCategoryName] = useState('');
   const [selectedCategoryToRename, setSelectedCategoryToRename] = useState('');
+  const [showDeleteCategoryInput, setShowDeleteCategoryInput] = useState(false);
+  const [selectedCategoryToDelete, setSelectedCategoryToDelete] = useState('');
+  const [forceDeleteCategory, setForceDeleteCategory] = useState(false);
 
   useEffect(() => {
     fetchSellers();
     fetchCategories();
+    
+    // Auto-cleanup duplicates on page load (silent)
+    const autoCleanupDuplicates = async () => {
+      try {
+        const token = localStorage.getItem('adminToken');
+        await fetch('http://localhost:5000/api/products/admin/cleanup-duplicate-categories', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        // Silent cleanup - no alert needed
+        console.log('🧹 Auto-cleanup of duplicate categories completed');
+      } catch (error) {
+        console.log('Auto-cleanup failed, but continuing normally');
+      }
+    };
+    
+    // Run cleanup after a short delay to not block initial load
+    setTimeout(autoCleanupDuplicates, 2000);
   }, []);
 
   const fetchSellers = async () => {
@@ -81,11 +105,26 @@ const AddProduct = () => {
 
   const fetchCategories = async () => {
     try {
-      // Include Excel categories for admin use
-      const response = await fetch('http://localhost:5000/api/products/public/categories?includeExcel=true');
+      // Include Excel categories for admin use with proper parameters
+      const response = await fetch('http://localhost:5000/api/products/public/categories?includeExcel=true&includeEmpty=true&deduplicate=true');
       if (response.ok) {
         const data = await response.json();
-        setCategories(data.categories || []);
+        let fetchedCategories = data.categories || [];
+        
+        // Client-side deduplication as backup (case-insensitive)
+        const deduplicatedCategories = [];
+        const seenCategories = new Set();
+        
+        fetchedCategories.forEach(cat => {
+          const lowerLabel = cat.label.toLowerCase();
+          if (!seenCategories.has(lowerLabel)) {
+            seenCategories.add(lowerLabel);
+            deduplicatedCategories.push(cat);
+          }
+        });
+        
+        console.log(`📂 Admin loaded ${deduplicatedCategories.length} unique categories (removed ${fetchedCategories.length - deduplicatedCategories.length} duplicates)`);
+        setCategories(deduplicatedCategories);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -102,6 +141,16 @@ const AddProduct = () => {
   const handleAddNewCategory = async () => {
     if (!newCategoryName.trim()) {
       alert('Please enter a category name');
+      return;
+    }
+
+    // Check if category already exists (case-insensitive)
+    const existingCategory = categories.find(cat => 
+      cat.label.toLowerCase() === newCategoryName.trim().toLowerCase()
+    );
+    
+    if (existingCategory) {
+      alert(`Category "${existingCategory.label}" already exists. Please choose a different name.`);
       return;
     }
 
@@ -122,7 +171,7 @@ const AddProduct = () => {
         
         // Add new category to the list if it doesn't already exist
         setCategories(prev => {
-          const exists = prev.some(cat => cat.value === newCategory.value);
+          const exists = prev.some(cat => cat.label.toLowerCase() === newCategory.label.toLowerCase());
           if (exists) {
             return prev;
           }
@@ -178,15 +227,23 @@ const AddProduct = () => {
         const data = await response.json();
         
         // Update the category in the list
-        setCategories(prev => prev.map(cat => 
-          cat.value === selectedCategoryToRename 
-            ? { ...cat, label: renameCategoryName.trim() }
-            : cat
-        ));
+        if (data.merged) {
+          // If categories were merged, remove the old category and keep the existing one
+          setCategories(prev => prev.filter(cat => 
+            cat.label.toLowerCase() !== categoryToRename.label.toLowerCase()
+          ));
+        } else {
+          // If renamed, update the category name
+          setCategories(prev => prev.map(cat => 
+            cat.value === selectedCategoryToRename 
+              ? { ...cat, label: data.newCategoryName }
+              : cat
+          ));
+        }
         
         // Update form data if the renamed category was selected
-        if (formData.category === selectedCategoryToRename) {
-          setFormData(prev => ({ ...prev, category: selectedCategoryToRename }));
+        if (formData.category === categoryToRename.label) {
+          setFormData(prev => ({ ...prev, category: data.newCategoryName }));
         }
         
         // Reset the input
@@ -198,7 +255,11 @@ const AddProduct = () => {
         localStorage.setItem('categoriesUpdated', Date.now().toString());
         window.dispatchEvent(new CustomEvent('refreshCategories'));
         
-        alert(`✅ Category renamed successfully from "${categoryToRename.label}" to "${renameCategoryName.trim()}"!`);
+        if (data.merged) {
+          alert(`✅ Categories merged successfully! "${data.oldCategoryName}" has been merged into "${data.newCategoryName}"\n\nProducts updated: ${data.updatedProducts}\nExcel products updated: ${data.updatedExcelProducts}`);
+        } else {
+          alert(`✅ Category renamed successfully from "${data.oldCategoryName}" to "${data.newCategoryName}"\n\nProducts updated: ${data.updatedProducts}\nExcel products updated: ${data.updatedExcelProducts}`);
+        }
       } else {
         const errorData = await response.json();
         alert(`❌ Error: ${errorData.message}`);
@@ -206,6 +267,105 @@ const AddProduct = () => {
     } catch (error) {
       console.error('Error renaming category:', error);
       alert('❌ Failed to rename category. Please try again.');
+    }
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!selectedCategoryToDelete) {
+      alert('Please select a category to delete');
+      return;
+    }
+
+    const categoryToDelete = categories.find(cat => cat.value === selectedCategoryToDelete);
+    if (!categoryToDelete) {
+      alert('Selected category not found');
+      return;
+    }
+
+    const confirmMessage = forceDeleteCategory 
+      ? `⚠️ Are you sure you want to FORCE DELETE the category "${categoryToDelete.label}"? This will permanently delete ALL products in this category and cannot be undone.`
+      : `Are you sure you want to delete the category "${categoryToDelete.label}"? This action cannot be undone.`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const url = `http://localhost:5000/api/products/admin/categories/${encodeURIComponent(categoryToDelete.label)}${forceDeleteCategory ? '?force=true' : ''}`;
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Remove the category from the list
+        setCategories(prev => prev.filter(cat => cat.value !== selectedCategoryToDelete));
+        
+        // Reset form category if it was the deleted one
+        if (formData.category === categoryToDelete.label) {
+          setFormData(prev => ({ ...prev, category: '' }));
+        }
+        
+        // Reset the input
+        setSelectedCategoryToDelete('');
+        setShowDeleteCategoryInput(false);
+        setForceDeleteCategory(false);
+        
+        // Trigger category refresh in headers
+        localStorage.setItem('categoriesUpdated', Date.now().toString());
+        window.dispatchEvent(new CustomEvent('refreshCategories'));
+        
+        alert(`✅ ${data.message}`);
+      } else {
+        const errorData = await response.json();
+        alert(`❌ Error: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      alert('❌ Failed to delete category. Please try again.');
+    }
+  };
+
+  const handleCleanupDuplicates = async () => {
+    if (!confirm('This will automatically merge duplicate categories (like "Home & Kitchen" and "Home & kitchen"). Continue?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch('http://localhost:5000/api/products/admin/cleanup-duplicate-categories', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Refresh categories
+        await fetchCategories();
+        
+        // Trigger category refresh in headers
+        localStorage.setItem('categoriesUpdated', Date.now().toString());
+        window.dispatchEvent(new CustomEvent('refreshCategories'));
+        
+        alert(`✅ ${data.message}\n\nProducts updated: ${data.totalProductsUpdated}\nExcel products updated: ${data.excelProductsUpdated}`);
+      } else {
+        const errorData = await response.json();
+        alert(`❌ Error: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error('Error cleaning up duplicates:', error);
+      alert('❌ Failed to cleanup duplicates. Please try again.');
     }
   };
 
@@ -266,11 +426,28 @@ const AddProduct = () => {
           const product = data.product;
           
           // Auto-fill form with fetched data
+          const fetchedCategory = product.category;
+          let selectedCategory = fetchedCategory;
+          
+          // Check if fetched category matches any existing category (case-insensitive)
+          if (fetchedCategory) {
+            const matchingCategory = categories.find(cat => 
+              cat.label.toLowerCase() === fetchedCategory.toLowerCase()
+            );
+            
+            if (matchingCategory) {
+              selectedCategory = matchingCategory.label; // Use existing category's exact case
+              console.log(`📂 Matched fetched category "${fetchedCategory}" to existing category "${matchingCategory.label}"`);
+            } else {
+              console.log(`📂 New category "${fetchedCategory}" will be added`);
+            }
+          }
+          
           setFormData(prev => ({
             ...prev,
             name: product.name || prev.name,
             price: product.price || prev.price,
-            category: product.category || prev.category,
+            category: selectedCategory || prev.category,
             brand: product.brand || prev.brand,
             rating: product.rating || prev.rating,
             reviews: product.reviews || prev.reviews,
@@ -609,6 +786,42 @@ const AddProduct = () => {
                 >
                   ✏️ Rename
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteCategoryInput(!showDeleteCategoryInput)}
+                  style={{
+                    padding: '10px 15px',
+                    background: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title="Delete existing category"
+                >
+                  🗑️ Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCleanupDuplicates}
+                  style={{
+                    padding: '10px 15px',
+                    background: '#17a2b8',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title="Merge duplicate categories automatically"
+                >
+                  🧹 Cleanup
+                </button>
               </div>
               
               {showNewCategoryInput && (
@@ -679,6 +892,181 @@ const AddProduct = () => {
                   </div>
                   <small style={{ color: '#6c757d', fontSize: '0.8rem', marginTop: '5px', display: 'block' }}>
                     The new category will be available for all future products and will appear in Amazon's Choice page.
+                  </small>
+                </div>
+              )}
+
+              {showRenameCategoryInput && (
+                <div style={{ 
+                  marginTop: '10px', 
+                  padding: '15px', 
+                  background: '#fff3cd', 
+                  border: '1px solid #ffeaa7', 
+                  borderRadius: '6px' 
+                }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                    Rename Category
+                  </label>
+                  <div style={{ marginBottom: '10px' }}>
+                    <select
+                      value={selectedCategoryToRename}
+                      onChange={(e) => setSelectedCategoryToRename(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px',
+                        border: '1px solid #ddd',
+                        borderRadius: '6px',
+                        fontSize: '0.9rem',
+                        marginBottom: '8px'
+                      }}
+                    >
+                      <option value="">Select category to rename</option>
+                      {categories.filter(cat => cat.value !== 'all').map(cat => (
+                        <option key={cat.value} value={cat.value}>{cat.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      type="text"
+                      value={renameCategoryName}
+                      onChange={(e) => setRenameCategoryName(e.target.value)}
+                      placeholder="Enter new category name"
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '6px',
+                        fontSize: '0.9rem'
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleRenameCategory();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRenameCategory}
+                      disabled={!selectedCategoryToRename || !renameCategoryName.trim()}
+                      style={{
+                        padding: '10px 20px',
+                        background: !selectedCategoryToRename || !renameCategoryName.trim() ? '#6c757d' : '#ffc107',
+                        color: !selectedCategoryToRename || !renameCategoryName.trim() ? '#fff' : '#212529',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: !selectedCategoryToRename || !renameCategoryName.trim() ? 'not-allowed' : 'pointer',
+                        fontSize: '0.9rem',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRenameCategoryInput(false);
+                        setRenameCategoryName('');
+                        setSelectedCategoryToRename('');
+                      }}
+                      style={{
+                        padding: '10px 15px',
+                        background: '#6c757d',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <small style={{ color: '#856404', fontSize: '0.8rem', marginTop: '5px', display: 'block' }}>
+                    Renaming will update all products in this category and refresh the website navigation.
+                  </small>
+                </div>
+              )}
+
+              {showDeleteCategoryInput && (
+                <div style={{ 
+                  marginTop: '10px', 
+                  padding: '15px', 
+                  background: '#f8d7da', 
+                  border: '1px solid #f5c6cb', 
+                  borderRadius: '6px' 
+                }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#721c24' }}>
+                    ⚠️ Delete Category
+                  </label>
+                  <div style={{ marginBottom: '10px' }}>
+                    <select
+                      value={selectedCategoryToDelete}
+                      onChange={(e) => setSelectedCategoryToDelete(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px',
+                        border: '1px solid #ddd',
+                        borderRadius: '6px',
+                        fontSize: '0.9rem',
+                        marginBottom: '8px'
+                      }}
+                    >
+                      <option value="">Select category to delete</option>
+                      {categories.filter(cat => cat.value !== 'all').map(cat => (
+                        <option key={cat.value} value={cat.value}>{cat.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={forceDeleteCategory}
+                        onChange={(e) => setForceDeleteCategory(e.target.checked)}
+                      />
+                      Force delete (removes all products)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleDeleteCategory}
+                      disabled={!selectedCategoryToDelete}
+                      style={{
+                        padding: '8px 16px',
+                        background: !selectedCategoryToDelete ? '#6c757d' : '#dc3545',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: !selectedCategoryToDelete ? 'not-allowed' : 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDeleteCategoryInput(false);
+                        setSelectedCategoryToDelete('');
+                        setForceDeleteCategory(false);
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        background: '#6c757d',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <small style={{ color: '#721c24', fontSize: '0.8rem', marginTop: '5px', display: 'block' }}>
+                    <strong>Warning:</strong> This will permanently delete the category and affect all related products and navigation.
                   </small>
                 </div>
               )}

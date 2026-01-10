@@ -9,6 +9,8 @@ import { ProductCardSkeleton as NewProductCardSkeleton } from '../components/Ske
 import Pagination from '../components/Pagination'
 import MobileImage from '../components/MobileImage'
 import SimpleImage from '../components/SimpleImage'
+import ProductImage from '../components/ProductImage'
+import ProductionStatus from '../components/ProductionStatus'
 import { useCurrency } from '../context/CurrencyContext'
 import { useSeller } from '../context/SellerContext'
 import { useBasket } from '../context/BasketContext'
@@ -16,12 +18,14 @@ import { useAdmin } from '../context/AdminContext'
 import { getImageUrl } from '../utils/imageImports'
 import { getApiUrl } from '../utils/api'
 import { logDeviceInfo } from '../utils/deviceDetection'
+import productionImageLoader from '../utils/productionImageLoader'
 import '../styles/mobile-products.css'
 import '../styles/enhanced-theme.css'
 import '../styles/mobile-improvements.css'
 import '../styles/enhanced-images.css'
 import '../styles/mobile-image-optimization.css'
 import '../styles/image-fixes.css'
+import '../styles/production-optimizations.css'
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
@@ -254,15 +258,25 @@ const AmazonsChoice = () => {
         params.append('search', search)
       }
       
-      // Use proper API URL for both development and production
+      // Use proper API URL for both development and production with timeout
       const baseApiUrl = process.env.NODE_ENV === 'production' 
         ? 'https://generic-wholesale-backend.onrender.com/api' 
         : 'http://localhost:5000/api';
       const apiUrl = `${baseApiUrl}/products/public?${params.toString()}`
       
+      // Production optimization: Add timeout and retry logic
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
       const response = await fetch(apiUrl, {
-        headers: { 'Accept': 'application/json' }
+        headers: { 
+          'Accept': 'application/json',
+          'Cache-Control': process.env.NODE_ENV === 'production' ? 'max-age=300' : 'no-cache' // 5 min cache in production
+        },
+        signal: controller.signal
       })
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const data = await response.json()
@@ -284,26 +298,33 @@ const AmazonsChoice = () => {
               category: p.category,
               brand: p.brand,
               image: (() => {
-                // Enhanced image URL processing for better reliability
-                let imageUrl = '';
-                
-                // Priority 1: Use images array first element
-                if (p.images && p.images.length > 0 && p.images[0]) {
-                  imageUrl = p.images[0];
+              // Enhanced image URL processing for better reliability in production
+              let imageUrl = '';
+              
+              // Priority 1: Use images array first element
+              if (p.images && p.images.length > 0 && p.images[0]) {
+                imageUrl = p.images[0];
+              }
+              // Priority 2: Use image field
+              else if (p.image) {
+                imageUrl = p.image;
+              }
+              // Priority 3: Generate from ASIN if available
+              else if (p.asin && p.asin.match(/^[A-Z0-9]{10}$/)) {
+                const baseUrl = process.env.NODE_ENV === 'production' 
+                  ? 'https://generic-wholesale-backend.onrender.com' 
+                  : 'http://localhost:5000';
+                imageUrl = `${baseUrl}/api/admin-excel/public/images/by-asin/${p.asin}`;
+              }
+              
+              // Production optimization: Ensure HTTPS for external images
+              if (process.env.NODE_ENV === 'production' && imageUrl) {
+                if (imageUrl.startsWith('http://') && !imageUrl.includes('localhost')) {
+                  imageUrl = imageUrl.replace('http://', 'https://');
                 }
-                // Priority 2: Use image field
-                else if (p.image) {
-                  imageUrl = p.image;
-                }
-                // Priority 3: Generate from ASIN if available
-                else if (p.asin && p.asin.match(/^[A-Z0-9]{10}$/)) {
-                  const baseUrl = process.env.NODE_ENV === 'production' 
-                    ? 'https://generic-wholesale-backend.onrender.com' 
-                    : 'http://localhost:5000';
-                  imageUrl = `${baseUrl}/api/admin-excel/public/images/by-asin/${p.asin}`;
-                }
-                
-                return imageUrl || '';
+              }
+              
+              return imageUrl || '';
               })(),
               images: p.images || [],
               rating: p.rating || 4.5,
@@ -368,14 +389,10 @@ const AmazonsChoice = () => {
           setLastFetchKey(fetchKey)
           setDataSource(data.source || 'unknown')
           
-          // Preload images for better performance (disabled to reduce console messages)
-          // if (transformedProducts.length > 0) {
-          //   preloadProductImages(transformedProducts, 'high').then(() => {
-          //     // Images preloaded
-          //   }).catch(() => {
-          //     // Preloading failed, but products will still load images individually
-          //   });
-          // }
+          // Preload images for better performance in production
+          if (transformedProducts.length > 0 && process.env.NODE_ENV === 'production') {
+            productionImageLoader.preloadCriticalImages(transformedProducts, 30);
+          }
           
         } else {
           // No Amazon Choice products found in database
@@ -390,7 +407,88 @@ const AmazonsChoice = () => {
         throw new Error(`Failed to fetch products: ${response.status}`)
       }
     } catch (error) {
-      alert('Failed to load products. Please refresh the page.')
+      console.error('❌ Error fetching products:', error);
+      
+      // Production: Retry logic for network errors
+      if (process.env.NODE_ENV === 'production' && error.name !== 'AbortError') {
+        console.log('🔄 Retrying product fetch...');
+        try {
+          // Retry with simpler parameters
+          const retryParams = new URLSearchParams()
+          retryParams.append('isAmazonsChoice', 'true')
+          retryParams.append('limit', '50') // Smaller batch for retry
+          
+          const retryUrl = `${process.env.NODE_ENV === 'production' 
+            ? 'https://generic-wholesale-backend.onrender.com/api' 
+            : 'http://localhost:5000/api'}/products/public?${retryParams.toString()}`
+          
+          const retryResponse = await fetch(retryUrl, {
+            headers: { 'Accept': 'application/json' }
+          })
+          
+          if (retryResponse.ok) {
+            const retryData = await retryResponse.json()
+            if (retryData.products && retryData.products.length > 0) {
+              // Process retry data same way
+              const transformedProducts = retryData.products.map(p => {
+                return {
+                  id: p._id,
+                  name: p.name,
+                  asin: p.asin,
+                  price: `£${parseFloat(p.price || 0).toFixed(2)}`,
+                  rawPrice: parseFloat(p.price || 0),
+                  originalPrice: p.originalPrice ? `£${parseFloat(p.originalPrice).toFixed(2)}` : null,
+                  category: p.category,
+                  brand: p.brand,
+                  image: (() => {
+                    let imageUrl = '';
+                    if (p.images && p.images.length > 0 && p.images[0]) {
+                      imageUrl = p.images[0];
+                    } else if (p.image) {
+                      imageUrl = p.image;
+                    } else if (p.asin && p.asin.match(/^[A-Z0-9]{10}$/)) {
+                      imageUrl = `https://generic-wholesale-backend.onrender.com/api/admin-excel/public/images/by-asin/${p.asin}`;
+                    }
+                    // Ensure HTTPS in production
+                    if (imageUrl && imageUrl.startsWith('http://') && !imageUrl.includes('localhost')) {
+                      imageUrl = imageUrl.replace('http://', 'https://');
+                    }
+                    return imageUrl || '';
+                  })(),
+                  images: p.images || [],
+                  rating: p.rating || 4.5,
+                  reviews: p.reviews || 0,
+                  stock: p.stock || 0,
+                  discount: p.discount || 0,
+                  dealUnits: Math.floor((p.platformUnits || 2400) / 12),
+                  platformUnits: p.platformUnits,
+                  currency: 'GBP',
+                  isAmazonsChoice: true,
+                  profitCalculations: p.profitCalculations || null,
+                  evaluation: p.evaluation || null,
+                  profitEvaluation: p.profitEvaluation || null
+                };
+              })
+              
+              setProducts(transformedProducts)
+              setFilteredProducts(transformedProducts)
+              setTotalPages(retryData.totalPages || 1)
+              setTotalProducts(retryData.total || transformedProducts.length)
+              setLoading(false)
+              setIsLoadingRequest(false)
+              setHasLoadedOnce(true)
+              setLastFetchKey(fetchKey)
+              setDataSource('retry')
+              return
+            }
+          }
+        } catch (retryError) {
+          console.error('❌ Retry also failed:', retryError);
+        }
+      }
+      
+      // If all fails, show user-friendly error
+      alert('Failed to load products. Please check your internet connection and refresh the page.')
       setProducts([])
       setLoading(false)
       setIsLoadingRequest(false)
@@ -447,7 +545,7 @@ const AmazonsChoice = () => {
     }
   }, [searchParams, hasLoadedOnce, lastFetchKey])
 
-  // Health check on component mount
+  // Health check on component mount with production optimizations
   useEffect(() => {
     const checkApiHealth = async () => {
       try {
@@ -455,10 +553,29 @@ const AmazonsChoice = () => {
           ? 'https://generic-wholesale-backend.onrender.com/api' 
           : 'http://localhost:5000/api';
         const healthUrl = `${baseApiUrl}/health`;
-        const response = await fetch(healthUrl);
-        await response.json();
+        
+        // Production: Add timeout and connection check
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(healthUrl, {
+          signal: controller.signal,
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        clearTimeout(timeoutId);
+        const healthData = await response.json();
+        
+        // In production, log connection quality
+        if (process.env.NODE_ENV === 'production') {
+          console.log('🌐 API Health:', healthData.tests?.query?.productCount || 0, 'products available');
+        }
       } catch (error) {
-        // Health check failed - continue anyway
+        if (process.env.NODE_ENV === 'production') {
+          console.warn('⚠️ API health check failed - may affect image loading');
+        }
       }
     };
     
@@ -648,6 +765,7 @@ const AmazonsChoice = () => {
   return (
       <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '0px 15px', marginTop: '0px', marginBottom: '0px'}}>
         <ScrollToTop />
+        <ProductionStatus />
 
         {/* Data Source Indicator for Debugging - Only show for problematic sources */}
         {dataSource && dataSource !== 'database' && dataSource !== 'fast' && dataSource !== 'database_random' && (
@@ -780,7 +898,7 @@ const AmazonsChoice = () => {
               }}
               style={{
                 cursor: 'pointer',
-                background: 'linear-gradient(145deg, #ffffff 0%, #fafafa 100%)',
+                background: '#ffffff',
                 border: '2px solid transparent',
                 borderRadius: '15px',
                 overflow: 'hidden',
@@ -806,16 +924,23 @@ const AmazonsChoice = () => {
                 alignItems: 'center', 
                 justifyContent: 'center', 
                 background: '#fff',
-                padding: windowWidth < 576 ? '12px' : '16px' // Increased padding even more for better spacing
+                padding: '0px',
+                margin: '0px',
+                overflow: 'hidden'
               }}>
-                <SimpleImage
+                <ProductImage
                   src={product.image}
                   alt={product.name}
+                  priority={index < 20} // Prioritize first 20 images
+                  fallbackSrc={product.images && product.images[1]} // Use second image as fallback
                   style={{
-                    maxWidth: '90%', // Increased from 85% to 90% for better zoom
-                    maxHeight: '90%', // Increased from 85% to 90% for better zoom
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    width: '100%',
+                    height: '100%',
                     objectFit: 'contain',
-                    transform: 'scale(1.1)' // Added scale transform for additional zoom
+                    padding: '0px',
+                    margin: '0px'
                   }} 
                 />
                 

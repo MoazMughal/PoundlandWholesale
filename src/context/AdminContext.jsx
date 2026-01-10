@@ -242,6 +242,15 @@ export const AdminProvider = ({ children }) => {
           return
         }
 
+        // For development: Always require fresh login when opening localhost
+        // This prevents auto-login behavior in development environment
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          console.log('🔄 Development environment detected, requiring fresh login')
+          clearAuthData()
+          setLoading(false)
+          return
+        }
+
         // Basic token validation
         if (!isValidJWT(token)) {
           clearAuthData()

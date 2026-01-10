@@ -1229,13 +1229,16 @@ const AdminProducts = () => {
   };
 
   const handleCellClick = (productId, field, currentValue) => {
+    console.log('🖱️ Cell clicked:', { productId, field, currentValue, categoriesLoaded: categories.length });
     setEditingCell(`${productId}-${field}`);
-    // Ensure ASIN and SKU fields have proper initial values (empty string if null/undefined)
-    const initialValue = (field === 'asin' || field === 'sku') ? (currentValue || '') : currentValue;
+    // Ensure ASIN, SKU, and category fields have proper initial values (empty string if null/undefined)
+    const initialValue = (field === 'asin' || field === 'sku' || field === 'category') ? (currentValue || '') : currentValue;
+    console.log('📝 Setting initial edit value:', { cellKey: `${productId}-${field}`, initialValue });
     setEditValues({ ...editValues, [`${productId}-${field}`]: initialValue });
   };
 
   const handleEditChange = (productId, field, value) => {
+    console.log('🔄 handleEditChange called:', { productId, field, value });
     setEditValues({ ...editValues, [`${productId}-${field}`]: value });
   };
 
@@ -1243,8 +1246,11 @@ const AdminProducts = () => {
     const cellKey = `${productId}-${field}`;
     const newValue = editValues[cellKey];
 
-    // Allow empty values for ASIN and SKU fields, but not for price/stock
-    if (newValue === undefined || (newValue === '' && field !== 'asin' && field !== 'sku')) {
+    console.log('💾 handleSaveEdit called:', { productId, field, cellKey, newValue, editValues });
+
+    // Allow empty values for ASIN, SKU, and category fields, but not for price/stock
+    if (newValue === undefined || (newValue === '' && field !== 'asin' && field !== 'sku' && field !== 'category')) {
+      console.log('❌ Validation failed - empty value not allowed for field:', field);
       return;
     }
 
@@ -1260,6 +1266,9 @@ const AdminProducts = () => {
       } else if (field === 'sku') {
         // Handle SKU field - trim and convert to uppercase, allow empty string
         parsedValue = newValue ? newValue.trim().toUpperCase() : '';
+      } else if (field === 'category') {
+        // Handle category field - trim the value
+        parsedValue = newValue ? newValue.trim() : '';
       } else {
         parsedValue = newValue;
       }
@@ -1282,6 +1291,16 @@ const AdminProducts = () => {
       // Debug logging for SKU updates
       if (field === 'sku') {
         console.log('🏷️ Saving SKU:', {
+          productId,
+          originalValue: newValue,
+          parsedValue,
+          updateData
+        });
+      }
+
+      // Debug logging for category updates
+      if (field === 'category') {
+        console.log('📂 Saving Category:', {
           productId,
           originalValue: newValue,
           parsedValue,
@@ -1321,6 +1340,24 @@ const AdminProducts = () => {
             newASIN: parsedValue,
             productName: updatedProducts.find(p => p._id === productId)?.name
           });
+        }
+
+        // Log successful category update
+        if (field === 'category') {
+          console.log('✅ Category updated successfully:', {
+            productId,
+            newCategory: parsedValue,
+            productName: updatedProducts.find(p => p._id === productId)?.name
+          });
+          
+          // Show success message for category update
+          setSuccessMessage(`✅ Category updated to "${parsedValue}" successfully!`);
+          setShowSuccessToast(true);
+          setTimeout(() => setShowSuccessToast(false), 3000);
+          
+          // Trigger category refresh in headers since categories might have changed
+          localStorage.setItem('categoriesUpdated', Date.now().toString());
+          window.dispatchEvent(new CustomEvent('refreshCategories'));
         }
 
         // If price was updated, check if we need to update profit data
@@ -3151,8 +3188,75 @@ const AdminProducts = () => {
                         </span>
                       )}
                     </td>
-                    <td style={{ padding: '4px 8px' }}>
-                      <span className="category-badge" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>{product.category}</span>
+                    <td 
+                      className="category"
+                      style={{ padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s' }}
+                      data-cell={`${product._id}-category`}
+                      onClick={() => handleCellClick(product._id, 'category', product.category)}
+                      onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
+                      onMouseLeave={(e) => e.target.style.background = ''}
+                      title="Click to edit category"
+                    >
+                      {editingCell === `${product._id}-category` ? (
+                        categories.length > 0 ? (
+                          <select
+                            value={editValues[`${product._id}-category`] || ''}
+                            onChange={(e) => {
+                              console.log('📂 Category dropdown changed:', {
+                                productId: product._id,
+                                oldCategory: product.category,
+                                newCategory: e.target.value,
+                                editValues: editValues[`${product._id}-category`],
+                                availableCategories: categories.map(c => c.label)
+                              });
+                              handleEditChange(product._id, 'category', e.target.value);
+                              // Auto-save when user selects from dropdown
+                              setTimeout(() => handleSaveEdit(product._id, 'category'), 100);
+                            }}
+                            onBlur={() => handleSaveEdit(product._id, 'category')}
+                            onKeyDown={(e) => handleKeyPress(e, product._id, 'category')}
+                            autoFocus
+                            style={{
+                              width: '120px',
+                              padding: '3px',
+                              fontSize: '0.65rem',
+                              border: '2px solid #667eea',
+                              borderRadius: '4px',
+                              outline: 'none',
+                              background: 'white'
+                            }}
+                          >
+                            <option value="">Select Category</option>
+                            {categories
+                              .filter(cat => cat.value !== 'all') // Exclude "All Products" option
+                              .map(cat => {
+                                console.log('📂 Rendering category option:', cat.label, 'for product:', product._id);
+                                return (
+                                  <option key={cat.value} value={cat.label}>
+                                    {cat.label}
+                                  </option>
+                                );
+                              })}
+                          </select>
+                        ) : (
+                          <div style={{
+                            width: '120px',
+                            padding: '3px',
+                            fontSize: '0.65rem',
+                            border: '2px solid #667eea',
+                            borderRadius: '4px',
+                            background: 'white',
+                            color: '#666'
+                          }}>
+                            Loading categories...
+                          </div>
+                        )
+                      ) : (
+                        <span className="category-badge" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                          {product.category}
+                          <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
+                        </span>
+                      )}
                     </td>
                     <td
                       className="price"

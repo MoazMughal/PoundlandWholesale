@@ -28,6 +28,7 @@ const EditProduct = () => {
     category: '',
     brand: '',
     asin: '',
+    sku: '',
     rating: 4.5,
     reviews: 0,
     stock: 0,
@@ -69,12 +70,63 @@ const EditProduct = () => {
   const [categories, setCategories] = useState([]);
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [productLoaded, setProductLoaded] = useState(false);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
 
   useEffect(() => {
-    fetchProduct();
-    fetchSellers();
-    fetchCategories();
+    // Load categories first, then product data
+    const loadData = async () => {
+      await fetchCategories();
+      await fetchSellers();
+      await fetchProduct();
+    };
+    loadData();
   }, [id]);
+
+  // Debug effect to monitor category and form data sync
+  useEffect(() => {
+    if (categories.length > 0 && formData.category) {
+      console.log('📂 Categories loaded:', categories.length, 'Current category:', formData.category);
+      const matchingCategory = categories.find(cat => cat.label === formData.category);
+      if (!matchingCategory) {
+        console.log('⚠️ Category not found in dropdown options:', formData.category);
+        console.log('Available categories:', categories.map(c => c.label));
+        
+        // Try to find a case-insensitive match
+        const caseInsensitiveMatch = categories.find(cat => 
+          cat.label.toLowerCase() === formData.category.toLowerCase()
+        );
+        
+        if (caseInsensitiveMatch) {
+          console.log('✅ Found case-insensitive match, updating form data:', caseInsensitiveMatch.label);
+          setFormData(prev => ({ ...prev, category: caseInsensitiveMatch.label }));
+        }
+      } else {
+        console.log('✅ Category found in dropdown:', matchingCategory.label);
+      }
+    }
+  }, [categories, formData.category]);
+
+  // Effect to sync category when both product and categories are loaded
+  useEffect(() => {
+    if (productLoaded && categoriesLoaded && formData.category && categories.length > 0) {
+      const exactMatch = categories.find(cat => cat.label === formData.category);
+      if (!exactMatch) {
+        // Try case-insensitive match
+        const caseInsensitiveMatch = categories.find(cat => 
+          cat.label.toLowerCase() === formData.category.toLowerCase()
+        );
+        
+        if (caseInsensitiveMatch) {
+          console.log('🔄 Syncing category case:', formData.category, '->', caseInsensitiveMatch.label);
+          setFormData(prev => ({ ...prev, category: caseInsensitiveMatch.label }));
+        } else {
+          console.log('❌ No matching category found for:', formData.category);
+          console.log('Available categories:', categories.map(c => c.label));
+        }
+      }
+    }
+  }, [productLoaded, categoriesLoaded, formData.category, categories]);
 
   // No currency conversion needed - all prices in GBP only
 
@@ -92,11 +144,14 @@ const EditProduct = () => {
         id: product._id,
         name: product.name,
         category: product.category,
+        categoryType: typeof product.category,
         isAmazonsChoice: product.isAmazonsChoice,
         images: product.images,
         image: product.image,
         asin: product.asin
       });
+      
+      console.log('📂 Available categories when setting form data:', categories.length, categories.map(c => c.label));
       
       setFormData({
         name: product.name || '',
@@ -104,6 +159,7 @@ const EditProduct = () => {
         category: product.category || '',
         brand: product.brand || '',
         asin: product.asin || '',
+        sku: product.sku || '',
         rating: product.rating || 4.5,
         reviews: product.reviews || 0,
         stock: product.stock || 0,
@@ -160,6 +216,8 @@ const EditProduct = () => {
         setOriginalImages([]);
         setRemovedImages(new Set()); // Reset removed images
       }
+      
+      setProductLoaded(true);
     } catch (error) {
       console.error('Error loading product:', error);
       alert('❌ Failed to load product: ' + error.message);
@@ -187,6 +245,7 @@ const EditProduct = () => {
         const data = await response.json();
         console.log('📂 EditProduct: Fetched categories:', data.categories);
         setCategories(data.categories || []);
+        setCategoriesLoaded(true);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -197,6 +256,7 @@ const EditProduct = () => {
         { value: 'home', label: 'Home & Decor' },
         { value: 'automotive', label: 'Automotive' }
       ]);
+      setCategoriesLoaded(true);
     }
   };
 
@@ -516,6 +576,7 @@ const EditProduct = () => {
         category: formData.category,
         brand: formData.brand || '',
         asin: formData.asin.trim() || '',
+        sku: formData.sku.trim() || '',
         rating: Math.min(Math.max(parseFloat(formData.rating) || 4.5, 0), 5), // Clamp between 0-5
         reviews: parseInt(formData.reviews) || 0,
         stock: parseInt(formData.stock) || 0,
@@ -563,10 +624,20 @@ const EditProduct = () => {
       
       // Navigate back with category filter preserved after a short delay
       setTimeout(() => {
-        const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
-        navigate(backUrl, {
-          state: { category: returnCategory }
-        });
+        // Check if we came from approval page
+        const urlParams = new URLSearchParams(location.search);
+        const returnTo = urlParams.get('returnTo');
+        
+        if (returnTo === 'approval') {
+          // Return to approval page if we came from there
+          navigate('/admin/approval');
+        } else {
+          // Otherwise return to products page with category filter
+          const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
+          navigate(backUrl, {
+            state: { category: returnCategory }
+          });
+        }
       }, 1500); // Give user time to see the success message
     } catch (error) {
       console.error('Error updating product:', error);
@@ -615,35 +686,23 @@ const EditProduct = () => {
       <header className="form-header">
         <h1>✏️ Edit Product</h1>
         
-        {/* Debug Panel - only show in development */}
-        {process.env.NODE_ENV !== 'production' && (
-          <div style={{
-            background: '#f8f9fa',
-            border: '1px solid #dee2e6',
-            borderRadius: '5px',
-            padding: '15px',
-            margin: '15px 0',
-            fontSize: '12px',
-            fontFamily: 'monospace'
-          }}>
-            <strong>🔍 Debug Info:</strong><br/>
-            Category: "{formData.category}"<br/>
-            Amazon's Choice: {formData.isAmazonsChoice ? 'true' : 'false'}<br/>
-            Available Categories: {categories.length}<br/>
-            Categories: {JSON.stringify(categories.map(c => c.label))}<br/>
-            Images: {JSON.stringify(imageUrls.filter(Boolean))}<br/>
-            ASIN: {formData.asin}
-          </div>
-        )}
         <div className="header-actions">
           <button onClick={handleDelete} className="delete-btn">
             🗑️ Delete Product
           </button>
           <button onClick={() => {
-            const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
-            navigate(backUrl, {
-              state: { category: returnCategory }
-            });
+            // Check if we came from approval page
+            const urlParams = new URLSearchParams(location.search);
+            const returnTo = urlParams.get('returnTo');
+            
+            if (returnTo === 'approval') {
+              navigate('/admin/approval');
+            } else {
+              const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
+              navigate(backUrl, {
+                state: { category: returnCategory }
+              });
+            }
           }} className="back-btn">
             ← Back to Products
           </button>
@@ -673,14 +732,11 @@ const EditProduct = () => {
                 <div style={{ flex: 1 }}>
                   <select name="category" value={formData.category} onChange={handleChange} required>
                     <option value="">Select Category</option>
-                    {categories.map(cat => {
-                      console.log('📂 Rendering category option:', cat, 'Selected:', formData.category, 'Match:', cat.label === formData.category);
-                      return (
-                        <option key={cat.value} value={cat.label}>
-                          {cat.label}
-                        </option>
-                      );
-                    })}
+                    {categories.map(cat => (
+                      <option key={cat.value} value={cat.label}>
+                        {cat.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <button
@@ -805,6 +861,23 @@ const EditProduct = () => {
                 }}
               />
               <small>Optional: 10-character Amazon product identifier for admin tracking</small>
+            </div>
+
+            <div className="form-group">
+              <label>SKU (Stock Keeping Unit)</label>
+              <input
+                type="text"
+                name="sku"
+                value={formData.sku}
+                onChange={handleChange}
+                placeholder="Enter unique SKU (e.g., SKU123456ABC)"
+                style={{
+                  textTransform: 'uppercase',
+                  fontFamily: 'monospace',
+                  letterSpacing: '1px'
+                }}
+              />
+              <small>Unique identifier for inventory management and tracking</small>
             </div>
           </div>
         </div>
@@ -1280,10 +1353,18 @@ const EditProduct = () => {
              '✅ Save Changes'}
           </button>
           <button type="button" onClick={() => {
-            const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
-            navigate(backUrl, {
-              state: { category: returnCategory }
-            });
+            // Check if we came from approval page
+            const urlParams = new URLSearchParams(location.search);
+            const returnTo = urlParams.get('returnTo');
+            
+            if (returnTo === 'approval') {
+              navigate('/admin/approval');
+            } else {
+              const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
+              navigate(backUrl, {
+                state: { category: returnCategory }
+              });
+            }
           }} className="cancel-btn">
             Cancel
           </button>

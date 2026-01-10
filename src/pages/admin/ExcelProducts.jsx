@@ -67,6 +67,28 @@ const ExcelProducts = () => {
 
   useEffect(() => {
     fetchAvailableCategories();
+    
+    // Auto-sync status when component loads
+    const autoSyncStatus = async () => {
+      try {
+        const token = localStorage.getItem('adminToken');
+        await fetch(getApiUrl(`admin-excel/uploads/${uploadId}/sync-status`), {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        console.log('🔄 Auto-synced product statuses on page load');
+        // Refresh products after sync
+        setTimeout(() => fetchProducts(), 1000);
+      } catch (error) {
+        console.log('Auto-sync failed, but continuing normally');
+      }
+    };
+    
+    // Run auto-sync after a short delay
+    setTimeout(autoSyncStatus, 2000);
   }, [uploadId]);
 
   const fetchAvailableCategories = async () => {
@@ -152,32 +174,84 @@ const ExcelProducts = () => {
       return;
     }
 
+    // Check if all selected products have SKU
+    const selectedProductsData = products.filter(p => selectedProducts.has(p._id));
+    const productsWithoutSKU = selectedProductsData.filter(p => !p.sku || p.sku.trim() === '');
+    
+    if (productsWithoutSKU.length > 0) {
+      alert(`❌ Cannot convert products without SKU!\n\nProducts missing SKU:\n${productsWithoutSKU.map(p => `• ${p.name}`).join('\n')}\n\nPlease add SKU to all products before converting.`);
+      return;
+    }
+
+    // Check for duplicate ASIN/SKU in existing products
+    try {
+      const token = localStorage.getItem('adminToken');
+      const checkPromises = selectedProductsData.map(async (product) => {
+        const checks = [];
+        
+        // Check ASIN if exists
+        if (product.asin && product.asin.trim()) {
+          const asinResponse = await fetch(`http://localhost:5000/api/products/check-asin/${product.asin}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (asinResponse.ok) {
+            const asinData = await asinResponse.json();
+            if (asinData.exists) {
+              checks.push(`ASIN ${product.asin} already exists`);
+            }
+          }
+        }
+        
+        // Check SKU
+        if (product.sku && product.sku.trim()) {
+          const skuResponse = await fetch(`http://localhost:5000/api/products/check-sku/${product.sku}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (skuResponse.ok) {
+            const skuData = await skuResponse.json();
+            if (skuData.exists) {
+              checks.push(`SKU ${product.sku} already exists`);
+            }
+          }
+        }
+        
+        return { product, issues: checks };
+      });
+      
+      const checkResults = await Promise.all(checkPromises);
+      const productsWithIssues = checkResults.filter(r => r.issues.length > 0);
+      
+      if (productsWithIssues.length > 0) {
+        const issuesList = productsWithIssues.map(r => 
+          `• ${r.product.name}: ${r.issues.join(', ')}`
+        ).join('\n');
+        
+        alert(`❌ Cannot convert products with duplicate ASIN/SKU!\n\nIssues found:\n${issuesList}\n\nPlease resolve these conflicts before converting.`);
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking duplicates:', error);
+      alert('❌ Failed to check for duplicates. Please try again.');
+      return;
+    }
+
     // Show the confirmation modal
     setShowBulkConvertModal(true);
   };
 
   const handleBulkConvertSuccess = (result) => {
-    alert(`✅ Successfully converted ${result.convertedProducts.length} products!\n\n📊 Categories created/used: ${result.categoriesProcessed}\n🖼️ Products with images: ${result.productsWithImages}\n🌟 All products listed on Amazon's Choice!`);
+    alert(`✅ Successfully converted ${result.convertedProducts.length} products!\n\n📊 Categories processed: ${result.categoriesProcessed}\n🖼️ Products with images: ${result.productsWithImages}\n⏳ All products sent to approval queue!`);
     setSelectedProducts(new Set());
     fetchProducts();
     
-    // Use the categories from the result
-    const convertedCategories = result.convertedCategories || [];
-    
-    // Ask if user wants to view Amazon's Choice page
-    if (confirm('🌟 Would you like to view the products on Amazon\'s Choice page?')) {
-      if (convertedCategories.length === 1) {
-        // Single category - navigate directly to that category
-        const category = convertedCategories[0];
-        window.open(`/amazons-choice?cat=${encodeURIComponent(category)}`, '_blank');
-      } else if (convertedCategories.length > 1) {
-        // Multiple categories - show category selection modal
-        setCategoryModalData({ categories: convertedCategories });
-        setShowCategoryModal(true);
-      } else {
-        // No specific categories - show all
-        window.open('/amazons-choice', '_blank');
-      }
+    // Navigate to approval page instead of Amazon's Choice
+    if (confirm('📋 Would you like to view the products in the approval queue?')) {
+      navigate('/admin/approval', {
+        state: { 
+          message: `${result.convertedProducts.length} products from Excel import are now pending approval`,
+          fromExcelImport: true
+        }
+      });
     }
   };
 
@@ -246,13 +320,60 @@ const ExcelProducts = () => {
   };
 
   const handleSingleListToAmazonsChoice = async (productId, productName) => {
-    if (!confirm(`🏆 List "${productName}" to Amazon's Choice?\n\nThis will:\n✅ Convert the product to main products\n🌟 Set it as Amazon's Choice\n🔗 Make it visible on the Amazon's Choice page\n\nContinue?`)) {
+    const product = products.find(p => p._id === productId);
+    
+    // Check if product has SKU
+    if (!product.sku || product.sku.trim() === '') {
+      alert(`❌ Cannot convert "${productName}" without SKU!\n\nPlease add a SKU to this product before converting.`);
+      return;
+    }
+
+    // Check for duplicate ASIN/SKU
+    try {
+      const token = localStorage.getItem('adminToken');
+      const issues = [];
+      
+      // Check ASIN if exists
+      if (product.asin && product.asin.trim()) {
+        const asinResponse = await fetch(`http://localhost:5000/api/products/check-asin/${product.asin}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (asinResponse.ok) {
+          const asinData = await asinResponse.json();
+          if (asinData.exists) {
+            issues.push(`ASIN ${product.asin} already exists`);
+          }
+        }
+      }
+      
+      // Check SKU
+      const skuResponse = await fetch(`http://localhost:5000/api/products/check-sku/${product.sku}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (skuResponse.ok) {
+        const skuData = await skuResponse.json();
+        if (skuData.exists) {
+          issues.push(`SKU ${product.sku} already exists`);
+        }
+      }
+      
+      if (issues.length > 0) {
+        alert(`❌ Cannot convert "${productName}"!\n\nIssues found:\n${issues.map(issue => `• ${issue}`).join('\n')}\n\nPlease resolve these conflicts before converting.`);
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking duplicates:', error);
+      alert('❌ Failed to check for duplicates. Please try again.');
+      return;
+    }
+
+    if (!confirm(`📋 Convert "${productName}" and send to approval?\n\nThis will:\n✅ Convert the product to main products\n⏳ Send it to the approval queue\n📋 Require admin approval before going live\n\nContinue?`)) {
       return;
     }
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(getApiUrl('admin-excel/single-list-to-amazons-choice'), {
+      const response = await fetch(`http://localhost:5000/api/admin-excel/single-convert-to-approval`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -264,29 +385,24 @@ const ExcelProducts = () => {
       const result = await response.json();
       
       if (result.success) {
-        alert(`✅ ${result.message}\n\n🔗 Product ID: ${result.productId}\n🌟 You can now view it on the Amazon's Choice page!`);
+        alert(`✅ ${result.message}\n\n📋 Product ID: ${result.productId}\n⏳ The product is now in the approval queue!`);
         fetchProducts(); // Refresh the list to show updated status
         
-        // Get the product category for navigation
-        const product = products.find(p => p._id === productId);
-        const productCategory = product?.category;
-        
-        // Ask if user wants to view the product
-        if (confirm('🌟 Would you like to view the product on Amazon\'s Choice page?')) {
-          if (productCategory) {
-            // Navigate to the specific category
-            window.open(`/amazons-choice?cat=${encodeURIComponent(productCategory)}`, '_blank');
-          } else {
-            // Fallback to all products
-            window.open('/amazons-choice', '_blank');
-          }
+        // Ask if user wants to view the approval page
+        if (confirm('📋 Would you like to view the product in the approval queue?')) {
+          navigate('/admin/approval', {
+            state: { 
+              message: `"${productName}" has been converted and is pending approval`,
+              highlightProductId: result.productId
+            }
+          });
         }
       } else {
-        alert(`❌ Failed to list product: ${result.message}`);
+        alert(`❌ Failed to convert product: ${result.message}`);
       }
     } catch (error) {
-      console.error('Error listing product to Amazon\'s Choice:', error);
-      alert('❌ Failed to list product to Amazon\'s Choice');
+      console.error('Error converting product:', error);
+      alert('❌ Failed to convert product');
     }
   };
 
@@ -509,23 +625,134 @@ const ExcelProducts = () => {
     );
   };
 
+  const getProductStatus = (product) => {
+    // If product is converted, check the approval status
+    if (product.isConverted && product.mainProductId) {
+      // Check if we have approval status info from backend
+      if (product.approvalStatus) {
+        if (product.approvalStatus === 'pending') {
+          return {
+            status: 'approval',
+            label: 'In Approval',
+            color: '#f59e0b',
+            icon: '📋'
+          };
+        } else if (product.approvalStatus === 'approved' && product.mainProductStatus === 'active') {
+          return {
+            status: 'listed',
+            label: 'Listed',
+            color: '#10b981',
+            icon: '🌟'
+          };
+        } else if (product.approvalStatus === 'rejected') {
+          return {
+            status: 'rejected',
+            label: 'Rejected',
+            color: '#dc3545',
+            icon: '❌'
+          };
+        }
+      }
+      
+      // Fallback to Excel product status for converted items
+      if (product.status === 'pending') {
+        return {
+          status: 'approval',
+          label: 'In Approval',
+          color: '#f59e0b',
+          icon: '📋'
+        };
+      } else if (product.status === 'listed') {
+        return {
+          status: 'listed',
+          label: 'Listed',
+          color: '#10b981',
+          icon: '🌟'
+        };
+      }
+    }
+    
+    // For non-converted products, check if ASIN/SKU conflicts exist
+    // If there are conflicts, show "Blocked" instead of "Pending"
+    const hasAsinConflict = product.asin && product.asinConflict;
+    const hasSkuConflict = product.sku && product.skuConflict;
+    
+    if (hasAsinConflict || hasSkuConflict) {
+      return {
+        status: 'blocked',
+        label: 'Blocked',
+        color: '#dc3545',
+        icon: '🚫'
+      };
+    }
+    
+    // Default status for non-converted products
+    switch (product.status) {
+      case 'listed':
+        return {
+          status: 'listed',
+          label: 'Listed',
+          color: '#10b981',
+          icon: '🌐'
+        };
+      case 'pending':
+        return {
+          status: 'pending',
+          label: 'Pending',
+          color: '#6b7280',
+          icon: '⏳'
+        };
+      case 'active':
+        return {
+          status: 'active',
+          label: 'Active',
+          color: '#3b82f6',
+          icon: '✅'
+        };
+      case 'inactive':
+        return {
+          status: 'inactive',
+          label: 'Inactive',
+          color: '#6b7280',
+          icon: '❌'
+        };
+      default:
+        return {
+          status: 'unknown',
+          label: 'Unknown',
+          color: '#6b7280',
+          icon: '❓'
+        };
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'listed': return '#10b981';
       case 'pending': return '#f59e0b';
       case 'active': return '#3b82f6';
       case 'inactive': return '#6b7280';
+      case 'approval': return '#f59e0b';
       default: return '#6b7280';
     }
   };
 
   const getStatusIcon = (status, isConverted) => {
-    if (isConverted) return '✅';
+    if (isConverted) {
+      // For converted products, show more specific status
+      switch (status) {
+        case 'pending': return '📋'; // In approval
+        case 'listed': return '🌟'; // Listed on Amazon's Choice
+        default: return '✅';
+      }
+    }
+    
     switch (status) {
       case 'listed': return '🌐';
       case 'pending': return '⏳';
       case 'active': return '✅';
       case 'inactive': return '❌';
+      case 'approval': return '📋';
       default: return '❓';
     }
   };
@@ -682,7 +909,9 @@ const ExcelProducts = () => {
             >
               <option value="all">All Status</option>
               <option value="pending">⏳ Pending</option>
-              <option value="listed">🌐 Listed</option>
+              <option value="blocked">🚫 Blocked</option>
+              <option value="approval">📋 In Approval</option>
+              <option value="listed">🌟 Listed</option>
               <option value="active">✅ Active</option>
               <option value="inactive">❌ Inactive</option>
             </select>
@@ -716,9 +945,9 @@ const ExcelProducts = () => {
                   cursor: 'pointer',
                   fontWeight: '600'
                 }}
-                title="Show confirmation modal to convert selected products to Amazon's Choice with images and categories"
+                title="Convert selected products and send to approval queue (SKU required)"
               >
-                💡 Bulk Convert ({selectedProducts.size})
+                📋 Convert to Approval ({selectedProducts.size})
               </button>
             )}
 
@@ -820,6 +1049,7 @@ const ExcelProducts = () => {
                     </th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>Product</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>ASIN</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>SKU</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>Image</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>Category</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', fontWeight: '600' }}>Price</th>
@@ -899,6 +1129,15 @@ const ExcelProducts = () => {
                           field="asin" 
                           value={product.asin} 
                           style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                        />
+                      </td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                        <EditableCell 
+                          key={`${product._id}-sku`}
+                          product={product} 
+                          field="sku" 
+                          value={product.sku} 
+                          style={{ fontFamily: 'monospace', fontSize: '0.75rem', textTransform: 'uppercase' }}
                         />
                       </td>
                       <td style={{ padding: '8px 10px' }}>
@@ -1024,20 +1263,25 @@ const ExcelProducts = () => {
                         />
                       </td>
                       <td style={{ padding: '8px 10px' }}>
-                        <div style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          padding: '2px 6px',
-                          borderRadius: '3px',
-                          fontSize: '0.7rem',
-                          fontWeight: '600',
-                          color: 'white',
-                          background: getStatusColor(product.status)
-                        }}>
-                          <span>{getStatusIcon(product.status, product.isConverted)}</span>
-                          <span>{product.isConverted ? 'Listed' : product.status}</span>
-                        </div>
+                        {(() => {
+                          const statusInfo = getProductStatus(product);
+                          return (
+                            <div style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              padding: '2px 6px',
+                              borderRadius: '3px',
+                              fontSize: '0.7rem',
+                              fontWeight: '600',
+                              color: 'white',
+                              background: statusInfo.color
+                            }}>
+                              <span>{statusInfo.icon}</span>
+                              <span>{statusInfo.label}</span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td style={{ padding: '8px 10px', fontSize: '0.75rem', color: '#666' }}>
                         #{product.rowNumber}
@@ -1060,24 +1304,25 @@ const ExcelProducts = () => {
                             ✏️ Edit
                           </button>
                           
-                          {/* Single List to Amazon's Choice Button */}
+                          {/* Single Convert to Approval Button */}
                           {!product.isConverted && (
                             <button
                               onClick={() => handleSingleListToAmazonsChoice(product._id, product.name)}
                               style={{
                                 padding: '4px 8px',
-                                background: '#ff6600',
+                                background: product.sku && product.sku.trim() ? '#ff6600' : '#6c757d',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '3px',
                                 fontSize: '0.7rem',
-                                cursor: 'pointer',
+                                cursor: product.sku && product.sku.trim() ? 'pointer' : 'not-allowed',
                                 fontWeight: '500',
                                 whiteSpace: 'nowrap'
                               }}
-                              title="List this product to Amazon's Choice"
+                              title={product.sku && product.sku.trim() ? "Convert this product and send to approval" : "SKU required for conversion"}
+                              disabled={!product.sku || product.sku.trim() === ''}
                             >
-                              🏆 List
+                              📋 Convert
                             </button>
                           )}
                           

@@ -152,14 +152,14 @@ const BulkConvertModal = ({
               alignItems: 'center',
               gap: '8px'
             }}>
-              💡 Bulk Convert Products
+              💡 Convert to Approval Queue
             </h2>
             <p style={{
               margin: '4px 0 0 0',
               fontSize: '0.9rem',
               color: '#6b7280'
             }}>
-              Convert {selectedProducts.size} selected products to Amazon's Choice • Edit prices below • Press Escape to cancel
+              Convert {selectedProducts.size} selected products and send to approval queue • Edit prices below • Press Escape to cancel
             </p>
           </div>
           <button
@@ -188,15 +188,16 @@ const BulkConvertModal = ({
           marginBottom: '20px'
         }}>
           <h3 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', fontWeight: '600' }}>
-            🚀 What will happen:
+            📋 What will happen:
           </h3>
           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.9rem', lineHeight: '1.6' }}>
             <li>✅ Convert products to main products database</li>
-            <li>🏷️ Create/use existing categories automatically</li>
-            <li>🌟 List all products on Amazon's Choice page</li>
+            <li>🏷️ Match existing categories or create new ones</li>
+            <li>📋 Send all products to approval queue</li>
+            <li>⏳ Require admin approval before going live</li>
             <li>📸 Include product images (if available)</li>
             <li>💰 Update prices with your edited values</li>
-            <li>🔄 Set products as active and listed</li>
+            <li>🔍 Validate SKU requirements</li>
           </ul>
         </div>
 
@@ -575,7 +576,7 @@ const BulkConvertModal = ({
               </>
             ) : (
               <>
-                💡 Confirm & Convert
+                📋 Convert to Approval
               </>
             )}
           </button>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { adminPost, adminGet } from '../../utils/adminApi';
 import cacheManager from '../../utils/cacheManager';
@@ -92,7 +92,7 @@ const Approval = () => {
     return (
       <div className="admin-product-form">
         <header className="form-header">
-          <h1>⏳ Product Approval</h1>
+          <h1>⏳ Product Approval (Loading...)</h1>
         </header>
         <div style={{ textAlign: 'center', padding: '50px' }}>
           <div style={{ fontSize: '24px', marginBottom: '20px' }}>⏳</div>
@@ -105,7 +105,7 @@ const Approval = () => {
   return (
     <div className="admin-product-form">
       <header className="form-header">
-        <h1>✅ Product Approval</h1>
+        <h1>✅ Product Approval ({pendingProducts.length} products)</h1>
         <button 
           onClick={() => navigate('/admin/products')} 
           className="back-btn"
@@ -125,7 +125,7 @@ const Approval = () => {
           <div style={{ fontSize: '48px', marginBottom: '20px' }}>✅</div>
           <h2 style={{ color: '#28a745', marginBottom: '10px' }}>All Caught Up!</h2>
           <p style={{ color: '#6c757d', fontSize: '16px' }}>
-            No products are currently pending approval.
+            No products are currently pending approval. (0 products)
           </p>
           <button
             onClick={() => navigate('/admin/add-product')}
@@ -145,16 +145,45 @@ const Approval = () => {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: '20px' }}>
+        <div>
+          {/* Product Count Summary */}
+          <div style={{
+            background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+            color: 'white',
+            padding: '16px',
+            borderRadius: '8px',
+            marginBottom: '16px',
+            textAlign: 'center',
+            boxShadow: '0 2px 8px rgba(0, 123, 255, 0.2)'
+          }}>
+            <h2 style={{ 
+              margin: '0 0 4px 0', 
+              fontSize: '20px', 
+              fontWeight: 'bold',
+              color: 'white'
+            }}>
+              📋 {pendingProducts.length} Product{pendingProducts.length !== 1 ? 's' : ''} Pending Approval
+            </h2>
+            <p style={{ 
+              margin: 0, 
+              fontSize: '14px', 
+              color: 'white',
+              opacity: 0.9 
+            }}>
+              Review and approve products to make them available for purchase
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gap: '12px' }}>
           {pendingProducts.map((product) => (
             <div key={product._id} style={{
               background: 'white',
               border: '1px solid #dee2e6',
-              borderRadius: '12px',
-              padding: '24px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+              borderRadius: '8px',
+              padding: '16px',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
             }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: '24px', alignItems: 'start' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr auto', gap: '16px', alignItems: 'start' }}>
                 {/* Product Image */}
                 <div>
                   {product.images && product.images.length > 0 ? (
@@ -163,9 +192,9 @@ const Approval = () => {
                       alt={product.name}
                       style={{
                         width: '100%',
-                        height: '200px',
+                        height: '140px',
                         objectFit: 'cover',
-                        borderRadius: '8px',
+                        borderRadius: '6px',
                         border: '1px solid #ddd'
                       }}
                       onError={(e) => {
@@ -178,21 +207,21 @@ const Approval = () => {
                   {(!product.images || product.images.length === 0) && (
                     <div style={{
                       width: '100%',
-                      height: '200px',
+                      height: '140px',
                       background: '#f8f9fa',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       border: '1px solid #ddd',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       color: '#6c757d',
                       flexDirection: 'column',
-                      gap: '8px'
+                      gap: '4px'
                     }}>
-                      <span style={{ fontSize: '24px' }}>📷</span>
-                      <span>No Image Available</span>
+                      <span style={{ fontSize: '20px' }}>📷</span>
+                      <span style={{ fontSize: '12px' }}>No Image</span>
                       {product.asin && (
-                        <small style={{ fontSize: '12px', color: '#999' }}>
+                        <small style={{ fontSize: '10px', color: '#999' }}>
                           ASIN: {product.asin}
                         </small>
                       )}
@@ -201,34 +230,35 @@ const Approval = () => {
                   {/* Hidden fallback div for image load errors */}
                   <div style={{
                     width: '100%',
-                    height: '200px',
+                    height: '140px',
                     background: '#f8f9fa',
-                    borderRadius: '8px',
+                    borderRadius: '6px',
                     border: '1px solid #ddd',
                     display: 'none',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: '#6c757d',
                     flexDirection: 'column',
-                    gap: '8px'
+                    gap: '4px'
                   }}>
-                    <span style={{ fontSize: '24px' }}>❌</span>
-                    <span>Image Load Failed</span>
+                    <span style={{ fontSize: '20px' }}>❌</span>
+                    <span style={{ fontSize: '12px' }}>Load Failed</span>
                   </div>
                 </div>
 
                 {/* Product Details */}
                 <div>
                   <h3 style={{ 
-                    margin: '0 0 12px 0', 
-                    fontSize: '20px', 
+                    margin: '0 0 8px 0', 
+                    fontSize: '16px', 
                     fontWeight: 'bold',
-                    color: '#212529'
+                    color: '#212529',
+                    lineHeight: '1.3'
                   }}>
                     {product.name}
                   </h3>
                   
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px 12px', marginBottom: '8px', fontSize: '13px' }}>
                     <div>
                       <strong>Price:</strong> {formatPrice(product.price)}
                     </div>
@@ -236,16 +266,13 @@ const Approval = () => {
                       <strong>Category:</strong> {product.category}
                     </div>
                     <div>
-                      <strong>Brand:</strong> {product.brand || 'N/A'}
+                      <strong>Stock:</strong> {product.stock}
                     </div>
                     <div>
                       <strong>SKU:</strong> {product.sku || 'N/A'}
                     </div>
                     <div>
-                      <strong>ASIN:</strong> {product.asin || 'N/A'}
-                    </div>
-                    <div>
-                      <strong>Stock:</strong> {product.stock}
+                      <strong>Brand:</strong> {product.brand || 'N/A'}
                     </div>
                     <div>
                       <strong>Rating:</strong> ⭐ {product.rating}/5
@@ -256,54 +283,85 @@ const Approval = () => {
                   </div>
 
                   {product.description && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <strong>Description:</strong>
+                    <div style={{ marginBottom: '8px' }}>
+                      <strong style={{ fontSize: '13px' }}>Description:</strong>
                       <p style={{ 
-                        margin: '8px 0 0 0', 
+                        margin: '4px 0 0 0', 
                         color: '#6c757d',
-                        lineHeight: '1.5'
+                        lineHeight: '1.4',
+                        fontSize: '12px',
+                        maxHeight: '40px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
                       }}>
-                        {product.description}
+                        {product.description.length > 100 ? product.description.substring(0, 100) + '...' : product.description}
                       </p>
                     </div>
                   )}
 
                   {product.features && product.features.length > 0 && (
                     <div>
-                      <strong>Features:</strong>
+                      <strong style={{ fontSize: '13px' }}>Features:</strong>
                       <ul style={{ 
-                        margin: '8px 0 0 0', 
-                        paddingLeft: '20px',
-                        color: '#6c757d'
+                        margin: '4px 0 0 0', 
+                        paddingLeft: '16px',
+                        color: '#6c757d',
+                        fontSize: '12px'
                       }}>
-                        {product.features.map((feature, index) => (
-                          <li key={index} style={{ marginBottom: '4px' }}>
-                            {feature}
+                        {product.features.slice(0, 2).map((feature, index) => (
+                          <li key={index} style={{ marginBottom: '2px' }}>
+                            {feature.length > 50 ? feature.substring(0, 50) + '...' : feature}
                           </li>
                         ))}
+                        {product.features.length > 2 && (
+                          <li style={{ color: '#999', fontStyle: 'italic' }}>
+                            +{product.features.length - 2} more features
+                          </li>
+                        )}
                       </ul>
                     </div>
                   )}
                 </div>
 
                 {/* Action Buttons */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '140px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '120px' }}>
                   <button
-                    onClick={() => handleApproval(product._id, 'approve')}
+                    onClick={() => navigate(`/admin/products/edit/${product._id}?returnTo=approval`)}
                     disabled={processing === product._id}
                     style={{
-                      padding: '12px 20px',
-                      background: processing === product._id ? '#6c757d' : '#28a745',
+                      padding: '8px 16px',
+                      background: processing === product._id ? '#6c757d' : '#007bff',
                       color: 'white',
                       border: 'none',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       cursor: processing === product._id ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
+                      fontSize: '12px',
                       fontWeight: '600',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '8px'
+                      gap: '4px'
+                    }}
+                  >
+                    {processing === product._id ? '⏳' : '✏️'} Edit
+                  </button>
+                  
+                  <button
+                    onClick={() => handleApproval(product._id, 'approve')}
+                    disabled={processing === product._id}
+                    style={{
+                      padding: '8px 16px',
+                      background: processing === product._id ? '#6c757d' : '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: processing === product._id ? 'not-allowed' : 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
                     }}
                   >
                     {processing === product._id ? '⏳' : '✅'} Approve
@@ -313,18 +371,18 @@ const Approval = () => {
                     onClick={() => handleApproval(product._id, 'disapprove')}
                     disabled={processing === product._id}
                     style={{
-                      padding: '12px 20px',
+                      padding: '8px 16px',
                       background: processing === product._id ? '#6c757d' : '#dc3545',
                       color: 'white',
                       border: 'none',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       cursor: processing === product._id ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
+                      fontSize: '12px',
                       fontWeight: '600',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '8px'
+                      gap: '4px'
                     }}
                   >
                     {processing === product._id ? '⏳' : '❌'} Disapprove
@@ -333,6 +391,30 @@ const Approval = () => {
               </div>
             </div>
           ))}
+          </div>
+          
+          {/* Progress Footer */}
+          <div style={{
+            background: '#f8f9fa',
+            padding: '12px',
+            borderRadius: '6px',
+            marginTop: '16px',
+            textAlign: 'center',
+            border: '1px solid #dee2e6'
+          }}>
+            <p style={{ 
+              margin: 0, 
+              color: '#6c757d', 
+              fontSize: '13px' 
+            }}>
+              📊 Total Products Pending: <strong>{pendingProducts.length}</strong>
+              {pendingProducts.length > 0 && (
+                <span style={{ marginLeft: '12px' }}>
+                  ⚡ Process all products to clear the queue
+                </span>
+              )}
+            </p>
+          </div>
         </div>
       )}
 

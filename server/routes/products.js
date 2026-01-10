@@ -203,18 +203,24 @@ router.get('/public/debug/amazons-choice-count', async (req, res) => {
 // Get unique categories from database (public)
 router.get('/public/categories', async (req, res) => {
   try {
-    const { includeCounts, includeExcel, includeEmpty } = req.query;
+    const { includeCounts, includeExcel, includeEmpty, deduplicate } = req.query;
     
-    // Get unique categories from main products
+    // Get unique categories from main products - ONLY from active products for public display
     const categoryFilter = includeEmpty === 'true' 
-      ? { category: { $exists: true, $ne: null, $ne: '' } } // All products
-      : { status: 'active', category: { $exists: true, $ne: null, $ne: '' } }; // Only active products
+      ? { category: { $exists: true, $ne: null, $ne: '' } } // All products (admin use)
+      : { 
+          status: 'active', 
+          approvalStatus: 'approved', // Only approved products
+          category: { $exists: true, $ne: null, $ne: '' } 
+        }; // Only active, approved products for public
     
     const mainCategories = await Product.distinct('category', categoryFilter);
     
-    // Also get categories from Excel products if requested
+    // For public display, don't include Excel categories unless specifically requested
+    // Excel categories should only be included for admin use
     let excelCategories = [];
-    if (includeExcel === 'true') {
+    if (includeExcel === 'true' && includeEmpty === 'true') {
+      // Only include Excel categories for admin use (when includeEmpty is true)
       try {
         const ExcelProduct = (await import('../models/ExcelProduct.js')).default;
         excelCategories = await ExcelProduct.distinct('category', {
@@ -225,19 +231,58 @@ router.get('/public/categories', async (req, res) => {
       }
     }
     
-    // Combine and deduplicate categories
-    const categories = [...new Set([...mainCategories, ...excelCategories])];
+    // Combine categories - for public use, prioritize main categories
+    let categories = includeEmpty === 'true' 
+      ? [...new Set([...mainCategories, ...excelCategories])] // Admin: include all
+      : [...new Set(mainCategories)]; // Public: only active product categories
+    
+    // Deduplicate case-insensitive if requested
+    if (deduplicate === 'true') {
+      const deduplicatedCategories = [];
+      const seenCategories = new Map(); // Use Map to track both lowercase and original
+      
+      categories.forEach(cat => {
+        const lowerCat = cat.toLowerCase();
+        if (!seenCategories.has(lowerCat)) {
+          seenCategories.set(lowerCat, cat);
+          deduplicatedCategories.push(cat);
+        } else {
+          // If we find a duplicate, prefer the one with better capitalization
+          const existing = seenCategories.get(lowerCat);
+          // Prefer the one with more proper capitalization (more uppercase letters in right places)
+          if (cat.match(/^[A-Z]/) && cat.includes(' ') && cat.split(' ').every(word => word.match(/^[A-Z]/))) {
+            // Replace with better capitalized version
+            const index = deduplicatedCategories.indexOf(existing);
+            if (index !== -1) {
+              deduplicatedCategories[index] = cat;
+              seenCategories.set(lowerCat, cat);
+            }
+          }
+        }
+      });
+      
+      categories = deduplicatedCategories;
+      console.log(`📂 Deduplicated categories: ${categories.length} unique categories`);
+    }
     
     let formattedCategories;
     
     if (includeCounts === 'true') {
       // Get product counts for each category using exact category names (not transformed)
-      const categoryCounts = await Product.aggregate([
-        {
-          $match: {
-            status: 'active',
+      // Only count active, approved products for public display
+      const countMatchCriteria = includeEmpty === 'true' 
+        ? { // Admin view: count all products
             category: { $exists: true, $ne: null, $ne: '' }
           }
+        : { // Public view: only active, approved products
+            status: 'active',
+            approvalStatus: 'approved',
+            category: { $exists: true, $ne: null, $ne: '' }
+          };
+      
+      const categoryCounts = await Product.aggregate([
+        {
+          $match: countMatchCriteria
         },
         {
           $group: {
@@ -252,10 +297,30 @@ router.get('/public/categories', async (req, res) => {
         countMap[item._id] = item.count;
       });
       
+      // If deduplicating, we need to sum counts for similar categories
+      if (deduplicate === 'true') {
+        const deduplicatedCountMap = {};
+        categories.forEach(cat => {
+          let totalCount = 0;
+          // Sum counts for all variations of this category
+          Object.keys(countMap).forEach(dbCat => {
+            if (dbCat.toLowerCase() === cat.toLowerCase()) {
+              totalCount += countMap[dbCat];
+            }
+          });
+          deduplicatedCountMap[cat] = totalCount;
+        });
+        Object.assign(countMap, deduplicatedCountMap);
+      }
+      
       console.log('📊 Category counts from database:', countMap);
       
       // Get total count for "All" category
-      const totalCount = await Product.countDocuments({ status: 'active' });
+      const totalCountCriteria = includeEmpty === 'true' 
+        ? {} // Admin: count all products
+        : { status: 'active', approvalStatus: 'approved' }; // Public: only active, approved
+      
+      const totalCount = await Product.countDocuments(totalCountCriteria);
       
       formattedCategories = [
         { value: 'all', label: 'All', count: totalCount },
@@ -434,9 +499,42 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
     });
     
     if (existingCategory && trimmedNewName.toLowerCase() !== sourceCategoryName.toLowerCase()) {
-      return res.status(400).json({ 
-        message: `Category "${trimmedNewName}" already exists. Please choose a different name.`,
-        success: false
+      // Category already exists - merge them instead of rejecting
+      console.log(`🔄 Category "${trimmedNewName}" already exists. Merging "${sourceCategoryName}" into it.`);
+      
+      // Update all products with the old category to use the existing category name
+      const productUpdateResult = await Product.updateMany(
+        { category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') } },
+        { $set: { category: existingCategory.category } } // Use the exact case from existing category
+      );
+      
+      console.log(`✅ Merged ${productUpdateResult.modifiedCount} products from "${sourceCategoryName}" into existing category "${existingCategory.category}"`);
+      
+      // Update Excel products if they exist
+      let excelUpdateCount = 0;
+      try {
+        const ExcelProduct = (await import('../models/ExcelProduct.js')).default;
+        const excelUpdateResult = await ExcelProduct.updateMany(
+          { category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') } },
+          { $set: { category: existingCategory.category } }
+        );
+        excelUpdateCount = excelUpdateResult.modifiedCount;
+        console.log(`✅ Merged ${excelUpdateCount} Excel products from "${sourceCategoryName}" into existing category "${existingCategory.category}"`);
+      } catch (excelError) {
+        console.log('ℹ️ No Excel products to update or Excel model not available');
+      }
+      
+      // Clear caches to ensure updates appear everywhere
+      productCache.clear();
+      
+      return res.json({ 
+        message: `Category "${sourceCategoryName}" merged into existing category "${existingCategory.category}" successfully`,
+        updatedProducts: productUpdateResult.modifiedCount,
+        updatedExcelProducts: excelUpdateCount,
+        oldCategoryName: sourceCategoryName,
+        newCategoryName: existingCategory.category,
+        merged: true,
+        success: true
       });
     }
     
@@ -712,39 +810,54 @@ router.get('/check-sku/:sku', authenticateAdmin, async (req, res) => {
     }
     
     // Check for existing products with this SKU
-    // Exclude disapproved products, but include approved and pending
+    // Only check for products that actually exist in the database
+    // (disapproved products are deleted, so they won't be found)
     const existingProduct = await Product.findOne({ 
-      sku: sku.toUpperCase(),
-      approvalStatus: { $ne: 'disapproved' }
+      sku: sku.toUpperCase()
     });
     
-    // If product exists and is approved + Amazon's Choice, it cannot be reused
-    if (existingProduct && existingProduct.approvalStatus === 'approved' && existingProduct.isAmazonsChoice) {
-      return res.json({
-        success: true,
-        exists: true,
-        blocked: true,
-        message: 'This SKU is already used by an approved Amazon\'s Choice product and cannot be reused',
-        product: {
-          id: existingProduct._id,
-          name: existingProduct.name,
-          sku: existingProduct.sku,
-          isAmazonsChoice: existingProduct.isAmazonsChoice,
-          approvalStatus: existingProduct.approvalStatus
-        }
-      });
+    // If product exists, check its approval status
+    if (existingProduct) {
+      // Block SKUs for approved products (they must be deleted first to reuse SKU)
+      if (existingProduct.approvalStatus === 'approved') {
+        return res.json({
+          success: true,
+          exists: true,
+          blocked: true,
+          message: 'This SKU is already used by an approved product and cannot be reused until the product is deleted',
+          product: {
+            id: existingProduct._id,
+            name: existingProduct.name,
+            sku: existingProduct.sku,
+            isAmazonsChoice: existingProduct.isAmazonsChoice,
+            approvalStatus: existingProduct.approvalStatus
+          }
+        });
+      }
+      
+      // Block SKUs for pending products (they are awaiting approval)
+      if (existingProduct.approvalStatus === 'pending') {
+        return res.json({
+          success: true,
+          exists: true,
+          blocked: true,
+          message: 'This SKU is already used by a product pending approval',
+          product: {
+            id: existingProduct._id,
+            name: existingProduct.name,
+            sku: existingProduct.sku,
+            approvalStatus: existingProduct.approvalStatus
+          }
+        });
+      }
     }
     
+    // SKU is available (no existing product found or product is not approved/pending)
     res.json({
       success: true,
-      exists: !!existingProduct,
+      exists: false,
       blocked: false,
-      product: existingProduct ? {
-        id: existingProduct._id,
-        name: existingProduct.name,
-        sku: existingProduct.sku,
-        approvalStatus: existingProduct.approvalStatus
-      } : null
+      product: null
     });
   } catch (error) {
     console.error('Error checking SKU:', error);

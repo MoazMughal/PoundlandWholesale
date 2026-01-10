@@ -76,9 +76,10 @@ const MobileHeader = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        // Add cache buster to ensure fresh data
+        // Add cache buster to ensure fresh data and request deduplication
+        // Only get categories with active products and include counts for validation
         const cacheBuster = `_t=${Date.now()}`;
-        const response = await fetch(`http://localhost:5000/api/products/public/categories?${cacheBuster}`, {
+        const response = await fetch(`http://localhost:5000/api/products/public/categories?deduplicate=true&includeCounts=true&${cacheBuster}`, {
           headers: {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
@@ -88,8 +89,14 @@ const MobileHeader = () => {
           const data = await response.json();
           
           // Filter out Excel categories explicitly (double check)
-          const filteredCategories = data.categories.filter(cat => 
-            !['UAE Products', 'UK Products', 'Amazon10'].includes(cat.value)
+          let filteredCategories = data.categories.filter(cat => 
+            !['UAE Products', 'UK Products', 'Amazon10'].includes(cat.value) &&
+            !['UAE Products', 'UK Products', 'Amazon10'].includes(cat.label)
+          );
+          
+          // Filter out categories with no active products (count = 0), but keep "All"
+          filteredCategories = filteredCategories.filter(cat => 
+            cat.value === 'all' || (cat.count && cat.count > 0)
           );
           
           // Get hidden categories from localStorage
@@ -100,8 +107,24 @@ const MobileHeader = () => {
             !hiddenCategories.includes(cat.value)
           );
           
-          // Use categories from API (which already includes "All" at the beginning)
-          setCategories(visibleCategories);
+          // Additional client-side deduplication as backup (case-insensitive)
+          const deduplicatedCategories = [];
+          const seenCategories = new Set();
+          
+          visibleCategories.forEach(cat => {
+            const lowerLabel = cat.label.toLowerCase();
+            if (!seenCategories.has(lowerLabel)) {
+              seenCategories.add(lowerLabel);
+              deduplicatedCategories.push(cat);
+            } else {
+              console.log(`🧹 Header: Removed duplicate category "${cat.label}"`);
+            }
+          });
+          
+          console.log(`📂 Header loaded ${deduplicatedCategories.length} unique categories with active products`);
+          
+          // Use deduplicated categories
+          setCategories(deduplicatedCategories);
         }
       } catch (error) {
         console.error('Error fetching categories for mobile header:', error);
@@ -110,6 +133,28 @@ const MobileHeader = () => {
     };
 
     fetchCategories();
+
+    // Auto-cleanup duplicates when header loads (silent)
+    const autoCleanupDuplicates = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/products/admin/cleanup-duplicate-categories', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          console.log('🧹 Header: Auto-cleanup of duplicate categories completed');
+          // Refresh categories after cleanup
+          setTimeout(fetchCategories, 1000);
+        }
+      } catch (error) {
+        console.log('Header: Auto-cleanup failed, but continuing normally');
+      }
+    };
+    
+    // Run cleanup after initial load
+    setTimeout(autoCleanupDuplicates, 3000);
 
     // Listen for category refresh events
     const handleCategoryRefresh = () => {

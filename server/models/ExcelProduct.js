@@ -29,6 +29,19 @@ const excelProductSchema = new mongoose.Schema({
       message: 'ASIN must be exactly 10 alphanumeric characters'
     }
   },
+  sku: {
+    type: String,
+    sparse: true,
+    trim: true,
+    uppercase: true,
+    index: true,
+    validate: {
+      validator: function(v) {
+        return !v || (typeof v === 'string' && v.trim().length > 0);
+      },
+      message: 'SKU must be a non-empty string'
+    }
+  },
   price: {
     type: Number,
     required: true,
@@ -115,5 +128,6 @@ excelProductSchema.index({ excelUploadId: 1, status: 1 });
 excelProductSchema.index({ excelUploadId: 1, isListed: 1 });
 excelProductSchema.index({ excelUploadId: 1, category: 1 });
 excelProductSchema.index({ asin: 1, excelUploadId: 1 }, { sparse: true });
+excelProductSchema.index({ sku: 1, excelUploadId: 1 }, { sparse: true });
 
 export default mongoose.model('ExcelProduct', excelProductSchema);

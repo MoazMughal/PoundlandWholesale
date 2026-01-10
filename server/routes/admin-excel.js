@@ -675,7 +675,18 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
     }
     
     if (status && status !== 'all') {
-      query.status = status;
+      if (status === 'approval') {
+        // For approval status, we need to find products that are converted and have pending approval
+        query.isConverted = true;
+        query.status = 'pending';
+      } else if (status === 'blocked') {
+        // For blocked status, we'll filter on the frontend since it requires conflict checking
+        // Just use pending status and let frontend filter based on conflicts
+        query.status = 'pending';
+        query.isConverted = false;
+      } else {
+        query.status = status;
+      }
     }
 
     console.log('🔍 Final MongoDB query:', JSON.stringify(query, null, 2));
@@ -688,22 +699,27 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
 
     const total = await ExcelProduct.countDocuments(query);
 
-    // Sync status with main products for converted items
+    // Sync status with main products for converted items and check conflicts for non-converted
     const productsWithSyncedStatus = await Promise.all(products.map(async (product) => {
       if (product.isConverted && product.mainProductId) {
         try {
-          // Check if main product exists and is active
-          const mainProduct = await Product.findById(product.mainProductId).select('status').lean();
+          // Check main product's approval status
+          const mainProduct = await Product.findById(product.mainProductId)
+            .select('status approvalStatus isAmazonsChoice')
+            .lean();
           
           if (mainProduct) {
-            // Update status based on main product status
-            let syncedStatus = 'listed';
-            if (mainProduct.status === 'active') {
-              syncedStatus = 'listed';
+            // Determine correct status based on main product's approval status
+            let syncedStatus = 'pending';
+            
+            if (mainProduct.approvalStatus === 'approved' && mainProduct.status === 'active') {
+              syncedStatus = 'listed'; // Approved and active = listed
+            } else if (mainProduct.approvalStatus === 'pending') {
+              syncedStatus = 'pending'; // In approval queue
+            } else if (mainProduct.approvalStatus === 'rejected') {
+              syncedStatus = 'inactive'; // Rejected
             } else if (mainProduct.status === 'inactive') {
-              syncedStatus = 'inactive';
-            } else {
-              syncedStatus = mainProduct.status;
+              syncedStatus = 'inactive'; // Inactive
             }
             
             // Update Excel product status if it's different
@@ -714,20 +730,71 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
               );
               product.status = syncedStatus;
             }
+            
+            // Add approval status info for frontend
+            product.approvalStatus = mainProduct.approvalStatus;
+            product.mainProductStatus = mainProduct.status;
           } else {
-            // Main product doesn't exist anymore, mark as pending
-            if (product.status !== 'pending') {
+            // Main product doesn't exist anymore, reset Excel product
+            if (product.status !== 'pending' || product.isConverted) {
               await ExcelProduct.updateOne(
                 { _id: product._id },
-                { $set: { status: 'pending', isConverted: false, mainProductId: null } }
+                { 
+                  $set: { 
+                    status: 'pending',
+                    isConverted: false
+                  },
+                  $unset: { mainProductId: 1 }
+                }
               );
               product.status = 'pending';
               product.isConverted = false;
-              product.mainProductId = null;
+              delete product.mainProductId;
             }
           }
-        } catch (syncError) {
-          console.error('Error syncing status for product:', product._id, syncError);
+        } catch (error) {
+          console.error(`Error syncing status for product ${product._id}:`, error);
+        }
+      } else {
+        // For non-converted products, check for ASIN/SKU conflicts
+        try {
+          let asinConflict = false;
+          let skuConflict = false;
+          
+          // Check ASIN conflict
+          if (product.asin && product.asin.trim()) {
+            const existingAsin = await Product.findOne({ 
+              asin: product.asin.toUpperCase() 
+            }).select('_id approvalStatus').lean();
+            
+            if (existingAsin) {
+              asinConflict = true;
+            }
+          }
+          
+          // Check SKU conflict
+          if (product.sku && product.sku.trim()) {
+            const existingSku = await Product.findOne({ 
+              sku: product.sku.toUpperCase() 
+            }).select('_id approvalStatus').lean();
+            
+            if (existingSku) {
+              skuConflict = true;
+            }
+          }
+          
+          // Add conflict info to product
+          product.asinConflict = asinConflict;
+          product.skuConflict = skuConflict;
+          
+          // Update status based on conflicts
+          if ((asinConflict || skuConflict) && product.status === 'pending') {
+            // Don't change status in database, just mark for frontend
+            product.hasConflicts = true;
+          }
+          
+        } catch (error) {
+          console.error(`Error checking conflicts for product ${product._id}:`, error);
         }
       }
       
@@ -741,17 +808,25 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
       totalPages: Math.ceil(total / validatedLimit)
     });
 
+    // Apply frontend filtering for blocked status
+    let finalProducts = productsWithSyncedStatus;
+    if (status === 'blocked') {
+      finalProducts = productsWithSyncedStatus.filter(product => 
+        !product.isConverted && (product.asinConflict || product.skuConflict)
+      );
+    }
+
     // Get upload info
     const upload = await ExcelUpload.findById(uploadId).lean();
 
     res.json({
       success: true,
-      products: productsWithSyncedStatus,
+      products: finalProducts,
       upload,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / validatedLimit),
-        totalProducts: total,
+        totalProducts: status === 'blocked' ? finalProducts.length : total,
         limit: validatedLimit
       }
     });
@@ -1051,7 +1126,7 @@ router.patch('/uploads/:uploadId/products/:productId/update-field', authenticate
     const { field, value } = req.body;
     
     // Validate allowed fields
-    const allowedFields = ['asin', 'category', 'price', 'rating', 'reviews'];
+    const allowedFields = ['asin', 'sku', 'category', 'price', 'rating', 'reviews'];
     if (!allowedFields.includes(field)) {
       return res.status(400).json({
         success: false,
@@ -1073,7 +1148,16 @@ router.patch('/uploads/:uploadId/products/:productId/update-field', authenticate
     }
 
     // Update the field
-    const updateData = { [field]: value };
+    let updateData = { [field]: value };
+    
+    // Special handling for SKU field
+    if (field === 'sku') {
+      if (value && value.trim()) {
+        updateData[field] = value.trim().toUpperCase();
+      } else {
+        updateData[field] = '';
+      }
+    }
     
     await ExcelProduct.updateOne(
       { _id: productId },
@@ -1398,7 +1482,7 @@ router.post('/uploads/:uploadId/bulk-convert-products', authenticateAdmin, async
       });
     }
 
-    console.log(`🚀 Starting bulk conversion of ${productIds.length} products`);
+    console.log(`🚀 Starting bulk conversion of ${productIds.length} products to approval queue`);
 
     // Get Excel products to convert
     const excelProducts = await ExcelProduct.find({
@@ -1414,13 +1498,48 @@ router.post('/uploads/:uploadId/bulk-convert-products', authenticateAdmin, async
       });
     }
 
+    // Check if all products have SKU
+    const productsWithoutSKU = excelProducts.filter(p => !p.sku || p.sku.trim() === '');
+    if (productsWithoutSKU.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot convert products without SKU: ${productsWithoutSKU.map(p => p.name).join(', ')}`
+      });
+    }
+
+    // Check for duplicate ASIN/SKU in existing products
+    const duplicateChecks = [];
+    for (const product of excelProducts) {
+      if (product.asin && product.asin.trim()) {
+        const existingAsin = await Product.findOne({ asin: product.asin.toUpperCase() });
+        if (existingAsin) {
+          duplicateChecks.push(`ASIN ${product.asin} already exists (${product.name})`);
+        }
+      }
+      
+      const existingSku = await Product.findOne({ sku: product.sku.toUpperCase() });
+      if (existingSku) {
+        duplicateChecks.push(`SKU ${product.sku} already exists (${product.name})`);
+      }
+    }
+
+    if (duplicateChecks.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Duplicate ASIN/SKU found: ${duplicateChecks.join(', ')}`
+      });
+    }
+
     const convertedProducts = [];
     const errors = [];
     const categoriesProcessed = new Set();
     let productsWithImages = 0;
 
-    // Get existing categories from main products to avoid duplicates
-    const existingCategories = await Product.distinct('category', { status: 'active' });
+    // Get existing categories from main products for smart matching
+    const existingCategories = await Product.distinct('category', { 
+      status: 'active', 
+      approvalStatus: 'approved' 
+    });
     const existingCategoriesSet = new Set(existingCategories.map(cat => cat.toLowerCase().trim()));
 
     // Create a map of product prices if provided
@@ -1501,11 +1620,12 @@ router.post('/uploads/:uploadId/bulk-convert-products', authenticateAdmin, async
         // Create main product from Excel product with enhanced data
         const mainProductData = {
           name: excelProduct.name,
+          asin: excelProduct.asin ? excelProduct.asin.toUpperCase() : '',
+          sku: excelProduct.sku.toUpperCase(),
           price: updatedPrice,
           category: productCategory,
           description: excelProduct.description || `High-quality ${excelProduct.name} available for wholesale. Perfect for resellers and businesses.`,
           brand: excelProduct.brand || 'Generic Wholesale',
-          asin: excelProduct.asin || '',
           rating: excelProduct.rating || 4.2,
           reviews: excelProduct.reviews || Math.floor(Math.random() * 500) + 50, // Random reviews if not provided
           dealUnits: excelProduct.dealUnits || 1,
@@ -1520,14 +1640,15 @@ router.post('/uploads/:uploadId/bulk-convert-products', authenticateAdmin, async
           ],
           originalPrice: excelProduct.originalPrice || updatedPrice * 1.3,
           
-          // Enhanced listing settings
+          // Send to approval queue instead of direct listing
           status: 'active',
+          approvalStatus: 'pending', // Send to approval queue
           isAdminProduct: true,
           listedBy: 'admin',
           marketplace: 'UK',
-          isAmazonsChoice: true, // Auto-list on Amazon's Choice
-          isBestSeller: Math.random() > 0.7, // 30% chance to be best seller
-          showOnHome: Math.random() > 0.8, // 20% chance to show on home
+          isAmazonsChoice: false, // Will be set after approval
+          isBestSeller: false, // Will be set after approval
+          showOnHome: false, // Will be set after approval
           
           // Add reference to Excel source
           excelSource: {
@@ -1570,7 +1691,7 @@ router.post('/uploads/:uploadId/bulk-convert-products', authenticateAdmin, async
                 isConverted: true,
                 convertedAt: new Date(),
                 mainProductId: savedProduct._id,
-                status: 'listed',
+                status: 'pending', // Mark as pending approval
                 bulkConverted: true
               }
             }
@@ -1582,10 +1703,10 @@ router.post('/uploads/:uploadId/bulk-convert-products', authenticateAdmin, async
             name: excelProduct.name,
             category: productCategory,
             hasImage: hasUploadedImage,
-            isAmazonsChoice: true
+            approvalStatus: 'pending'
           });
 
-          console.log(`✅ Converted: ${excelProduct.name} → Category: ${productCategory} → Images: ${hasUploadedImage ? 'Yes' : 'No'}`);
+          console.log(`✅ Converted to approval: ${excelProduct.name} → Category: ${productCategory} → Images: ${hasUploadedImage ? 'Yes' : 'No'}`);
 
         } catch (saveError) {
           console.error('❌ Error saving product:', saveError);
@@ -3143,6 +3264,222 @@ router.post('/single-list-to-amazons-choice', authenticateAdmin, async (req, res
     res.status(500).json({
       success: false,
       message: 'Failed to list product to Amazon\'s Choice',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/admin-excel/single-convert-to-approval - Convert single product to approval queue
+router.post('/single-convert-to-approval', authenticateAdmin, async (req, res) => {
+  try {
+    const { productId } = req.body;
+    
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Product ID is required'
+      });
+    }
+
+    // Find the Excel product
+    const excelProduct = await ExcelProduct.findById(productId);
+    if (!excelProduct) {
+      return res.status(404).json({
+        success: false,
+        message: 'Excel product not found'
+      });
+    }
+
+    // Check if product has SKU
+    if (!excelProduct.sku || excelProduct.sku.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'SKU is required for conversion'
+      });
+    }
+
+    // Check if already converted
+    if (excelProduct.isConverted && excelProduct.mainProductId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Product is already converted'
+      });
+    }
+
+    // Check for duplicate ASIN/SKU in existing products
+    if (excelProduct.asin && excelProduct.asin.trim()) {
+      const existingAsin = await Product.findOne({ asin: excelProduct.asin.toUpperCase() });
+      if (existingAsin) {
+        return res.status(400).json({
+          success: false,
+          message: `ASIN ${excelProduct.asin} already exists in the system`
+        });
+      }
+    }
+
+    const existingSku = await Product.findOne({ sku: excelProduct.sku.toUpperCase() });
+    if (existingSku) {
+      return res.status(400).json({
+        success: false,
+        message: `SKU ${excelProduct.sku} already exists in the system`
+      });
+    }
+
+    // Get website categories for smart matching
+    const websiteCategories = await Product.distinct('category', { 
+      status: 'active', 
+      approvalStatus: 'approved' 
+    });
+    
+    // Smart category matching (case-insensitive)
+    let selectedCategory = excelProduct.category;
+    if (excelProduct.category) {
+      const matchingCategory = websiteCategories.find(cat => 
+        cat.toLowerCase() === excelProduct.category.toLowerCase()
+      );
+      if (matchingCategory) {
+        selectedCategory = matchingCategory; // Use existing category's exact case
+        console.log(`📂 Matched Excel category "${excelProduct.category}" to existing category "${matchingCategory}"`);
+      } else {
+        console.log(`📂 New category "${excelProduct.category}" will be added`);
+      }
+    }
+
+    // Convert Excel product to main product with pending approval status
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://generic-wholesale-backend.onrender.com' 
+      : 'http://localhost:5000';
+    
+    let imageUrl = '';
+    let imageArray = [];
+    
+    // Handle images from Excel product
+    if (excelProduct.images && excelProduct.images.length > 0) {
+      // Use existing images from Excel product
+      imageArray = [...excelProduct.images];
+      imageUrl = excelProduct.images[0]; // First image as main image
+      console.log('📷 Using existing Excel product images:', imageArray);
+    }
+    
+    // Always check for ASIN-based images (this is what shows in the Excel products table)
+    if (excelProduct.asin) {
+      const asinImageUrl = `${baseUrl}/api/admin-excel/public/images/by-asin/${excelProduct.asin}`;
+      
+      // Add ASIN-based image if not already present
+      if (!imageArray.includes(asinImageUrl)) {
+        imageArray.unshift(asinImageUrl); // Add as first image
+        imageUrl = asinImageUrl; // Use as main image
+        console.log('📷 Added ASIN-based image URL:', asinImageUrl);
+      }
+    }
+    
+    // Also check for uploaded images for this ASIN (additional enhancement)
+    if (excelProduct.asin) {
+      try {
+        const ImageUpload = (await import('../models/ImageUpload.js')).default;
+        const imageUpload = await ImageUpload.findOne({
+          'images.asin': excelProduct.asin.toUpperCase(),
+          status: 'completed'
+        });
+        
+        if (imageUpload) {
+          const matchingImage = imageUpload.images.find(img => img.asin === excelProduct.asin.toUpperCase());
+          if (matchingImage && require('fs').existsSync(matchingImage.filePath)) {
+            const uploadedImageUrl = `${baseUrl}/api/admin-excel/public/images/by-asin/${excelProduct.asin}`;
+            
+            // This should be the same as asinImageUrl, but let's make sure it's prioritized
+            if (!imageArray.includes(uploadedImageUrl)) {
+              imageArray.unshift(uploadedImageUrl);
+            } else {
+              // Move to front if already exists
+              const index = imageArray.indexOf(uploadedImageUrl);
+              if (index > 0) {
+                imageArray.splice(index, 1);
+                imageArray.unshift(uploadedImageUrl);
+              }
+            }
+            imageUrl = uploadedImageUrl; // Use as main image
+            
+            console.log('📷 Prioritized uploaded ASIN image:', uploadedImageUrl);
+          }
+        }
+      } catch (imageError) {
+        console.log('⚠️ Could not check for uploaded images:', imageError.message);
+      }
+    }
+    
+    console.log('📷 Final image configuration:', { imageUrl, imageArray });
+
+    const newProduct = new Product({
+      name: excelProduct.name,
+      asin: excelProduct.asin ? excelProduct.asin.toUpperCase() : '',
+      sku: excelProduct.sku.toUpperCase(),
+      price: excelProduct.price,
+      originalPrice: excelProduct.originalPrice || (excelProduct.price * 1.2),
+      category: selectedCategory,
+      brand: excelProduct.brand || 'Generic',
+      image: imageUrl, // Main image
+      images: imageArray, // All images array
+      rating: excelProduct.rating || 4.5,
+      reviews: excelProduct.reviews || 0,
+      stock: excelProduct.stock || 100,
+      discount: excelProduct.discount || 0,
+      dealUnits: excelProduct.dealUnits || 1,
+      description: excelProduct.description || `Quality ${excelProduct.name} with excellent features.`,
+      features: excelProduct.features || [],
+      currency: excelProduct.currency || 'GBP',
+      status: 'active',
+      approvalStatus: 'pending', // Send to approval queue
+      isAmazonsChoice: false, // Will be set after approval
+      isAdminProduct: true,
+      listedBy: 'admin',
+      excelSource: {
+        uploadId: excelProduct.excelUploadId,
+        productId: excelProduct._id,
+        rowNumber: excelProduct.rowNumber
+      }
+    });
+
+    console.log('🔍 Creating new product for approval with data:', {
+      name: excelProduct.name,
+      asin: excelProduct.asin,
+      sku: excelProduct.sku,
+      category: selectedCategory,
+      imageUrl: imageUrl,
+      imageArray: imageArray,
+      approvalStatus: 'pending'
+    });
+
+    const savedProduct = await newProduct.save();
+    
+    console.log('✅ Product saved successfully for approval:', {
+      id: savedProduct._id,
+      name: savedProduct.name,
+      category: savedProduct.category,
+      approvalStatus: savedProduct.approvalStatus,
+      sku: savedProduct.sku,
+      image: savedProduct.image,
+      images: savedProduct.images
+    });
+
+    // Update Excel product to mark as converted
+    excelProduct.isConverted = true;
+    excelProduct.mainProductId = savedProduct._id;
+    excelProduct.status = 'pending'; // Mark as pending approval
+    await excelProduct.save();
+
+    res.json({
+      success: true,
+      message: `Product "${excelProduct.name}" has been converted and sent to approval queue!`,
+      productId: savedProduct._id,
+      approvalStatus: 'pending'
+    });
+
+  } catch (error) {
+    console.error('Error converting single product to approval:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to convert product to approval',
       error: error.message
     });
   }

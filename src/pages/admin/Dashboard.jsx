@@ -1071,7 +1071,7 @@ const AdminDashboard = () => {
           📦 Manage All ({stats?.products.total || 0})
         </button>
         <button onClick={() => navigate('/admin/approval')} className="tool-btn info">
-          ✅ Approval ({pendingApprovals} pending)
+          ✅ Approval ({pendingApprovals} product{pendingApprovals !== 1 ? 's' : ''})
         </button>
         <button onClick={importHardcodedProducts} className="tool-btn success" style={{color: 'black'}}>
           📥 Import JSON

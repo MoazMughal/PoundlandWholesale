@@ -1,0 +1,398 @@
+/* Production-specific optimizations for better image loading and performance */
+
+/* Image loading optimizations */
+.product-image-wrapper {
+  background: #fff;
+  border-radius: 0;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+}
+
+.product-image-wrapper img {
+  transition: opacity 0.3s ease, transform 0.2s ease;
+  will-change: opacity;
+  max-width: 85% !important;
+  max-height: 85% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  border: none;
+}
+
+.product-image-wrapper img[src=""] {
+  display: none;
+}
+
+/* Skeleton loading for images */
+.product-image-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #ffffff 25%, #f8f8f8 50%, #ffffff 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  z-index: 0;
+}
+
+.product-image-wrapper img {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Production-specific grid optimizations */
+@media (max-width: 576px) {
+  #products-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  
+  .product-card {
+    min-height: 200px !important;
+  }
+  
+  .product-image-container {
+    height: 120px !important;
+    padding: 8px !important;
+  }
+}
+
+@media (min-width: 577px) {
+  .product-image-container {
+    height: 140px !important;
+    padding: 12px !important;
+  }
+}
+
+/* Reduce layout shift */
+.product-card {
+  contain: layout style;
+}
+
+.product-image-container {
+  background: #fff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.product-image-container img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Optimize badge rendering */
+.mobile-badge,
+.desktop-badge {
+  contain: layout style paint;
+  transform: translateZ(0); /* Force GPU acceleration */
+}
+
+/* Connection status styles */
+.connection-status {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 9999;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  color: white;
+  font-weight: bold;
+}
+
+.connection-status.good {
+  background: #28a745;
+}
+
+.connection-status.slow {
+  background: #ffc107;
+  color: #000;
+}
+
+.connection-status.poor {
+  background: #dc3545;
+}
+
+/* Lazy loading improvements */
+img[loading="lazy"] {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+img[loading="lazy"].loaded {
+  opacity: 1;
+}
+
+/* Reduce paint complexity */
+.enhanced-card {
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* Optimize hover effects for production */
+@media (hover: hover) {
+  .enhanced-card:hover {
+    transform: translateY(-4px) scale(1.01) !important;
+  }
+}
+
+/* Disable expensive effects on low-end devices */
+@media (max-width: 576px) and (max-resolution: 1.5dppx) {
+  .enhanced-card {
+    transition: none !important;
+  }
+  
+  .enhanced-card:hover {
+    transform: none !important;
+  }
+  
+  .mobile-badge,
+  .desktop-badge {
+    animation: none !important;
+  }
+}
+
+/* Critical resource hints */
+.preload-hint {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+/* Error state styling */
+.image-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #999;
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
+  border: none;
+  border-radius: 0;
+}
+
+/* Loading state improvements */
+.loading-shimmer {
+  background: linear-gradient(90deg, #ffffff 25%, #f8f8f8 50%, #ffffff 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Reduce reflow during image loading */
+.product-image-container {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Performance monitoring */
+.perf-monitor {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  z-index: 9999;
+  font-family: monospace;
+}
+/* Force proper image sizing for all product images */
+.product-image-wrapper,
+.product-image-container .product-image-wrapper {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #fff !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.product-image-wrapper img,
+.product-image-container img,
+.product-image-container .product-image-wrapper img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Ensure images are visible on mobile */
+@media (max-width: 576px) {
+  .product-image-wrapper img,
+  .product-image-container img {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .product-image-container {
+    height: 120px !important;
+    min-height: 120px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+}
+
+/* Ensure images are visible on desktop */
+@media (min-width: 577px) {
+  .product-image-wrapper img,
+  .product-image-container img {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .product-image-container {
+    height: 140px !important;
+    min-height: 140px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+}
+
+/* Override any transform scaling */
+.product-image-wrapper img {
+  transform: none !important;
+}
+
+/* Ensure proper aspect ratio maintenance */
+.product-image-container {
+  aspect-ratio: auto !important;
+}
+* Global image border removal */
+.product-card img,
+.product-image-container img,
+.product-image-wrapper img,
+img[alt*="Product"] {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border-radius: 0 !important;
+}
+
+/* Ensure clean white backgrounds for all image containers */
+.product-card .product-image-container,
+.enhanced-card .product-image-container {
+  background: #fff !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+/* Remove any inherited borders or shadows */
+.product-card,
+.enhanced-card {
+  border: 2px solid transparent !important;
+}
+
+.product-card .product-image-container,
+.product-card .product-image-wrapper {
+  border: none !important;
+  box-shadow: none !important;
+}/* E
+nsure all backgrounds are white - no grey */
+.product-card,
+.enhanced-card,
+.product-image-container,
+.product-image-wrapper {
+  background: #fff !important;
+  background-color: #fff !important;
+}
+
+/* Remove any grey gradients */
+.product-card {
+  background: #ffffff !important;
+  background-image: none !important;
+}
+
+/* Ensure main container has white background */
+.container.products-container,
+.enhanced-container {
+  background: #fff !important;
+}
+
+/* Override any inherited grey backgrounds */
+#products-grid {
+  background: transparent !important;
+}
+
+/* Ensure loading states are white */
+.loading-shimmer,
+.product-image-wrapper::before {
+  background: linear-gradient(90deg, #ffffff 25%, #f9f9f9 50%, #ffffff 75%) !important;
+}
+
+/* White background for all image-related elements */
+img,
+.product-image-container img,
+.product-image-wrapper img {
+  background: #fff !important;
+}
