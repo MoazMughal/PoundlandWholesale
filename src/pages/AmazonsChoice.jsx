@@ -251,6 +251,12 @@ const AmazonsChoice = () => {
       params.append('limit', productsPerPage.toString()) // Use our products per page
       params.append('page', page.toString()) // Add page parameter
       
+      // Add image optimization parameters for mobile
+      params.append('imageWidth', '300')
+      params.append('imageHeight', '300')
+      params.append('imageQuality', 'auto')
+      params.append('imageFormat', 'auto')
+      
       if (category && category !== 'all') {
         params.append('category', category)
       }
@@ -298,33 +304,24 @@ const AmazonsChoice = () => {
               category: p.category,
               brand: p.brand,
               image: (() => {
-              // Enhanced image URL processing for better reliability in production
-              let imageUrl = '';
-              
-              // Priority 1: Use images array first element
-              if (p.images && p.images.length > 0 && p.images[0]) {
-                imageUrl = p.images[0];
-              }
-              // Priority 2: Use image field
-              else if (p.image) {
-                imageUrl = p.image;
-              }
-              // Priority 3: Generate from ASIN if available
-              else if (p.asin && p.asin.match(/^[A-Z0-9]{10}$/)) {
-                const baseUrl = process.env.NODE_ENV === 'production' 
-                  ? 'https://generic-wholesale-backend.onrender.com' 
-                  : 'http://localhost:5000';
-                imageUrl = `${baseUrl}/api/admin-excel/public/images/by-asin/${p.asin}`;
-              }
-              
-              // Production optimization: Ensure HTTPS for external images
-              if (process.env.NODE_ENV === 'production' && imageUrl) {
-                if (imageUrl.startsWith('http://') && !imageUrl.includes('localhost')) {
-                  imageUrl = imageUrl.replace('http://', 'https://');
+                // Use Cloudinary URL directly - prioritize database images first
+                let imageUrl = '';
+                
+                // Priority 1: Use images array first element (most reliable - from database)
+                if (p.images && p.images.length > 0 && p.images[0]) {
+                  imageUrl = p.images[0];
                 }
-              }
-              
-              return imageUrl || '';
+                // Priority 2: Use image field (single image from database)
+                else if (p.image) {
+                  imageUrl = p.image;
+                }
+                // Priority 3: Fallback to ASIN-based URL if no images in database
+                else if (p.asin && p.asin.match(/^[A-Z0-9]{10}$/)) {
+                  // Construct Cloudinary URL with optimizations as fallback
+                  imageUrl = `https://res.cloudinary.com/dtuq3tvjx/image/upload/w_300,h_300,c_fill,f_auto,q_auto/products/${p.asin}`;
+                }
+                
+                return imageUrl || '';
               })(),
               images: p.images || [],
               rating: p.rating || 4.5,
@@ -441,6 +438,7 @@ const AmazonsChoice = () => {
                   category: p.category,
                   brand: p.brand,
                   image: (() => {
+                    // Use database images first, then fallback to ASIN
                     let imageUrl = '';
                     if (p.images && p.images.length > 0 && p.images[0]) {
                       imageUrl = p.images[0];
@@ -924,20 +922,22 @@ const AmazonsChoice = () => {
                 alignItems: 'center', 
                 justifyContent: 'center', 
                 background: '#fff',
-                padding: '0px',
+                padding: '15px',
                 margin: '0px',
                 overflow: 'hidden'
               }}>
                 <ProductImage
                   src={product.image}
                   alt={product.name}
+                  asin={product.asin} // Pass ASIN for Cloudinary fallback
                   priority={index < 20} // Prioritize first 20 images
+                  loading={index < 8 ? "eager" : "lazy"} // Eager load first 8, lazy load rest
                   fallbackSrc={product.images && product.images[1]} // Use second image as fallback
                   style={{
                     maxWidth: '100%',
                     maxHeight: '100%',
-                    width: '100%',
-                    height: '100%',
+                    width: 'auto',
+                    height: 'auto',
                     objectFit: 'contain',
                     padding: '0px',
                     margin: '0px'

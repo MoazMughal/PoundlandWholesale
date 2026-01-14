@@ -1,5 +1,21 @@
 /* Production-specific optimizations for better image loading and performance */
 
+/* Shimmer animation for loading states */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Spinner animation for loading indicator */
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
 /* Image loading optimizations */
 .product-image-wrapper {
   background: #fff;
@@ -29,8 +45,17 @@
   display: none;
 }
 
-/* Skeleton loading for images */
-.product-image-wrapper::before {
+/* Enhanced loading states */
+.product-image-wrapper.loading {
+  background: #fff;
+}
+
+.product-image-wrapper.error {
+  background: #f8f9fa;
+}
+
+/* Skeleton loading for images - only show if no loading spinner */
+.product-image-wrapper:not(.loading)::before {
   content: '';
   position: absolute;
   top: 0;
@@ -48,36 +73,53 @@
   z-index: 1;
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
+/* Mobile-specific image optimizations */
+@media (max-width: 768px) {
+  /* Force hardware acceleration on mobile */
+  .product-image-wrapper,
+  .product-image-wrapper img {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
-  100% {
-    background-position: 200% 0;
+  
+  /* Optimize image rendering on mobile */
+  .product-image-wrapper img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    -webkit-transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+  }
+  
+  /* Reduce animation complexity on mobile */
+  .product-image-wrapper {
+    transition: none !important;
+  }
+  
+  /* Ensure images are always visible on mobile */
+  .product-image-wrapper img {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+  }
+  
+  /* Mobile loading optimization */
+  .product-image-wrapper.loading img {
+    opacity: 0.3 !important; /* Show partially loaded images */
   }
 }
 
-/* Production-specific grid optimizations */
-@media (max-width: 576px) {
-  #products-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 8px !important;
-  }
-  
-  .product-card {
-    min-height: 200px !important;
-  }
-  
-  .product-image-container {
-    height: 120px !important;
-    padding: 8px !important;
+/* High DPI display optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .product-image-wrapper img {
+    image-rendering: -webkit-optimize-contrast;
   }
 }
 
-@media (min-width: 577px) {
-  .product-image-container {
-    height: 140px !important;
-    padding: 12px !important;
+/* Connection-based optimizations */
+@media (prefers-reduced-data: reduce) {
+  .product-image-wrapper::before {
+    animation: none; /* Disable shimmer on slow connections */
   }
 }
 
@@ -102,14 +144,14 @@
 .product-image-container img {
   max-width: 100% !important;
   max-height: 100% !important;
-  width: 100% !important;
-  height: 100% !important;
+  width: auto !important;
+  height: auto !important;
   object-fit: contain !important;
   display: block !important;
   border: none !important;
   box-shadow: none !important;
   padding: 0 !important;
-  margin: 0 !important;
+  margin: 0 auto !important;
 }
 
 /* Optimize badge rendering */
@@ -249,6 +291,7 @@ img[loading="lazy"].loaded {
   box-shadow: none !important;
   padding: 0 !important;
   margin: 0 !important;
+  position: relative !important;
 }
 
 .product-image-wrapper img,
@@ -256,8 +299,8 @@ img[loading="lazy"].loaded {
 .product-image-container .product-image-wrapper img {
   max-width: 100% !important;
   max-height: 100% !important;
-  width: 100% !important;
-  height: 100% !important;
+  width: auto !important;
+  height: auto !important;
   object-fit: contain !important;
   object-position: center !important;
   display: block !important;
@@ -266,6 +309,38 @@ img[loading="lazy"].loaded {
   border: none !important;
   box-shadow: none !important;
   outline: none !important;
+  transition: opacity 0.3s ease !important;
+}
+
+/* Smooth image loading */
+.product-image-wrapper img[src=""],
+.product-image-wrapper img:not([src]) {
+  opacity: 0;
+}
+
+.product-image-wrapper img[src]:not([src=""]) {
+  opacity: 1;
+}
+
+/* Loading state */
+.product-image-wrapper.loading::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 1;
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 /* Ensure images are visible on mobile */
@@ -274,18 +349,18 @@ img[loading="lazy"].loaded {
   .product-image-container img {
     max-width: 100% !important;
     max-height: 100% !important;
-    width: 100% !important;
-    height: 100% !important;
+    width: auto !important;
+    height: auto !important;
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
   }
   
   .product-image-container {
     height: 120px !important;
     min-height: 120px !important;
-    padding: 0 !important;
+    padding: 15px !important;
     margin: 0 !important;
     background: #fff !important;
     border: none !important;
@@ -299,18 +374,18 @@ img[loading="lazy"].loaded {
   .product-image-container img {
     max-width: 100% !important;
     max-height: 100% !important;
-    width: 100% !important;
-    height: 100% !important;
+    width: auto !important;
+    height: auto !important;
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
   }
   
   .product-image-container {
     height: 140px !important;
     min-height: 140px !important;
-    padding: 0 !important;
+    padding: 15px !important;
     margin: 0 !important;
     background: #fff !important;
     border: none !important;

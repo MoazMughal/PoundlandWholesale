@@ -743,7 +743,7 @@ const AdminProducts = () => {
 
   const currency = 'GBP';
   const currencySymbol = '£';
-  const productsPerPage = 50;
+  const productsPerPage = 200;
 
   const [categories, setCategories] = useState([
     // Categories will be loaded from API
@@ -890,16 +890,13 @@ const AdminProducts = () => {
 
   const fetchCategories = async () => {
     try {
-      console.log('📂 Frontend: Fetching categories...');
       // Include Excel categories for admin use
       const response = await fetch(getApiUrl('products/public/categories?includeExcel=true'));
       if (response.ok) {
         const data = await response.json();
-        console.log('📂 Frontend: Received categories from API:', data.categories.map(c => c.value));
 
         // Get hidden categories from localStorage
         const hiddenCategories = JSON.parse(localStorage.getItem('hiddenCategories') || '[]');
-        console.log('📂 Hidden categories:', hiddenCategories);
 
         // Filter out hidden categories and format for display
         const dynamicCategories = data.categories
@@ -910,7 +907,6 @@ const AdminProducts = () => {
             icon: getCategoryIcon(cat.value)
           }));
 
-        console.log('📂 Frontend: Setting final categories (after hiding):', dynamicCategories.map(c => c.value));
         setCategories(dynamicCategories);
       }
     } catch (error) {
@@ -1229,7 +1225,6 @@ const AdminProducts = () => {
   };
 
   const handleCellClick = (productId, field, currentValue) => {
-    console.log('🖱️ Cell clicked:', { productId, field, currentValue, categoriesLoaded: categories.length });
     setEditingCell(`${productId}-${field}`);
     // Ensure ASIN, SKU, and category fields have proper initial values (empty string if null/undefined)
     const initialValue = (field === 'asin' || field === 'sku' || field === 'category') ? (currentValue || '') : currentValue;
@@ -3326,16 +3321,83 @@ const AdminProducts = () => {
                       )}
                     </td>
                     <td style={{ padding: '4px 8px' }}>
-                      <select
-                        value={product.status}
-                        onChange={(e) => handleStatusChange(product._id, e.target.value)}
-                        className={`status-select ${product.status}`}
-                        style={{ fontSize: '0.65rem', padding: '2px 4px' }}
-                      >
-                        <option value="active">✅</option>
-                        <option value="inactive">❌</option>
-                        <option value="pending">⏳</option>
-                      </select>
+                      {(() => {
+                        // Determine status based on approval status and Amazon's Choice listing
+                        const getStatusDisplay = (product) => {
+                          // Check if product is pending approval
+                          if (product.approvalStatus === 'pending' || product.status === 'pending') {
+                            return {
+                              icon: '🟡',
+                              text: 'Pending',
+                              color: '#f59e0b',
+                              bgColor: '#fef3c7'
+                            };
+                          }
+                          
+                          // Check if product is disapproved
+                          if (product.approvalStatus === 'disapproved' || product.status === 'inactive') {
+                            return {
+                              icon: '🔴',
+                              text: 'Inactive',
+                              color: '#dc2626',
+                              bgColor: '#fee2e2'
+                            };
+                          }
+                          
+                          // Check if product is approved and listed (Amazon's Choice)
+                          if ((product.approvalStatus === 'approved' || product.status === 'active') && product.isAmazonsChoice) {
+                            return {
+                              icon: '🟢',
+                              text: 'Live',
+                              color: '#059669',
+                              bgColor: '#d1fae5'
+                            };
+                          }
+                          
+                          // Product is approved but not on Amazon's Choice page
+                          if (product.approvalStatus === 'approved' || product.status === 'active') {
+                            return {
+                              icon: '🟢',
+                              text: 'Active',
+                              color: '#059669',
+                              bgColor: '#d1fae5'
+                            };
+                          }
+                          
+                          // Default case
+                          return {
+                            icon: '⚪',
+                            text: 'Unknown',
+                            color: '#6b7280',
+                            bgColor: '#f3f4f6'
+                          };
+                        };
+
+                        const statusInfo = getStatusDisplay(product);
+                        
+                        return (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '3px 6px',
+                              borderRadius: '4px',
+                              backgroundColor: statusInfo.bgColor,
+                              border: `1px solid ${statusInfo.color}20`,
+                              fontSize: '0.65rem',
+                              fontWeight: '600',
+                              color: statusInfo.color,
+                              minWidth: '60px',
+                              justifyContent: 'center'
+                            }}
+                            title={`Status: ${statusInfo.text}${product.isAmazonsChoice ? ' (Listed on Amazon\'s Choice)' : ''}`}
+                          >
+                            <span style={{ fontSize: '0.7rem' }}>{statusInfo.icon}</span>
+                            <span>{statusInfo.text}</span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="seller-info" style={{ padding: '4px 8px', fontSize: '0.7rem' }}>
                       {product.seller?.businessName || 'Direct'}

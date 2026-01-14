@@ -1,13 +1,49 @@
 import express from 'express';
+import multer from 'multer';
 import Product from '../models/Product.js';
 import ExcelProduct from '../models/ExcelProduct.js';
 import { authenticateAdmin, authenticateSeller } from '../middleware/auth.js';
+import { optimizeProductImages, mobileImageOptimization, addResponsiveImages } from '../middleware/imageOptimization.js';
+import { uploadToCloudinary, isCloudinaryConfigured } from '../services/cloudinary.js';
 import productCache from '../utils/productCache.js';
 import { fallbackProducts } from '../data/fallbackProducts.js';
 import { amazonChoiceFallbackProducts, getFilteredFallbackProducts } from '../data/amazonChoiceFallback.js';
 import mongoose from 'mongoose';
+import path from 'path';
+import fs from 'fs';
 
 const router = express.Router();
+
+// Configure multer for product image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), 'uploads/temp/products');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const originalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    cb(null, `${timestamp}_${originalName}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit per image
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept image files only
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
+});
 
 // Helper function to sync Excel products when main product is deleted
 async function syncExcelProductsOnDelete(mainProductId) {
@@ -27,7 +63,7 @@ async function syncExcelProductsOnDelete(mainProductId) {
     );
     
     if (updateResult.modifiedCount > 0) {
-      console.log(`📊 Updated ${updateResult.modifiedCount} Excel products after main product deletion`);
+      // Updated Excel products after main product deletion
     }
     
     return updateResult;
@@ -262,7 +298,6 @@ router.get('/public/categories', async (req, res) => {
       });
       
       categories = deduplicatedCategories;
-      console.log(`📂 Deduplicated categories: ${categories.length} unique categories`);
     }
     
     let formattedCategories;
@@ -313,7 +348,7 @@ router.get('/public/categories', async (req, res) => {
         Object.assign(countMap, deduplicatedCountMap);
       }
       
-      console.log('📊 Category counts from database:', countMap);
+      // Category counts from database
       
       // Get total count for "All" category
       const totalCountCriteria = includeEmpty === 'true' 
@@ -331,7 +366,7 @@ router.get('/public/categories', async (req, res) => {
         }))
       ];
       
-      console.log('📊 Final formatted categories with counts:', formattedCategories);
+      // Final formatted categories with counts
     } else {
       // Original format without counts
       formattedCategories = [
@@ -958,6 +993,8 @@ router.post('/:id/approval', authenticateAdmin, async (req, res) => {
     // For approve action, update the product
     const updateData = {
       approvalStatus: 'approved',
+      status: 'active',
+      isAmazonsChoice: true, // Automatically add to Amazon's Choice when approved
       approvedAt: new Date(),
       approvedBy: req.admin.id
     };
@@ -981,23 +1018,19 @@ router.post('/:id/approval', authenticateAdmin, async (req, res) => {
       if (excelProduct) {
         console.log('🔄 Syncing Excel product status after approval:', excelProduct.name);
         
-        let correctStatus = 'active'; // Approved but not necessarily in Amazon's Choice yet
-        if (product.isAmazonsChoice) {
-          correctStatus = 'listed'; // Listed and showing in Amazon's Choice
-        }
-        
+        // Product is now approved and listed in Amazon's Choice
         await ExcelProduct.updateOne(
           { _id: excelProduct._id },
           { 
             $set: { 
-              status: correctStatus,
+              status: 'listed', // Listed and showing in Amazon's Choice
               isListed: true,
               listedAt: new Date()
             }
           }
         );
         
-        console.log(`✅ Excel product status updated to: ${correctStatus}`);
+        console.log(`✅ Excel product status updated to: listed (Amazon's Choice)`);
       }
     } catch (syncError) {
       console.error('⚠️ Error syncing Excel product status:', syncError);
@@ -1207,7 +1240,7 @@ router.post('/admin/bulk-update', authenticateAdmin, async (req, res) => {
 });
 
 // Fast endpoint for 50 products (optimized)
-router.get('/public/fast', async (req, res) => {
+router.get('/public/fast', mobileImageOptimization, optimizeProductImages, addResponsiveImages, async (req, res) => {
   const startTime = Date.now();
   
   try {
@@ -1340,7 +1373,7 @@ router.get('/public/fast', async (req, res) => {
 });
 
 // Public endpoint for frontend (no auth required) - Enhanced with comprehensive fallbacks
-router.get('/public', async (req, res) => {
+router.get('/public', mobileImageOptimization, optimizeProductImages, addResponsiveImages, async (req, res) => {
   const startTime = Date.now();
   
   try {
@@ -1504,13 +1537,15 @@ router.get('/public', async (req, res) => {
         categoryQuery.$or.push({ category: { $regex: `^${withoutSpaces}$`, $options: 'i' } });
       }
       
-      console.log('🔍 Category filtering for:', decodedCategory, 'Query options:', categoryQuery.$or.length);
-      
       query = { ...query, ...categoryQuery };
     }
     if (isAmazonsChoice === 'true') {
       query.isAmazonsChoice = true;
       query.approvalStatus = 'approved'; // Only show approved Amazon's Choice products
+      // Only show products with ASIN (required for Cloudinary images)
+      query.asin = { $exists: true, $ne: null, $ne: '' };
+      // Only show products with images array (Cloudinary images should be in images array)
+      query.images = { $exists: true, $ne: [], $ne: null };
     }
     if (isBestSeller === 'true') query.isBestSeller = true;
     if (isLatestDeal === 'true') query.isLatestDeal = true;
@@ -1977,15 +2012,6 @@ router.get('/', authenticateAdmin, async (req, res) => {
         });
       }
       
-      // Debug logging for ASIN searches
-      if (search.length >= 3 && /^[A-Z0-9]+$/i.test(search)) {
-        console.log('🏷️ ASIN Search Debug:', {
-          searchTerm: search,
-          isExactASIN: search.length === 10,
-          upperCaseSearch: search.toUpperCase()
-        });
-      }
-      
       // Combine with existing query
       query = { ...query, ...searchQuery };
     }
@@ -2012,16 +2038,6 @@ router.get('/', authenticateAdmin, async (req, res) => {
     }
     if (status) query.status = status;
 
-    console.log('🔍 Products query debug:', {
-      search,
-      category,
-      status,
-      excludeSellerCopies,
-      finalQuery: JSON.stringify(query, null, 2)
-    });
-
-    console.log('📊 Admin products endpoint called - SKU field should be included');
-
     let adminProducts;
     try {
       // Optimized admin query with timeout
@@ -2033,11 +2049,6 @@ router.get('/', authenticateAdmin, async (req, res) => {
         .maxTimeMS(5000) // 5 second timeout for admin
         .lean(); // Use lean for better performance
       
-      // Debug: Check if SKU is present in the results
-      if (adminProducts.length > 0) {
-        console.log('📋 Sample product fields:', Object.keys(adminProducts[0]));
-        console.log('🏷️ First product SKU:', adminProducts[0].sku || 'NO SKU FIELD');
-      }
     } catch (queryError) {
       console.error('❌ MongoDB Query Error:', queryError);
       
@@ -2128,7 +2139,9 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
   }
 });
 
-router.post('/', authenticateAdmin, async (req, res) => {
+router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) => {
+  const tempFiles = [];
+  
   try {
     // Ensure currency is always GBP for new products
     const productData = {
@@ -2145,8 +2158,38 @@ router.post('/', authenticateAdmin, async (req, res) => {
       name: productData.name,
       asin: productData.asin,
       sku: productData.sku,
-      approvalStatus: productData.approvalStatus
+      approvalStatus: productData.approvalStatus,
+      imageFiles: req.files ? req.files.length : 0
     });
+    
+    // Handle image uploads to Cloudinary
+    const imageUrls = [];
+    if (req.files && req.files.length > 0 && isCloudinaryConfigured()) {
+      console.log(`📤 Uploading ${req.files.length} images to Cloudinary...`);
+      
+      for (const file of req.files) {
+        tempFiles.push(file.path);
+        
+        try {
+          // Use ASIN as public_id if available, otherwise generate one
+          const publicId = productData.asin || `product_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          
+          const cloudinaryResult = await uploadToCloudinary(file.path, publicId, 'products');
+          imageUrls.push(cloudinaryResult.secure_url);
+          
+          console.log(`✅ Uploaded image to Cloudinary: ${cloudinaryResult.secure_url}`);
+        } catch (uploadError) {
+          console.error(`❌ Failed to upload image to Cloudinary:`, uploadError.message);
+          // Continue with other images even if one fails
+        }
+      }
+    }
+    
+    // Add Cloudinary URLs to product data
+    if (imageUrls.length > 0) {
+      productData.images = imageUrls;
+      productData.image = imageUrls[0]; // Set first image as main image
+    }
     
     const product = new Product(productData);
     await product.save();
@@ -2156,20 +2199,34 @@ router.post('/', authenticateAdmin, async (req, res) => {
       name: product.name,
       asin: product.asin,
       sku: product.sku,
-      approvalStatus: product.approvalStatus
+      approvalStatus: product.approvalStatus,
+      images: product.images?.length || 0,
+      cloudinaryImages: product.images?.filter(img => img.includes('cloudinary.com')).length || 0
     });
     
     // Clear cache when new product is created
     fastProductsCache = null;
-    cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
+    cacheTimestamp = Date.now();
     console.log('🗑️ Cache cleared after product creation, new timestamp:', cacheTimestamp);
     console.log('💰 New product created with currency:', product.currency);
     console.log('🏷️ Product category normalized to:', product.category);
     
     res.status(201).json(product);
+    
   } catch (error) {
     console.error('❌ Error creating product:', error);
     res.status(400).json({ message: 'Error creating product', error: error.message });
+  } finally {
+    // Clean up temporary files
+    tempFiles.forEach(filePath => {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup temp file:', filePath, cleanupError.message);
+      }
+    });
   }
 });
 
@@ -2704,8 +2761,6 @@ router.get('/admin/categories-with-profit', authenticateAdmin, async (req, res) 
     
     const categories = await Product.aggregate(pipeline);
     
-    console.log(`✅ Found ${categories.length} categories with profit data`);
-    
     res.json({
       categories,
       total: categories.length,
@@ -2792,6 +2847,12 @@ router.get('/admin/category/:category/with-profit', authenticateAdmin, async (re
   }
 });
 
+// Test route to verify routing is working
+router.get('/test-route', (req, res) => {
+  console.log('🧪 Test route hit');
+  res.json({ message: 'Test route working', timestamp: new Date().toISOString() });
+});
+
 // Move selected products to a new category (admin only) - MUST be before /:id route
 router.put('/move-selected', authenticateAdmin, async (req, res) => {
   try {
@@ -2822,24 +2883,27 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
     console.log(`🔄 Admin moving ${productIds.length} selected products to "${trimmedNewCategory}"`);
     console.log('🔄 Product IDs to move:', productIds);
     
-    // Validate that all product IDs exist and are active
+    // Validate that all product IDs exist (include pending products for approval page)
     const productsToMove = await Product.find({ 
       _id: { $in: productIds },
       $or: [
         { status: 'active' },
-        { status: { $exists: false } }
+        { status: 'pending' },
+        { status: { $exists: false } },
+        { approvalStatus: 'pending' },
+        { approvalStatus: { $exists: false } }
       ]
     });
     
     console.log(`🔄 Found ${productsToMove.length} products to move:`, productsToMove.map(p => ({ id: p._id, name: p.name, category: p.category })));
     
     if (productsToMove.length === 0) {
-      console.log('❌ No active products found with provided IDs');
-      return res.json({ 
-        message: 'No active products found with the provided IDs',
+      console.log('❌ No products found with provided IDs');
+      return res.status(404).json({ 
+        message: 'No products found with the provided IDs. Products may not exist or may have been deleted.',
         updatedCount: 0,
         excelUpdatedCount: 0,
-        success: true
+        success: false
       });
     }
     
@@ -2847,16 +2911,12 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
       console.log(`⚠️ Warning: ${productIds.length - productsToMove.length} products were not found or not active`);
     }
     
-    console.log(`🔄 Moving ${productsToMove.length} active products to category: ${trimmedNewCategory}`);
+    console.log(`🔄 Moving ${productsToMove.length} products (including pending) to category: ${trimmedNewCategory}`);
     
-    // Update the selected products
+    // Update the selected products (include pending products)
     const moveResult = await Product.updateMany(
       { 
-        _id: { $in: productsToMove.map(p => p._id) },
-        $or: [
-          { status: 'active' },
-          { status: { $exists: false } }
-        ]
+        _id: { $in: productsToMove.map(p => p._id) }
       },
       { $set: { category: trimmedNewCategory } }
     );
@@ -2935,15 +2995,13 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
   }
 });
 
-router.put('/:id', authenticateAdmin, async (req, res) => {
+router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res) => {
+  const tempFiles = [];
+  
   try {
     console.log('📝 Updating product:', req.params.id);
     console.log('📝 Update data keys:', Object.keys(req.body));
-    console.log('📝 Platform comparison:', req.body.platformComparison);
-    console.log('📝 Profit calculations:', req.body.profitCalculations);
-    console.log('📝 Profit evaluation:', req.body.profitEvaluation);
-    console.log('💰 Save field:', req.body.save);
-    console.log('🎨 Variations:', req.body.variations);
+    console.log('📝 Image files:', req.files ? req.files.length : 0);
     
     // Log ASIN updates specifically
     if (req.body.asin !== undefined) {
@@ -2958,6 +3016,36 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       console.log('❌ Invalid product ID format:', req.params.id);
       return res.status(400).json({ message: 'Invalid product ID format' });
+    }
+    
+    // Get existing product
+    const existingProduct = await Product.findById(req.params.id);
+    if (!existingProduct) {
+      console.log('❌ Product not found:', req.params.id);
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    // Handle image uploads to Cloudinary
+    const newImageUrls = [];
+    if (req.files && req.files.length > 0 && isCloudinaryConfigured()) {
+      console.log(`📤 Uploading ${req.files.length} new images to Cloudinary...`);
+      
+      for (const file of req.files) {
+        tempFiles.push(file.path);
+        
+        try {
+          // Use ASIN as public_id if available, otherwise use existing or generate one
+          const publicId = req.body.asin || existingProduct.asin || `product_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          
+          const cloudinaryResult = await uploadToCloudinary(file.path, publicId, 'products');
+          newImageUrls.push(cloudinaryResult.secure_url);
+          
+          console.log(`✅ Uploaded image to Cloudinary: ${cloudinaryResult.secure_url}`);
+        } catch (uploadError) {
+          console.error(`❌ Failed to upload image to Cloudinary:`, uploadError.message);
+          // Continue with other images even if one fails
+        }
+      }
     }
     
     // Clean and validate variations data
@@ -2975,12 +3063,29 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
       }));
     }
 
-    // Ensure currency is always GBP
+    // Prepare update data
     const updateData = {
       ...req.body,
       currency: 'GBP',
       ...(cleanedVariations && { variations: cleanedVariations })
     };
+    
+    // Handle images - prioritize images from request body (Cloudinary URLs from frontend)
+    if (req.body.images && Array.isArray(req.body.images)) {
+      // Frontend sent Cloudinary URLs directly (from Edit Product page)
+      updateData.images = req.body.images.filter(url => url && typeof url === 'string' && url.trim() !== '');
+      if (updateData.images.length > 0) {
+        updateData.image = updateData.images[0]; // Set first image as main image
+        console.log(`✅ Updated images from request body. Total images: ${updateData.images.length}`);
+        console.log(`📸 Image URLs:`, updateData.images);
+      }
+    } else if (newImageUrls.length > 0) {
+      // New files were uploaded via multipart/form-data
+      const existingImages = existingProduct.images || [];
+      updateData.images = [...existingImages, ...newImageUrls];
+      updateData.image = updateData.images[0]; // Set first image as main image
+      console.log(`✅ Added ${newImageUrls.length} new images. Total images: ${updateData.images.length}`);
+    }
     
     // Normalize category to prevent duplicates
     if (updateData.category) {
@@ -2988,36 +3093,25 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
       console.log('🏷️ Product category normalized to:', updateData.category);
     }
     
-    console.log('🔍 Searching for product with ID:', req.params.id);
-    
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
     );
 
-    if (!product) {
-      console.log('❌ Product not found:', req.params.id);
-      return res.status(404).json({ message: 'Product not found' });
-    }
-
-    // Clear cache when product is updated to ensure Amazon Choice page shows latest prices
+    // Clear cache when product is updated
     fastProductsCache = null;
-    cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
+    cacheTimestamp = Date.now();
     console.log('🗑️ Cache cleared after product update, new timestamp:', cacheTimestamp);
 
     console.log('✅ Product updated successfully:', product.name);
-    console.log('💰 Updated profit data:', {
-      platformComparison: product.platformComparison?.length || 0,
-      profitCalculations: !!product.profitCalculations,
-      profitEvaluation: !!product.profitEvaluation
-    });
+    console.log('🖼️ Total images:', product.images?.length || 0);
+    console.log('☁️ Cloudinary images:', product.images?.filter(img => img.includes('cloudinary.com')).length || 0);
+    
     res.json(product);
+    
   } catch (error) {
     console.error('❌ Error updating product:', error);
-    console.error('❌ Error name:', error.name);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Update data that failed:', req.body);
     
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => err.message);
@@ -3039,6 +3133,17 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
       message: 'Internal server error', 
       error: error.message,
       errorType: error.name 
+    });
+  } finally {
+    // Clean up temporary files
+    tempFiles.forEach(filePath => {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup temp file:', filePath, cleanupError.message);
+      }
     });
   }
 });
@@ -3431,6 +3536,7 @@ router.put('/admin/approve/:id', authenticateAdmin, async (req, res) => {
       {
         approvalStatus: 'approved',
         status: 'active',
+        isAmazonsChoice: true, // Automatically add to Amazon's Choice when approved
         approvedBy: req.admin._id,
         approvedAt: new Date()
       },
@@ -3441,12 +3547,14 @@ router.put('/admin/approve/:id', authenticateAdmin, async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
+    console.log(`✅ Product approved and added to Amazon's Choice: ${product.name}`);
+
     // Clear cache when product approval status changes
     fastProductsCache = null;
     cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
     console.log('🗑️ Cache cleared after product approval, new timestamp:', cacheTimestamp);
 
-    res.json({ message: 'Product approved successfully', product });
+    res.json({ message: 'Product approved and added to Amazon\'s Choice successfully', product });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -5746,7 +5854,6 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
     
     // Get all unique categories from products
     const allCategories = await Product.distinct('category');
-    console.log(`📊 Found ${allCategories.length} unique categories`);
     
     // Group categories by their normalized form
     const categoryGroups = {};
@@ -5848,8 +5955,6 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
 router.get('/public/debug/category/:categoryValue', async (req, res) => {
   try {
     const { categoryValue } = req.params;
-    
-    console.log(`🔍 Debug: Testing category filtering for "${categoryValue}"`);
     
     // Test the exact query logic used in the main products endpoint
     const categoryQuery = {
