@@ -87,8 +87,6 @@ class ProductionImageLoader {
           this.loadingQueue.unshift(item);
           this.processQueue();
         }, 1000 * (attempts + 1));
-      } else {
-        console.warn(`Failed to load image after ${this.retryAttempts} attempts:`, src);
       }
     }
   }

@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
+import LazyImage from './LazyImage'
 import { getImageUrl } from '../utils/imageImports'
 
 const ProductCard = ({ product }) => {
-  // Use the centralized image utility
+  // Use the centralized image utility with Cloudinary optimization
   const getImageSrc = (imagePath) => {
-    return getImageUrl(imagePath)
+    return getImageUrl(imagePath, { width: 300, height: 300, quality: 'auto' })
   }
 
   const renderStars = (rating) => {
@@ -35,10 +36,14 @@ const ProductCard = ({ product }) => {
       </div>
       
       <div className="product-image-container">
-        <img 
-          src={getImageSrc(product.image)} 
+        <LazyImage
+          src={getImageSrc(product.image)}
           alt={product.name}
           className="product-image"
+          width={300}
+          height={300}
+          quality="auto"
+          placeholder="https://via.placeholder.com/300x300?text=Loading..."
         />
       </div>
       

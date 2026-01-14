@@ -26,6 +26,12 @@ const ExcelManager = () => {
   const [imageUploads, setImageUploads] = useState([]);
   const [imageUploadLoading, setImageUploadLoading] = useState(false);
   const [selectedImageFile, setSelectedImageFile] = useState(null);
+  
+  // Cloudinary states
+  const [showCloudinaryModal, setShowCloudinaryModal] = useState(false);
+  const [cloudinaryImages, setCloudinaryImages] = useState([]);
+  const [cloudinaryLoading, setCloudinaryLoading] = useState(false);
+  const [cloudinarySearch, setCloudinarySearch] = useState('');
 
   useEffect(() => {
     // Show table structure immediately, then load data
@@ -340,6 +346,43 @@ const ExcelManager = () => {
       alert('❌ Failed to fix categories');
     }
   };
+
+  const fetchCloudinaryImages = async () => {
+    setCloudinaryLoading(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      // Remove maxResults to fetch ALL images
+      const response = await fetch(getApiUrl('admin-excel/cloudinary-images?folder=products'), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`✅ Loaded ${data.images?.length || 0} Cloudinary images`);
+        setCloudinaryImages(data.images || []);
+      } else {
+        const error = await response.json();
+        alert(`❌ Failed to fetch Cloudinary images: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Error fetching Cloudinary images:', error);
+      alert('❌ Failed to fetch Cloudinary images');
+    } finally {
+      setCloudinaryLoading(false);
+    }
+  };
+
+  const handleShowCloudinaryImages = () => {
+    setShowCloudinaryModal(true);
+    fetchCloudinaryImages();
+  };
+
+  const filteredCloudinaryImages = cloudinaryImages.filter(img => {
+    const searchLower = cloudinarySearch.toLowerCase();
+    // Search by name (filename) or ASIN
+    return img.name.toLowerCase().includes(searchLower) || 
+           (img.asin && img.asin.toLowerCase().includes(searchLower));
+  });
 
   const handleDeleteUpload = async (uploadId, fileName) => {
     if (!confirm(`Are you sure you want to delete "${fileName}" and all its products? This cannot be undone.`)) {
@@ -734,6 +777,21 @@ const ExcelManager = () => {
               >
                 🔧 Fix Categories
               </button>
+              <button
+                onClick={handleShowCloudinaryImages}
+                style={{
+                  padding: '8px 16px',
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                ☁️ Cloudinary Images
+              </button>
             </div>
 
             {/* Image Uploads Table */}
@@ -1045,6 +1103,258 @@ const ExcelManager = () => {
           )}
         </div>
       </div>
+
+      {/* Cloudinary Images Modal */}
+      {showCloudinaryModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            maxWidth: '1200px',
+            width: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              borderRadius: '12px 12px 0 0'
+            }}>
+              <div>
+                <h2 style={{ margin: 0, color: 'white', fontSize: '1.3rem', fontWeight: 'bold' }}>
+                  ☁️ Cloudinary Images
+                </h2>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.9)' }}>
+                  {cloudinaryLoading ? 'Loading...' : `${filteredCloudinaryImages.length} images in products folder`}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCloudinaryModal(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  border: 'none',
+                  color: 'white',
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  fontSize: '1.2rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Search Bar */}
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid #e5e7eb' }}>
+              <input
+                type="text"
+                placeholder="🔍 Search by ASIN or image name..."
+                value={cloudinarySearch}
+                onChange={(e) => setCloudinarySearch(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '8px',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                  transition: 'border-color 0.2s'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+              />
+            </div>
+
+            {/* Modal Content */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '24px'
+            }}>
+              {cloudinaryLoading ? (
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  alignItems: 'center', 
+                  height: '300px',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  <div style={{ fontSize: '2rem' }}>⏳</div>
+                  <div style={{ fontSize: '1.1rem', color: '#666' }}>Loading Cloudinary images...</div>
+                </div>
+              ) : filteredCloudinaryImages.length === 0 ? (
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  alignItems: 'center', 
+                  height: '300px',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  <div style={{ fontSize: '2rem' }}>📭</div>
+                  <div style={{ fontSize: '1.1rem', color: '#666' }}>
+                    {cloudinarySearch ? 'No images match your search' : 'No images found in Cloudinary'}
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                  gap: '16px'
+                }}>
+                  {filteredCloudinaryImages.map((image, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        background: 'white',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        transition: 'all 0.2s',
+                        cursor: 'pointer'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.boxShadow = 'none';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      {/* Image */}
+                      <div style={{
+                        width: '100%',
+                        height: '200px',
+                        background: '#f3f4f6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden'
+                      }}>
+                        <img
+                          src={image.url}
+                          alt={image.name}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = '<div style="font-size: 2rem; color: #9ca3af;">🖼️</div>';
+                          }}
+                        />
+                      </div>
+
+                      {/* Image Info */}
+                      <div style={{ padding: '12px' }}>
+                        <div style={{
+                          fontSize: '0.85rem',
+                          fontWeight: '600',
+                          color: '#333',
+                          marginBottom: '4px',
+                          wordBreak: 'break-word'
+                        }}>
+                          {image.name}
+                        </div>
+                        <div style={{
+                          fontSize: '0.75rem',
+                          color: '#666',
+                          marginBottom: '8px'
+                        }}>
+                          {image.width} × {image.height} • {image.format.toUpperCase()}
+                        </div>
+                        <div style={{
+                          fontSize: '0.7rem',
+                          color: '#999'
+                        }}>
+                          {formatFileSize(image.size)}
+                        </div>
+                        <a
+                          href={image.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-block',
+                            marginTop: '8px',
+                            padding: '4px 8px',
+                            background: '#3b82f6',
+                            color: 'white',
+                            textDecoration: 'none',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: '500'
+                          }}
+                        >
+                          🔗 Open
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: '#f8fafc'
+            }}>
+              <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                Total: {filteredCloudinaryImages.length} images
+                {cloudinarySearch && ` (filtered from ${cloudinaryImages.length})`}
+              </div>
+              <button
+                onClick={() => setShowCloudinaryModal(false)}
+                style={{
+                  padding: '8px 16px',
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

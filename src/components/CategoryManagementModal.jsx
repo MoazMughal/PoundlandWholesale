@@ -50,7 +50,6 @@ const CategoryManagementModal = ({ isOpen, onClose, onCategoriesUpdated }) => {
       });
       if (response.ok) {
         const data = await response.json();
-        console.log('📂 CategoryManagementModal: Fetched categories:', data.categories.map(c => c.value));
         // Filter out 'all' category for management
         const manageable = data.categories.filter(cat => cat.value !== 'all');
         setCategories(manageable);

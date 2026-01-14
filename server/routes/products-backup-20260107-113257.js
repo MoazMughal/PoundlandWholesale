@@ -220,13 +220,12 @@ router.get('/public/categories', async (req, res) => {
         });
         console.log('📂 Excel categories found:', excelCategories);
       } catch (excelError) {
-        console.log('ℹ️ Excel model not available');
+        // Excel model not available
       }
     }
     
     // Combine and deduplicate categories
     const categories = [...new Set([...mainCategories, ...excelCategories])];
-    console.log('📂 Combined categories:', categories);
     
     let formattedCategories;
     
@@ -1124,8 +1123,6 @@ router.get('/public', async (req, res) => {
         categoryQuery.$or.push({ category: { $regex: `^${withSpaces}$`, $options: 'i' } });
         categoryQuery.$or.push({ category: { $regex: `^${withoutSpaces}$`, $options: 'i' } });
       }
-      
-      console.log('🔍 Category filtering for:', decodedCategory, 'Query options:', categoryQuery.$or.length);
       
       query = { ...query, ...categoryQuery };
     }
@@ -2290,8 +2287,6 @@ router.get('/admin/categories-with-profit', authenticateAdmin, async (req, res) 
     ];
     
     const categories = await Product.aggregate(pipeline);
-    
-    console.log(`✅ Found ${categories.length} categories with profit data`);
     
     res.json({
       categories,
@@ -5324,8 +5319,6 @@ router.use('/excel-import', (req, res, next) => {
 router.get('/public/debug/category/:categoryValue', async (req, res) => {
   try {
     const { categoryValue } = req.params;
-    
-    console.log(`🔍 Debug: Testing category filtering for "${categoryValue}"`);
     
     // Test the exact query logic used in the main products endpoint
     const categoryQuery = {

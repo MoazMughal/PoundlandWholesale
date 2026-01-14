@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Amazon Choice Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #ff6600 0%, #ff3300 100%);
+            color: white;
+            border-radius: 15px;
+        }
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .product-card {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 8px 25px rgba(255, 102, 0, 0.15);
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(255, 102, 0, 0.25);
+            border-color: #ff6600;
+        }
+        .product-image-container {
+            position: relative;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+        }
+        .product-image {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            object-position: center;
+        }
+        .product-image.loaded {
+            border: 2px solid #28a745;
+        }
+        .product-image.error {
+            border: 2px solid #dc3545;
+        }
+        .loading-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #666;
+        }
+        .loading-spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #ff6600;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #dc3545;
+            background: #f8d7da;
+        }
+        .product-info {
+            margin-top: 10px;
+        }
+        .product-name {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            height: 40px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .product-price {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ff6600;
+            margin-bottom: 5px;
+        }
+        .product-meta {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .image-status {
+            font-size: 10px;
+            padding: 3px 6px;
+            border-radius: 3px;
+            margin-top: 5px;
+            text-align: center;
+        }
+        .image-status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .image-status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .image-status.loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #ff6600;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .status-bar {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏆 Simple Amazon's Choice Test</h1>
+        <p>Testing image loading exactly like the real website</p>
+    </div>
+    
+    <div class="status-bar" id="status-bar">
+        🔄 Loading products...
+    </div>
+    
+    <div id="products-container" class="products-grid"></div>
+
+    <script>
+        let loadedCount = 0;
+        let failedCount = 0;
+        let totalCount = 0;
+        
+        async function loadProducts() {
+            const statusBar = document.getElementById('status-bar');
+            const container = document.getElementById('products-container');
+            
+            try {
+                statusBar.textContent = '🔄 Fetching products from API...';
+                
+                // Use the exact same API call as the real website
+                const response = await fetch('https://generic-wholesale-backend.onrender.com/api/products/public?isAmazonsChoice=true&limit=20&imageWidth=300&imageHeight=300');
+                const data = await response.json();
+                
+                if (response.ok && data.products && data.products.length > 0) {
+                    totalCount = data.products.length;
+                    statusBar.innerHTML = `✅ Loaded ${data.products.length} products. Testing images...`;
+                    
+                    // Create product cards exactly like the real website
+                    data.products.forEach((product, index) => {
+                        createProductCard(product, index, container);
+                    });
+                    
+                } else {
+                    throw new Error('No products found');
+                }
+                
+            } catch (error) {
+                statusBar.innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+        
+        function createProductCard(product, index, container) {
+            const card = document.createElement('div');
+            card.className = 'product-card';
+            
+            const imageUrl = product.images && product.images[0] ? product.images[0] : null;
+            
+            card.innerHTML = `
+                <div class="badge">Amazon's Choice</div>
+                <div class="product-image-container" id="image-container-${index}">
+                    <div class="loading-placeholder">
+                        <div class="loading-spinner"></div>
+                        <div>Loading...</div>
+                    </div>
+                </div>
+                <div class="product-info">
+                    <div class="product-name">${product.name}</div>
+                    <div class="product-price">${product.price || 'No price'}</div>
+                    <div class="product-meta">
+                        ASIN: ${product.asin || 'N/A'} | Category: ${product.category || 'N/A'}
+                    </div>
+                    <div class="image-status loading" id="status-${index}">Loading image...</div>
+                </div>
+            `;
+            
+            container.appendChild(card);
+            
+            // Load image exactly like ProductImage component
+            if (imageUrl) {
+                loadProductImage(imageUrl, index, product.name);
+            } else {
+                showImageError(index, 'No image URL');
+            }
+        }
+        
+        function loadProductImage(imageUrl, index, productName) {
+            const img = new Image();
+            const startTime = performance.now();
+            
+            img.onload = () => {
+                const loadTime = Math.round(performance.now() - startTime);
+                loadedCount++;
+                
+                // Show the image
+                const container = document.getElementById(`image-container-${index}`);
+                container.innerHTML = `<img src="${imageUrl}" class="product-image loaded" alt="${productName}">`;
+                
+                // Update status
+                const status = document.getElementById(`status-${index}`);
+                status.className = 'image-status success';
+                status.textContent = `✅ Loaded in ${loadTime}ms`;
+                
+                updateStatusBar();
+            };
+            
+            img.onerror = () => {
+                failedCount++;
+                showImageError(index, 'Failed to load');
+                updateStatusBar();
+            };
+            
+            // Set timeout for slow loading
+            setTimeout(() => {
+                if (!img.complete) {
+                    const status = document.getElementById(`status-${index}`);
+                    status.textContent = '⏳ Loading slowly...';
+                }
+            }, 3000);
+            
+            // Start loading
+            img.src = imageUrl;
+        }
+        
+        function showImageError(index, errorMessage) {
+            const container = document.getElementById(`image-container-${index}`);
+            container.innerHTML = `
+                <div class="error-placeholder">
+                    <div style="font-size: 24px; margin-bottom: 8px;">❌</div>
+                    <div>Image not available</div>
+                </div>
+            `;
+            
+            const status = document.getElementById(`status-${index}`);
+            status.className = 'image-status error';
+            status.textContent = `❌ ${errorMessage}`;
+        }
+        
+        function updateStatusBar() {
+            const statusBar = document.getElementById('status-bar');
+            const processed = loadedCount + failedCount;
+            const successRate = totalCount > 0 ? ((loadedCount / totalCount) * 100).toFixed(1) : 0;
+            
+            statusBar.innerHTML = `
+                📊 Progress: ${processed}/${totalCount} | 
+                ✅ Loaded: ${loadedCount} | 
+                ❌ Failed: ${failedCount} | 
+                📈 Success Rate: ${successRate}%
+            `;
+        }
+        
+        // Start loading when page loads
+        window.onload = loadProducts;
+    </script>
+</body>
+</html>

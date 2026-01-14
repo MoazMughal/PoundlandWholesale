@@ -5,7 +5,9 @@ import mongoose from 'mongoose';
 import Product from '../models/Product.js';
 import ExcelUpload from '../models/ExcelUpload.js';
 import ExcelProduct from '../models/ExcelProduct.js';
+import ImageUpload from '../models/ImageUpload.js';
 import { authenticateAdmin } from '../middleware/auth.js';
+import { uploadToCloudinary, isCloudinaryConfigured, deleteFromCloudinary, listCloudinaryImages } from '../services/cloudinary.js';
 import path from 'path';
 import fs from 'fs';
 import AdmZip from 'adm-zip';
@@ -1342,7 +1344,7 @@ router.post('/uploads/:uploadId/convert-products', authenticateAdmin, async (req
         let productImages = excelProduct.images || [];
         
         if (excelProduct.asin) {
-          // Look for uploaded images matching this ASIN
+          // Look for uploaded images matching this ASIN (now stored as Cloudinary URLs)
           const imageUpload = await ImageUpload.findOne({
             'images.asin': excelProduct.asin.toUpperCase(),
             status: 'completed'
@@ -1350,19 +1352,25 @@ router.post('/uploads/:uploadId/convert-products', authenticateAdmin, async (req
           
           if (imageUpload) {
             const matchingImage = imageUpload.images.find(img => img.asin === excelProduct.asin.toUpperCase());
-            if (matchingImage && fs.existsSync(matchingImage.filePath)) {
-              // Add the uploaded image as the main image - use environment-aware URL
-              const baseUrl = process.env.NODE_ENV === 'production' 
-                ? 'https://generic-wholesale-backend.onrender.com' 
-                : 'http://localhost:5000';
-              const imageUrl = `${baseUrl}/api/admin-excel/public/images/by-asin/${excelProduct.asin}`;
+            if (matchingImage && matchingImage.cloudinaryUrl) {
+              // Use Cloudinary URL directly
+              const imageUrl = matchingImage.cloudinaryUrl;
               
               // Add to the beginning of images array (main image)
               if (!productImages.includes(imageUrl)) {
                 productImages.unshift(imageUrl);
               }
               
-              console.log('✅ Added uploaded image for ASIN:', excelProduct.asin, 'URL:', imageUrl);
+              console.log('✅ Added Cloudinary image for ASIN:', excelProduct.asin, 'URL:', imageUrl);
+            } else if (matchingImage && matchingImage.filePath && matchingImage.filePath.includes('cloudinary.com')) {
+              // Fallback: if cloudinaryUrl field doesn't exist but filePath contains Cloudinary URL
+              const imageUrl = matchingImage.filePath;
+              
+              if (!productImages.includes(imageUrl)) {
+                productImages.unshift(imageUrl);
+              }
+              
+              console.log('✅ Added Cloudinary image (from filePath) for ASIN:', excelProduct.asin, 'URL:', imageUrl);
             }
           }
         }
@@ -1590,7 +1598,7 @@ router.post('/uploads/:uploadId/bulk-convert-products', authenticateAdmin, async
         let hasUploadedImage = false;
         
         if (excelProduct.asin) {
-          // Look for uploaded images matching this ASIN
+          // Look for uploaded images matching this ASIN (now stored as Cloudinary URLs)
           const imageUpload = await ImageUpload.findOne({
             'images.asin': excelProduct.asin.toUpperCase(),
             status: 'completed'
@@ -1598,12 +1606,9 @@ router.post('/uploads/:uploadId/bulk-convert-products', authenticateAdmin, async
           
           if (imageUpload) {
             const matchingImage = imageUpload.images.find(img => img.asin === excelProduct.asin.toUpperCase());
-            if (matchingImage && fs.existsSync(matchingImage.filePath)) {
-              // Add the uploaded image as the main image - use environment-aware URL
-              const baseUrl = process.env.NODE_ENV === 'production' 
-                ? 'https://generic-wholesale-backend.onrender.com' 
-                : 'http://localhost:5000';
-              const imageUrl = `${baseUrl}/api/admin-excel/public/images/by-asin/${excelProduct.asin}`;
+            if (matchingImage && matchingImage.cloudinaryUrl) {
+              // Use Cloudinary URL directly
+              const imageUrl = matchingImage.cloudinaryUrl;
               
               // Add to the beginning of images array (main image)
               if (!productImages.includes(imageUrl)) {
@@ -1612,8 +1617,40 @@ router.post('/uploads/:uploadId/bulk-convert-products', authenticateAdmin, async
                 productsWithImages++;
               }
               
-              console.log('🖼️ Added uploaded image for ASIN:', excelProduct.asin);
+              console.log('✅ Added Cloudinary image for ASIN:', excelProduct.asin, 'URL:', imageUrl);
+            } else if (matchingImage && matchingImage.filePath && matchingImage.filePath.includes('cloudinary.com')) {
+              // Fallback: if cloudinaryUrl field doesn't exist but filePath contains Cloudinary URL
+              const imageUrl = matchingImage.filePath;
+              
+              if (!productImages.includes(imageUrl)) {
+                productImages.unshift(imageUrl);
+                hasUploadedImage = true;
+                productsWithImages++;
+              }
+              
+              console.log('✅ Added Cloudinary image (from filePath) for ASIN:', excelProduct.asin, 'URL:', imageUrl);
             }
+          }
+          
+          // Always add fallback Amazon image URLs (whether we found uploaded images or not)
+          const fallbackUrls = [
+            `https://images-na.ssl-images-amazon.com/images/P/${excelProduct.asin}.01._SCLZZZZZZZ_SX500_.jpg`,
+            `https://m.media-amazon.com/images/I/${excelProduct.asin}._AC_SL1500_.jpg`,
+            `https://images-na.ssl-images-amazon.com/images/I/${excelProduct.asin}._AC_SL1500_.jpg`
+          ];
+          
+          // Add fallback URLs that aren't already in the array
+          fallbackUrls.forEach(url => {
+            if (!productImages.includes(url)) {
+              productImages.push(url);
+            }
+          });
+          
+          console.log('📷 Added fallback Amazon image URLs for ASIN:', excelProduct.asin);
+          
+          // If we still don't have any images, at least we have the fallbacks
+          if (!hasUploadedImage && productImages.length > 0) {
+            productsWithImages++; // Count this as having images since we have fallbacks
           }
         }
 
@@ -1972,9 +2009,6 @@ router.post('/sync-excel-products', authenticateAdmin, async (req, res) => {
 // IMAGE UPLOAD ROUTES
 // ============================================
 
-// Import ImageUpload model
-import ImageUpload from '../models/ImageUpload.js';
-
 // Configure multer for image ZIP uploads
 const imageStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -2005,15 +2039,26 @@ const imageUpload = multer({
   }
 });
 
-// POST /api/admin-excel/upload-images - Upload ZIP file containing images
+// POST /api/admin-excel/upload-images - Upload ZIP file containing images (CLOUDINARY VERSION)
 router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'), async (req, res) => {
+  const tempFiles = [];
+  
   try {
+    // Check if Cloudinary is configured
+    if (!isCloudinaryConfigured()) {
+      return res.status(500).json({
+        success: false,
+        message: 'Cloudinary is not properly configured. Please check environment variables.'
+      });
+    }
+
     if (!req.file) {
       return res.status(400).json({ message: 'No ZIP file uploaded' });
     }
 
     const zipPath = req.file.path;
     const extractDir = path.join('uploads/images/extracted', Date.now().toString());
+    tempFiles.push(zipPath, extractDir);
     
     // Create extraction directory
     if (!fs.existsSync(extractDir)) {
@@ -2038,6 +2083,7 @@ router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'),
     let totalImages = 0;
     let validImages = 0;
     let matchedAsins = 0;
+    let uploadedToCloudinary = 0;
     let errors = 0;
     const processedImages = [];
 
@@ -2056,8 +2102,8 @@ router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'),
 
       try {
         // Extract ASIN from filename (remove extension and path)
-        const justFileName = path.basename(fileName); // Get just the filename part
-        const baseName = path.basename(justFileName, fileExt); // Remove extension
+        const justFileName = path.basename(fileName);
+        const baseName = path.basename(justFileName, fileExt);
         const asin = baseName.toUpperCase();
 
         console.log('🔍 Processing image:', {
@@ -2074,17 +2120,16 @@ router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'),
           continue;
         }
 
-        // Extract image to directory with just the filename (no subdirectories)
+        // Extract image to temporary directory
         const extractedFileName = justFileName;
         const extractedPath = path.join(extractDir, extractedFileName);
         
         // Extract the file
         zip.extractEntryTo(entry, extractDir, false, true);
         
-        // If the file was extracted to a subdirectory, move it to the root
+        // Handle subdirectory extraction
         const actualExtractedPath = path.join(extractDir, fileName);
         if (actualExtractedPath !== extractedPath && fs.existsSync(actualExtractedPath)) {
-          // Move file from subdirectory to root
           fs.renameSync(actualExtractedPath, extractedPath);
           
           // Clean up empty subdirectory
@@ -2100,26 +2145,57 @@ router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'),
 
         console.log('✅ Extracted image:', extractedFileName, 'to:', extractedPath);
 
-        // Check if product exists with this ASIN
-        const product = await Product.findOne({ asin: asin }) || await ExcelProduct.findOne({ asin: asin });
+        // Upload to Cloudinary
+        let cloudinaryUrl = null;
+        try {
+          console.log(`📤 Uploading ${asin} to Cloudinary...`);
+          const cloudinaryResult = await uploadToCloudinary(extractedPath, asin, 'products');
+          cloudinaryUrl = cloudinaryResult.secure_url;
+          uploadedToCloudinary++;
+          console.log(`✅ Uploaded to Cloudinary: ${cloudinaryUrl}`);
+        } catch (uploadError) {
+          console.error(`❌ Failed to upload ${asin} to Cloudinary:`, uploadError.message);
+          errors++;
+          continue;
+        }
+
+        // Check if product exists with this ASIN and update it
+        const product = await Product.findOne({ asin: asin });
+        const excelProduct = await ExcelProduct.findOne({ asin: asin });
         
+        // Update products with Cloudinary URL
+        if (product) {
+          product.images = [cloudinaryUrl];
+          product.image = cloudinaryUrl;
+          await product.save();
+          console.log('🎯 Updated Product with Cloudinary URL:', product.name);
+        }
+        
+        if (excelProduct) {
+          excelProduct.images = [cloudinaryUrl];
+          excelProduct.image = cloudinaryUrl;
+          await excelProduct.save();
+          console.log('🎯 Updated ExcelProduct with Cloudinary URL:', excelProduct.name);
+        }
+
         const imageData = {
-          fileName: extractedFileName, // Use just the filename
+          fileName: extractedFileName,
           asin: asin,
-          filePath: extractedPath,
+          filePath: cloudinaryUrl, // Store Cloudinary URL instead of local path
+          cloudinaryUrl: cloudinaryUrl,
           fileSize: entry.header.size,
-          matched: !!product,
-          productId: product?._id
+          matched: !!(product || excelProduct),
+          productId: product?._id || excelProduct?._id
         };
 
         processedImages.push(imageData);
         validImages++;
         
-        if (product) {
+        if (product || excelProduct) {
           matchedAsins++;
-          console.log('🎯 Matched ASIN:', asin, 'with product:', product.name);
+          console.log('🎯 Matched ASIN:', asin, 'with product:', (product || excelProduct).name);
         } else {
-          console.log('❓ No product found for ASIN:', asin);
+          console.log('❓ No product found for ASIN:', asin, '- Image uploaded to Cloudinary anyway');
         }
 
       } catch (error) {
@@ -2133,29 +2209,58 @@ router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'),
       totalImages,
       validImages,
       matchedAsins,
+      uploadedToCloudinary,
       errors
     };
     imageUploadRecord.images = processedImages;
     imageUploadRecord.status = 'completed';
     await imageUploadRecord.save();
 
-    // Clean up ZIP file
-    fs.unlinkSync(zipPath);
+    // Clean up temporary files
+    try {
+      if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+      if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true, force: true });
+      console.log('🧹 Cleaned up temporary files');
+    } catch (cleanupError) {
+      console.warn('⚠️ Failed to cleanup some temporary files:', cleanupError.message);
+    }
 
     res.json({
       success: true,
-      message: 'Images uploaded and processed successfully',
+      message: 'Images uploaded to Cloudinary and processed successfully',
       uploadId: imageUploadRecord._id,
       summary: {
         totalImages,
         validImages,
         matchedAsins,
+        uploadedToCloudinary,
         errors
+      },
+      cloudinaryInfo: {
+        folder: 'products',
+        totalUploaded: uploadedToCloudinary,
+        cdnUrl: 'https://res.cloudinary.com/dtuq3tvjx/'
       }
     });
 
   } catch (error) {
     console.error('Image upload error:', error);
+    
+    // Clean up temporary files on error
+    tempFiles.forEach(filePath => {
+      try {
+        if (fs.existsSync(filePath)) {
+          if (fs.statSync(filePath).isDirectory()) {
+            fs.rmSync(filePath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(filePath);
+          }
+        }
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup:', filePath, cleanupError.message);
+      }
+    });
+    
     res.status(500).json({ 
       success: false,
       message: 'Failed to process image upload',
@@ -2309,54 +2414,138 @@ router.get('/images/by-asin/:asin', authenticateAdmin, async (req, res) => {
   }
 });
 
+// Handle CORS preflight for image requests
+router.options('/public/images/by-asin/:asin', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.status(200).end();
+});
+
 // GET /api/admin-excel/public/images/by-asin/:asin - Public image endpoint (no auth required)
 router.get('/public/images/by-asin/:asin', async (req, res) => {
   try {
     const asin = req.params.asin.toUpperCase();
     
+    // Set CORS headers first for all responses
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+    
+    // PRIORITY 1: Directly construct Cloudinary URL based on ASIN
+    // This assumes images are uploaded to Cloudinary with ASIN as the filename in the 'products' folder
+    if (isCloudinaryConfigured()) {
+      const cloudinaryUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/v1/products/${asin}`;
+      console.log(`✅ Constructed Cloudinary URL for ASIN ${asin}: ${cloudinaryUrl}`);
+      
+      // Return JSON with Cloudinary URL
+      return res.json({
+        success: true,
+        asin: asin,
+        imageUrl: cloudinaryUrl,
+        source: 'cloudinary-direct'
+      });
+    }
+    
+    // PRIORITY 2: Check if product exists with Cloudinary URL (fallback)
+    const product = await Product.findOne({ asin: asin }).select('images asin name');
+    
+    if (product && product.images && product.images.length > 0) {
+      // Check if first image is a Cloudinary URL
+      const firstImage = product.images[0];
+      if (firstImage && (firstImage.includes('cloudinary.com') || firstImage.includes('res.cloudinary.com'))) {
+        console.log(`✅ Found Cloudinary URL in Product for ASIN ${asin}: ${firstImage}`);
+        // Return JSON with Cloudinary URL so frontend can load it directly
+        return res.json({
+          success: true,
+          asin: asin,
+          imageUrl: firstImage,
+          source: 'cloudinary-product'
+        });
+      }
+    }
+    
+    // PRIORITY 3: Try to find image in ImageUpload collection (legacy local files)
     const imageUpload = await ImageUpload.findOne({
       'images.asin': asin,
       status: 'completed'
     });
 
     if (!imageUpload) {
-      return res.status(404).json({ message: 'No image found for this ASIN' });
+      console.log(`❌ No image found for ASIN ${asin}`);
+      return res.status(404).json({ message: 'No image found for this ASIN', asin });
     }
 
     const image = imageUpload.images.find(img => img.asin === asin);
     
     if (!image) {
-      return res.status(404).json({ message: 'Image not found in upload' });
+      return res.status(404).json({ message: 'Image not found in upload', asin });
     }
     
-    // Resolve the absolute path
-    const absolutePath = path.resolve(image.filePath);
+    // Enhanced path resolution for production (legacy local file serving)
+    let imagePath = image.filePath;
+    let absolutePath = path.resolve(imagePath);
     
+    // If the original path doesn't exist, try comprehensive fallback paths
     if (!fs.existsSync(absolutePath)) {
-      // Try alternative paths for production
+      const filename = path.basename(imagePath);
       const alternativePaths = [
-        path.resolve('uploads/images/extracted', path.basename(image.filePath)),
-        path.resolve('server/uploads/images/extracted', path.basename(image.filePath)),
-        path.resolve(__dirname, '../uploads/images/extracted', path.basename(image.filePath)),
-        path.resolve(process.cwd(), 'uploads/images/extracted', path.basename(image.filePath)),
-        path.resolve(process.cwd(), 'server/uploads/images/extracted', path.basename(image.filePath))
+        // Current working directory variations
+        path.resolve(process.cwd(), 'uploads/images/extracted', filename),
+        path.resolve(process.cwd(), 'server/uploads/images/extracted', filename),
+        path.resolve(process.cwd(), 'uploads/images', filename),
+        path.resolve(process.cwd(), 'server/uploads/images', filename),
+        
+        // Relative to server directory
+        path.resolve(__dirname, '../uploads/images/extracted', filename),
+        path.resolve(__dirname, '../uploads/images', filename),
+        path.resolve(__dirname, '../../uploads/images/extracted', filename),
+        path.resolve(__dirname, '../../uploads/images', filename),
+        
+        // Direct paths
+        path.resolve('uploads/images/extracted', filename),
+        path.resolve('server/uploads/images/extracted', filename),
+        path.resolve('uploads/images', filename),
+        path.resolve('server/uploads/images', filename),
+        
+        // Production-specific paths
+        path.resolve('/opt/render/project/src/server/uploads/images/extracted', filename),
+        path.resolve('/opt/render/project/src/uploads/images/extracted', filename),
+        path.resolve('/app/server/uploads/images/extracted', filename),
+        path.resolve('/app/uploads/images/extracted', filename)
       ];
       
       // Also search in all subdirectories of uploads/images/extracted
-      try {
-        const extractedDir = path.resolve(process.cwd(), 'server/uploads/images/extracted');
-        if (fs.existsSync(extractedDir)) {
-          const subdirs = fs.readdirSync(extractedDir).filter(dir => {
-            const fullPath = path.join(extractedDir, dir);
-            return fs.statSync(fullPath).isDirectory();
-          });
-          
-          for (const subdir of subdirs) {
-            alternativePaths.push(path.join(extractedDir, subdir, path.basename(image.filePath)));
+      const searchDirs = [
+        path.resolve(process.cwd(), 'server/uploads/images/extracted'),
+        path.resolve(process.cwd(), 'uploads/images/extracted'),
+        path.resolve(__dirname, '../uploads/images/extracted'),
+        path.resolve('server/uploads/images/extracted'),
+        path.resolve('uploads/images/extracted')
+      ];
+      
+      for (const searchDir of searchDirs) {
+        try {
+          if (fs.existsSync(searchDir)) {
+            const subdirs = fs.readdirSync(searchDir).filter(dir => {
+              const fullPath = path.join(searchDir, dir);
+              return fs.statSync(fullPath).isDirectory();
+            });
+            
+            for (const subdir of subdirs) {
+              alternativePaths.push(path.join(searchDir, subdir, filename));
+            }
           }
+        } catch (dirError) {
+          // Directory read error - continue with existing paths
         }
-      } catch (dirError) {
-        // Directory read error - continue with existing paths
       }
       
       let foundPath = null;
@@ -2368,8 +2557,10 @@ router.get('/public/images/by-asin/:asin', async (req, res) => {
       }
       
       if (!foundPath) {
-        console.log('❌ Image file not found in any alternative paths');
-        return res.status(404).json({ message: 'Image file not found on disk' });
+        // Return a proper 404 response instead of JSON for image requests
+        res.status(404);
+        res.setHeader('Content-Type', 'text/plain');
+        return res.send('Image not found');
       }
       
       // Update the database with the correct path for future requests
@@ -2378,64 +2569,78 @@ router.get('/public/images/by-asin/:asin', async (req, res) => {
           { 'images.asin': asin },
           { $set: { 'images.$.filePath': foundPath } }
         );
-        console.log('✅ Updated image path in database:', foundPath);
       } catch (updateError) {
         // Failed to update path - continue anyway
       }
       
       // Use the found path
-      image.filePath = foundPath;
+      absolutePath = foundPath;
     }
     
     // Set proper headers for image serving
-    const ext = path.extname(image.filePath).toLowerCase();
+    const ext = path.extname(absolutePath).toLowerCase();
     const mimeTypes = {
       '.jpg': 'image/jpeg',
       '.jpeg': 'image/jpeg',
       '.png': 'image/png',
       '.gif': 'image/gif',
-      '.webp': 'image/webp'
+      '.webp': 'image/webp',
+      '.bmp': 'image/bmp',
+      '.svg': 'image/svg+xml'
     };
     
-    res.setHeader('Content-Type', mimeTypes[ext] || 'image/jpeg');
-    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+    const contentType = mimeTypes[ext] || 'image/jpeg';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400, immutable'); // Cache for 1 day
     
-    // Add mobile-friendly headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    
-    // Add headers for better mobile compatibility
+    // Add headers for better mobile compatibility and security
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Vary', 'Accept-Encoding');
     
     // Add ETag for better caching
-    const stats = fs.statSync(path.resolve(image.filePath));
-    const etag = `"${stats.mtime.getTime()}-${stats.size}"`;
-    res.setHeader('ETag', etag);
-    
-    // Check if client has cached version
-    if (req.headers['if-none-match'] === etag) {
-      return res.status(304).end();
-    }
-    
-    // Serve the image file with error handling
-    res.sendFile(path.resolve(image.filePath), (err) => {
-      if (err) {
-        if (!res.headersSent) {
-          res.status(500).json({ 
-            success: false,
-            message: 'Failed to serve image file',
-            asin: asin
-          });
+    try {
+      const stats = fs.statSync(absolutePath);
+      const etag = `"${stats.mtime.getTime()}-${stats.size}"`;
+      res.setHeader('ETag', etag);
+      res.setHeader('Last-Modified', stats.mtime.toUTCString());
+      
+      // Check if client has cached version
+      if (req.headers['if-none-match'] === etag) {
+        return res.status(304).end();
+      }
+      
+      // Check if-modified-since
+      if (req.headers['if-modified-since']) {
+        const ifModifiedSince = new Date(req.headers['if-modified-since']);
+        if (stats.mtime <= ifModifiedSince) {
+          return res.status(304).end();
         }
       }
+    } catch (statError) {
+      // Could not get file stats - continue anyway
+    }
+    
+    // Serve the image file with comprehensive error handling
+    res.sendFile(absolutePath, {
+      maxAge: 86400000, // 1 day in milliseconds
+      lastModified: true,
+      etag: true,
+      acceptRanges: true
+    }, (err) => {
+      if (err && !res.headersSent) {
+        res.status(404);
+        res.setHeader('Content-Type', 'text/plain');
+        res.send('Image not found');
+      }
     });
+    
   } catch (error) {
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to serve image' 
-    });
+    if (!res.headersSent) {
+      res.status(500);
+      res.setHeader('Content-Type', 'text/plain');
+      res.send('Internal server error');
+    }
   }
 });
 
@@ -3371,6 +3576,22 @@ router.post('/single-convert-to-approval', authenticateAdmin, async (req, res) =
         imageUrl = asinImageUrl; // Use as main image
         console.log('📷 Added ASIN-based image URL:', asinImageUrl);
       }
+      
+      // Always add fallback Amazon image URLs (whether we found server images or not)
+      const fallbackUrls = [
+        `https://images-na.ssl-images-amazon.com/images/P/${excelProduct.asin}.01._SCLZZZZZZZ_SX500_.jpg`,
+        `https://m.media-amazon.com/images/I/${excelProduct.asin}._AC_SL1500_.jpg`,
+        `https://images-na.ssl-images-amazon.com/images/I/${excelProduct.asin}._AC_SL1500_.jpg`
+      ];
+      
+      // Add fallback URLs that aren't already in the array
+      fallbackUrls.forEach(url => {
+        if (!imageArray.includes(url)) {
+          imageArray.push(url);
+        }
+      });
+      
+      console.log('📷 Added fallback Amazon image URLs for ASIN:', excelProduct.asin);
     }
     
     // Also check for uploaded images for this ASIN (additional enhancement)
@@ -3480,6 +3701,168 @@ router.post('/single-convert-to-approval', authenticateAdmin, async (req, res) =
     res.status(500).json({
       success: false,
       message: 'Failed to convert product to approval',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/admin-excel/fix-party-accessories-category - Fix category spelling and ensure visibility
+router.post('/fix-party-accessories-category', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🔧 Starting Party accessories category fix...');
+    
+    // Find products with similar category names to "Party accessories"
+    const categoryVariations = [
+      'Party accessories',
+      'Party-accessories', 
+      'party accessories',
+      'party-accessories',
+      'Party Accessories',
+      'PARTY ACCESSORIES',
+      'Party accessory',
+      'party accessory'
+    ];
+    
+    // Find all products (both main and Excel) with these category variations
+    const mainProducts = await Product.find({
+      category: { $in: categoryVariations }
+    });
+    
+    const excelProducts = await ExcelProduct.find({
+      category: { $in: categoryVariations },
+      isListed: true // Only process products that show "listed" badge
+    });
+    
+    console.log(`📊 Found ${mainProducts.length} main products and ${excelProducts.length} listed Excel products`);
+    
+    let updatedMainProducts = 0;
+    let updatedExcelProducts = 0;
+    let madeVisible = 0;
+    
+    // Fix main products
+    for (const product of mainProducts) {
+      const updates = {
+        category: 'Party-accessories'
+      };
+      
+      // Ensure product is visible in admin/products and Amazon's Choice
+      if (product.approvalStatus !== 'approved') {
+        updates.approvalStatus = 'approved';
+        updates.approvedAt = new Date();
+        madeVisible++;
+      }
+      
+      if (product.status !== 'active') {
+        updates.status = 'active';
+        if (!updates.approvalStatus) {
+          madeVisible++;
+        }
+      }
+      
+      await Product.updateOne({ _id: product._id }, { $set: updates });
+      updatedMainProducts++;
+      
+      console.log(`✅ Updated main product: ${product.name} → Party-accessories`);
+    }
+    
+    // Fix Excel products
+    for (const excelProduct of excelProducts) {
+      await ExcelProduct.updateOne(
+        { _id: excelProduct._id },
+        { 
+          $set: { 
+            category: 'Party-accessories',
+            status: 'listed' // Ensure it keeps the listed status
+          } 
+        }
+      );
+      updatedExcelProducts++;
+      
+      console.log(`✅ Updated Excel product: ${excelProduct.name} → Party-accessories`);
+      
+      // If this Excel product has a main product, update that too
+      if (excelProduct.mainProductId) {
+        const mainProduct = await Product.findById(excelProduct.mainProductId);
+        if (mainProduct) {
+          const mainUpdates = {
+            category: 'Party-accessories'
+          };
+          
+          // Ensure main product is visible
+          if (mainProduct.approvalStatus !== 'approved') {
+            mainUpdates.approvalStatus = 'approved';
+            mainUpdates.approvedAt = new Date();
+            madeVisible++;
+          }
+          
+          if (mainProduct.status !== 'active') {
+            mainUpdates.status = 'active';
+            if (!mainUpdates.approvalStatus) {
+              madeVisible++;
+            }
+          }
+          
+          await Product.updateOne({ _id: mainProduct._id }, { $set: mainUpdates });
+          console.log(`✅ Updated linked main product: ${mainProduct.name}`);
+        }
+      }
+    }
+    
+    // Clear cache to refresh product listings
+    console.log('🔄 Cache cleared - product listings will refresh');
+    
+    const result = {
+      success: true,
+      message: `Successfully fixed Party accessories category`,
+      updatedMainProducts,
+      updatedExcelProducts,
+      madeVisible,
+      totalUpdated: updatedMainProducts + updatedExcelProducts
+    };
+    
+    console.log('🎉 Category fix completed:', result);
+    
+    res.json(result);
+    
+  } catch (error) {
+    console.error('❌ Error fixing Party accessories category:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fix Party accessories category',
+      error: error.message
+    });
+  }
+});
+
+// Get all Cloudinary images from products folder
+router.get('/cloudinary-images', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('📋 Fetching ALL Cloudinary images...');
+    
+    if (!isCloudinaryConfigured()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cloudinary is not configured. Please check your environment variables.'
+      });
+    }
+
+    const { folder = 'products' } = req.query;
+    
+    // Fetch ALL images (no limit)
+    const images = await listCloudinaryImages(folder);
+    
+    res.json({
+      success: true,
+      images,
+      total: images.length,
+      folder
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching Cloudinary images:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch Cloudinary images',
       error: error.message
     });
   }

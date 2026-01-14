@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .product-card {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        .product-image {
+            width: 100%;
+            height: 150px;
+            object-fit: contain;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .loading {
+            color: #666;
+        }
+        .error {
+            color: #d32f2f;
+        }
+        .success {
+            color: #2e7d32;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .status.loading {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .status.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>🖼️ Image System Fix Test</h1>
+    
+    <div class="test-section">
+        <h2>API Connection Test</h2>
+        <div id="api-status" class="status loading">Testing API connection...</div>
+        <button onclick="testAPI()">🔄 Test API</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Amazon's Choice Products</h2>
+        <div id="products-status" class="status loading">Loading products...</div>
+        <button onclick="loadProducts()">🔄 Load Products</button>
+        <div id="products-grid" class="product-grid"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Cloudinary Test</h2>
+        <div id="cloudinary-status" class="status loading">Testing Cloudinary...</div>
+        <button onclick="testCloudinary()">🔄 Test Cloudinary</button>
+        <div id="cloudinary-results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://generic-wholesale-backend.onrender.com/api';
+        
+        async function testAPI() {
+            const statusEl = document.getElementById('api-status');
+            statusEl.className = 'status loading';
+            statusEl.textContent = 'Testing API connection...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusEl.className = 'status success';
+                    statusEl.innerHTML = `
+                        ✅ API Connected Successfully<br>
+                        Status: ${data.status}<br>
+                        Database: ${data.database}<br>
+                        Products: ${data.tests?.query?.productCount || 'Unknown'}
+                    `;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                statusEl.className = 'status error';
+                statusEl.textContent = `❌ API Connection Failed: ${error.message}`;
+            }
+        }
+        
+        async function loadProducts() {
+            const statusEl = document.getElementById('products-status');
+            const gridEl = document.getElementById('products-grid');
+            
+            statusEl.className = 'status loading';
+            statusEl.textContent = 'Loading Amazon\'s Choice products...';
+            gridEl.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${API_BASE}/products/public?isAmazonsChoice=true&limit=12&imageWidth=200&imageHeight=200`);
+                const data = await response.json();
+                
+                if (response.ok && data.products && data.products.length > 0) {
+                    statusEl.className = 'status success';
+                    statusEl.innerHTML = `
+                        ✅ Loaded ${data.products.length} products<br>
+                        Total available: ${data.total || 'Unknown'}<br>
+                        Source: ${data.source || 'Database'}
+                    `;
+                    
+                    // Display products
+                    data.products.forEach((product, index) => {
+                        const productCard = document.createElement('div');
+                        productCard.className = 'product-card';
+                        
+                        const imageUrl = product.images && product.images[0] ? product.images[0] : 
+                                       product.image ? product.image : 
+                                       'https://via.placeholder.com/200x200?text=No+Image';
+                        
+                        productCard.innerHTML = `
+                            <img src="${imageUrl}" alt="${product.name}" class="product-image" 
+                                 onerror="this.src='https://via.placeholder.com/200x200?text=Error'; this.style.border='2px solid red';"
+                                 onload="this.style.border='2px solid green';">
+                            <h4 style="font-size: 12px; margin: 8px 0; height: 32px; overflow: hidden;">${product.name}</h4>
+                            <p style="font-size: 10px; color: #666; margin: 4px 0;">
+                                ${product.price || 'No price'}<br>
+                                ASIN: ${product.asin || 'N/A'}<br>
+                                Images: ${product.images ? product.images.length : 0}
+                            </p>
+                            <div style="font-size: 8px; padding: 2px 4px; border-radius: 3px; margin-top: 4px; ${
+                                imageUrl.includes('cloudinary.com') ? 'background: #d4edda; color: #155724;' : 'background: #fff3cd; color: #856404;'
+                            }">
+                                ${imageUrl.includes('cloudinary.com') ? '✅ Cloudinary' : '⚠️ Not Cloudinary'}
+                            </div>
+                        `;
+                        
+                        gridEl.appendChild(productCard);
+                    });
+                } else {
+                    statusEl.className = 'status error';
+                    statusEl.textContent = `❌ No products found or API error`;
+                }
+            } catch (error) {
+                statusEl.className = 'status error';
+                statusEl.textContent = `❌ Failed to load products: ${error.message}`;
+            }
+        }
+        
+        async function testCloudinary() {
+            const statusEl = document.getElementById('cloudinary-status');
+            const resultsEl = document.getElementById('cloudinary-results');
+            
+            statusEl.className = 'status loading';
+            statusEl.textContent = 'Testing Cloudinary integration...';
+            resultsEl.innerHTML = '';
+            
+            try {
+                // Test direct Cloudinary URL
+                const testUrl = 'https://res.cloudinary.com/dtuq3tvjx/image/upload/c_fill,h_200,w_200,q_auto,f_auto/products/B08N5WRWNW';
+                
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                img.onload = () => {
+                    statusEl.className = 'status success';
+                    statusEl.innerHTML = `
+                        ✅ Cloudinary is working!<br>
+                        Test image loaded successfully<br>
+                        Cloud Name: dtuq3tvjx
+                    `;
+                    
+                    resultsEl.innerHTML = `
+                        <div style="text-align: center; margin-top: 10px;">
+                            <p>Test Cloudinary Image:</p>
+                            <img src="${testUrl}" alt="Cloudinary Test" style="max-width: 200px; border: 2px solid green; border-radius: 4px;">
+                        </div>
+                    `;
+                };
+                
+                img.onerror = () => {
+                    statusEl.className = 'status error';
+                    statusEl.textContent = '❌ Cloudinary test image failed to load';
+                };
+                
+                img.src = testUrl;
+                
+            } catch (error) {
+                statusEl.className = 'status error';
+                statusEl.textContent = `❌ Cloudinary test failed: ${error.message}`;
+            }
+        }
+        
+        // Auto-run tests on page load
+        window.onload = () => {
+            testAPI();
+            setTimeout(loadProducts, 1000);
+            setTimeout(testCloudinary, 2000);
+        };
+    </script>
+</body>
+</html>

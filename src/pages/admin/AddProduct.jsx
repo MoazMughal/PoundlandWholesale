@@ -123,7 +123,6 @@ const AddProduct = () => {
           }
         });
         
-        console.log(`📂 Admin loaded ${deduplicatedCategories.length} unique categories (removed ${fetchedCategories.length - deduplicatedCategories.length} duplicates)`);
         setCategories(deduplicatedCategories);
       }
     } catch (error) {
@@ -458,9 +457,43 @@ const AddProduct = () => {
           // Set images if available
           if (product.images && product.images.length > 0) {
             console.log('📷 Setting images from fetched product:', product.images);
-            setImageUrls(product.images.slice(0, 5)); // Max 5 images
+            
+            // Validate and filter working image URLs
+            const validImages = [];
+            for (const imageUrl of product.images.slice(0, 5)) {
+              if (imageUrl && imageUrl.trim()) {
+                validImages.push(imageUrl.trim());
+              }
+            }
+            
+            // If we have valid images, set them
+            if (validImages.length > 0) {
+              setImageUrls(validImages);
+            } else {
+              console.log('⚠️ No valid images found in fetched product data');
+              // Try to construct Amazon image URLs as fallback
+              if (product.asin) {
+                const fallbackUrls = [
+                  `https://images-na.ssl-images-amazon.com/images/P/${product.asin}.01._SCLZZZZZZZ_SX500_.jpg`,
+                  `https://m.media-amazon.com/images/I/${product.asin}._AC_SL1500_.jpg`,
+                  `https://images-na.ssl-images-amazon.com/images/I/${product.asin}._AC_SL1500_.jpg`
+                ];
+                setImageUrls(fallbackUrls.slice(0, 3)); // Max 3 fallback images
+                console.log('📷 Set fallback Amazon image URLs:', fallbackUrls.slice(0, 3));
+              }
+            }
           } else {
             console.log('⚠️ No images found in fetched product data');
+            // Try to construct Amazon image URLs as fallback
+            if (product.asin) {
+              const fallbackUrls = [
+                `https://images-na.ssl-images-amazon.com/images/P/${product.asin}.01._SCLZZZZZZZ_SX500_.jpg`,
+                `https://m.media-amazon.com/images/I/${product.asin}._AC_SL1500_.jpg`,
+                `https://images-na.ssl-images-amazon.com/images/I/${product.asin}._AC_SL1500_.jpg`
+              ];
+              setImageUrls(fallbackUrls.slice(0, 3)); // Max 3 fallback images
+              console.log('📷 Set fallback Amazon image URLs:', fallbackUrls.slice(0, 3));
+            }
           }
           
           // Show success message with source information
@@ -616,17 +649,17 @@ const AddProduct = () => {
         }
       }
 
-      // Filter out empty slots and add any fetched image URLs
-      finalImageUrls = finalImageUrls.filter(url => url && url.trim() !== '');
-      
       // Add any image URLs that were fetched from ASIN (not uploaded files)
       imageUrls.forEach((url, index) => {
-        if (url && url.trim() !== '' && !finalImageUrls[index]) {
-          finalImageUrls[index] = url;
+        if (url && url.trim() !== '') {
+          // If there's no uploaded file at this position, use the fetched URL
+          if (!finalImageUrls[index]) {
+            finalImageUrls[index] = url;
+          }
         }
       });
       
-      // Remove empty slots again and flatten
+      // Remove empty slots and flatten
       finalImageUrls = finalImageUrls.filter(url => url && url.trim() !== '');
       
       console.log('📷 Final images to save:', finalImageUrls);

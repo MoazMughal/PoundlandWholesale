@@ -8,6 +8,9 @@
     "create-admin": "node scripts/createAdmin.js",
     "seed": "node scripts/seedData.js",
     "update-jewelry": "node scripts/updateJewelryPrices.js",
+    "migrate-cloudinary": "node scripts/migrate-to-cloudinary.js",
+    "migrate-excel-manager": "node scripts/migrate-excel-manager-to-cloudinary.js",
+    "migrate-complete": "node scripts/complete-cloudinary-migration.js",
     "env:dev": "node switch-environment.js development",
     "env:prod": "node switch-environment.js production"
   },
@@ -16,6 +19,7 @@
     "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
     "cheerio": "^1.1.2",
+    "cloudinary": "^2.8.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

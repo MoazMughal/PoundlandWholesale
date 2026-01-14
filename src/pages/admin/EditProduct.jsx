@@ -86,12 +86,8 @@ const EditProduct = () => {
   // Debug effect to monitor category and form data sync
   useEffect(() => {
     if (categories.length > 0 && formData.category) {
-      console.log('📂 Categories loaded:', categories.length, 'Current category:', formData.category);
       const matchingCategory = categories.find(cat => cat.label === formData.category);
       if (!matchingCategory) {
-        console.log('⚠️ Category not found in dropdown options:', formData.category);
-        console.log('Available categories:', categories.map(c => c.label));
-        
         // Try to find a case-insensitive match
         const caseInsensitiveMatch = categories.find(cat => 
           cat.label.toLowerCase() === formData.category.toLowerCase()
@@ -102,7 +98,7 @@ const EditProduct = () => {
           setFormData(prev => ({ ...prev, category: caseInsensitiveMatch.label }));
         }
       } else {
-        console.log('✅ Category found in dropdown:', matchingCategory.label);
+        // Category found in dropdown
       }
     }
   }, [categories, formData.category]);
@@ -118,11 +114,9 @@ const EditProduct = () => {
         );
         
         if (caseInsensitiveMatch) {
-          console.log('🔄 Syncing category case:', formData.category, '->', caseInsensitiveMatch.label);
           setFormData(prev => ({ ...prev, category: caseInsensitiveMatch.label }));
         } else {
-          console.log('❌ No matching category found for:', formData.category);
-          console.log('Available categories:', categories.map(c => c.label));
+          // No matching category found
         }
       }
     }
@@ -150,8 +144,6 @@ const EditProduct = () => {
         image: product.image,
         asin: product.asin
       });
-      
-      console.log('📂 Available categories when setting form data:', categories.length, categories.map(c => c.label));
       
       setFormData({
         name: product.name || '',
@@ -243,7 +235,6 @@ const EditProduct = () => {
       const response = await fetch('http://localhost:5000/api/products/public/categories?includeExcel=true');
       if (response.ok) {
         const data = await response.json();
-        console.log('📂 EditProduct: Fetched categories:', data.categories);
         setCategories(data.categories || []);
         setCategoriesLoaded(true);
       }

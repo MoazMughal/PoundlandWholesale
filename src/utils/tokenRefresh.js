@@ -1,78 +1,75 @@
-// Token refresh utility for admin authentication
+import { getApiUrl } from './api'
+import authPersistence from './authPersistence'
 
-export const checkAndRefreshAdminToken = async () => {
-  try {
-    const token = localStorage.getItem('adminToken');
-    
-    if (!token) {
-      return { valid: false, message: 'No token found' };
+class TokenRefreshManager {
+  constructor() {
+    this.refreshInterval = null
+    this.isRefreshing = false
+    this.REFRESH_INTERVAL = 30 * 60 * 1000 // 30 minutes
+  }
+
+  startAutoRefresh(onTokenRefreshed, onRefreshFailed) {
+    // Clear any existing interval
+    this.stopAutoRefresh()
+
+    this.refreshInterval = setInterval(async () => {
+      await this.refreshToken(onTokenRefreshed, onRefreshFailed)
+    }, this.REFRESH_INTERVAL)
+
+    console.log('🔄 Token auto-refresh started (every 30 minutes)')
+  }
+
+  stopAutoRefresh() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval)
+      this.refreshInterval = null
+      console.log('🔄 Token auto-refresh stopped')
     }
-    
-    // Test the token with a simple API call
-    const response = await fetch('http://localhost:5000/api/products/admin/fast?limit=1', {
-      headers: {
-        'Authorization': `Bearer ${token}`
+  }
+
+  async refreshToken(onTokenRefreshed, onRefreshFailed) {
+    if (this.isRefreshing) return
+
+    const authData = authPersistence.loadAuth()
+    if (!authData) return
+
+    const { token } = authData
+    this.isRefreshing = true
+
+    try {
+      const response = await fetch(getApiUrl('auth/refresh'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        signal: AbortSignal.timeout(10000)
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Update stored token and admin data
+        authPersistence.saveAuth(data.admin, data.token)
+        
+        console.log('✅ Token refreshed successfully')
+        
+        if (onTokenRefreshed) {
+          onTokenRefreshed(data.admin, data.token)
+        }
+      } else if (response.status === 401) {
+        console.log('🔑 Token refresh failed - token expired')
+        if (onRefreshFailed) {
+          onRefreshFailed()
+        }
       }
-    });
-    
-    if (response.ok) {
-      return { valid: true, token };
-    } else if (response.status === 401) {
-      // Token is invalid or expired
-      localStorage.removeItem('adminToken');
-      return { valid: false, message: 'Token expired or invalid' };
-    } else {
-      return { valid: false, message: `Server error: ${response.status}` };
+    } catch (error) {
+      console.log('🔑 Token refresh error:', error.message)
+      // Don't call onRefreshFailed for network errors
+    } finally {
+      this.isRefreshing = false
     }
-    
-  } catch (error) {
-    console.error('Token validation error:', error);
-    return { valid: false, message: error.message };
   }
-};
+}
 
-export const handleAuthError = (error, redirectToLogin = true) => {
-  console.error('Authentication error:', error);
-  
-  // Clean up invalid token
-  localStorage.removeItem('adminToken');
-  
-  if (redirectToLogin) {
-    alert('❌ Authentication failed. Please log in again.');
-    window.location.href = '/admin/login';
-  }
-  
-  return false;
-};
-
-export const makeAuthenticatedRequest = async (url, options = {}) => {
-  try {
-    const tokenCheck = await checkAndRefreshAdminToken();
-    
-    if (!tokenCheck.valid) {
-      throw new Error(tokenCheck.message || 'Authentication failed');
-    }
-    
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        'Authorization': `Bearer ${tokenCheck.token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.status === 401) {
-      handleAuthError(new Error('Token expired during request'));
-      throw new Error('Authentication failed');
-    }
-    
-    return response;
-    
-  } catch (error) {
-    if (error.message.includes('Authentication')) {
-      handleAuthError(error);
-    }
-    throw error;
-  }
-};
+export default new TokenRefreshManager()

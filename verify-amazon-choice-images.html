@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon Choice Images Verification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #ff6600 0%, #ff3300 100%);
+            color: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(255, 102, 0, 0.3);
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ff6600;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .product-card {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 8px 25px rgba(255, 102, 0, 0.15);
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(255, 102, 0, 0.25);
+            border-color: #ff6600;
+        }
+        .product-image {
+            width: 100%;
+            height: 200px;
+            object-fit: contain;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+        .product-image.uploaded {
+            border-color: #28a745;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+        }
+        .product-image.generic {
+            border-color: #ffc107;
+            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
+        }
+        .product-image.error {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+        .product-info {
+            margin-top: 10px;
+        }
+        .product-name {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            height: 40px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .product-price {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ff6600;
+            margin-bottom: 5px;
+        }
+        .product-meta {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .image-status {
+            font-size: 10px;
+            padding: 3px 6px;
+            border-radius: 3px;
+            margin-top: 5px;
+            text-align: center;
+        }
+        .image-status.uploaded {
+            background: #d4edda;
+            color: #155724;
+        }
+        .image-status.generic {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .image-status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #ff6600;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .status.loading {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .status.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏆 Amazon's Choice Images Verification</h1>
+        <p>Verifying that all products are showing their correct uploaded images</p>
+    </div>
+    
+    <div id="api-status" class="status loading">🔄 Loading Amazon's Choice products...</div>
+    
+    <div class="stats" id="stats" style="display: none;">
+        <div class="stat-card">
+            <div class="stat-number" id="total-products">0</div>
+            <div class="stat-label">Total Products</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="uploaded-images">0</div>
+            <div class="stat-label">Uploaded Images</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="generic-images">0</div>
+            <div class="stat-label">Generic Images</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="success-rate">0%</div>
+            <div class="stat-label">Success Rate</div>
+        </div>
+    </div>
+    
+    <div id="products-container" class="products-grid"></div>
+
+    <script>
+        const API_BASE = 'https://generic-wholesale-backend.onrender.com/api';
+        let totalProducts = 0;
+        let uploadedImages = 0;
+        let genericImages = 0;
+        
+        async function loadProducts() {
+            const statusEl = document.getElementById('api-status');
+            const containerEl = document.getElementById('products-container');
+            const statsEl = document.getElementById('stats');
+            
+            try {
+                statusEl.textContent = '🔄 Loading Amazon\'s Choice products...';
+                
+                const response = await fetch(`${API_BASE}/products/public?isAmazonsChoice=true&limit=50&imageWidth=300&imageHeight=300`);
+                const data = await response.json();
+                
+                if (response.ok && data.products && data.products.length > 0) {
+                    statusEl.className = 'status success';
+                    statusEl.innerHTML = `✅ Loaded ${data.products.length} Amazon's Choice products!<br>Source: ${data.source || 'Database'} | Total available: ${data.total || 'Unknown'}`;
+                    
+                    totalProducts = data.products.length;
+                    
+                    // Show stats
+                    statsEl.style.display = 'grid';
+                    
+                    // Display products
+                    data.products.forEach((product, index) => {
+                        createProductCard(product, index, containerEl);
+                    });
+                    
+                    updateStats();
+                    
+                } else {
+                    throw new Error('No products found or API error');
+                }
+            } catch (error) {
+                statusEl.className = 'status error';
+                statusEl.textContent = `❌ Failed to load products: ${error.message}`;
+            }
+        }
+        
+        function createProductCard(product, index, container) {
+            const card = document.createElement('div');
+            card.className = 'product-card';
+            
+            const imageUrl = product.images && product.images[0] ? product.images[0] : 
+                           product.image ? product.image : 
+                           'https://via.placeholder.com/300x300?text=No+Image';
+            
+            // Determine image type
+            const isUploadedImage = imageUrl.includes('cloudinary.com') && 
+                                  !imageUrl.includes('default-product') &&
+                                  !imageUrl.includes('watch-strap') &&
+                                  !imageUrl.includes('lampshade') &&
+                                  !imageUrl.includes('nose-ring') &&
+                                  !imageUrl.includes('cutlery') &&
+                                  !imageUrl.includes('automotive');
+            
+            const isGenericImage = imageUrl.includes('default-product') ||
+                                 imageUrl.includes('watch-strap') ||
+                                 imageUrl.includes('lampshade') ||
+                                 imageUrl.includes('nose-ring') ||
+                                 imageUrl.includes('cutlery') ||
+                                 imageUrl.includes('automotive');
+            
+            if (isUploadedImage) {
+                uploadedImages++;
+            } else if (isGenericImage) {
+                genericImages++;
+            }
+            
+            card.innerHTML = `
+                <div class="badge">Amazon's Choice</div>
+                <img class="product-image ${isUploadedImage ? 'uploaded' : isGenericImage ? 'generic' : 'error'}" 
+                     src="${imageUrl}" alt="${product.name}">
+                <div class="product-info">
+                    <div class="product-name">${product.name}</div>
+                    <div class="product-price">${product.price || 'No price'}</div>
+                    <div class="product-meta">
+                        ASIN: ${product.asin || 'N/A'} | 
+                        Category: ${product.category || 'N/A'}<br>
+                        Rating: ${product.rating || 'N/A'}⭐ | 
+                        Reviews: ${product.reviews || 0}
+                    </div>
+                    <div class="image-status ${isUploadedImage ? 'uploaded' : isGenericImage ? 'generic' : 'error'}">
+                        ${isUploadedImage ? '✅ Real Product Image' : 
+                          isGenericImage ? '⚠️ Generic Category Image' : 
+                          '❌ No Image'}
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(card);
+        }
+        
+        function updateStats() {
+            document.getElementById('total-products').textContent = totalProducts;
+            document.getElementById('uploaded-images').textContent = uploadedImages;
+            document.getElementById('generic-images').textContent = genericImages;
+            
+            const successRate = totalProducts > 0 ? ((uploadedImages / totalProducts) * 100).toFixed(1) : 0;
+            document.getElementById('success-rate').textContent = `${successRate}%`;
+        }
+        
+        // Start loading when page loads
+        window.onload = loadProducts;
+    </script>
+</body>
+</html>

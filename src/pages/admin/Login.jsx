@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAdmin } from '../../context/AdminContext';
 import { API_BASE_URL } from '../../config/api.config';
 import '../../styles/AdminLogin.css';
@@ -9,14 +9,18 @@ const AdminLogin = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, isLoggedIn } = useAdmin();
+
+  // Get redirect URL from query params
+  const redirectUrl = searchParams.get('redirect') || '/admin/dashboard';
 
   // Redirect if already logged in
   useEffect(() => {
     if (isLoggedIn) {
-      navigate('/admin/dashboard', { replace: true });
+      navigate(redirectUrl, { replace: true });
     }
-  }, [isLoggedIn, navigate]);
+  }, [isLoggedIn, navigate, redirectUrl]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,9 +33,10 @@ const AdminLogin = () => {
       localStorage.removeItem('sellerData');
       localStorage.removeItem('buyerToken');
       localStorage.removeItem('buyerData');
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminData');
-      sessionStorage.removeItem('admin_logged_out');
+      
+      // Clear admin tokens using the persistence utility
+      const { default: authPersistence } = await import('../../utils/authPersistence');
+      authPersistence.clearAuth();
 
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
@@ -48,8 +53,8 @@ const AdminLogin = () => {
       // Use the AdminContext login function
       await login(data.admin, data.token);
       
-      // Navigate after successful login
-      navigate('/admin/dashboard', { replace: true });
+      // Navigate to redirect URL or dashboard
+      navigate(redirectUrl, { replace: true });
       
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');

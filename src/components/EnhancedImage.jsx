@@ -87,7 +87,31 @@ const EnhancedImage = ({
   };
 
   const tryLoadImage = async (imageUrl, attempt = 0) => {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+      // Check if this is an API endpoint that might return JSON
+      if (imageUrl.includes('/api/admin-excel/public/images/by-asin/')) {
+        try {
+          const response = await fetch(imageUrl);
+          const contentType = response.headers.get('content-type');
+          
+          // If response is JSON, extract the actual image URL
+          if (contentType && contentType.includes('application/json')) {
+            const data = await response.json();
+            if (data.success && data.imageUrl) {
+              console.log(`✅ Got Cloudinary URL from API: ${data.imageUrl}`);
+              // Now load the actual Cloudinary image
+              imageUrl = data.imageUrl;
+            } else {
+              reject(new Error('No image URL in API response'));
+              return;
+            }
+          }
+        } catch (error) {
+          console.log(`⚠️ Failed to fetch JSON from API: ${error.message}`);
+          // Continue with original URL
+        }
+      }
+      
       const img = new Image();
       
       // Set loading attributes for better performance

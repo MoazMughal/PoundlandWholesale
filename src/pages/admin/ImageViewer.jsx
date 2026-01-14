@@ -22,7 +22,7 @@ const ImageViewer = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin-excel/image-uploads/${uploadId}`, {
+      const response = await fetch(getApiUrl(`admin-excel/image-uploads/${uploadId}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -306,15 +306,15 @@ const ImageViewer = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     position: 'relative',
-                    padding: '12px' // Added padding to zoom out images
+                    padding: '12px'
                   }}>
                     <EnhancedImage
                       asin={image.asin}
                       alt={image.asin}
                       eager={true}
                       style={{
-                        maxWidth: '85%', // Reduced from 100% to 85% to zoom out
-                        maxHeight: '85%', // Reduced from 100% to 85% to zoom out
+                        maxWidth: '85%',
+                        maxHeight: '85%',
                         objectFit: 'contain'
                       }}
                       onLoad={() => {

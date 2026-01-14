@@ -117,11 +117,9 @@ const MobileHeader = () => {
               seenCategories.add(lowerLabel);
               deduplicatedCategories.push(cat);
             } else {
-              console.log(`🧹 Header: Removed duplicate category "${cat.label}"`);
+              // Removed duplicate category
             }
           });
-          
-          console.log(`📂 Header loaded ${deduplicatedCategories.length} unique categories with active products`);
           
           // Use deduplicated categories
           setCategories(deduplicatedCategories);
@@ -144,12 +142,11 @@ const MobileHeader = () => {
           }
         });
         if (response.ok) {
-          console.log('🧹 Header: Auto-cleanup of duplicate categories completed');
           // Refresh categories after cleanup
           setTimeout(fetchCategories, 1000);
         }
       } catch (error) {
-        console.log('Header: Auto-cleanup failed, but continuing normally');
+        // Auto-cleanup failed, but continuing normally
       }
     };
     

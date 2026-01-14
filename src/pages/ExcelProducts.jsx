@@ -224,20 +224,67 @@ const ExcelProducts = () => {
                     alt={product.name}
                     style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                     onError={(e) => {
-                      // Show placeholder if image fails to load
-                      e.target.style.display = 'none'
-                      e.target.parentElement.innerHTML = `
-                        <div style="text-align: center; color: #999;">
-                          <i class="fas fa-image" style="font-size: 3rem; margin-bottom: 10px;"></i>
-                          <div style="font-size: 12px;">Image Not Available</div>
-                        </div>
-                      `
+                      console.log('Image failed to load:', product.image);
+                      console.log('Product ASIN:', product.asin);
+                      
+                      // Try fallback images if product has ASIN
+                      if (product.asin) {
+                        const fallbackUrls = [
+                          `https://images-na.ssl-images-amazon.com/images/P/${product.asin}.01._SCLZZZZZZZ_SX500_.jpg`,
+                          `https://m.media-amazon.com/images/I/${product.asin}._AC_SL1500_.jpg`,
+                          `https://images-na.ssl-images-amazon.com/images/I/${product.asin}._AC_SL1500_.jpg`,
+                          `https://images.amazon.com/images/P/${product.asin}.01.L.jpg`
+                        ];
+                        
+                        let fallbackIndex = 0;
+                        const tryNextFallback = () => {
+                          if (fallbackIndex < fallbackUrls.length) {
+                            const nextUrl = fallbackUrls[fallbackIndex];
+                            fallbackIndex++;
+                            
+                            const testImg = new Image();
+                            testImg.onload = () => {
+                              e.target.src = nextUrl;
+                              console.log('✅ Fallback image loaded:', nextUrl);
+                            };
+                            testImg.onerror = () => {
+                              console.log('❌ Fallback failed:', nextUrl);
+                              tryNextFallback();
+                            };
+                            testImg.src = nextUrl;
+                          } else {
+                            // All fallbacks failed, show placeholder
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = `
+                              <div style="text-align: center; color: #999;">
+                                <i class="fas fa-image" style="font-size: 3rem; margin-bottom: 10px;"></i>
+                                <div style="font-size: 12px;">Image Not Available</div>
+                                ${product.asin ? `<div style="font-size: 10px; margin-top: 5px;">ASIN: ${product.asin}</div>` : ''}
+                              </div>
+                            `;
+                          }
+                        };
+                        
+                        tryNextFallback();
+                      } else {
+                        // No ASIN, show placeholder immediately
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = `
+                          <div style="text-align: center; color: #999;">
+                            <i class="fas fa-image" style="font-size: 3rem; margin-bottom: 10px;"></i>
+                            <div style="font-size: 12px;">Image Not Available</div>
+                          </div>
+                        `;
+                      }
                     }}
                   />
                 ) : (
                   <div style={{ textAlign: 'center', color: '#999' }}>
                     <i className="fas fa-image" style={{ fontSize: '3rem', marginBottom: '10px' }}></i>
                     <div style={{ fontSize: '12px' }}>No Image</div>
+                    {product.asin && (
+                      <div style={{ fontSize: '10px', marginTop: '5px' }}>ASIN: {product.asin}</div>
+                    )}
                   </div>
                 )}
 

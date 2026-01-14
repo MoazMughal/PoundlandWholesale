@@ -6,9 +6,15 @@ const replaceLocalhostPlugin = () => ({
   name: 'replace-localhost',
   transform(code, id) {
     if (process.env.NODE_ENV === 'production' && (id.endsWith('.js') || id.endsWith('.jsx'))) {
-      return code.replace(/http:\/\/localhost:5000/g, 'https://generic-wholesale-backend.onrender.com')
+      // Replace localhost URLs with production URLs
+      let transformedCode = code.replace(/http:\/\/localhost:5000/g, 'https://generic-wholesale-backend.onrender.com');
+      
+      // Also handle any remaining localhost references in image URLs
+      transformedCode = transformedCode.replace(/localhost:5000/g, 'generic-wholesale-backend.onrender.com');
+      
+      return transformedCode;
     }
-    return code
+    return code;
   }
 })
 

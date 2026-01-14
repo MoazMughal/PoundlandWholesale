@@ -13,6 +13,9 @@ import excelRoutes from './routes/excel.js';
 import adminExcelRoutes from './routes/admin-excel.js';
 import buyerRoutes from './routes/buyer.js';
 import easypaisaRoutes from './routes/easypaisa.js';
+import bulkUploadRoutes from './routes/bulk-upload-cloudinary.js';
+import cloudinaryTestRoutes from './routes/cloudinary-test.js';
+import imageTestRoutes from './routes/image-test.js';
 
 dotenv.config();
 
@@ -135,6 +138,9 @@ app.use('/api/excel', excelRoutes);
 app.use('/api/admin-excel', adminExcelRoutes);
 app.use('/api/buyer', buyerRoutes);
 app.use('/api/easypaisa', easypaisaRoutes);
+app.use('/api/bulk-upload', bulkUploadRoutes);
+app.use('/api/cloudinary-test', cloudinaryTestRoutes);
+app.use('/api/image-test', imageTestRoutes);
 
 // Server startup time for restart detection
 const serverStartTime = Date.now();

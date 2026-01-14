@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getApiUrl } from '../../utils/api';
 import BulkConvertModal from '../../components/BulkConvertModal';
 import CategorySelectionModal from '../../components/CategorySelectionModal';
+import EnhancedImage from '../../components/EnhancedImage';
 import '../../styles/AdminLayout.css';
 
 const ExcelProducts = () => {
@@ -59,6 +60,14 @@ const ExcelProducts = () => {
   useEffect(() => {
     // Debounce the search to avoid too many API calls
     const timeoutId = setTimeout(() => {
+      console.log('🔄 useEffect triggered fetchProducts with filters:', {
+        uploadId,
+        currentPage,
+        searchQuery,
+        categoryFilter,
+        statusFilter,
+        pageSize
+      });
       fetchProducts();
     }, searchQuery ? 500 : 0); // 500ms delay for search, immediate for other changes
 
@@ -80,8 +89,8 @@ const ExcelProducts = () => {
           }
         });
         console.log('🔄 Auto-synced product statuses on page load');
-        // Refresh products after sync
-        setTimeout(() => fetchProducts(), 1000);
+        // Don't automatically refresh products after sync to avoid interfering with user filters
+        // User can manually sync if needed using the Sync Status button
       } catch (error) {
         console.log('Auto-sync failed, but continuing normally');
       }
@@ -124,7 +133,8 @@ const ExcelProducts = () => {
         limit: pageSize,
         search: searchQuery,
         category: categoryFilter,
-        status: statusFilter
+        status: statusFilter,
+        actualParams: Object.fromEntries(params.entries())
       });
 
       const response = await fetch(getApiUrl(`admin-excel/uploads/${uploadId}/products?${params}`), {
@@ -134,6 +144,11 @@ const ExcelProducts = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('📊 Received products:', data.products.length, 'Total:', data.pagination?.totalProducts);
+        console.log('📊 Applied filters in response:', {
+          requestedCategory: categoryFilter,
+          requestedStatus: statusFilter,
+          requestedSearch: searchQuery
+        });
         setProducts(data.products);
         setUpload(data.upload);
         setTotalPages(data.pagination?.totalPages || 1);
@@ -874,10 +889,19 @@ const ExcelProducts = () => {
             <select
               value={categoryFilter}
               onChange={(e) => {
-                console.log('Category filter changed to:', e.target.value);
-                setCategoryFilter(e.target.value);
+                const newCategory = e.target.value;
+                console.log('📂 Category filter changed from:', categoryFilter, 'to:', newCategory);
+                console.log('📂 Current state before change:', {
+                  currentPage,
+                  searchQuery,
+                  categoryFilter,
+                  statusFilter,
+                  pageSize
+                });
+                setCategoryFilter(newCategory);
                 setCurrentPage(1); // Reset to first page when filter changes
-                updateUrlWithState({ category: e.target.value, page: 1 });
+                updateUrlWithState({ category: newCategory, page: 1 });
+                console.log('📂 URL updated with new category filter');
               }}
               style={{
                 padding: '6px 10px',
@@ -1153,48 +1177,17 @@ const ExcelProducts = () => {
                             justifyContent: 'center',
                             background: '#f8fafc'
                           }}>
-                            <img
-                              src={(() => {
-                                const imageUrl = `${getApiUrl('admin-excel/public/images/by-asin')}/${product.asin}`;
-                                console.log('🖼️ Loading image for ASIN:', product.asin, 'URL:', imageUrl);
-                                return imageUrl;
-                              })()}
+                            <EnhancedImage
+                              asin={product.asin}
                               alt={product.asin}
+                              eager={true}
+                              showLoader={false}
                               style={{
                                 width: '100%',
                                 height: '100%',
                                 objectFit: 'cover'
                               }}
-                              onLoad={(e) => {
-                                console.log('✅ Image loaded successfully for ASIN:', product.asin);
-                                // Image loaded successfully
-                                e.target.style.display = 'block';
-                                if (e.target.nextSibling) {
-                                  e.target.nextSibling.style.display = 'none';
-                                }
-                              }}
-                              onError={(e) => {
-                                console.error('❌ Image failed to load for ASIN:', product.asin, 'URL:', e.target.src);
-                                // Image failed to load
-                                e.target.style.display = 'none';
-                                if (e.target.nextSibling) {
-                                  e.target.nextSibling.style.display = 'flex';
-                                }
-                              }}
                             />
-                            <div style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '100%',
-                              height: '100%',
-                              fontSize: '0.6rem',
-                              color: '#9ca3af',
-                              flexDirection: 'column'
-                            }}>
-                              <div>📷</div>
-                              <div style={{ fontSize: '0.5rem', marginTop: '2px' }}>No Image</div>
-                            </div>
                           </div>
                         ) : (
                           <div style={{ 

@@ -1,8 +1,10 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAdmin } from '../context/AdminContext';
+import authPersistence from '../utils/authPersistence';
 
 const ProtectedRoute = ({ children }) => {
-  const { isLoggedIn, loading } = useAdmin();
+  const { isLoggedIn, loading, admin } = useAdmin();
+  const location = useLocation();
   
   // Show loading state while checking authentication
   if (loading) {
@@ -23,17 +25,20 @@ const ProtectedRoute = ({ children }) => {
     );
   }
   
-  // Simple authentication check
-  const adminToken = localStorage.getItem('adminToken');
+  // Check authentication
+  const hasToken = authPersistence.hasToken();
   
-  if (!isLoggedIn || !adminToken) {
+  if (!isLoggedIn || !hasToken || !admin) {
     // Clear any conflicting tokens
     localStorage.removeItem('sellerToken');
     localStorage.removeItem('sellerData');
     localStorage.removeItem('buyerToken');
     localStorage.removeItem('buyerData');
     
-    return <Navigate to="/admin/login" replace />;
+    // Store the attempted URL for redirect after login
+    const redirectUrl = location.pathname + location.search;
+    
+    return <Navigate to={`/admin/login?redirect=${encodeURIComponent(redirectUrl)}`} replace />;
   }
 
   return children;

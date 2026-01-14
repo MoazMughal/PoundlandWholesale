@@ -1,93 +1,172 @@
 import { useState, useEffect, useRef } from 'react';
-import productionImageLoader from '../utils/productionImageLoader';
 
 const ProductImage = ({ 
   src, 
   alt, 
+  asin = null, // Add ASIN prop for Cloudinary fallback
   className = '', 
   style = {},
   fallbackSrc = null,
   onError = null,
   onLoad = null,
-  priority = false
+  priority = false,
+  loading = 'lazy' // Add loading prop
 }) => {
   const [currentSrc, setCurrentSrc] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   const imgRef = useRef(null);
-  const maxRetries = 2;
+  const loadAttemptRef = useRef(0);
+  const timeoutRef = useRef(null);
 
-  // Process image URL for production
+  // Enhanced URL processing with multiple fallback strategies
   const processImageUrl = (url) => {
     if (!url) return '';
     
-    // Use production image loader in production
-    if (process.env.NODE_ENV === 'production') {
-      return productionImageLoader.processImageUrl(url);
-    }
-    
-    // Development fallback
+    // If it's already a full URL, return as-is (especially for Cloudinary)
     if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('blob:')) {
       return url;
     }
     
-    // Handle ASIN-based images
+    // Handle ASIN-based images with environment-specific URLs
     if (url.includes('admin-excel/public/images/by-asin/') || url.match(/^[A-Z0-9]{10}$/)) {
       const asin = url.match(/^[A-Z0-9]{10}$/) ? url : url.split('/').pop();
-      const baseUrl = 'http://localhost:5000';
+      
+      // Use environment-specific base URL
+      const baseUrl = import.meta.env.PROD 
+        ? 'https://generic-wholesale-backend.onrender.com' 
+        : 'http://localhost:5000';
+      
       return `${baseUrl}/api/admin-excel/public/images/by-asin/${asin}`;
     }
     
     return url;
   };
 
-  // Generate fallback URLs
-  const generateFallbacks = (originalSrc) => {
-    const fallbacks = [];
+  // Generate multiple fallback URLs for better reliability
+  const generateFallbackUrls = (originalUrl) => {
+    const urls = [];
     
-    // Add the processed original URL
-    const processedUrl = processImageUrl(originalSrc);
-    if (processedUrl) fallbacks.push(processedUrl);
+    // Priority 1: If ASIN is provided, use Cloudinary URL first
+    if (asin && asin.match(/^[A-Z0-9]{10}$/)) {
+      const cloudinaryUrl = `https://res.cloudinary.com/dtuq3tvjx/image/upload/w_300,h_300,c_fill,f_auto,q_auto/products/${asin}`;
+      urls.push(cloudinaryUrl);
+    }
     
-    // Add custom fallback if provided
-    if (fallbackSrc) fallbacks.push(processImageUrl(fallbackSrc));
+    // Priority 2: Add the processed original URL
+    const processedUrl = processImageUrl(originalUrl);
+    if (processedUrl && !urls.includes(processedUrl)) {
+      urls.push(processedUrl);
+    }
     
-    // Add generic product placeholder
-    fallbacks.push('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0xMDAgNTBMMTUwIDEwMEgxMDBWMTUwSDUwVjEwMEgxMDBWNTBaIiBmaWxsPSIjQ0NDIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTcwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LXNpemU9IjEyIj5Qcm9kdWN0PC90ZXh0Pgo8L3N2Zz4=');
+    // Priority 3: If we have a fallback source, add it
+    if (fallbackSrc) {
+      const processedFallback = processImageUrl(fallbackSrc);
+      if (processedFallback && !urls.includes(processedFallback)) {
+        urls.push(processedFallback);
+      }
+    }
     
-    return fallbacks;
+    // Priority 4: Add a high-quality placeholder as final fallback
+    urls.push('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDMwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRkZGRkZGIiBzdHJva2U9IiNFNUU3RUIiIHN0cm9rZS13aWR0aD0iMiIvPgo8Y2lyY2xlIGN4PSIxNTAiIGN5PSIxMjAiIHI9IjQwIiBmaWxsPSIjRDFENURCIi8+CjxwYXRoIGQ9Ik0xMTAgMTgwaDgwdjIwaC04MHoiIGZpbGw9IiNEMUQ1REIiLz4KPHA+dGggZD0iTTEyMCAyMTBoNjB2MTBoLTYweiIgZmlsbD0iI0QxRDVEQiIvPgo8dGV4dCB4PSIxNTAiIHk9IjI2MCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNkI3NjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Qcm9kdWN0PC90ZXh0Pgo8L3N2Zz4=');
+    
+    return urls;
+  };
+
+  // Load image with timeout and retry logic
+  const loadImageWithTimeout = (url, timeout = 10000) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      
+      // Don't set crossOrigin for Cloudinary images as they support CORS properly
+      if (url.startsWith('http') && !url.includes('cloudinary.com') && !url.includes(window.location.hostname)) {
+        img.crossOrigin = 'anonymous';
+      }
+      
+      const timeoutId = setTimeout(() => {
+        img.onload = null;
+        img.onerror = null;
+        reject(new Error(`Timeout loading image: ${url}`));
+      }, timeout);
+      
+      img.onload = () => {
+        clearTimeout(timeoutId);
+        resolve(url);
+      };
+      
+      img.onerror = () => {
+        clearTimeout(timeoutId);
+        reject(new Error(`Failed to load image: ${url}`));
+      };
+      
+      img.src = url;
+    });
+  };
+
+  // Try loading images with fallback chain
+  const tryLoadImage = async (urls) => {
+    for (let i = 0; i < urls.length; i++) {
+      try {
+        const loadedUrl = await loadImageWithTimeout(urls[i], priority ? 5000 : 8000);
+        return loadedUrl;
+      } catch (error) {
+        // If this is not the last URL, continue to next
+        if (i < urls.length - 1) {
+          continue;
+        }
+        
+        // If all URLs failed, throw the last error
+        throw error;
+      }
+    }
   };
 
   useEffect(() => {
-    const fallbacks = generateFallbacks(src);
-    if (fallbacks.length > 0) {
-      setCurrentSrc(fallbacks[0]);
-      
-      // Queue for preloading in production
-      if (process.env.NODE_ENV === 'production' && priority) {
-        productionImageLoader.queueImageLoad(src, true);
-      }
+    if (!src) {
+      setHasError(true);
+      setIsLoading(false);
+      return;
     }
+
+    // Reset state
+    setIsLoading(true);
+    setHasError(false);
+    loadAttemptRef.current = 0;
+
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Generate fallback URLs
+    const fallbackUrls = generateFallbackUrls(src);
+    
+    // Try loading the image
+    tryLoadImage(fallbackUrls)
+      .then((loadedUrl) => {
+        setCurrentSrc(loadedUrl);
+        setIsLoading(false);
+        setHasError(false);
+        if (onLoad) onLoad({ target: { src: loadedUrl } });
+      })
+      .catch((error) => {
+        setHasError(true);
+        setIsLoading(false);
+        if (onError) onError(error);
+      });
+
+    // Cleanup function
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [src, fallbackSrc, priority]);
 
   const handleImageError = (e) => {
+    // This is a backup in case the preloading fails
     setHasError(true);
-    
-    if (retryCount < maxRetries) {
-      const fallbacks = generateFallbacks(src);
-      const nextIndex = retryCount + 1;
-      
-      if (nextIndex < fallbacks.length) {
-        // Try next fallback
-        setTimeout(() => {
-          setRetryCount(nextIndex);
-          setCurrentSrc(fallbacks[nextIndex]);
-          setHasError(false);
-        }, 500); // Small delay before retry
-      }
-    }
-    
+    setIsLoading(false);
     if (onError) onError(e);
   };
 
@@ -99,70 +178,82 @@ const ProductImage = ({
 
   return (
     <div 
-      className={`product-image-wrapper ${className}`}
+      className={`product-image-wrapper ${isLoading ? 'loading' : 'loaded'} ${hasError ? 'error' : ''} ${className}`}
       style={{
         position: 'relative',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#ffffff',
+        overflow: 'hidden',
         ...style
       }}
     >
+      {/* Loading indicator */}
       {isLoading && (
         <div 
-          className="loading-shimmer"
           style={{
             position: 'absolute',
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            fontSize: '24px',
-            color: '#ccc',
-            zIndex: 1
+            width: '20px',
+            height: '20px',
+            border: '2px solid #f3f3f3',
+            borderTop: '2px solid #ff6600',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            zIndex: 2
           }}
-        >
-          ⏳
-        </div>
+        />
       )}
-      
-      <img 
-        ref={imgRef}
-        src={currentSrc}
-        alt={alt || 'Product Image'} 
-        loading={priority ? 'eager' : 'lazy'}
-        decoding="async"
-        onError={handleImageError}
-        onLoad={handleImageLoad}
-        className={isLoading ? '' : 'loaded'}
-        style={{
-          maxWidth: '100%',
-          maxHeight: '100%',
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain',
-          transition: 'opacity 0.3s ease',
-          opacity: isLoading ? 0 : 1,
-          display: hasError && retryCount >= maxRetries ? 'none' : 'block',
-          padding: '0px',
-          margin: '0px'
-        }} 
-      />
-      
-      {hasError && retryCount >= maxRetries && (
+
+      {!hasError ? (
+        <img 
+          ref={imgRef}
+          src={currentSrc}
+          alt={alt || 'Product Image'} 
+          loading={loading || (priority ? 'eager' : 'lazy')}
+          decoding="async"
+          onError={handleImageError}
+          onLoad={handleImageLoad}
+          style={{
+            maxWidth: '100%',
+            maxHeight: '100%',
+            width: 'auto',
+            height: 'auto',
+            objectFit: 'contain',
+            objectPosition: 'center',
+            display: 'block',
+            padding: '0px',
+            margin: '0px',
+            border: 'none',
+            outline: 'none',
+            opacity: isLoading ? 0 : 1,
+            transition: 'opacity 0.3s ease',
+            zIndex: 1
+          }} 
+        />
+      ) : (
         <div 
-          className="image-error"
           style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#999',
+            width: '100%',
+            height: '100%',
+            backgroundColor: '#f8f9fa',
+            color: '#6c757d',
             fontSize: '12px',
             textAlign: 'center',
-            padding: '20px'
+            padding: '20px',
+            zIndex: 1
           }}
         >
-          <div style={{ fontSize: '24px', marginBottom: '8px' }}>📷</div>
+          <div style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.5 }}>📷</div>
           <div>Image not available</div>
         </div>
       )}

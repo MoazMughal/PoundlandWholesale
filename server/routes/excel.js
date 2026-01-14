@@ -345,26 +345,15 @@ router.get('/asin/:asin', authenticateAdmin, async (req, res) => {
         if (productImages.length === 0) {
           console.log('📷 Trying direct Amazon image URLs...');
           const directAmazonUrls = [
-            `https://images-na.ssl-images-amazon.com/images/I/${asin}._AC_SL1500_.jpg`,
-            `https://m.media-amazon.com/images/I/${asin}._AC_SL1500_.jpg`,
             `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX500_.jpg`,
+            `https://m.media-amazon.com/images/I/${asin}._AC_SL1500_.jpg`,
+            `https://images-na.ssl-images-amazon.com/images/I/${asin}._AC_SL1500_.jpg`,
             `https://images.amazon.com/images/P/${asin}.01.L.jpg`
           ];
           
-          // Test each URL to see if it works
-          for (const url of directAmazonUrls) {
-            try {
-              const response = await axios.head(url, { timeout: 3000 });
-              if (response.status === 200) {
-                productImages.push(url);
-                console.log('📷 Found working Amazon image URL:', url);
-                break; // Use the first working URL
-              }
-            } catch (error) {
-              // URL doesn't work, try next one
-              continue;
-            }
-          }
+          // Add all potential URLs - let the frontend handle validation
+          productImages.push(...directAmazonUrls);
+          console.log('📷 Added potential Amazon image URLs:', directAmazonUrls);
         }
         
         console.log('📷 Final images array:', productImages);

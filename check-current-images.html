@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Current Image Status</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .status-card { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin: 20px 0; }
+        .product-card { border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: white; }
+        .product-image { width: 100%; height: 150px; object-fit: cover; border-radius: 4px; margin-bottom: 10px; }
+        .image-status { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .cloudinary { background: #28a745; color: white; }
+        .local { background: #ffc107; color: black; }
+        .missing { background: #dc3545; color: white; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .loading { text-align: center; padding: 40px; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Current Image Status Checker</h1>
+    
+    <div class="status-card">
+        <h2>📊 System Status</h2>
+        <div id="system-status">
+            <div class="loading">Loading system status...</div>
+        </div>
+    </div>
+
+    <div class="status-card">
+        <h2>📦 Sample Products (First 12)</h2>
+        <button onclick="loadSampleProducts()">🔄 Load Sample Products</button>
+        <div id="sample-products">
+            <div class="loading">Click button to load sample products...</div>
+        </div>
+    </div>
+
+    <div class="status-card">
+        <h2>🧪 Test Actions</h2>
+        <button onclick="testCloudinaryConfig()">Test Cloudinary Config</button>
+        <button onclick="checkImageEndpoint()">Check Image Endpoint</button>
+        <button onclick="testSampleMigration()">Test Sample Migration</button>
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://generic-wholesale-backend.onrender.com/api';
+        
+        // Load system status on page load
+        window.onload = function() {
+            loadSystemStatus();
+        };
+
+        async function loadSystemStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/image-test/cloudinary-status`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('system-status').innerHTML = `
+                        <div class="success">
+                            <h3>✅ System Status Retrieved</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                                <div>
+                                    <h4>📦 Products</h4>
+                                    <div>Total: ${data.stats.totalProducts}</div>
+                                    <div>With Images: ${data.stats.productsWithImages}</div>
+                                    <div class="cloudinary">Cloudinary: ${data.stats.cloudinaryImages}</div>
+                                    <div class="local">Local/Server: ${data.stats.localImages}</div>
+                                </div>
+                                <div>
+                                    <h4>📋 Excel Products</h4>
+                                    <div>Total: ${data.stats.excelProducts}</div>
+                                    <div>With Images: ${data.stats.excelWithImages}</div>
+                                    <div class="cloudinary">Cloudinary: ${data.stats.excelCloudinaryImages}</div>
+                                </div>
+                                <div>
+                                    <h4>🎯 Status</h4>
+                                    <div class="${data.recommendations.migrationReady ? 'cloudinary' : 'missing'}">
+                                        ${data.recommendations.migrationReady ? '✅' : '❌'} Migration Ready
+                                    </div>
+                                    <div class="${data.recommendations.needsMigration ? 'warning' : 'cloudinary'}">
+                                        ${data.recommendations.needsMigration ? '⚠️ Needs Migration' : '✅ No Migration Needed'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('system-status').innerHTML = `
+                        <div class="error">
+                            <h3>❌ Failed to Load Status</h3>
+                            <p>${data.message}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('system-status').innerHTML = `
+                    <div class="error">
+                        <h3>❌ Connection Error</h3>
+                        <p>Could not connect to server: ${error.message}</p>
+                        <p>Make sure your server is running.</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadSampleProducts() {
+            document.getElementById('sample-products').innerHTML = '<div class="loading">Loading sample products...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/image-test/sample-products`);
+                const data = await response.json();
+                
+                if (data.success && data.data.regularProducts.length > 0) {
+                    const products = data.data.regularProducts;
+                    
+                    let html = `<h3>Found ${products.length} Sample Products</h3><div class="product-grid">`;
+                    
+                    products.forEach(product => {
+                        const imageUrl = product.images?.[0] || product.image || '';
+                        const isCloudinary = imageUrl.includes('cloudinary.com');
+                        const isLocal = imageUrl.includes('localhost') || imageUrl.includes('generic-wholesale-backend.onrender.com');
+                        const isEmpty = !imageUrl;
+                        
+                        let statusClass = 'missing';
+                        let statusText = 'No Image';
+                        
+                        if (isCloudinary) {
+                            statusClass = 'cloudinary';
+                            statusText = 'Cloudinary ✅';
+                        } else if (isLocal) {
+                            statusClass = 'local';
+                            statusText = 'Server/Local ⚠️';
+                        }
+                        
+                        html += `
+                            <div class="product-card">
+                                <img src="${imageUrl || 'https://via.placeholder.com/200x150?text=No+Image'}" 
+                                     alt="${product.name}" 
+                                     class="product-image"
+                                     onerror="this.src='https://via.placeholder.com/200x150?text=Failed+to+Load'">
+                                <h4 style="font-size: 14px; margin: 0 0 5px 0;">${product.name}</h4>
+                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">
+                                    ASIN: ${product.asin || 'N/A'} | £${product.price}
+                                </div>
+                                <div class="image-status ${statusClass}">${statusText}</div>
+                                <div style="font-size: 10px; color: #888; margin-top: 5px; word-break: break-all;">
+                                    ${imageUrl ? imageUrl.substring(0, 50) + '...' : 'No URL'}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                    document.getElementById('sample-products').innerHTML = html;
+                } else {
+                    document.getElementById('sample-products').innerHTML = `
+                        <div class="warning">
+                            <h3>⚠️ No Products Found</h3>
+                            <p>No sample products available. This might mean:</p>
+                            <ul>
+                                <li>Database is empty</li>
+                                <li>Server connection issue</li>
+                                <li>Products don't have active status</li>
+                            </ul>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('sample-products').innerHTML = `
+                    <div class="error">
+                        <h3>❌ Error Loading Products</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testCloudinaryConfig() {
+            const adminToken = prompt('Enter your admin token to test Cloudinary config:');
+            if (!adminToken) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/cloudinary-test/config`, {
+                    headers: { 'Authorization': `Bearer ${adminToken}` }
+                });
+                const data = await response.json();
+                
+                document.getElementById('test-results').innerHTML = `
+                    <h3>🔧 Cloudinary Config Test</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('test-results').innerHTML = `
+                    <div class="error">
+                        <h3>❌ Config Test Failed</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function checkImageEndpoint() {
+            try {
+                const response = await fetch(`${API_BASE}/products/public?limit=3&imageWidth=300&imageHeight=300`);
+                const data = await response.json();
+                
+                document.getElementById('test-results').innerHTML = `
+                    <h3>🔗 Image Endpoint Test</h3>
+                    <p>Products returned: ${data.products?.length || 0}</p>
+                    <pre>${JSON.stringify(data.products?.[0] || {}, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('test-results').innerHTML = `
+                    <div class="error">
+                        <h3>❌ Endpoint Test Failed</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testSampleMigration() {
+            const adminToken = prompt('Enter your admin token to test sample migration:');
+            if (!adminToken) return;
+            
+            // First get some product IDs
+            try {
+                const productsResponse = await fetch(`${API_BASE}/image-test/sample-products`);
+                const productsData = await productsResponse.json();
+                
+                if (productsData.success && productsData.data.regularProducts.length > 0) {
+                    const productIds = productsData.data.regularProducts.slice(0, 3).map(p => p._id);
+                    
+                    const response = await fetch(`${API_BASE}/image-test/migrate-sample`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${adminToken}`
+                        },
+                        body: JSON.stringify({ productIds })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    document.getElementById('test-results').innerHTML = `
+                        <h3>🔄 Sample Migration Test</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    document.getElementById('test-results').innerHTML = `
+                        <div class="warning">
+                            <h3>⚠️ No Products to Migrate</h3>
+                            <p>No products found for migration test.</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('test-results').innerHTML = `
+                    <div class="error">
+                        <h3>❌ Migration Test Failed</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
