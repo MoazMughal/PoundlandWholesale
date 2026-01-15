@@ -405,6 +405,58 @@ router.get('/public/categories', async (req, res) => {
   }
 });
 
+// Get Amazon's Choice product counts by category (admin only)
+router.get('/admin/amazons-choice-counts', authenticateAdmin, async (req, res) => {
+  try {
+    // Get counts for Amazon's Choice products by category
+    const amazonsChoiceCounts = await Product.aggregate([
+      {
+        $match: {
+          isAmazonsChoice: true,
+          approvalStatus: 'approved',
+          status: 'active',
+          category: { $exists: true, $ne: null, $ne: '' }
+        }
+      },
+      {
+        $group: {
+          _id: '$category',
+          count: { $sum: 1 }
+        }
+      }
+    ]).exec();
+
+    // Convert to object map
+    const counts = {};
+    amazonsChoiceCounts.forEach(item => {
+      counts[item._id] = item.count;
+    });
+
+    // Get total Amazon's Choice count
+    const totalAmazonsChoice = await Product.countDocuments({
+      isAmazonsChoice: true,
+      approvalStatus: 'approved',
+      status: 'active'
+    });
+
+    counts['All'] = totalAmazonsChoice;
+
+    res.json({
+      success: true,
+      counts: counts,
+      total: totalAmazonsChoice
+    });
+
+  } catch (error) {
+    console.error('Error fetching Amazon\'s Choice counts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch Amazon\'s Choice counts',
+      error: error.message
+    });
+  }
+});
+
 // Create new category (admin only)
 router.post('/public/categories', authenticateAdmin, async (req, res) => {
   try {
@@ -6018,6 +6070,236 @@ router.get('/public/debug/category/:categoryValue', async (req, res) => {
       debug: true,
       error: error.message,
       searchedFor: req.params.categoryValue
+    });
+  }
+});
+
+// Delete all Party-Accessories products and related categories (admin only)
+router.delete('/admin/delete-party-accessories', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🗑️ Deleting all Party-Accessories products...');
+    
+    const partyVariations = [
+      'Party accessories',
+      'party accessories',
+      'Party-accessories',
+      'party-accessories',
+      'Party Accessories',
+      'PARTY ACCESSORIES',
+      'Party accessory',
+      'party accessory',
+      'Party-accessory',
+      'party-accessory',
+      'Partyaccessories',
+      'partyaccessories',
+      'Party',
+      'party'
+    ];
+    
+    // Delete from main Product collection
+    const mainProductsResult = await Product.deleteMany({
+      $or: [
+        { category: { $in: partyVariations } },
+        { category: { $regex: /party/i } }
+      ]
+    });
+    
+    console.log(`✅ Deleted ${mainProductsResult.deletedCount} products from Product collection`);
+    
+    // Delete from ExcelProduct collection
+    let excelProductsResult = { deletedCount: 0 };
+    try {
+      const ExcelProduct = require('../models/ExcelProduct');
+      excelProductsResult = await ExcelProduct.deleteMany({
+        $or: [
+          { category: { $in: partyVariations } },
+          { category: { $regex: /party/i } }
+        ]
+      });
+      console.log(`✅ Deleted ${excelProductsResult.deletedCount} products from ExcelProduct collection`);
+    } catch (excelError) {
+      console.log('ℹ️ No Excel products to delete or Excel model not available');
+    }
+    
+    // Clear cache
+    productCache.clear();
+    
+    res.json({
+      success: true,
+      message: 'Successfully deleted all Party-Accessories products',
+      deletedFromProducts: mainProductsResult.deletedCount,
+      deletedFromExcelProducts: excelProductsResult.deletedCount,
+      totalDeleted: mainProductsResult.deletedCount + excelProductsResult.deletedCount,
+      note: 'You can now create new Party-Accessories products from approval page'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error deleting Party-Accessories products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete Party-Accessories products',
+      error: error.message
+    });
+  }
+});
+
+// Debug endpoint for Party-Accessories products (admin only)
+router.get('/admin/debug/party-accessories', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🎉 Debugging Party-Accessories products...');
+    
+    // Find all products with Party-related categories
+    const partyVariations = [
+      'Party accessories',
+      'party accessories',
+      'Party-accessories',
+      'party-accessories',
+      'Party Accessories',
+      'PARTY ACCESSORIES',
+      'Party accessory',
+      'party accessory',
+      'Party-accessory',
+      'party-accessory',
+      'Partyaccessories',
+      'partyaccessories',
+      'Party',
+      'party'
+    ];
+    
+    // Get all products with any Party-related category
+    const allPartyProducts = await Product.find({
+      category: { $in: partyVariations }
+    }).select('name category approvalStatus status isAmazonsChoice images asin createdAt');
+    
+    // Get products with regex match (case-insensitive)
+    const regexPartyProducts = await Product.find({
+      category: { $regex: /party/i }
+    }).select('name category approvalStatus status isAmazonsChoice images asin createdAt');
+    
+    // Combine and deduplicate
+    const allProductsMap = new Map();
+    [...allPartyProducts, ...regexPartyProducts].forEach(p => {
+      allProductsMap.set(p._id.toString(), p);
+    });
+    const allProducts = Array.from(allProductsMap.values());
+    
+    // Group by category name
+    const categoryGroups = {};
+    allProducts.forEach(product => {
+      const cat = product.category || 'No Category';
+      if (!categoryGroups[cat]) {
+        categoryGroups[cat] = [];
+      }
+      categoryGroups[cat].push(product);
+    });
+    
+    // Count by status
+    const statusCounts = {
+      total: allProducts.length,
+      approved: allProducts.filter(p => p.approvalStatus === 'approved').length,
+      pending: allProducts.filter(p => p.approvalStatus === 'pending').length,
+      disapproved: allProducts.filter(p => p.approvalStatus === 'disapproved').length,
+      noApprovalStatus: allProducts.filter(p => !p.approvalStatus).length,
+      isAmazonsChoice: allProducts.filter(p => p.isAmazonsChoice === true).length,
+      hasImages: allProducts.filter(p => p.images && p.images.length > 0).length,
+      hasAsin: allProducts.filter(p => p.asin && p.asin.trim()).length,
+      liveOnAmazonsChoice: allProducts.filter(p => 
+        p.approvalStatus === 'approved' && 
+        p.isAmazonsChoice === true && 
+        p.images && p.images.length > 0 &&
+        p.asin && p.asin.trim()
+      ).length
+    };
+    
+    // Get approved products that should be on Amazon's Choice
+    const approvedProducts = allProducts.filter(p => p.approvalStatus === 'approved');
+    
+    // Get products that are live on Amazon's Choice
+    const liveProducts = allProducts.filter(p => 
+      p.approvalStatus === 'approved' && 
+      p.isAmazonsChoice === true &&
+      p.images && p.images.length > 0 &&
+      p.asin && p.asin.trim()
+    );
+    
+    // Get products that are approved but NOT showing on Amazon's Choice
+    const approvedButNotLive = approvedProducts.filter(p => 
+      !p.isAmazonsChoice || 
+      !p.images || p.images.length === 0 ||
+      !p.asin || !p.asin.trim()
+    );
+    
+    res.json({
+      success: true,
+      summary: {
+        totalPartyProducts: allProducts.length,
+        uniqueCategoryNames: Object.keys(categoryGroups).length,
+        categoryNames: Object.keys(categoryGroups).sort(),
+        statusCounts: statusCounts
+      },
+      categoryBreakdown: Object.keys(categoryGroups).sort().map(catName => ({
+        categoryName: catName,
+        productCount: categoryGroups[catName].length,
+        approved: categoryGroups[catName].filter(p => p.approvalStatus === 'approved').length,
+        pending: categoryGroups[catName].filter(p => p.approvalStatus === 'pending').length,
+        liveOnAmazonsChoice: categoryGroups[catName].filter(p => 
+          p.approvalStatus === 'approved' && 
+          p.isAmazonsChoice === true &&
+          p.images && p.images.length > 0 &&
+          p.asin && p.asin.trim()
+        ).length
+      })),
+      approvedProducts: approvedProducts.map(p => ({
+        id: p._id,
+        name: p.name,
+        category: p.category,
+        approvalStatus: p.approvalStatus,
+        isAmazonsChoice: p.isAmazonsChoice,
+        hasImages: p.images && p.images.length > 0,
+        imageCount: p.images ? p.images.length : 0,
+        hasAsin: p.asin && p.asin.trim() ? true : false,
+        asin: p.asin,
+        status: p.status,
+        createdAt: p.createdAt
+      })),
+      liveProducts: liveProducts.map(p => ({
+        id: p._id,
+        name: p.name,
+        category: p.category,
+        asin: p.asin,
+        imageCount: p.images.length
+      })),
+      approvedButNotLive: approvedButNotLive.map(p => ({
+        id: p._id,
+        name: p.name,
+        category: p.category,
+        approvalStatus: p.approvalStatus,
+        isAmazonsChoice: p.isAmazonsChoice,
+        hasImages: p.images && p.images.length > 0,
+        hasAsin: p.asin && p.asin.trim() ? true : false,
+        reason: !p.isAmazonsChoice ? 'Missing isAmazonsChoice flag' :
+                (!p.images || p.images.length === 0) ? 'No images' :
+                (!p.asin || !p.asin.trim()) ? 'No ASIN' : 'Unknown'
+      })),
+      recommendations: [
+        statusCounts.total > 0 && Object.keys(categoryGroups).length > 1 
+          ? `⚠️ Found ${Object.keys(categoryGroups).length} different category names. Run consolidation endpoint.`
+          : '✅ Category names are consistent.',
+        approvedButNotLive.length > 0
+          ? `⚠️ ${approvedButNotLive.length} approved products not showing on Amazon's Choice. Check missing fields.`
+          : '✅ All approved products are live on Amazon\'s Choice.',
+        statusCounts.pending > 0
+          ? `ℹ️ ${statusCounts.pending} products pending approval.`
+          : '✅ No products pending approval.'
+      ]
+    });
+    
+  } catch (error) {
+    console.error('❌ Error debugging Party-Accessories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to debug Party-Accessories products',
+      error: error.message
     });
   }
 });

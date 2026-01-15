@@ -648,15 +648,6 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
     const { uploadId } = req.params;
     const { page = 1, limit = 50, search, category, status } = req.query;
     
-    console.log('🔍 Excel products query:', {
-      uploadId,
-      page,
-      limit,
-      search,
-      category,
-      status
-    });
-    
     // Validate and cap the limit to prevent performance issues
     const validatedLimit = Math.min(parseInt(limit) || 50, 200);
     
@@ -690,8 +681,6 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
         query.status = status;
       }
     }
-
-    console.log('🔍 Final MongoDB query:', JSON.stringify(query, null, 2));
 
     const products = await ExcelProduct.find(query)
       .sort({ rowNumber: 1 }) // Sort by Excel row order
@@ -803,13 +792,6 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
       return product;
     }));
 
-    console.log('📊 Excel products result:', {
-      found: productsWithSyncedStatus.length,
-      total,
-      page: parseInt(page),
-      totalPages: Math.ceil(total / validatedLimit)
-    });
-
     // Apply frontend filtering for blocked status
     let finalProducts = productsWithSyncedStatus;
     if (status === 'blocked') {
@@ -847,8 +829,6 @@ router.get('/uploads/:uploadId/products', authenticateAdmin, async (req, res) =>
 router.post('/uploads/:uploadId/sync-status', authenticateAdmin, async (req, res) => {
   try {
     const { uploadId } = req.params;
-    
-    console.log('🔄 Syncing Excel product statuses for upload:', uploadId);
     
     // Get all Excel products for this upload that are converted
     const convertedProducts = await ExcelProduct.find({
@@ -2388,9 +2368,12 @@ router.get('/images/by-asin/:asin', authenticateAdmin, async (req, res) => {
       return res.status(404).json({ message: 'Image file not found on disk' });
     }
 
-    console.log('✅ Serving image for ASIN:', asin, 'from:', image.filePath);
-    
-    // Set proper headers for image serving
+    return res.json({
+      success: true,
+      asin: asin,
+      imageUrl: image.filePath,
+      source: 'database'
+    });
     const ext = path.extname(image.filePath).toLowerCase();
     const mimeTypes = {
       '.jpg': 'image/jpeg',
@@ -2443,7 +2426,6 @@ router.get('/public/images/by-asin/:asin', async (req, res) => {
     // This assumes images are uploaded to Cloudinary with ASIN as the filename in the 'products' folder
     if (isCloudinaryConfigured()) {
       const cloudinaryUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/v1/products/${asin}`;
-      console.log(`✅ Constructed Cloudinary URL for ASIN ${asin}: ${cloudinaryUrl}`);
       
       // Return JSON with Cloudinary URL
       return res.json({
@@ -2461,7 +2443,6 @@ router.get('/public/images/by-asin/:asin', async (req, res) => {
       // Check if first image is a Cloudinary URL
       const firstImage = product.images[0];
       if (firstImage && (firstImage.includes('cloudinary.com') || firstImage.includes('res.cloudinary.com'))) {
-        console.log(`✅ Found Cloudinary URL in Product for ASIN ${asin}: ${firstImage}`);
         // Return JSON with Cloudinary URL so frontend can load it directly
         return res.json({
           success: true,
@@ -3701,134 +3682,6 @@ router.post('/single-convert-to-approval', authenticateAdmin, async (req, res) =
     res.status(500).json({
       success: false,
       message: 'Failed to convert product to approval',
-      error: error.message
-    });
-  }
-});
-
-// POST /api/admin-excel/fix-party-accessories-category - Fix category spelling and ensure visibility
-router.post('/fix-party-accessories-category', authenticateAdmin, async (req, res) => {
-  try {
-    console.log('🔧 Starting Party accessories category fix...');
-    
-    // Find products with similar category names to "Party accessories"
-    const categoryVariations = [
-      'Party accessories',
-      'Party-accessories', 
-      'party accessories',
-      'party-accessories',
-      'Party Accessories',
-      'PARTY ACCESSORIES',
-      'Party accessory',
-      'party accessory'
-    ];
-    
-    // Find all products (both main and Excel) with these category variations
-    const mainProducts = await Product.find({
-      category: { $in: categoryVariations }
-    });
-    
-    const excelProducts = await ExcelProduct.find({
-      category: { $in: categoryVariations },
-      isListed: true // Only process products that show "listed" badge
-    });
-    
-    console.log(`📊 Found ${mainProducts.length} main products and ${excelProducts.length} listed Excel products`);
-    
-    let updatedMainProducts = 0;
-    let updatedExcelProducts = 0;
-    let madeVisible = 0;
-    
-    // Fix main products
-    for (const product of mainProducts) {
-      const updates = {
-        category: 'Party-accessories'
-      };
-      
-      // Ensure product is visible in admin/products and Amazon's Choice
-      if (product.approvalStatus !== 'approved') {
-        updates.approvalStatus = 'approved';
-        updates.approvedAt = new Date();
-        madeVisible++;
-      }
-      
-      if (product.status !== 'active') {
-        updates.status = 'active';
-        if (!updates.approvalStatus) {
-          madeVisible++;
-        }
-      }
-      
-      await Product.updateOne({ _id: product._id }, { $set: updates });
-      updatedMainProducts++;
-      
-      console.log(`✅ Updated main product: ${product.name} → Party-accessories`);
-    }
-    
-    // Fix Excel products
-    for (const excelProduct of excelProducts) {
-      await ExcelProduct.updateOne(
-        { _id: excelProduct._id },
-        { 
-          $set: { 
-            category: 'Party-accessories',
-            status: 'listed' // Ensure it keeps the listed status
-          } 
-        }
-      );
-      updatedExcelProducts++;
-      
-      console.log(`✅ Updated Excel product: ${excelProduct.name} → Party-accessories`);
-      
-      // If this Excel product has a main product, update that too
-      if (excelProduct.mainProductId) {
-        const mainProduct = await Product.findById(excelProduct.mainProductId);
-        if (mainProduct) {
-          const mainUpdates = {
-            category: 'Party-accessories'
-          };
-          
-          // Ensure main product is visible
-          if (mainProduct.approvalStatus !== 'approved') {
-            mainUpdates.approvalStatus = 'approved';
-            mainUpdates.approvedAt = new Date();
-            madeVisible++;
-          }
-          
-          if (mainProduct.status !== 'active') {
-            mainUpdates.status = 'active';
-            if (!mainUpdates.approvalStatus) {
-              madeVisible++;
-            }
-          }
-          
-          await Product.updateOne({ _id: mainProduct._id }, { $set: mainUpdates });
-          console.log(`✅ Updated linked main product: ${mainProduct.name}`);
-        }
-      }
-    }
-    
-    // Clear cache to refresh product listings
-    console.log('🔄 Cache cleared - product listings will refresh');
-    
-    const result = {
-      success: true,
-      message: `Successfully fixed Party accessories category`,
-      updatedMainProducts,
-      updatedExcelProducts,
-      madeVisible,
-      totalUpdated: updatedMainProducts + updatedExcelProducts
-    };
-    
-    console.log('🎉 Category fix completed:', result);
-    
-    res.json(result);
-    
-  } catch (error) {
-    console.error('❌ Error fixing Party accessories category:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fix Party accessories category',
       error: error.message
     });
   }

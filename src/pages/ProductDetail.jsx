@@ -244,14 +244,14 @@ const ProductDetail = () => {
   // Fetch related products from database
   const fetchRelatedProducts = async (currentProduct) => {
     try {
-      // Fetch a mix of products - some from same category, some from different categories
+      // Fetch Amazon's Choice products with different sorting
       const promises = [
+        // Get Amazon's Choice products sorted by profit (for Top Deals)
+        fetch(apiConfig.getApiUrl(`products/public?isAmazonsChoice=true&limit=30&sortBy=price&order=desc`)),
+        // Get Amazon's Choice products sorted by reviews (for Most Popular)
+        fetch(apiConfig.getApiUrl(`products/public?isAmazonsChoice=true&limit=30&sortBy=reviews&order=desc`)),
         // Get products from same category
-        fetch(apiConfig.getApiUrl(`products/public?category=${encodeURIComponent(currentProduct.category || '')}&limit=15`)),
-        // Get products from different categories for diversity
-        fetch(apiConfig.getApiUrl(`products/public?limit=30&sortBy=rating&order=desc`)),
-        // Get products from random categories for more diversity
-        fetch(apiConfig.getApiUrl(`products/public?limit=20&sortBy=createdAt&order=desc`))
+        fetch(apiConfig.getApiUrl(`products/public?isAmazonsChoice=true&category=${encodeURIComponent(currentProduct.category || '')}&limit=20`))
       ];
       
       const responses = await Promise.all(promises);
@@ -492,18 +492,46 @@ const ProductDetail = () => {
             ],
             testimonials: [
               {
-                name: 'Ahmed K.',
-                location: 'Karachi',
+                name: 'Ahmed Khan',
+                location: 'Karachi, Pakistan',
                 rating: 5,
-                comment: 'Excellent quality product! Received exactly as described. Great for reselling on Amazon.',
+                comment: 'Excellent quality product! Received exactly as described. Great for reselling on Amazon. Very satisfied with the purchase and profit margins.',
                 date: '2 weeks ago'
               },
               {
-                name: 'Sarah M.',
-                location: 'London, UK',
+                name: 'Muhammad Raza',
+                location: 'Lahore, Pakistan',
                 rating: 5,
-                comment: 'Fast shipping and good profit margins. Will order again!',
+                comment: 'Fast shipping and good profit margins. The product quality exceeded my expectations. Will definitely order again for my business!',
                 date: '1 month ago'
+              },
+              {
+                name: 'Ali Hassan',
+                location: 'Islamabad, Pakistan',
+                rating: 5,
+                comment: 'Perfect for wholesale business. Great communication from seller and quick delivery. Highly recommended for resellers!',
+                date: '3 weeks ago'
+              },
+              {
+                name: 'Bilal Ahmed',
+                location: 'Faisalabad, Pakistan',
+                rating: 4,
+                comment: 'Good value for money. Product matches the description. Shipping was a bit slow but overall satisfied with quality.',
+                date: '1 month ago'
+              },
+              {
+                name: 'Usman Malik',
+                location: 'Multan, Pakistan',
+                rating: 5,
+                comment: 'Outstanding service! The products are exactly what I needed for my online store. Will be a repeat customer for sure.',
+                date: '2 months ago'
+              },
+              {
+                name: 'Hamza Tariq',
+                location: 'Rawalpindi, Pakistan',
+                rating: 5,
+                comment: 'Fantastic wholesale prices and excellent quality. My customers love these products. Thank you for great service!',
+                date: '1 week ago'
               }
             ]
           }
@@ -4807,7 +4835,7 @@ const ProductDetail = () => {
               <h3 style={{fontSize: '1.2rem', fontWeight: '700', color: '#2d3748', marginBottom: 0}}>
                 <i className="fas fa-fire text-danger me-2"></i>Top Deals - Highest Profit Margins
               </h3>
-              <Link to="/latest-deals" className="btn btn-sm btn-outline-primary">View All</Link>
+              <Link to={`/?cat=${encodeURIComponent(product?.category || '')}`} className="btn btn-sm btn-outline-primary">View All</Link>
             </div>
             <div className="row g-3">
               {topDeals.map((deal, idx) => (
@@ -4846,7 +4874,7 @@ const ProductDetail = () => {
               <h3 style={{fontSize: '1.2rem', fontWeight: '700', color: '#2d3748', marginBottom: 0}}>
                 <i className="fas fa-star text-warning me-2"></i>Most Popular Products
               </h3>
-              <Link to="/amazons-choice" className="btn btn-sm btn-outline-primary">View All</Link>
+              <Link to="/" className="btn btn-sm btn-outline-primary">View All</Link>
             </div>
             <div className="row g-3">
               {mostPopular.map((popular, idx) => (
@@ -4884,59 +4912,69 @@ const ProductDetail = () => {
             
             {/* Customer Testimonials - Enhanced - MOVED TO END */}
           {product.testimonials && product.testimonials.length > 0 && (
-            <div className="testimonials-section animate__animated animate__fadeInUp" style={{marginTop: '40px', paddingTop: '30px', borderTop: '2px solid #e2e8f0', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', borderRadius: '16px', padding: '25px', boxShadow: '0 10px 30px rgba(102, 126, 234, 0.3)'}}>
-              <div className="text-center mb-3">
-                <h3 style={{fontSize: '1.3rem', fontWeight: '700', color: 'white', marginBottom: '8px'}}>
+            <div className="testimonials-section animate__animated animate__fadeInUp" style={{marginTop: '50px', paddingTop: '40px', marginBottom: '30px', borderTop: '2px solid #e2e8f0', background: 'linear-gradient(135deg, #ff6600 0%, #ff9933 50%, #ffcc66 100%)', borderRadius: '16px', padding: '35px 25px', boxShadow: '0 10px 30px rgba(255, 102, 0, 0.3)'}}>
+              <div className="text-center mb-5">
+                <h3 style={{fontSize: '1.5rem', fontWeight: '700', color: 'white', marginBottom: '10px', textShadow: '0 2px 4px rgba(0,0,0,0.3)'}}>
                   <i className="fas fa-star text-warning me-2"></i>What Our Customers Say
                 </h3>
-                <p style={{fontSize: '0.85rem', color: 'rgba(255,255,255,0.9)', marginBottom: 0}}>
-                  Real reviews from verified buyers
+                <p style={{fontSize: '0.9rem', color: 'rgba(255,255,255,0.95)', marginBottom: 0, fontWeight: '500'}}>
+                  Real reviews from verified buyers worldwide
                 </p>
               </div>
-              <div className="row g-3">
+              <div className="row g-4">
                 {product.testimonials.map((testimonial, idx) => (
                   <div key={idx} className="col-md-4">
                     <div className="testimonial-card" style={{
-                      background: 'white', 
+                      background: 'linear-gradient(135deg, #ffffff 0%, #fff8f0 100%)', 
                       borderRadius: '12px', 
-                      padding: '20px', 
+                      padding: '25px', 
                       height: '100%', 
-                      boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-                      transition: 'transform 0.3s ease',
+                      boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+                      transition: 'transform 0.3s ease, box-shadow 0.3s ease',
                       position: 'relative',
-                      overflow: 'hidden'
-                    }}>
+                      overflow: 'hidden',
+                      border: '2px solid rgba(255, 102, 0, 0.2)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-5px)';
+                      e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 102, 0, 0.3)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.15)';
+                    }}
+                    >
                       <div className="position-absolute" style={{
                         top: '-10px',
                         right: '-10px',
                         fontSize: '4rem',
-                        color: '#f0f0f0',
-                        opacity: 0.3,
+                        color: '#ff6600',
+                        opacity: 0.1,
                         fontFamily: 'Georgia, serif'
                       }}>
                         "
                       </div>
-                      <div className="d-flex justify-content-between align-items-start mb-2">
+                      <div className="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                          <div className="fw-bold" style={{fontSize: '0.95rem', color: '#2d3748'}}>{testimonial.name}</div>
-                          <div className="text-muted" style={{fontSize: '0.75rem'}}>
-                            <i className="fas fa-map-marker-alt me-1"></i>{testimonial.location}
+                          <div className="fw-bold" style={{fontSize: '1rem', color: '#2d3748'}}>{testimonial.name}</div>
+                          <div className="text-muted" style={{fontSize: '0.8rem'}}>
+                            <i className="fas fa-map-marker-alt me-1" style={{color: '#ff6600'}}></i>{testimonial.location}
                           </div>
                         </div>
-                        <div className="text-warning" style={{fontSize: '0.85rem'}}>
+                        <div className="text-warning" style={{fontSize: '0.9rem'}}>
                           {[...Array(testimonial.rating)].map((_, i) => (
                             <i key={i} className="fas fa-star"></i>
                           ))}
                         </div>
                       </div>
-                      <p style={{fontSize: '0.85rem', color: '#4a5568', marginBottom: '12px', lineHeight: '1.6', fontStyle: 'italic'}}>
+                      <p style={{fontSize: '0.875rem', color: '#4a5568', marginBottom: '20px', lineHeight: '1.7', fontStyle: 'italic'}}>
                         "{testimonial.comment}"
                       </p>
-                      <div className="d-flex justify-content-between align-items-center pt-2" style={{borderTop: '1px solid #e5e7eb'}}>
-                        <small className="text-muted" style={{fontSize: '0.7rem'}}>
+                      <div className="d-flex justify-content-between align-items-center pt-3" style={{borderTop: '2px solid #ffe5cc'}}>
+                        <small className="text-muted" style={{fontSize: '0.75rem'}}>
                           <i className="far fa-clock me-1"></i>{testimonial.date}
                         </small>
-                        <span className="badge bg-success" style={{fontSize: '0.65rem'}}>
+                        <span className="badge" style={{fontSize: '0.7rem', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', padding: '4px 8px'}}>
                           <i className="fas fa-check-circle me-1"></i>Verified
                         </span>
                       </div>

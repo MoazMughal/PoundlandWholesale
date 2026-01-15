@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 const Footer = () => {
   return (
     <footer className="footer" style={{padding: '30px 0 15px', fontSize: '0.85rem'}}>
-      <div className="container">
+      <div className="container" style={{paddingLeft: '20px', paddingRight: '20px'}}>
         <div className="row">
           <div className="col-lg-3 col-md-6 mb-3">
             <h5 style={{fontSize: '1rem', marginBottom: '12px', fontWeight: '600'}}>About Us</h5>

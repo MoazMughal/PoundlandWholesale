@@ -118,21 +118,14 @@ const Approval = () => {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('📋 Pending products received:', data.products);
-        // Log images for each product
-        data.products?.forEach(product => {
-          console.log(`📷 Product "${product.name}" images:`, product.images);
-        });
         setPendingProducts(data.products || []);
         
         // Fetch all available categories instead of just extracting from pending products
         await fetchAllCategories();
         
-      } else {
-        console.error('Failed to fetch pending products');
       }
     } catch (error) {
-      console.error('Error fetching pending products:', error);
+      // Error fetching pending products
     } finally {
       setLoading(false);
     }
@@ -168,7 +161,6 @@ const Approval = () => {
         setCategories(categoryNames);
       }
     } catch (error) {
-      console.error('Error fetching all categories:', error);
       // Fallback: extract categories from pending products if API fails
       const uniqueCategories = [...new Set(
         (pendingProducts || [])
@@ -205,7 +197,6 @@ const Approval = () => {
         alert(`❌ Error: ${errorData.message || 'Failed to process approval'}`);
       }
     } catch (error) {
-      console.error('Error processing approval:', error);
       alert('❌ Failed to process approval. Please try again.');
     } finally {
       setProcessing(null);
@@ -270,31 +261,8 @@ const Approval = () => {
         }
       }
       
-      console.log('🔄 Bulk category change request:', {
-        productIds: productIds,
-        targetCategory: targetCategory,
-        selectedProductsCount: selectedProducts.size,
-        bulkTargetCategory: bulkTargetCategory
-      });
-      
-      // First, test if the server is responding
-      console.log('🔍 Testing server connectivity...');
-      try {
-        const testResponse = await fetch('http://localhost:5000/api/products/test-route');
-        console.log('🔍 Test route response status:', testResponse.status);
-        if (testResponse.ok) {
-          const testData = await testResponse.json();
-          console.log('🔍 Test route data:', testData);
-        }
-      } catch (testError) {
-        console.error('🔍 Test route failed:', testError);
-      }
-      
-      // Try direct fetch instead of adminPost to debug the issue
       const token = localStorage.getItem('adminToken');
-      console.log('🔑 Using token:', token ? 'Token exists' : 'No token');
       
-      console.log('🌐 Making request to: http://localhost:5000/api/products/move-selected');
       const response = await fetch('http://localhost:5000/api/products/move-selected', {
         method: 'PUT',
         headers: {
@@ -306,12 +274,9 @@ const Approval = () => {
           newCategory: targetCategory
         })
       });
-
-      console.log('🔄 Move response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Move response data:', data);
         
         // Update local state
         setPendingProducts(prev => 
@@ -341,25 +306,20 @@ const Approval = () => {
         setShowSuccessToast(true);
         setTimeout(() => setShowSuccessToast(false), 3000);
       } else {
-        console.error('❌ Move failed with status:', response.status);
         let errorMessage = 'Failed to move products';
         
         try {
           const errorData = await response.json();
-          console.error('❌ Error response data:', errorData);
           errorMessage = errorData.message || errorMessage;
         } catch (parseError) {
-          console.error('❌ Could not parse error response:', parseError);
           const errorText = await response.text();
-          console.error('❌ Raw error response:', errorText);
           errorMessage = `Server error (${response.status}): ${errorText}`;
         }
         
         alert(`❌ Error: ${errorMessage}`);
       }
     } catch (error) {
-      console.error('❌ Network/request error moving products to category:', error);
-      alert(`❌ Failed to move products to category: ${error.message}. Please check the console for details and try again.`);
+      alert(`❌ Failed to move products to category. Please try again.`);
     } finally {
       setBulkProcessing(false);
     }
@@ -427,7 +387,6 @@ const Approval = () => {
         alert(`❌ Failed to ${action} all selected products. Please try again.`);
       }
     } catch (error) {
-      console.error(`Error bulk ${action}ing products:`, error);
       alert(`❌ Failed to ${action} products. Please try again.`);
     } finally {
       setBulkProcessing(false);
@@ -456,7 +415,99 @@ const Approval = () => {
       
       console.log(`🔍 Fetching images for ASIN: ${asin}, Product ID: ${productId}`);
       
-      // Fetch product details by ASIN
+      // PRIORITY 1: Try to get image from Cloudinary first
+      const cloudinaryUrl = `https://res.cloudinary.com/dtuq3tvjx/image/upload/v1/products/${asin}`;
+      
+      try {
+        // Check if Cloudinary image exists
+        const cloudinaryCheck = await fetch(cloudinaryUrl, { method: 'HEAD' });
+        
+        if (cloudinaryCheck.ok) {
+          console.log('✅ Found image in Cloudinary:', cloudinaryUrl);
+          
+          // Update the product with Cloudinary image
+          const updateResponse = await fetch(`http://localhost:5000/api/products/${productId}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              images: [cloudinaryUrl],
+              asin: asin.toUpperCase()
+            })
+          });
+          
+          if (updateResponse.ok) {
+            console.log('✅ Database updated with Cloudinary image');
+            
+            // Update local state immediately
+            setPendingProducts(prev => {
+              const updated = prev.map(product => 
+                product._id === productId 
+                  ? { 
+                      ...product, 
+                      images: [cloudinaryUrl], 
+                      asin: asin.toUpperCase() 
+                    }
+                  : product
+              );
+              return updated;
+            });
+            
+            setFilteredProducts(prev => {
+              const updated = prev.map(product => 
+                product._id === productId 
+                  ? { 
+                      ...product, 
+                      images: [cloudinaryUrl], 
+                      asin: asin.toUpperCase() 
+                    }
+                  : product
+              );
+              return updated;
+            });
+            
+            setImageUpdateTrigger(prev => ({ ...prev, [productId]: Date.now() }));
+            setAsinInputs(prev => ({ ...prev, [productId]: '' }));
+            
+            setSuccessMessage(`✅ Image fetched from Cloudinary for ASIN ${asin}!`);
+            setShowSuccessToast(true);
+            setTimeout(() => setShowSuccessToast(false), 3000);
+            
+            setFetchingAsins(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(productId);
+              return newSet;
+            });
+            return; // Success, exit function
+          }
+        }
+      } catch (cloudinaryError) {
+        console.log('⚠️ Cloudinary image not found, will try other sources');
+      }
+      
+      // PRIORITY 2: If Cloudinary doesn't have the image, ask for permission to fetch from other sources
+      const confirmFetch = window.confirm(
+        `Image not found in Cloudinary for ASIN: ${asin}\n\n` +
+        `Would you like to fetch the image from other sources?\n\n` +
+        `This will search the database and external sources for product images.`
+      );
+      
+      if (!confirmFetch) {
+        console.log('❌ User cancelled fetching from other sources');
+        setAsinErrors(prev => ({ ...prev, [productId]: 'Image fetch cancelled by user' }));
+        setFetchingAsins(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(productId);
+          return newSet;
+        });
+        return;
+      }
+      
+      // User confirmed, proceed with fetching from database/other sources
+      console.log('✅ User confirmed, fetching from other sources');
+      
       const response = await fetch(`http://localhost:5000/api/excel/asin/${asin}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -466,11 +517,9 @@ const Approval = () => {
         console.log('📷 ASIN fetch response:', data);
         
         if (data.product && data.product.images && data.product.images.length > 0) {
-          // Update the product with fetched images
-          const updatedImages = data.product.images.slice(0, 5); // Max 5 images
+          const updatedImages = data.product.images.slice(0, 5);
           console.log('📷 Images to update:', updatedImages);
           
-          // Update the product in the database
           const updateResponse = await fetch(`http://localhost:5000/api/products/${productId}`, {
             method: 'PUT',
             headers: {
@@ -479,14 +528,13 @@ const Approval = () => {
             },
             body: JSON.stringify({
               images: updatedImages,
-              asin: asin.toUpperCase() // Also update ASIN if it wasn't set
+              asin: asin.toUpperCase()
             })
           });
           
           if (updateResponse.ok) {
             console.log('✅ Database updated successfully');
             
-            // Update local state immediately
             setPendingProducts(prev => {
               const updated = prev.map(product => 
                 product._id === productId 
@@ -497,11 +545,9 @@ const Approval = () => {
                     }
                   : product
               );
-              console.log('📷 Local state updated for product:', productId);
               return updated;
             });
             
-            // Also update filtered products if they exist
             setFilteredProducts(prev => {
               const updated = prev.map(product => 
                 product._id === productId 
@@ -515,13 +561,9 @@ const Approval = () => {
               return updated;
             });
             
-            // Force re-render of the specific product
             setImageUpdateTrigger(prev => ({ ...prev, [productId]: Date.now() }));
-            
-            // Clear the ASIN input
             setAsinInputs(prev => ({ ...prev, [productId]: '' }));
             
-            // Show success message with image count
             setSuccessMessage(`✅ ${updatedImages.length} images fetched successfully for ASIN ${asin}!`);
             setShowSuccessToast(true);
             setTimeout(() => setShowSuccessToast(false), 3000);

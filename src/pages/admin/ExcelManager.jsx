@@ -475,7 +475,146 @@ const ExcelManager = () => {
   };
 
   return (
-    <div className="admin-layout">
+    <>
+      <style>{`
+        /* Responsive Styles for Excel Manager */
+        @media (max-width: 768px) {
+          .admin-layout {
+            padding: 0 !important;
+          }
+          
+          /* Header responsive */
+          .excel-manager-header {
+            flex-direction: column !important;
+            gap: 10px !important;
+            padding: 10px !important;
+          }
+          
+          .excel-manager-header > div:last-child {
+            width: 100% !important;
+            flex-direction: column !important;
+          }
+          
+          .excel-manager-header button {
+            width: 100% !important;
+            padding: 8px 12px !important;
+            font-size: 0.8rem !important;
+          }
+          
+          /* Stats cards responsive */
+          .stats-container {
+            flex-direction: column !important;
+            gap: 8px !important;
+          }
+          
+          .stats-container > div {
+            width: 100% !important;
+            min-width: auto !important;
+          }
+          
+          /* Image upload section */
+          .image-upload-form {
+            flex-direction: column !important;
+          }
+          
+          .image-upload-form > div,
+          .image-upload-form button {
+            width: 100% !important;
+            min-width: auto !important;
+          }
+          
+          /* Tables responsive - hide on mobile, show cards */
+          .excel-table {
+            display: none !important;
+          }
+          
+          .mobile-excel-cards {
+            display: block !important;
+          }
+          
+          /* Image uploads table */
+          .image-uploads-table {
+            font-size: 0.7rem !important;
+          }
+          
+          .image-uploads-table th,
+          .image-uploads-table td {
+            padding: 6px 8px !important;
+            font-size: 0.7rem !important;
+          }
+        }
+        
+        @media (min-width: 769px) and (max-width: 1024px) {
+          /* Tablet styles */
+          .excel-table th,
+          .excel-table td {
+            padding: 6px 8px !important;
+            font-size: 0.75rem !important;
+          }
+          
+          .stats-container {
+            gap: 8px !important;
+          }
+          
+          .stats-container > div {
+            min-width: 120px !important;
+          }
+        }
+        
+        @media (min-width: 769px) {
+          .mobile-excel-cards {
+            display: none !important;
+          }
+        }
+        
+        /* Mobile Excel cards */
+        .mobile-excel-cards {
+          display: none;
+        }
+        
+        .mobile-excel-card {
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 12px;
+          margin-bottom: 10px;
+        }
+        
+        .mobile-excel-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 10px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .mobile-excel-card-body {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          font-size: 0.75rem;
+          margin-bottom: 10px;
+        }
+        
+        .mobile-excel-card-actions {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        
+        .mobile-excel-card-actions button {
+          flex: 1;
+          min-width: calc(50% - 3px);
+          padding: 6px;
+          font-size: 0.7rem;
+          border-radius: 4px;
+          border: none;
+          cursor: pointer;
+        }
+      `}</style>
+      
+      <div className="admin-layout">
       <div style={{ padding: '12px', maxWidth: '1400px', margin: '0 auto' }}>
         {/* Compact Header */}
         <div style={{
@@ -550,7 +689,7 @@ const ExcelManager = () => {
 
         {/* Compact Statistics */}
         {stats && (
-          <div style={{
+          <div className="stats-container" style={{
             display: 'flex',
             gap: '12px',
             marginBottom: '16px',
@@ -645,7 +784,7 @@ const ExcelManager = () => {
 
           <div style={{ padding: '16px' }}>
             {/* Upload Form */}
-            <div style={{
+            <div className="image-upload-form" style={{
               display: 'flex',
               gap: '12px',
               alignItems: 'center',
@@ -797,7 +936,7 @@ const ExcelManager = () => {
             {/* Image Uploads Table */}
             {imageUploads.length > 0 && (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                <table className="image-uploads-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc' }}>
                       <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: '600', fontSize: '0.8rem' }}>ZIP File</th>
@@ -951,8 +1090,10 @@ const ExcelManager = () => {
               </button>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+            <>
+              {/* Desktop Table View */}
+              <div className="excel-table" style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc' }}>
                     <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: '600', fontSize: '0.8rem' }}>File Name</th>
@@ -1051,6 +1192,77 @@ const ExcelManager = () => {
                 </tbody>
               </table>
             </div>
+            
+            {/* Mobile Cards View */}
+            <div className="mobile-excel-cards">
+              {uploads.map((upload) => (
+                <div key={upload._id} className="mobile-excel-card">
+                  <div className="mobile-excel-card-header">
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: 4 }}>
+                        {upload.originalFileName}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#666' }}>
+                        ID: {upload._id.slice(-8)}
+                      </div>
+                    </div>
+                    <div style={{
+                      padding: '3px 6px',
+                      borderRadius: '4px',
+                      fontSize: '0.65rem',
+                      fontWeight: '600',
+                      color: 'white',
+                      background: getStatusColor(upload.status)
+                    }}>
+                      {getStatusIcon(upload.status)} {upload.status}
+                    </div>
+                  </div>
+                  
+                  <div className="mobile-excel-card-body">
+                    <div>
+                      <div style={{ color: '#666', fontSize: '0.65rem' }}>Products</div>
+                      <div style={{ fontWeight: 'bold' }}>{upload.summary?.insertedProducts || 0}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#666', fontSize: '0.65rem' }}>Size</div>
+                      <div style={{ fontWeight: 'bold' }}>{formatFileSize(upload.fileSize)}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#666', fontSize: '0.65rem' }}>Errors</div>
+                      <div style={{ fontWeight: 'bold', color: upload.summary?.errors > 0 ? '#ef4444' : '#10b981' }}>
+                        {upload.summary?.errors || 0}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#666', fontSize: '0.65rem' }}>Uploaded</div>
+                      <div style={{ fontSize: '0.7rem' }}>{formatDate(upload.uploadedAt)}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="mobile-excel-card-actions">
+                    <button
+                      onClick={() => navigate(`/admin/excel-products/${upload._id}`)}
+                      style={{ background: '#667eea', color: 'white' }}
+                    >
+                      👁️ View
+                    </button>
+                    <button
+                      onClick={() => navigate(`/admin/excel-manager/images/${upload._id}`)}
+                      style={{ background: '#10b981', color: 'white' }}
+                    >
+                      🖼️ Images
+                    </button>
+                    <button
+                      onClick={() => handleDeleteUpload(upload._id)}
+                      style={{ background: '#ef4444', color: 'white' }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </>
           )}
 
           {/* Compact Pagination */}
@@ -1356,6 +1568,7 @@ const ExcelManager = () => {
         </div>
       )}
     </div>
+    </>
   );
 };
 

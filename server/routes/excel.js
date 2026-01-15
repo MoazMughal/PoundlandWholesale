@@ -380,145 +380,17 @@ router.get('/asin/:asin', authenticateAdmin, async (req, res) => {
         });
       }
       
-      console.log('❌ ASIN not found in ExcelProduct database, checking static files...');
+      console.log('❌ ASIN not found in ExcelProduct database');
     } catch (dbError) {
       console.error('⚠️ Error checking ExcelProduct database:', dbError.message);
-      console.log('📁 Falling back to static Excel files...');
     }
     
-    // Fallback: Check static Excel files
-    const excelFiles = [
-      { path: path.join(__dirname, '../../Products.xlsx'), name: 'Products' },
-      { path: path.join(__dirname, '../../Amazon10.xlsx'), name: 'Amazon10' },
-      { path: path.join(__dirname, '../../uae-asin.xlsx'), name: 'UAE' }
-    ];
+    console.log(`❌ ASIN ${asin} not found in ExcelProduct database`);
     
-    console.log('📁 Checking static Excel files:', excelFiles.map(f => ({ name: f.name, exists: fs.existsSync(f.path) })));
-    
-    for (const file of excelFiles) {
-      if (!fs.existsSync(file.path)) {
-        console.log(`❌ File not found: ${file.path}`);
-        continue;
-      }
-      
-      try {
-        console.log(`📖 Reading file: ${file.name}`);
-        const workbook = xlsx.readFile(file.path);
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const data = xlsx.utils.sheet_to_json(worksheet);
-        
-        console.log(`📊 ${file.name} has ${data.length} rows`);
-        
-        // Find product by ASIN
-        const product = data.find(row => {
-          // Check various possible ASIN column names (expanded list)
-          const asinValue = row.ASIN || row.asin || row['Product ASIN'] || row['ASIN Code'] || 
-                           row['Product ID'] || row['ProductASIN'] || row['Asin'] || 
-                           row['PRODUCT_ASIN'] || row['product_asin'] || row['ID'] || 
-                           row['ProductId'] || row['Product_ID'] || row['PRODUCT_ID'];
-          const match = asinValue && asinValue.toString().toUpperCase() === asin.toUpperCase();
-          if (match) {
-            console.log(`✅ Found ASIN ${asin} in ${file.name}:`, row);
-          }
-          return match;
-        });
-        
-        if (product) {
-          console.log(`🎉 Product found in ${file.name}:`, product);
-          
-          // Extract product details
-          const allKeys = Object.keys(product);
-          const productName = extractProductName(product, allKeys, 0);
-          
-          // Extract other details with more column variations
-          const price = product.Price || product.price || product['Sale Price'] || product['Current Price'] || 
-                       product['Product Price'] || product['ListPrice'] || product['List Price'] || 
-                       product['PRICE'] || product['SalePrice'] || 0;
-          
-          const category = product.Category || product.category || product['Product Category'] || 
-                          product['CATEGORY'] || product['ProductCategory'] || product['Cat'] || 'General';
-          
-          const brand = product.Brand || product.brand || product['Brand Name'] || 
-                       product['BRAND'] || product['BrandName'] || product['Manufacturer'] || '';
-          
-          const rating = product.Rating || product.rating || product['Product Rating'] || 
-                        product['RATING'] || product['ProductRating'] || product['Stars'] || 4.5;
-          
-          const reviews = product.Reviews || product.reviews || product['Review Count'] || 
-                         product['REVIEWS'] || product['ReviewCount'] || product['NumReviews'] || 0;
-          
-          const description = product.Description || product.description || product['Product Description'] || 
-                             product['DESCRIPTION'] || product['ProductDescription'] || product['Details'] || '';
-          
-          // Extract features (look for feature columns)
-          const features = [];
-          allKeys.forEach(key => {
-            if (key.toLowerCase().includes('feature') || key.toLowerCase().includes('bullet')) {
-              const value = product[key];
-              if (value && value.toString().trim()) {
-                features.push(value.toString().trim());
-              }
-            }
-          });
-          
-          // Extract images with more column variations
-          const images = [];
-          allKeys.forEach(key => {
-            const keyLower = key.toLowerCase();
-            if (keyLower.includes('image') || keyLower.includes('img') || keyLower.includes('photo') || 
-                keyLower.includes('picture') || keyLower.includes('url') && keyLower.includes('image')) {
-              const value = product[key];
-              if (value && isImageUrl(value)) {
-                images.push(value.toString());
-              }
-            }
-          });
-          
-          // Try to fetch Amazon image if no images found
-          if (images.length === 0) {
-            try {
-              const amazonImage = await fetchAmazonImage(asin);
-              if (amazonImage) {
-                images.push(amazonImage);
-              }
-            } catch (error) {
-              console.log('Could not fetch Amazon image for ASIN:', asin);
-            }
-          }
-          
-          const result = {
-            success: true,
-            product: {
-              name: productName,
-              price: parseFloat(price) || 0,
-              category,
-              brand,
-              asin: asin.toUpperCase(),
-              rating: parseFloat(rating) || 4.5,
-              reviews: parseInt(reviews) || 0,
-              description,
-              features,
-              images,
-              source: `StaticFile_${file.name}`
-            }
-          };
-          
-          console.log('📤 Sending response:', result);
-          return res.json(result);
-        }
-      } catch (fileError) {
-        console.error(`❌ Error reading ${file.name}:`, fileError.message);
-        continue;
-      }
-    }
-    
-    console.log(`❌ ASIN ${asin} not found in ExcelProduct database or static files`);
-    
-    // ASIN not found in database or any file
+    // ASIN not found in database
     res.status(404).json({
       success: false,
-      message: 'ASIN not found in Excel database or uploaded files'
+      message: 'ASIN not found in Excel database'
     });
     
   } catch (error) {

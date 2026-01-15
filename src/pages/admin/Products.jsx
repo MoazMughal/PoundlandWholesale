@@ -888,15 +888,46 @@ const AdminProducts = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Refresh products when page becomes visible (e.g., returning from edit page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Page is now visible, refresh products to get latest data
+        fetchProducts(currentPage);
+      }
+    };
+
+    const handleFocus = () => {
+      // Window regained focus, refresh products
+      fetchProducts(currentPage);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentPage]);
+
   const fetchCategories = async () => {
     try {
-      // Include Excel categories for admin use
-      const response = await fetch(getApiUrl('products/public/categories?includeExcel=true'));
+      // Include Excel categories for admin use and get counts
+      const response = await fetch(getApiUrl('products/public/categories?includeExcel=true&includeCounts=true'));
       if (response.ok) {
         const data = await response.json();
 
         // Get hidden categories from localStorage
         const hiddenCategories = JSON.parse(localStorage.getItem('hiddenCategories') || '[]');
+
+        // Also fetch Amazon's Choice counts for each category
+        const amazonsChoiceCountsResponse = await fetch(getApiUrl('products/admin/amazons-choice-counts'));
+        let amazonsChoiceCounts = {};
+        if (amazonsChoiceCountsResponse.ok) {
+          const countsData = await amazonsChoiceCountsResponse.json();
+          amazonsChoiceCounts = countsData.counts || {};
+        }
 
         // Filter out hidden categories and format for display
         const dynamicCategories = data.categories
@@ -904,7 +935,9 @@ const AdminProducts = () => {
           .map(cat => ({
             value: cat.value,
             label: cat.value === 'all' ? 'All Products' : cat.label,
-            icon: getCategoryIcon(cat.value)
+            icon: getCategoryIcon(cat.value),
+            count: cat.count || 0,
+            amazonsChoiceCount: amazonsChoiceCounts[cat.label] || 0
           }));
 
         setCategories(dynamicCategories);
@@ -1979,7 +2012,6 @@ const AdminProducts = () => {
   const startProfitEditing = async (product) => {
     try {
       // Always fetch the latest product data to ensure we have up-to-date profit calculations
-      console.log('🔄 Fetching latest product data for profit editing...');
       const token = localStorage.getItem('adminToken');
       const response = await fetch(`http://localhost:5000/api/products/${product._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -1988,13 +2020,9 @@ const AdminProducts = () => {
       if (response.ok) {
         const latestProduct = await response.json();
         product = latestProduct;
-        console.log('✅ Latest product data fetched for profit modal');
-      } else {
-        console.log('⚠️ Could not fetch latest product data, using current data');
       }
     } catch (error) {
-      console.error('Error fetching latest product data:', error);
-      console.log('⚠️ Using current product data for profit modal');
+      // Error fetching latest product data, using current data
     }
 
     const productPrice = parseFloat(product.price) || 0;
@@ -2046,7 +2074,6 @@ const AdminProducts = () => {
     if (rrpPlatform) {
       rrpPlatform.rrpPerUnit = syncedSalesProceeds;
       rrpPlatform.markup = calculateMarkupPercentage(syncedSalesProceeds, productPrice); // Recalculate markup after sync
-      console.log('🔧 Initialization sync: RRP Platform RRP/Unit set to', syncedSalesProceeds, 'Sales Proceeds set to', syncedSalesProceeds, 'Markup:', rrpPlatform.markup);
     }
     
     const initProfitEvaluation = {
@@ -2058,7 +2085,7 @@ const AdminProducts = () => {
       fbaFulfilmentFee: safeParseFloat(existingEvaluation?.fbaFulfilmentFee, 0),
       fbaFulfilmentTax: safeParseFloat(existingEvaluation?.fbaFulfilmentTax, 0),
       balanceChange: safeParseFloat(existingEvaluation?.balanceChange, 0),
-      productCost: safeParseFloat(existingEvaluation?.productCost, productPrice), // Use existing productCost if available, otherwise use productPrice
+      productCost: productPrice, // Always use current product price as product cost
       netProfit: 0, // Will be calculated below
       monthlyProfit: safeParseFloat(existingEvaluation?.monthlyProfit, defaultMonthlyProfit),
       yearlyProfit: safeParseFloat(existingEvaluation?.yearlyProfit, defaultYearlyProfit)
@@ -2070,11 +2097,9 @@ const AdminProducts = () => {
     if (initProfitEvaluation.balanceChange !== 0) {
       // Always recalculate from balance change if it exists (this ensures correct calculation)
       initProfitEvaluation.netProfit = initProfitEvaluation.balanceChange - initProfitEvaluation.productCost;
-      console.log('🔄 Calculating netProfit from existing balanceChange:', initProfitEvaluation.balanceChange, '-', initProfitEvaluation.productCost, '=', initProfitEvaluation.netProfit);
     } else if (existingNetProfit !== 0) {
       // Use existing net profit only if no balance change is available
       initProfitEvaluation.netProfit = existingNetProfit;
-      console.log('🔄 Using existing netProfit:', existingNetProfit);
     } else {
       // Calculate balance change from sales proceeds and fees, then calculate net profit
       const calculatedBalanceChange = syncedSalesProceeds - 
@@ -2087,32 +2112,10 @@ const AdminProducts = () => {
       
       initProfitEvaluation.balanceChange = calculatedBalanceChange;
       initProfitEvaluation.netProfit = calculatedBalanceChange - initProfitEvaluation.productCost;
-      console.log('🔄 Calculating netProfit from fees:', calculatedBalanceChange, '-', initProfitEvaluation.productCost, '=', initProfitEvaluation.netProfit);
     }
-
-    console.log('🔍 Profit Initialization Debug:', {
-      productName: product.name,
-      isAmazonsChoice: product.isAmazonsChoice,
-      productPrice,
-      syncedSalesProceeds,
-      balanceChange: initProfitEvaluation.balanceChange,
-      netProfit: initProfitEvaluation.netProfit,
-      existingBalanceChange: existingEvaluation?.balanceChange,
-      existingNetProfit: existingEvaluation?.netProfit,
-      existingProfitCalculations: product.profitCalculations,
-      calculatedFromFees: syncedSalesProceeds - 
-        initProfitEvaluation.commission - 
-        initProfitEvaluation.commissionTax - 
-        initProfitEvaluation.digitalServicesFee - 
-        initProfitEvaluation.digitalServicesTax - 
-        initProfitEvaluation.fbaFulfilmentFee - 
-        initProfitEvaluation.fbaFulfilmentTax
-    });
 
     // Update profitPerUnit to match netProfit (always use calculated netProfit, not stored profitPerUnit)
     initProfitCalculations.profitPerUnit = initProfitEvaluation.netProfit;
-    
-    console.log('🔄 Setting profitPerUnit to netProfit:', initProfitEvaluation.netProfit, 'was:', safeParseFloat(product.profitCalculations?.profitPerUnit, 0));
 
     // Calculate auto-savings percentage: (Balance Change - Product Cost) / Product Cost * 100
     const autoCalculatedSavings = initProfitEvaluation.productCost === 0 ? 0 : 
@@ -2363,28 +2366,174 @@ const AdminProducts = () => {
   };
 
   return (
-    <div className="admin-products" style={{ fontSize: '0.85rem', width: '100%', margin: 0, padding: 0, overflowX: 'hidden' }}>
+    <>
+      <style>{`
+        /* Responsive Styles for Admin Products Page */
+        @media (max-width: 768px) {
+          .admin-products {
+            padding: 0 !important;
+          }
+          
+          /* Header responsive */
+          .admin-products > div:first-child {
+            flex-direction: column !important;
+            gap: 10px !important;
+            padding: 10px !important;
+          }
+          
+          .admin-products > div:first-child > div:last-child {
+            width: 100% !important;
+            flex-direction: column !important;
+          }
+          
+          .admin-products > div:first-child button {
+            width: 100% !important;
+            padding: 8px 12px !important;
+            font-size: 0.8rem !important;
+          }
+          
+          /* Categories responsive */
+          .filters-section {
+            padding: 8px !important;
+          }
+          
+          .filters-section > div {
+            flex-wrap: wrap !important;
+          }
+          
+          .filters-section button {
+            font-size: 0.6rem !important;
+            padding: 3px 6px !important;
+          }
+          
+          /* Search and filters */
+          .filters {
+            flex-direction: column !important;
+            gap: 8px !important;
+          }
+          
+          .filters input,
+          .filters select {
+            width: 100% !important;
+            font-size: 0.75rem !important;
+          }
+          
+          /* Table responsive - hide on mobile, show cards */
+          .products-table {
+            display: none !important;
+          }
+          
+          .mobile-product-cards {
+            display: block !important;
+          }
+          
+          /* Profit modal responsive */
+          .profit-modal-content {
+            width: 95% !important;
+            max-height: 90vh !important;
+            padding: 15px !important;
+          }
+          
+          .profit-modal-content h4 {
+            font-size: 0.9rem !important;
+          }
+          
+          .profit-modal-content input {
+            font-size: 0.8rem !important;
+            padding: 8px !important;
+          }
+        }
+        
+        @media (min-width: 769px) and (max-width: 1024px) {
+          /* Tablet styles */
+          .admin-products {
+            font-size: 0.8rem !important;
+          }
+          
+          .products-table th,
+          .products-table td {
+            padding: 3px 6px !important;
+            font-size: 0.65rem !important;
+          }
+        }
+        
+        @media (min-width: 769px) {
+          .mobile-product-cards {
+            display: none !important;
+          }
+        }
+        
+        /* Mobile product cards (hidden by default) */
+        .mobile-product-cards {
+          display: none;
+        }
+        
+        .mobile-product-card {
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 12px;
+          margin-bottom: 10px;
+        }
+        
+        .mobile-product-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 10px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .mobile-product-card-body {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          font-size: 0.75rem;
+        }
+        
+        .mobile-product-card-actions {
+          display: flex;
+          gap: 6px;
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px solid #e5e7eb;
+        }
+        
+        .mobile-product-card-actions button {
+          flex: 1;
+          padding: 6px;
+          font-size: 0.7rem;
+          border-radius: 4px;
+          border: none;
+          cursor: pointer;
+        }
+      `}</style>
+      
+      <div className="admin-products" style={{ fontSize: '0.85rem', width: '100%', margin: 0, padding: 0, overflowX: 'hidden' }}>
       
       {/* Header Section */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '12px 16px',
+        padding: windowWidth <= 768 ? '10px' : '12px 16px',
         marginBottom: '12px',
         background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
         borderRadius: '8px',
-        color: 'white'
+        color: 'white',
+        flexDirection: windowWidth <= 768 ? 'column' : 'row',
+        gap: windowWidth <= 768 ? '10px' : '0'
       }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>
+        <div style={{ width: windowWidth <= 768 ? '100%' : 'auto', textAlign: windowWidth <= 768 ? 'center' : 'left' }}>
+          <h1 style={{ margin: 0, fontSize: windowWidth <= 768 ? '1.2rem' : '1.4rem', fontWeight: 'bold' }}>
             📦 Products Management
           </h1>
-          <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', opacity: 0.9 }}>
+          <p style={{ margin: '4px 0 0 0', fontSize: windowWidth <= 768 ? '0.8rem' : '0.9rem', opacity: 0.9 }}>
             Manage your product catalog
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', width: windowWidth <= 768 ? '100%' : 'auto', flexDirection: windowWidth <= 768 ? 'column' : 'row' }}>
           <button
             onClick={() => setShowCategoryManagementModal(true)}
             style={{
@@ -2740,6 +2889,7 @@ const AdminProducts = () => {
             {categories.map(cat => {
               const isActive = (filters.category === cat.value || (cat.value === 'all' && !filters.category));
               const productCount = products.filter(p => cat.value === 'all' || p.category === cat.value).length;
+              const amazonsChoiceCount = cat.amazonsChoiceCount || 0;
               
               return (
                 <div key={cat.value} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
@@ -2760,6 +2910,7 @@ const AdminProducts = () => {
                       gap: '3px',
                       whiteSpace: 'nowrap'
                     }}
+                    title={`Total: ${cat.count || 0} products | Live on Amazon's Choice: ${amazonsChoiceCount}`}
                   >
                     <span style={{ fontSize: '0.7rem' }}>{cat.icon}</span>
                     <span>{cat.label}</span>
@@ -2773,6 +2924,21 @@ const AdminProducts = () => {
                         fontWeight: '700'
                       }}>
                         {productCount}
+                      </span>
+                    )}
+                    {amazonsChoiceCount > 0 && (
+                      <span style={{
+                        background: isActive ? 'rgba(255,255,255,0.4)' : '#10b981',
+                        color: isActive ? 'white' : 'white',
+                        padding: '1px 4px',
+                        borderRadius: '8px',
+                        fontSize: '0.55rem',
+                        fontWeight: '700',
+                        marginLeft: '2px'
+                      }}
+                      title={`${amazonsChoiceCount} live on Amazon's Choice`}
+                      >
+                        🌟{amazonsChoiceCount}
                       </span>
                     )}
                   </button>
@@ -3324,18 +3490,57 @@ const AdminProducts = () => {
                       {(() => {
                         // Determine status based on approval status and Amazon's Choice listing
                         const getStatusDisplay = (product) => {
-                          // Check if product is pending approval
-                          if (product.approvalStatus === 'pending' || product.status === 'pending') {
+                          // Priority 1: Check approval status first (most important)
+                          if (product.approvalStatus === 'pending') {
                             return {
-                              icon: '🟡',
-                              text: 'Pending',
+                              icon: '⏳',
+                              text: 'Pending Approval',
                               color: '#f59e0b',
                               bgColor: '#fef3c7'
                             };
                           }
                           
-                          // Check if product is disapproved
-                          if (product.approvalStatus === 'disapproved' || product.status === 'inactive') {
+                          // Priority 2: Check if disapproved
+                          if (product.approvalStatus === 'disapproved') {
+                            return {
+                              icon: '🔴',
+                              text: 'Disapproved',
+                              color: '#dc2626',
+                              bgColor: '#fee2e2'
+                            };
+                          }
+                          
+                          // Priority 3: Check if approved and live
+                          if (product.approvalStatus === 'approved' && product.isAmazonsChoice) {
+                            return {
+                              icon: '✅',
+                              text: 'Live',
+                              color: '#059669',
+                              bgColor: '#d1fae5'
+                            };
+                          }
+                          
+                          // Priority 4: Approved but not on Amazon's Choice yet
+                          if (product.approvalStatus === 'approved') {
+                            return {
+                              icon: '✅',
+                              text: 'Approved',
+                              color: '#059669',
+                              bgColor: '#d1fae5'
+                            };
+                          }
+                          
+                          // Fallback: Check old status field for backward compatibility
+                          if (product.status === 'pending') {
+                            return {
+                              icon: '⏳',
+                              text: 'Pending Approval',
+                              color: '#f59e0b',
+                              bgColor: '#fef3c7'
+                            };
+                          }
+                          
+                          if (product.status === 'inactive') {
                             return {
                               icon: '🔴',
                               text: 'Inactive',
@@ -3344,20 +3549,9 @@ const AdminProducts = () => {
                             };
                           }
                           
-                          // Check if product is approved and listed (Amazon's Choice)
-                          if ((product.approvalStatus === 'approved' || product.status === 'active') && product.isAmazonsChoice) {
+                          if (product.status === 'active') {
                             return {
-                              icon: '🟢',
-                              text: 'Live',
-                              color: '#059669',
-                              bgColor: '#d1fae5'
-                            };
-                          }
-                          
-                          // Product is approved but not on Amazon's Choice page
-                          if (product.approvalStatus === 'approved' || product.status === 'active') {
-                            return {
-                              icon: '🟢',
+                              icon: '✅',
                               text: 'Active',
                               color: '#059669',
                               bgColor: '#d1fae5'
@@ -3388,7 +3582,7 @@ const AdminProducts = () => {
                               fontSize: '0.65rem',
                               fontWeight: '600',
                               color: statusInfo.color,
-                              minWidth: '60px',
+                              minWidth: '80px',
                               justifyContent: 'center'
                             }}
                             title={`Status: ${statusInfo.text}${product.isAmazonsChoice ? ' (Listed on Amazon\'s Choice)' : ''}`}
@@ -3445,6 +3639,70 @@ const AdminProducts = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Product Cards (shown on mobile only) */}
+          <div className="mobile-product-cards">
+            {filteredProducts.map(product => (
+              <div key={product._id} className="mobile-product-card">
+                <div className="mobile-product-card-header">
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: 4 }}>
+                      {product.name}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#666' }}>
+                      {product.category}
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedProducts.has(product._id)}
+                    onChange={() => handleProductSelection(product._id)}
+                    style={{ transform: 'scale(1.2)' }}
+                  />
+                </div>
+                
+                <div className="mobile-product-card-body">
+                  <div>
+                    <div style={{ color: '#666', fontSize: '0.65rem' }}>Price</div>
+                    <div style={{ fontWeight: 'bold', color: '#059669' }}>£{product.price}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#666', fontSize: '0.65rem' }}>Stock</div>
+                    <div style={{ fontWeight: 'bold' }}>{product.stock}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#666', fontSize: '0.65rem' }}>ASIN</div>
+                    <div style={{ fontSize: '0.7rem', fontFamily: 'monospace' }}>{product.asin || '-'}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#666', fontSize: '0.65rem' }}>SKU</div>
+                    <div style={{ fontSize: '0.7rem', fontFamily: 'monospace' }}>{product.sku || '-'}</div>
+                  </div>
+                </div>
+                
+                <div className="mobile-product-card-actions">
+                  <button
+                    onClick={() => navigate(`/admin/products/edit/${product._id}${filters.category ? `?returnCategory=${filters.category}` : ''}`)}
+                    style={{ background: '#667eea', color: 'white' }}
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    onClick={() => startProfitEditing(product)}
+                    style={{ background: '#ff9800', color: 'white' }}
+                  >
+                    💰 Profit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteProduct(product._id)}
+                    style={{ background: '#ef4444', color: 'white' }}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
 
           {filteredProducts.length === 0 && (
@@ -6666,7 +6924,8 @@ const AdminProducts = () => {
         categories={categories}
         allProducts={products}
       />
-    </div>
+      </div>
+    </>
   );
 };
 

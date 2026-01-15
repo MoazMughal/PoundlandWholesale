@@ -13,10 +13,18 @@ services:
         value: production
       - key: PORT
         value: 5000
+      # IMPORTANT: Set these in Render Dashboard, not here!
+      # Go to: Dashboard > Service > Environment > Add Environment Variable
       - key: MONGODB_URI
-        value: mongodb+srv://Admin:iW0UgtS1d5Fnf1gt@cluster0.v6qyt5k.mongodb.net/amazon-gymkhana?retryWrites=true&w=majority
+        sync: false
       - key: JWT_SECRET
-        value: my_secret_key_12345
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
       - key: EMAIL_HOST
         value: smtp.gmail.com
       - key: EMAIL_PORT
@@ -24,9 +32,9 @@ services:
       - key: EMAIL_SECURE
         value: false
       - key: EMAIL_USER
-        value: moazmughal786@gmail.com
+        sync: false
       - key: EMAIL_PASS
-        value: jzepgkmxmhiuuykx
+        sync: false
       - key: EMAIL_FROM_NAME
         value: Generic Wholesale
       - key: FRONTEND_URL
@@ -58,3 +66,4 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://generic-wholesale-backend.onrender.com/api
+

@@ -317,8 +317,8 @@ const AmazonsChoice = () => {
                 }
                 // Priority 3: Fallback to ASIN-based URL if no images in database
                 else if (p.asin && p.asin.match(/^[A-Z0-9]{10}$/)) {
-                  // Construct Cloudinary URL with optimizations as fallback
-                  imageUrl = `https://res.cloudinary.com/dtuq3tvjx/image/upload/w_300,h_300,c_fill,f_auto,q_auto/products/${p.asin}`;
+                  // Construct Cloudinary URL with optimizations as fallback - use c_fit to show full image
+                  imageUrl = `https://res.cloudinary.com/dtuq3tvjx/image/upload/w_300,h_300,c_fit,f_auto,q_auto/products/${p.asin}`;
                 }
                 
                 return imageUrl || '';
@@ -917,14 +917,14 @@ const AmazonsChoice = () => {
             >
               <div className="product-image-container" style={{
                 position: 'relative', 
-                height: windowWidth < 576 ? '120px' : '140px', 
+                height: windowWidth < 576 ? '140px' : '160px', 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center', 
                 background: '#fff',
-                padding: '15px',
+                padding: windowWidth < 576 ? '10px' : '15px',
                 margin: '0px',
-                overflow: 'hidden'
+                overflow: 'visible'
               }}>
                 <ProductImage
                   src={product.image}
@@ -940,7 +940,8 @@ const AmazonsChoice = () => {
                     height: 'auto',
                     objectFit: 'contain',
                     padding: '0px',
-                    margin: '0px'
+                    margin: '0 auto',
+                    display: 'block'
                   }} 
                 />
                 
@@ -1306,19 +1307,37 @@ const AmazonsChoice = () => {
                 <div style={{ marginTop: windowWidth < 576 ? '4px' : '3px' }}>
                   <div style={{
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)', 
-                    padding: '2px 3px', // Reduce padding
-                    borderRadius: '4px', // Smaller border radius
+                    padding: windowWidth < 576 ? '3px 4px' : '2px 3px', // More padding on mobile
+                    borderRadius: '4px',
                     border: '1px solid #ff6600', 
-                    boxShadow: '0 1px 4px rgba(255, 102, 0, 0.15)', // Lighter shadow
+                    boxShadow: '0 1px 4px rgba(255, 102, 0, 0.15)',
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    minWidth: windowWidth < 576 ? '100%' : 'auto', // Full width on mobile
+                    width: windowWidth < 576 ? '100%' : 'auto' // Full width on mobile
                   }}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '2px'}}>
-                      <span style={{fontSize: '8px', color: '#cc3300', fontWeight: '700'}}>
+                    <div style={{
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '3px',
+                      flex: 1,
+                      minWidth: 0 // Allow text to wrap if needed
+                    }}>
+                      <span style={{
+                        fontSize: windowWidth < 576 ? '9px' : '8px', // Slightly larger on mobile
+                        color: '#cc3300', 
+                        fontWeight: '700',
+                        whiteSpace: 'nowrap'
+                      }}>
                         💰 Deal of {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
-                      <span style={{fontSize: '8px', fontWeight: '800', color: '#ff3300'}}>
+                      <span style={{
+                        fontSize: windowWidth < 576 ? '9px' : '8px', // Slightly larger on mobile
+                        fontWeight: '800', 
+                        color: '#ff3300',
+                        whiteSpace: 'nowrap'
+                      }}>
                         {(() => {
                           try {
                             // Use raw price (per unit) from database

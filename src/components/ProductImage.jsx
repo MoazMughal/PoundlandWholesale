@@ -49,7 +49,7 @@ const ProductImage = ({
     
     // Priority 1: If ASIN is provided, use Cloudinary URL first
     if (asin && asin.match(/^[A-Z0-9]{10}$/)) {
-      const cloudinaryUrl = `https://res.cloudinary.com/dtuq3tvjx/image/upload/w_300,h_300,c_fill,f_auto,q_auto/products/${asin}`;
+      const cloudinaryUrl = `https://res.cloudinary.com/dtuq3tvjx/image/upload/w_300,h_300,c_fit,f_auto,q_auto/products/${asin}`;
       urls.push(cloudinaryUrl);
     }
     

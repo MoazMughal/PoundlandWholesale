@@ -537,13 +537,15 @@ const ExcelProducts = () => {
     const isSaved = savedCell?.productId === product._id && savedCell?.field === field;
     const inputRef = useRef(null);
     
-    // Select text when input becomes active
+    // Focus input and move cursor to end when editing starts
     useEffect(() => {
       if (isEditing && inputRef.current) {
-        // Small delay to ensure input is fully rendered
         const timer = setTimeout(() => {
           if (inputRef.current) {
-            inputRef.current.select();
+            inputRef.current.focus();
+            // Move cursor to the end of the text
+            const length = inputRef.current.value.length;
+            inputRef.current.setSelectionRange(length, length);
           }
         }, 10);
         return () => clearTimeout(timer);
@@ -559,7 +561,10 @@ const ExcelProducts = () => {
           onChange={(e) => setEditingValue(e.target.value)}
           onKeyDown={(e) => handleKeyPress(e, product._id, field)}
           onBlur={() => handleBlur(product._id, field, value)}
-          autoFocus
+          onDoubleClick={(e) => {
+            // Select all text on double click
+            e.target.select();
+          }}
           style={{
             width: '100%',
             padding: '3px 6px',
@@ -610,7 +615,7 @@ const ExcelProducts = () => {
             e.target.style.transform = 'scale(1)';
           }
         }}
-        title={`Click to edit ${field} • Enter to save • Escape to cancel`}
+        title={`Click to edit ${field} • Double-click to select all • Enter to save • Escape to cancel`}
       >
         {displayValue}
         {isSaved ? (
@@ -787,10 +792,214 @@ const ExcelProducts = () => {
   }
 
   return (
-    <div className="admin-layout">
-      <div style={{ padding: '12px', maxWidth: '1600px', margin: '0 auto' }}>
+    <>
+      <style>{`
+        /* Responsive Styles for Excel Products Page */
+        @media (max-width: 768px) {
+          .admin-layout {
+            padding: 0 !important;
+          }
+          
+          .excel-products-container {
+            padding: 8px !important;
+          }
+          
+          /* Header responsive */
+          .excel-products-header {
+            flex-direction: column !important;
+            gap: 10px !important;
+            padding: 10px !important;
+          }
+          
+          .excel-products-header > div:first-child {
+            width: 100% !important;
+          }
+          
+          .excel-products-header button {
+            width: 100% !important;
+            padding: 8px 12px !important;
+            font-size: 0.8rem !important;
+          }
+          
+          /* Filters responsive */
+          .filters-row {
+            flex-direction: column !important;
+            gap: 8px !important;
+          }
+          
+          .filters-row input,
+          .filters-row select {
+            width: 100% !important;
+            font-size: 0.75rem !important;
+          }
+          
+          /* Bulk actions responsive */
+          .bulk-actions {
+            flex-direction: column !important;
+            gap: 8px !important;
+          }
+          
+          .bulk-actions button {
+            width: 100% !important;
+            font-size: 0.75rem !important;
+          }
+          
+          /* Table - hide on mobile */
+          .excel-products-table {
+            display: none !important;
+          }
+          
+          /* Mobile cards - show on mobile */
+          .mobile-excel-product-cards {
+            display: block !important;
+          }
+          
+          /* Pagination responsive */
+          .pagination-container {
+            flex-wrap: wrap !important;
+            gap: 4px !important;
+            justify-content: center !important;
+          }
+          
+          .pagination-container > div:first-child {
+            width: 100% !important;
+            text-align: center !important;
+            margin-bottom: 8px !important;
+          }
+          
+          .pagination-container button {
+            padding: 4px 8px !important;
+            font-size: 0.7rem !important;
+            min-width: 28px !important;
+          }
+        }
+        
+        @media (min-width: 769px) and (max-width: 1024px) {
+          /* Tablet styles */
+          .excel-products-table th,
+          .excel-products-table td {
+            padding: 6px 8px !important;
+            font-size: 0.7rem !important;
+          }
+          
+          .excel-products-header h1 {
+            font-size: 1.2rem !important;
+          }
+          
+          .header-hint {
+            display: none !important;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          /* Extra small mobile */
+          .excel-products-header h1 {
+            font-size: 1rem !important;
+          }
+          
+          .excel-products-header p {
+            font-size: 0.7rem !important;
+          }
+          
+          .dev-mode-banner {
+            font-size: 0.7rem !important;
+            padding: 6px 10px !important;
+          }
+          
+          .mobile-excel-product-card {
+            padding: 10px !important;
+          }
+          
+          .pagination-container {
+            font-size: 0.65rem !important;
+          }
+          
+          .pagination-container button {
+            padding: 3px 6px !important;
+            font-size: 0.65rem !important;
+            min-width: 24px !important;
+          }
+        }
+        
+        /* Ensure table is scrollable on smaller screens */
+        @media (max-width: 1200px) {
+          .excel-products-table {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+          
+          .excel-products-table table {
+            min-width: 1000px;
+          }
+        }
+        
+        @media (min-width: 769px) {
+          .mobile-excel-product-cards {
+            display: none !important;
+          }
+        }
+        
+        /* Mobile product cards */
+        .mobile-excel-product-cards {
+          display: none;
+        }
+        
+        .mobile-excel-product-card {
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 12px;
+          margin-bottom: 10px;
+        }
+        
+        .mobile-excel-product-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 10px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .mobile-excel-product-card-image {
+          width: 60px;
+          height: 60px;
+          border: 1px solid #e5e7eb;
+          border-radius: 4px;
+          overflow: hidden;
+          margin-bottom: 10px;
+        }
+        
+        .mobile-excel-product-card-body {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          font-size: 0.75rem;
+          margin-bottom: 10px;
+        }
+        
+        .mobile-excel-product-card-actions {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        
+        .mobile-excel-product-card-actions button {
+          flex: 1;
+          min-width: calc(50% - 3px);
+          padding: 6px;
+          font-size: 0.7rem;
+          border-radius: 4px;
+          border: none;
+          cursor: pointer;
+          font-weight: 500;
+        }
+      `}</style>
+      
+      <div className="admin-layout">
+      <div className="excel-products-container" style={{ padding: '12px', maxWidth: '1600px', margin: '0 auto' }}>
         {/* Compact Header */}
-        <div style={{
+        <div className="excel-products-header" style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -821,7 +1030,7 @@ const ExcelProducts = () => {
             <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', opacity: 0.9 }}>
               {totalProducts} products • Uploaded {upload ? formatDate(upload.uploadedAt) : ''}
             </p>
-            <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', opacity: 0.8 }}>
+            <p className="header-hint" style={{ margin: '2px 0 0 0', fontSize: '0.75rem', opacity: 0.8 }}>
               💡 Click cells to edit inline • Enter to save • Escape to cancel
               {import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' && ' • 🚀 Bulk conversion available'}
             </p>
@@ -845,7 +1054,7 @@ const ExcelProducts = () => {
         </div>
 
         {/* Compact Filters and Actions */}
-        <div style={{
+        <div className="filters-container" style={{
           background: 'white',
           padding: '12px 16px',
           borderRadius: '8px',
@@ -854,7 +1063,7 @@ const ExcelProducts = () => {
           border: import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' ? '2px solid #10b981' : 'none'
         }}>
           {import.meta.env.VITE_ENABLE_BULK_CONVERSION === 'true' && (
-            <div style={{
+            <div className="dev-mode-banner" style={{
               background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
               color: 'white',
               padding: '8px 12px',
@@ -866,7 +1075,7 @@ const ExcelProducts = () => {
               🚀 DEVELOPMENT MODE: Enhanced bulk conversion available - Select multiple products and click "Bulk Convert" to automatically create categories and list products with images on Amazon's Choice!
             </div>
           )}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="filters-row" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <input
               type="text"
               placeholder="🔍 Search products..."
@@ -956,12 +1165,31 @@ const ExcelProducts = () => {
               <option value={200}>200/page</option>
             </select>
 
-            {selectedProducts.size > 0 && (
+            <div className="bulk-actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', width: '100%' }}>
+              {selectedProducts.size > 0 && (
+                <button
+                  onClick={handleConvertProducts}
+                  style={{
+                    padding: '6px 12px',
+                    background: '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    fontWeight: '600'
+                  }}
+                  title="Convert selected products and send to approval queue (SKU required)"
+                >
+                  📋 Convert to Approval ({selectedProducts.size})
+                </button>
+              )}
+
               <button
-                onClick={handleConvertProducts}
+                onClick={handleSyncStatus}
                 style={{
                   padding: '6px 12px',
-                  background: '#10b981',
+                  background: '#3b82f6',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
@@ -969,45 +1197,28 @@ const ExcelProducts = () => {
                   cursor: 'pointer',
                   fontWeight: '600'
                 }}
-                title="Convert selected products and send to approval queue (SKU required)"
+                title="Sync status with main products"
               >
-                📋 Convert to Approval ({selectedProducts.size})
+                🔄 Sync Status
               </button>
-            )}
 
-            <button
-              onClick={handleSyncStatus}
-              style={{
-                padding: '6px 12px',
-                background: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-                fontWeight: '600'
-              }}
-              title="Sync status with main products"
-            >
-              🔄 Sync Status
-            </button>
-
-            <button
-              onClick={handleMigrateImages}
-              style={{
-                padding: '6px 12px',
-                background: '#8b5cf6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-                fontWeight: '600'
-              }}
-              title="Add images to already converted products"
-            >
-              🖼️ Fix Images
-            </button>
+              <button
+                onClick={handleMigrateImages}
+                style={{
+                  padding: '6px 12px',
+                  background: '#8b5cf6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+                title="Add images to already converted products"
+              >
+                🖼️ Fix Images
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1046,7 +1257,9 @@ const ExcelProducts = () => {
               <div style={{ fontSize: '0.9rem', color: '#999' }}>Try adjusting your search or filters</div>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
+            <>
+              {/* Desktop Table */}
+              <div className="excel-products-table" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc' }}>
@@ -1374,11 +1587,137 @@ const ExcelProducts = () => {
                 </tbody>
               </table>
             </div>
+            
+            {/* Mobile Product Cards */}
+            <div className="mobile-excel-product-cards">
+              {products.map((product) => {
+                const statusInfo = getProductStatus(product);
+                return (
+                  <div key={product._id} className="mobile-excel-product-card">
+                    <div className="mobile-excel-product-card-header">
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: 4 }}>
+                          {product.name}
+                          {product.isConverted && (
+                            <span style={{
+                              marginLeft: '6px',
+                              padding: '1px 4px',
+                              background: '#10b981',
+                              color: 'white',
+                              borderRadius: '3px',
+                              fontSize: '0.6rem'
+                            }}>
+                              LISTED
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#666' }}>
+                          Row #{product.rowNumber}
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.has(product._id)}
+                        onChange={() => handleSelectProduct(product._id)}
+                        disabled={product.isConverted}
+                        style={{ transform: 'scale(1.2)' }}
+                      />
+                    </div>
+                    
+                    {product.asin && (
+                      <div className="mobile-excel-product-card-image">
+                        <EnhancedImage
+                          asin={product.asin}
+                          alt={product.asin}
+                          eager={true}
+                          showLoader={false}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="mobile-excel-product-card-body">
+                      <div>
+                        <div style={{ color: '#666', fontSize: '0.65rem' }}>ASIN</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{product.asin || '-'}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#666', fontSize: '0.65rem' }}>SKU</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{product.sku || '-'}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#666', fontSize: '0.65rem' }}>Category</div>
+                        <div style={{ fontSize: '0.75rem' }}>{product.category}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#666', fontSize: '0.65rem' }}>Price</div>
+                        <div style={{ fontWeight: 'bold', color: '#059669' }}>£{product.price}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#666', fontSize: '0.65rem' }}>Rating</div>
+                        <div>⭐ {product.rating?.toFixed(1) || '4.0'}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#666', fontSize: '0.65rem' }}>Status</div>
+                        <div style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          padding: '2px 6px',
+                          borderRadius: '3px',
+                          fontSize: '0.65rem',
+                          fontWeight: '600',
+                          color: 'white',
+                          background: statusInfo.color
+                        }}>
+                          <span>{statusInfo.icon}</span>
+                          <span>{statusInfo.label}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mobile-excel-product-card-actions">
+                      <button
+                        onClick={() => navigate(`/admin/excel-products/${uploadId}/edit/${product._id}`)}
+                        style={{ background: '#667eea', color: 'white' }}
+                      >
+                        ✏️ Edit
+                      </button>
+                      {!product.isConverted && (
+                        <button
+                          onClick={() => handleSingleListToAmazonsChoice(product._id, product.name)}
+                          style={{ 
+                            background: product.sku && product.sku.trim() ? '#ff6600' : '#6c757d',
+                            color: 'white'
+                          }}
+                          disabled={!product.sku || product.sku.trim() === ''}
+                        >
+                          📋 Convert
+                        </button>
+                      )}
+                      {product.isConverted && product.mainProductId && (
+                        <button
+                          onClick={() => navigate(`/product/${product.mainProductId}`)}
+                          style={{ background: '#10b981', color: 'white' }}
+                        >
+                          👁️ View
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            </>
           )}
 
           {/* Enhanced Pagination with Page Numbers */}
           {!loading && products.length > 0 && totalPages > 1 && (
-            <div style={{
+            <div className="pagination-container" style={{
               padding: '12px 16px',
               borderTop: '1px solid #e5e7eb',
               display: 'flex',
@@ -1664,7 +2003,8 @@ const ExcelProducts = () => {
         categories={categoryModalData.categories}
         onCategorySelect={handleCategorySelect}
       />
-    </div>
+      </div>
+    </>
   );
 };
 

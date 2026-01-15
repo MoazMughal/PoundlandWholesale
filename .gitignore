@@ -27,8 +27,16 @@ dist-ssr
 .env
 .env.local
 .env.production
+.env.*.local
 server/.env
+server/.env.local
+server/.env.production
 **/.env
+**/.env.local
+**/.env.production
+
+# IMPORTANT: Only .env.example and .env.development should be committed
+# Never commit actual credentials!
 
 # Excel files (if not needed in production)
 # *.xlsx - COMMENTED OUT - We need these files in production!
