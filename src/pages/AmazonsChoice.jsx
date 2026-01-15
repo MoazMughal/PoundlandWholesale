@@ -1294,7 +1294,8 @@ const AmazonsChoice = () => {
                           padding: '2px 3px',
                           borderRadius: '3px',
                           border: '1px solid rgba(255, 102, 0, 0.3)',
-                          whiteSpace: 'nowrap'
+                          whiteSpace: 'nowrap',
+                          minWidth: windowWidth < 576 ? '70px' : '60px' // Increased width for mobile
                         }}>
                           📈 £{totalProfit.toFixed(2)}/{dealUnits}units
                         </div>
@@ -1315,7 +1316,8 @@ const AmazonsChoice = () => {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     minWidth: windowWidth < 576 ? '100%' : 'auto', // Full width on mobile
-                    width: windowWidth < 576 ? '100%' : 'auto' // Full width on mobile
+                    width: windowWidth < 576 ? '100%' : 'auto', // Full width on mobile
+                    gap: '4px' // Add gap between elements
                   }}>
                     <div style={{
                       display: 'flex', 
@@ -1336,7 +1338,9 @@ const AmazonsChoice = () => {
                         fontSize: windowWidth < 576 ? '9px' : '8px', // Slightly larger on mobile
                         fontWeight: '800', 
                         color: '#ff3300',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        minWidth: windowWidth < 576 ? '55px' : '45px', // Increased minimum width for price display
+                        display: 'inline-block' // Ensure minWidth works
                       }}>
                         {(() => {
                           try {

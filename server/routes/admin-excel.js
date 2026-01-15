@@ -377,31 +377,39 @@ async function handleExcelUpload(req, res) {
       try {
         // Extract product data using flexible column matching
         const title = findColumn(row, [
-          'title', 'name', 'product name', 'product title', 'productname', 'producttitle'
+          'product', 'title', 'name', 'product name', 'product title', 'productname', 'producttitle'
         ]);
         
         const asin = validateASIN(findColumn(row, [
-          'asin', 'product asin', 'productasin', 'asin code', 'asincode'
+          'asin', 'product asin', 'productasin', 'asin code', 'asincode', 'parent asin', 'parentasin'
         ]));
         
+        const sku = findColumn(row, [
+          'sku', 'product sku', 'productsku', 'sku code', 'skucode', 'item code', 'itemcode'
+        ]);
+        
         const category = findColumn(row, [
-          'category', 'product category', 'productcategory', 'cat'
+          'category', 'product category', 'productcategory', 'cat',
+          'main category name', 'maincategoryname', 'primary subcategory name', 'primarysubcategoryname'
         ]);
         
         // Normalize category name to prevent duplicates
         const normalizedCategory = normalizeCategoryName(category);
         
         const price = parsePrice(findColumn(row, [
-          'price', 'product price', 'productprice', 'cost', 'amount', 'unit price', 'unitprice'
+          'price', 'product price', 'productprice', 'cost', 'amount', 'unit price', 'unitprice',
+          'buy box price', 'buyboxprice', 'selling price', 'sellingprice'
         ]));
         
         const reviews = parseInteger(findColumn(row, [
           'reviews', 'review count', 'reviewcount', 'number of reviews', 'numberofreviews',
-          'monthly sales', 'monthly sale', 'monthlysales', 'monthlysale', 'sales'
+          'monthly sales', 'monthly sale', 'monthlysales', 'monthlysale', 'sales',
+          'ratings count', 'ratingscount', 'est monthly units sold', 'estmonthlyunitssold'
         ]));
         
         const dealUnits = parseInteger(findColumn(row, [
-          'deal units', 'dealunits', 'units', 'quantity', 'qty', 'deal qty', 'dealqty'
+          'deal units', 'dealunits', 'units', 'quantity', 'qty', 'deal qty', 'dealqty',
+          'est monthly units sold', 'estmonthlyunitssold', 'monthly units sold', 'monthlyunitssold'
         ]));
         
         const rating = parseRating(findColumn(row, [
@@ -414,9 +422,9 @@ async function handleExcelUpload(req, res) {
           continue;
         }
 
-        // Price is required but can be 0
-        if (price < 0) {
-          errors.push(`Row ${i + 2}: Invalid price (cannot be negative)`);
+        // Check if price is valid
+        if (price === null || price === undefined || isNaN(price) || price < 0) {
+          errors.push(`Row ${i + 2}: Invalid or missing price for "${title}"`);
           continue;
         }
 
@@ -433,11 +441,27 @@ async function handleExcelUpload(req, res) {
           duplicateASINs.add(asin);
         }
 
+        // Try to find images from Cloudinary based on ASIN
+        let productImages = [];
+        if (asin && isCloudinaryConfigured()) {
+          try {
+            // Search for images in Cloudinary with ASIN in the public_id or tags
+            const cloudinaryImages = await listCloudinaryImages(`products/${asin}`);
+            if (cloudinaryImages && cloudinaryImages.length > 0) {
+              productImages = cloudinaryImages.map(img => img.secure_url);
+              console.log(`✅ Found ${productImages.length} images for ASIN ${asin} from Cloudinary`);
+            }
+          } catch (error) {
+            console.log(`⚠️ Could not fetch Cloudinary images for ASIN ${asin}:`, error.message);
+          }
+        }
+
         // Create Excel product object
         const excelProductData = {
           excelUploadId: excelUpload._id,
           name: title.toString().trim(),
           asin: asin || undefined,
+          sku: sku ? sku.toString().trim().toUpperCase() : undefined,
           price: finalPrice,
           originalPrice: finalPrice * 1.2, // Default 20% markup for original price
           category: normalizedCategory ? normalizedCategory.toString().trim() : 'Uncategorized',
@@ -446,7 +470,7 @@ async function handleExcelUpload(req, res) {
           dealUnits: dealUnits > 0 ? dealUnits : 1, // Default to 1 if missing
           stock: 100, // Default stock
           description: `Quality ${title.toString().trim()} with excellent features.`,
-          images: [], // Will be added manually later
+          images: productImages, // Images from Cloudinary or empty array
           currency: 'GBP',
           status: 'pending', // Products start as pending
           rowNumber: i + 2, // Excel row number (1-based + header)
