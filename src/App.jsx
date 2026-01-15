@@ -31,7 +31,6 @@ const AboutUs = lazy(() => import('./pages/AboutUs'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
 const ForgotPasswordToken = lazy(() => import('./pages/ForgotPasswordToken'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
-const DebugReset = lazy(() => import('./pages/DebugReset'))
 const AuthLanding = lazy(() => import('./pages/auth/AuthLanding'))
 const BuyerLogin = lazy(() => import('./pages/auth/BuyerLogin'))
 const SupplierLogin = lazy(() => import('./pages/auth/SupplierLogin'))
@@ -41,7 +40,6 @@ const JoinNow = lazy(() => import('./pages/onboarding/JoinNow'))
 const ProductDetail = lazy(() => import('./pages/ProductDetail'))
 const AdminLogin = lazy(() => import('./pages/admin/Login'))
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
-const AdminAuthTest = lazy(() => import('./pages/admin/AuthTest'))
 const AdminProducts = lazy(() => import('./pages/admin/Products'))
 const AdminAddProduct = lazy(() => import('./pages/admin/AddProduct'))
 const AdminApproval = lazy(() => import('./pages/admin/Approval'))
@@ -56,7 +54,6 @@ const AdminExcelProducts = lazy(() => import('./pages/admin/ExcelProducts'))
 const ExcelProductEdit = lazy(() => import('./pages/admin/ExcelProductEdit'))
 const ImageViewer = lazy(() => import('./pages/admin/ImageViewer'))
 const ImageDebug = lazy(() => import('./pages/admin/ImageDebug'))
-const ImageDiagnostic = lazy(() => import('./pages/ImageDiagnostic'))
 const AdminBuyers = lazy(() => import('./pages/admin/Buyers'))
 const AdminPendingPayments = lazy(() => import('./pages/admin/PendingPayments'))
 const AdminSellerListings = lazy(() => import('./pages/admin/SellerListings'))
@@ -64,7 +61,6 @@ const BuyerDashboard = lazy(() => import('./pages/buyer/Dashboard'))
 const BuyerEditProfile = lazy(() => import('./pages/buyer/EditProfile'))
 const BuyerTestAuth = lazy(() => import('./pages/buyer/TestAuth'))
 const SellerDashboard = lazy(() => import('./pages/seller/Dashboard'))
-const ClearStorage = lazy(() => import('./pages/ClearStorage'))
 const SellerProfile = lazy(() => import('./pages/seller/Profile'))
 const SellerProducts = lazy(() => import('./pages/seller/Products'))
 const SellerAddProduct = lazy(() => import('./pages/seller/AddProduct'))
@@ -127,7 +123,6 @@ function App() {
           <Routes>
           <Route path="/" element={<AmazonsChoice />} />
           <Route path="/basket" element={<Basket />} />
-          <Route path="/clear-storage" element={<ClearStorage />} />
           <Route path="/about-us" element={<AboutUs />} />
           <Route path="/categories" element={<Categories />} />
           {/* Legacy routes - redirect to new auth system */}
@@ -145,21 +140,6 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/forgot-password-token" element={<ForgotPasswordToken />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/debug-reset/:token" element={<DebugReset />} />
-          <Route path="/test-reset" element={
-            <div style={{padding: '50px', textAlign: 'center'}}>
-              <h2>✅ Test Reset Page Works!</h2>
-              <p>Routing is working correctly.</p>
-              <p>Current URL: {window.location.href}</p>
-              <a href="/reset-password/test123?type=buyer" style={{color: '#667eea'}}>
-                Test Reset Password Route
-              </a>
-              <br /><br />
-              <a href="/debug-reset/test123?type=buyer" style={{color: '#667eea'}}>
-                Debug Reset Password Route
-              </a>
-            </div>
-          } />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/excel-products" element={<ExcelProducts />} />
           
@@ -181,7 +161,6 @@ function App() {
           
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin/auth-test" element={<AdminAuthTest />} />
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/products" element={<ProtectedRoute><AdminProducts /></ProtectedRoute>} />
           <Route path="/admin/products/add" element={<ProtectedRoute><AdminAddProduct /></ProtectedRoute>} />
@@ -200,7 +179,6 @@ function App() {
           <Route path="/admin/excel-product/edit/:productId" element={<ProtectedRoute><ExcelProductEdit /></ProtectedRoute>} />
           <Route path="/admin/excel-manager/images/:uploadId" element={<ProtectedRoute><ImageViewer /></ProtectedRoute>} />
           <Route path="/admin/image-debug" element={<ProtectedRoute><ImageDebug /></ProtectedRoute>} />
-          <Route path="/image-diagnostic" element={<ImageDiagnostic />} />
           
           {/* Legal Pages */}
           <Route path="/terms-of-service" element={<TermsOfService />} />
