@@ -585,7 +585,12 @@ const AmazonsChoice = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '0px 15px', marginTop: '0px'}}>
+      <div className="container products-container enhanced-container" style={{
+        maxWidth: '100%', 
+        padding: windowWidth < 576 ? '0 10px' : '0 15px', 
+        marginTop: '0px',
+        width: '100%'
+      }}>
         <ScrollToTop />
         
         {/* Enhanced Loading Message */}
@@ -648,7 +653,12 @@ const AmazonsChoice = () => {
   // No products state - only show if we've tried loading and have no products
   if (!loading && products.length === 0 && hasLoadedOnce) {
     return (
-      <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '0px 15px', marginTop: '0px'}}>
+      <div className="container products-container enhanced-container" style={{
+        maxWidth: '100%', 
+        padding: windowWidth < 576 ? '0 10px' : '0 15px', 
+        marginTop: '0px',
+        width: '100%'
+      }}>
         <ScrollToTop />
         <div style={{
           display: 'flex',
@@ -761,7 +771,13 @@ const AmazonsChoice = () => {
   // Rendering with current state
 
   return (
-      <div className="container products-container enhanced-container" style={{maxWidth: '1600px', padding: '0px 15px', marginTop: '0px', marginBottom: '0px'}}>
+      <div className="container products-container enhanced-container" style={{
+        maxWidth: '100%', 
+        padding: windowWidth < 576 ? '0 10px' : '0 15px', 
+        marginTop: '0px', 
+        marginBottom: '0px',
+        width: '100%'
+      }}>
         <ScrollToTop />
         <ProductionStatus />
 
@@ -858,12 +874,13 @@ const AmazonsChoice = () => {
                               windowWidth < 1200 ? 'repeat(6, 1fr)' :
                               windowWidth < 1400 ? 'repeat(7, 1fr)' :
                               'repeat(8, 1fr)', 
-          gap: windowWidth < 576 ? '12px' : '15px',
-          maxWidth: '1600px',
+          gap: windowWidth < 576 ? '8px' : '15px',
+          maxWidth: '100%',
+          width: '100%',
           margin: '0 auto',
-          padding: '10px',
+          padding: windowWidth < 576 ? '8px' : '10px',
           background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 245, 240, 0.9) 100%)',
-          borderRadius: '15px',
+          borderRadius: windowWidth < 576 ? '10px' : '15px',
           boxShadow: '0 8px 25px rgba(255, 102, 0, 0.1)',
           backdropFilter: 'blur(10px)',
           border: '2px solid rgba(255, 102, 0, 0.2)'

@@ -2829,6 +2829,43 @@ router.get('/admin/categories-with-profit', authenticateAdmin, async (req, res) 
   }
 });
 
+// Search products by ASIN (admin only) - for finding images
+router.get('/admin/search-by-asin/:asin', authenticateAdmin, async (req, res) => {
+  try {
+    const { asin } = req.params;
+    
+    if (!asin || asin.length !== 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid ASIN format. ASIN must be 10 characters.'
+      });
+    }
+
+    // Find all products with this ASIN that have images
+    const products = await Product.find({
+      asin: asin.toUpperCase(),
+      images: { $exists: true, $ne: [], $ne: null }
+    })
+    .select('_id name asin images category status')
+    .limit(10)
+    .lean();
+
+    res.json({
+      success: true,
+      products: products,
+      count: products.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error searching products by ASIN:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error searching products by ASIN',
+      error: error.message
+    });
+  }
+});
+
 // Get products by category with profit data (admin only)
 router.get('/admin/category/:category/with-profit', authenticateAdmin, async (req, res) => {
   try {
@@ -3121,6 +3158,23 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       currency: 'GBP',
       ...(cleanedVariations && { variations: cleanedVariations })
     };
+    
+    // CRITICAL: Preserve approval status and Amazon's Choice flag if not explicitly provided
+    // This prevents accidentally removing these flags when editing products
+    if (updateData.approvalStatus === undefined && existingProduct.approvalStatus) {
+      updateData.approvalStatus = existingProduct.approvalStatus;
+      console.log('🔒 Preserving existing approvalStatus:', existingProduct.approvalStatus);
+    }
+    
+    if (updateData.isAmazonsChoice === undefined && existingProduct.isAmazonsChoice) {
+      updateData.isAmazonsChoice = existingProduct.isAmazonsChoice;
+      console.log('🔒 Preserving existing isAmazonsChoice:', existingProduct.isAmazonsChoice);
+    }
+    
+    if (updateData.status === undefined && existingProduct.status) {
+      updateData.status = existingProduct.status;
+      console.log('🔒 Preserving existing status:', existingProduct.status);
+    }
     
     // Handle images - prioritize images from request body (Cloudinary URLs from frontend)
     if (req.body.images && Array.isArray(req.body.images)) {

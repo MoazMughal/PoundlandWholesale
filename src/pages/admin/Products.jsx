@@ -124,6 +124,182 @@ const LinkedProductPreview = ({ productId }) => {
   );
 };
 
+// Smart Image Component - Fetches from Cloudinary or existing products
+const SmartProductImage = ({ product, onClick }) => {
+  const [imageUrl, setImageUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
+
+  useEffect(() => {
+    // Prevent multiple fetches for the same product
+    if (hasAttemptedFetch) return;
+
+    const fetchImage = async () => {
+      // If product already has images, use them
+      if (product.images && product.images.length > 0) {
+        setImageUrl(product.images[0]);
+        setHasAttemptedFetch(true);
+        return;
+      }
+
+      // If no images but has ASIN, try to fetch from Cloudinary
+      if (product.asin && product.asin.trim()) {
+        setLoading(true);
+        
+        // Try Cloudinary first
+        const cloudinaryUrl = `https://res.cloudinary.com/dtuq3tvjx/image/upload/v1/products/${product.asin}`;
+        
+        try {
+          const response = await fetch(cloudinaryUrl, { method: 'HEAD' });
+          if (response.ok) {
+            setImageUrl(cloudinaryUrl);
+            setLoading(false);
+            setHasAttemptedFetch(true);
+            return;
+          }
+        } catch (err) {
+          // Silently fail - Cloudinary image not found
+        }
+
+        // If Cloudinary fails, try to find from other products with same ASIN
+        try {
+          const token = localStorage.getItem('adminToken');
+          const searchResponse = await fetch(
+            `http://localhost:5000/api/products/admin/search-by-asin/${product.asin}`,
+            {
+              headers: { 'Authorization': `Bearer ${token}` }
+            }
+          );
+
+          if (searchResponse.ok) {
+            const data = await searchResponse.json();
+            if (data.products && data.products.length > 0) {
+              // Find first product with images
+              const productWithImage = data.products.find(p => 
+                p.images && p.images.length > 0 && p._id !== product._id
+              );
+              
+              if (productWithImage) {
+                setImageUrl(productWithImage.images[0]);
+                setLoading(false);
+                setHasAttemptedFetch(true);
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          // Silently fail - search failed
+        }
+
+        setLoading(false);
+        setError(true);
+        setHasAttemptedFetch(true);
+      } else {
+        // No ASIN, mark as attempted
+        setHasAttemptedFetch(true);
+      }
+    };
+
+    fetchImage();
+  }, [product._id, product.asin, product.images, hasAttemptedFetch]);
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          width: '50px',
+          height: '50px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f3f4f6',
+          borderRadius: '4px',
+          border: '1px solid #e5e7eb',
+          fontSize: '0.6rem',
+          color: '#9ca3af'
+        }}
+      >
+        ⏳
+      </div>
+    );
+  }
+
+  if (imageUrl) {
+    return (
+      <>
+        <img
+          src={getImageUrl(imageUrl)}
+          alt={product.name}
+          style={{
+            width: '50px',
+            height: '50px',
+            objectFit: 'cover',
+            borderRadius: '4px',
+            border: '1px solid #e5e7eb',
+            cursor: 'pointer',
+            display: 'block'
+          }}
+          onClick={onClick}
+          onError={(e) => {
+            e.target.style.display = 'none';
+            if (e.target.nextSibling) {
+              e.target.nextSibling.style.display = 'flex';
+            }
+          }}
+          title="Click to view product details"
+        />
+        <div
+          style={{
+            width: '50px',
+            height: '50px',
+            display: 'none',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#f3f4f6',
+            borderRadius: '4px',
+            border: '1px solid #e5e7eb',
+            fontSize: '0.6rem',
+            color: '#9ca3af',
+            cursor: 'pointer',
+            flexDirection: 'column',
+            gap: '2px'
+          }}
+          onClick={onClick}
+          title="Image failed to load - Click to edit product"
+        >
+          <span>No Image</span>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        width: '50px',
+        height: '50px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#f3f4f6',
+        borderRadius: '4px',
+        border: '1px solid #e5e7eb',
+        fontSize: '0.6rem',
+        color: '#9ca3af',
+        cursor: 'pointer',
+        flexDirection: 'column',
+        gap: '2px'
+      }}
+      onClick={onClick}
+      title={product.asin ? `No image found for ASIN: ${product.asin}` : 'No image - Click to edit product'}
+    >
+      <span>No Image</span>
+      {product.asin && <span style={{ fontSize: '0.5rem' }}>({product.asin})</span>}
+    </div>
+  );
+};
+
 const AdminProducts = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -3223,6 +3399,7 @@ const AdminProducts = () => {
                       title="Select all on this page"
                     />
                   </th>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white', width: '60px' }}>Image</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Product</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>ASIN</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>SKU</th>
@@ -3244,6 +3421,12 @@ const AdminProducts = () => {
                         onChange={() => handleSelectProduct(product._id)}
                         style={{ cursor: 'pointer' }}
                         onClick={(e) => e.stopPropagation()}
+                      />
+                    </td>
+                    <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                      <SmartProductImage 
+                        product={product} 
+                        onClick={() => handleProductClick(product)}
                       />
                     </td>
                     <td className="product-info" style={{ padding: '4px 8px' }}>
