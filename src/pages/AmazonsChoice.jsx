@@ -26,6 +26,7 @@ import '../styles/enhanced-images.css'
 import '../styles/mobile-image-optimization.css'
 import '../styles/image-fixes.css'
 import '../styles/production-optimizations.css'
+import '../styles/mobile-enhancements.css'
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
@@ -596,36 +597,55 @@ const AmazonsChoice = () => {
         {/* Enhanced Loading Message */}
         <div style={{
           textAlign: 'center',
-          padding: '40px 20px',
-          fontSize: '18px',
+          padding: windowWidth < 576 ? '30px 15px' : '40px 20px', // Adjusted for mobile
+          fontSize: windowWidth < 576 ? '16px' : '18px', // Smaller on mobile
           color: '#ff6600',
-          background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
-          borderRadius: '15px',
+          background: 'linear-gradient(135deg, #fff8f5 0%, #ffede0 100%)', // Enhanced gradient
+          borderRadius: windowWidth < 576 ? '12px' : '15px', // Adjusted for mobile
           border: '2px solid #ff6600',
           boxShadow: '0 8px 25px rgba(255, 102, 0, 0.2)',
-          margin: '20px 0'
+          margin: windowWidth < 576 ? '15px 0' : '20px 0', // Adjusted margin
+          position: 'relative',
+          overflow: 'hidden'
         }}>
+          {/* Background decoration */}
           <div style={{
-            fontSize: '2rem',
-            marginBottom: '15px',
-            animation: 'spin 2s linear infinite'
-          }}>
-            🔄
-          </div>
-          <div style={{
-            fontWeight: '700',
-            textShadow: '0 2px 4px rgba(255, 102, 0, 0.3)',
-            letterSpacing: '0.5px'
-          }}>
-            Loading Amazing Products...
-          </div>
-          <div style={{
-            fontSize: '12px',
-            marginTop: '8px',
-            color: '#cc3300',
-            fontWeight: '500'
-          }}>
-            Fetching the best deals for you!
+            position: 'absolute',
+            top: '-30%',
+            left: '-30%',
+            width: '60%',
+            height: '60%',
+            background: 'radial-gradient(circle, rgba(255, 102, 0, 0.05) 0%, transparent 70%)',
+            borderRadius: '50%',
+            pointerEvents: 'none'
+          }} />
+          
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{
+              fontSize: windowWidth < 576 ? '1.5rem' : '2rem', // Smaller on mobile
+              marginBottom: '15px',
+              animation: 'spin 2s linear infinite',
+              filter: 'drop-shadow(0 2px 4px rgba(255, 102, 0, 0.3))'
+            }}>
+              🔄
+            </div>
+            <div style={{
+              fontWeight: '700',
+              textShadow: '0 2px 4px rgba(255, 102, 0, 0.3)',
+              letterSpacing: '0.5px',
+              marginBottom: '8px'
+            }}>
+              Loading Amazing Products...
+            </div>
+            <div style={{
+              fontSize: windowWidth < 576 ? '11px' : '12px', // Smaller on mobile
+              marginTop: '8px',
+              color: '#cc3300',
+              fontWeight: '500',
+              opacity: 0.9
+            }}>
+              Fetching the best deals for you!
+            </div>
           </div>
         </div>
         
@@ -824,41 +844,62 @@ const AmazonsChoice = () => {
           </div>
         )}
 
-        {/* Product Count Header */}
+        {/* Enhanced Product Count Header */}
         {!loading && currentProducts.length > 0 && (
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '10px',
-            padding: '15px 20px',
+            marginBottom: windowWidth < 576 ? '8px' : '10px', // Reduced margin on mobile
+            padding: windowWidth < 576 ? '12px 15px' : '15px 20px', // Adjusted padding for mobile
             background: 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
-            borderRadius: '12px',
+            borderRadius: windowWidth < 576 ? '10px' : '12px', // Slightly smaller radius on mobile
             color: 'white',
-            boxShadow: '0 4px 15px rgba(255, 250, 247, 0.3)'
+            boxShadow: '0 4px 15px rgba(255, 102, 0, 0.3)', // Enhanced shadow
+            border: '1px solid rgba(255, 255, 255, 0.2)', // Subtle border
+            position: 'relative',
+            overflow: 'hidden'
           }}>
-            <div>
+            {/* Background decoration */}
+            <div style={{
+              position: 'absolute',
+              top: '-50%',
+              right: '-20%',
+              width: '100px',
+              height: '100px',
+              background: 'radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%)',
+              borderRadius: '50%',
+              pointerEvents: 'none'
+            }} />
+            
+            <div style={{ position: 'relative', zIndex: 1 }}>
               <h2 style={{ 
                 margin: 0, 
-                fontSize: '1.5rem', 
+                fontSize: windowWidth < 576 ? '1.2rem' : '1.5rem', // Smaller on mobile
                 fontWeight: '700',
-                textShadow: '0 2px 4px rgba(251, 240, 240, 1)'
+                textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)', // Better text shadow
+                letterSpacing: '0.5px' // Improved letter spacing
               }}>
                 🏆 Amazon's Choice Products
               </h2>
               <p style={{ 
-                margin: '5px 0 0 0', 
-                fontSize: '0.9rem', 
-                opacity: 0.9,
-                fontWeight: '500'
+                margin: '4px 0 0 0', 
+                fontSize: windowWidth < 576 ? '0.8rem' : '0.9rem', // Smaller on mobile
+                opacity: 0.95, // Slightly more opaque
+                fontWeight: '500',
+                color: 'white', // Explicitly white for mobile
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' // Text shadow for better readability
               }}>
                 Showing {products.length} of {totalProducts.toLocaleString()} products
                 {currentPage > 1 && ` (Page ${currentPage} of ${totalPages})`}
               </p>
             </div>
             <div style={{
-              fontSize: '2rem',
-              opacity: 0.8
+              fontSize: windowWidth < 576 ? '1.5rem' : '2rem', // Smaller on mobile
+              opacity: 0.8,
+              position: 'relative',
+              zIndex: 1,
+              filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))' // Enhanced icon shadow
             }}>
               ✨
             </div>
@@ -868,7 +909,7 @@ const AmazonsChoice = () => {
         {/* Enhanced Products Grid */}
         <div id="products-grid" style={{
           display: 'grid', 
-          gridTemplateColumns: windowWidth < 576 ? 'repeat(2, 1fr)' : 
+          gridTemplateColumns:windowWidth < 576 ? 'repeat(2, 1fr)' : 
                               windowWidth < 768 ? 'repeat(4, 1fr)' : 
                               windowWidth < 992 ? 'repeat(5, 1fr)' : 
                               windowWidth < 1200 ? 'repeat(6, 1fr)' :
@@ -879,12 +920,27 @@ const AmazonsChoice = () => {
           width: '100%',
           margin: '0 auto',
           padding: windowWidth < 576 ? '8px' : '10px',
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 245, 240, 0.9) 100%)',
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 248, 245, 0.95) 100%)', // Enhanced gradient
           borderRadius: windowWidth < 576 ? '10px' : '15px',
-          boxShadow: '0 8px 25px rgba(255, 102, 0, 0.1)',
+          boxShadow: '0 8px 25px rgba(255, 102, 0, 0.12)', // Softer shadow
           backdropFilter: 'blur(10px)',
-          border: '2px solid rgba(255, 102, 0, 0.2)'
+          border: '1px solid rgba(255, 102, 0, 0.15)', // Softer border
+          position: 'relative',
+          overflow: 'hidden'
         }}>
+          {/* Background pattern */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundImage: 'radial-gradient(circle at 20% 80%, rgba(255, 102, 0, 0.03) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 51, 0, 0.03) 0%, transparent 50%)',
+            pointerEvents: 'none',
+            zIndex: 0
+          }} />
+          
+          <div style={{ position: 'relative', zIndex: 1, display: 'contents' }}>
           {currentProducts.map((product, index) => (
             <div 
               key={product.id} 
@@ -985,11 +1041,11 @@ const AmazonsChoice = () => {
               
               <div className="product-info" style={{padding: '4px 6px', display: 'flex', flexDirection: 'column', gap: '3px'}}>
                 <h5 style={{
-                  fontSize: '10px', 
+                  fontSize: windowWidth < 576 ? '11px' : '10px', // Increased mobile font size from 10px to 11px
                   fontWeight: '700', 
                   margin: 0, 
                   lineHeight: '1.2', 
-                  height: '22px', // Reduce height slightly
+                  height: windowWidth < 576 ? '26px' : '22px', // Increased mobile height from 22px to 26px
                   overflow: 'hidden',
                   color: '#1a1a1a',
                   textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
@@ -1139,11 +1195,11 @@ const AmazonsChoice = () => {
                   {/* Left side - Compact Enhanced Price */}
                   <div style={{
                     fontWeight: '800', 
-                    fontSize: '9px', // Slightly smaller
+                    fontSize: windowWidth < 576 ? '10px' : '9px', // Increased mobile font size from 9px to 10px
                     color: '#ff3300',
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
-                    padding: '1px 3px', // Reduce padding
-                    borderRadius: '3px', // Smaller border radius
+                    padding: windowWidth < 576 ? '2px 4px' : '1px 3px', // Increased mobile padding
+                    borderRadius: windowWidth < 576 ? '4px' : '3px', // Increased mobile border radius
                     border: '1px solid #ff6600',
                     textShadow: '0 1px 2px rgba(255, 51, 0, 0.3)',
                     boxShadow: '0 1px 3px rgba(255, 102, 0, 0.15)', // Lighter shadow
@@ -1268,6 +1324,22 @@ const AmazonsChoice = () => {
                       return parseFloat(profitPerUnit) || 0;
                     };
 
+                    // Calculate dynamic width based on profit values for mobile
+                    const calculateDynamicWidth = (value, isMobile = false) => {
+                      if (!isMobile) return 'auto';
+                      
+                      const valueStr = value.toString();
+                      const baseWidth = 60; // Base width in pixels
+                      const charWidth = 6; // Approximate width per character
+                      const calculatedWidth = baseWidth + (valueStr.length * charWidth);
+                      
+                      // Set minimum and maximum widths
+                      const minWidth = 70;
+                      const maxWidth = 120;
+                      
+                      return `${Math.min(Math.max(calculatedWidth, minWidth), maxWidth)}px`;
+                    };
+
                     const profitPerUnit = getProfitPerUnit();
                     const dealUnits = product.dealUnits || 1;
                     const totalProfit = profitPerUnit * dealUnits;
@@ -1277,6 +1349,10 @@ const AmazonsChoice = () => {
                       return null;
                     }
 
+                    // Calculate dynamic widths for mobile
+                    const profitPerUnitWidth = calculateDynamicWidth(profitPerUnit.toFixed(2), windowWidth < 576);
+                    const totalProfitWidth = calculateDynamicWidth(totalProfit.toFixed(2), windowWidth < 576);
+
                     // Calculated profit for product
 
                     return (
@@ -1284,35 +1360,40 @@ const AmazonsChoice = () => {
                         display: 'flex', 
                         flexDirection: 'column', 
                         alignItems: 'flex-start',
-                        gap: '1px', // Reduce gap
+                        gap: '2px', // Increased gap from 1px to 2px
                         marginLeft: '2px', // Reduce margin
-                        marginTop: windowWidth < 576 ? '6px' : '2px' // Move down more on mobile
+                        marginTop: windowWidth < 576 ? '8px' : '2px' // Increased mobile margin from 6px to 8px
                       }}>
                         {/* Profit per unit */}
                         <div style={{
-                          fontSize: '7px', // Decreased from 8px to 7px
+                          fontSize: windowWidth < 576 ? '8px' : '8px', // Reduced mobile font size from 9px to 8px
                           color: '#ff6600',
                           fontWeight: '700',
                           background: 'rgba(255, 102, 0, 0.1)',
-                          padding: '2px 3px',
-                          borderRadius: '3px',
+                          padding: windowWidth < 576 ? '3px 5px' : '2px 3px', // Increased mobile padding
+                          borderRadius: windowWidth < 576 ? '4px' : '3px', // Increased mobile border radius
                           border: '1px solid rgba(255, 102, 0, 0.3)',
-                          whiteSpace: 'nowrap'
+                          whiteSpace: 'nowrap',
+                          minWidth: windowWidth < 576 ? profitPerUnitWidth : 'auto', // Dynamic width for mobile
+                          width: windowWidth < 576 ? profitPerUnitWidth : 'auto', // Dynamic width for mobile
+                          textAlign: 'center' // Center text in dynamic width box
                         }}>
                           💰 £{profitPerUnit.toFixed(2)}/unit
                         </div>
                         
                         {/* Profit for deal units */}
                         <div style={{
-                          fontSize: '7px', // Decreased from 8px to 7px
+                          fontSize: windowWidth < 576 ? '8px' : '8px', // Reduced mobile font size from 9px to 8px
                           color: '#ff6600',
                           fontWeight: '700',
                           background: 'rgba(255, 102, 0, 0.1)',
-                          padding: '2px 3px',
-                          borderRadius: '3px',
+                          padding: windowWidth < 576 ? '3px 5px' : '2px 3px', // Increased mobile padding
+                          borderRadius: windowWidth < 576 ? '4px' : '3px', // Increased mobile border radius
                           border: '1px solid rgba(255, 102, 0, 0.3)',
                           whiteSpace: 'nowrap',
-                          minWidth: windowWidth < 576 ? '70px' : '60px' // Increased width for mobile
+                          minWidth: windowWidth < 576 ? totalProfitWidth : '60px', // Dynamic width for mobile
+                          width: windowWidth < 576 ? totalProfitWidth : 'auto', // Dynamic width for mobile
+                          textAlign: 'center' // Center text in dynamic width box
                         }}>
                           📈 £{totalProfit.toFixed(2)}/{dealUnits}units
                         </div>
@@ -1322,11 +1403,11 @@ const AmazonsChoice = () => {
                 </div>
 
                 {/* Deal Units Display - Moved Down for Mobile */}
-                <div style={{ marginTop: windowWidth < 576 ? '4px' : '3px' }}>
+                <div style={{ marginTop: windowWidth < 576 ? '5px' : '3px' }}> {/* Increased mobile margin from 4px to 5px */}
                   <div style={{
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)', 
-                    padding: windowWidth < 576 ? '3px 4px' : '2px 3px', // More padding on mobile
-                    borderRadius: '4px',
+                    padding: windowWidth < 576 ? '5px 7px' : '2px 3px', // Increased mobile padding
+                    borderRadius: windowWidth < 576 ? '6px' : '4px', // Increased mobile border radius
                     border: '1px solid #ff6600', 
                     boxShadow: '0 1px 4px rgba(255, 102, 0, 0.15)',
                     display: 'flex',
@@ -1334,7 +1415,8 @@ const AmazonsChoice = () => {
                     alignItems: 'center',
                     minWidth: windowWidth < 576 ? '100%' : 'auto', // Full width on mobile
                     width: windowWidth < 576 ? '100%' : 'auto', // Full width on mobile
-                    gap: '4px' // Add gap between elements
+                    gap: windowWidth < 576 ? '6px' : '4px', // Increased mobile gap
+                    minHeight: windowWidth < 576 ? '24px' : 'auto' // Added minimum height for mobile
                   }}>
                     <div style={{
                       display: 'flex', 
@@ -1344,7 +1426,7 @@ const AmazonsChoice = () => {
                       minWidth: 0 // Allow text to wrap if needed
                     }}>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '9px' : '8px', // Slightly larger on mobile
+                        fontSize: windowWidth < 576 ? '10px' : '8px', // Increased mobile font size from 9px to 10px
                         color: '#cc3300', 
                         fontWeight: '700',
                         whiteSpace: 'nowrap'
@@ -1352,12 +1434,36 @@ const AmazonsChoice = () => {
                         💰 Deal of {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '9px' : '8px', // Slightly larger on mobile
+                        fontSize: windowWidth < 576 ? '10px' : '8px', // Increased mobile font size from 9px to 10px
                         fontWeight: '800', 
                         color: '#ff3300',
                         whiteSpace: 'nowrap',
-                        minWidth: windowWidth < 576 ? '55px' : '45px', // Increased minimum width for price display
-                        display: 'inline-block' // Ensure minWidth works
+                        minWidth: (() => {
+                          if (windowWidth >= 576) return '45px';
+                          
+                          // Calculate dynamic width for mobile based on price
+                          try {
+                            const unitPrice = product.rawPrice || 0;
+                            const dealUnits = product.dealUnits || 1;
+                            const totalPrice = unitPrice * dealUnits;
+                            const priceStr = `£${totalPrice.toFixed(2)}`;
+                            
+                            // Base width + character width calculation
+                            const baseWidth = 50;
+                            const charWidth = 7;
+                            const calculatedWidth = baseWidth + (priceStr.length * charWidth);
+                            
+                            // Set minimum and maximum widths for mobile
+                            const minWidth = 60;
+                            const maxWidth = 100;
+                            
+                            return `${Math.min(Math.max(calculatedWidth, minWidth), maxWidth)}px`;
+                          } catch (error) {
+                            return '60px'; // Fallback width
+                          }
+                        })(),
+                        display: 'inline-block', // Ensure minWidth works
+                        textAlign: 'center' // Center text in dynamic width
                       }}>
                         {(() => {
                           try {
@@ -1377,7 +1483,7 @@ const AmazonsChoice = () => {
                       </span>
                     </div>
                     
-                    {/* Smaller Basket button */}
+                    {/* Basket button - Desktop: Orange Circle, Mobile: Rectangular */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
@@ -1389,22 +1495,55 @@ const AmazonsChoice = () => {
                           'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
                         color: 'white',
                         border: 'none',
-                        padding: '2px 3px', // Reduce padding
-                        borderRadius: '3px', // Smaller border radius
-                        fontSize: '7px', // Smaller font
+                        // Desktop: Perfect circle, Mobile: Rectangular
+                        padding: windowWidth < 576 ? '3px 4px' : '0', // No padding for desktop circle
+                        borderRadius: windowWidth < 576 ? '4px' : '50%', // Circle for desktop, rounded rect for mobile
+                        fontSize: windowWidth < 576 ? '8px' : '9px', // Smaller icon for smaller desktop circle (reduced from 10px)
                         cursor: 'pointer',
-                        boxShadow: '0 1px 3px rgba(255, 102, 0, 0.3)', // Lighter shadow
+                        boxShadow: windowWidth < 576 ? 
+                          '0 2px 4px rgba(255, 102, 0, 0.3)' : 
+                          '0 3px 8px rgba(255, 102, 0, 0.4)', // Stronger shadow for desktop circle
                         transition: 'all 0.2s ease',
-                        minWidth: '18px', // Smaller width
-                        height: '14px' // Smaller height
+                        // Desktop: Perfect circle dimensions, Mobile: Rectangular
+                        minWidth: windowWidth < 576 ? '22px' : '20px', // Smaller circle for desktop (reduced from 28px)
+                        width: windowWidth < 576 ? 'auto' : '20px', // Fixed width for desktop circle (reduced from 28px)
+                        height: windowWidth < 576 ? '20px' : '20px', // Perfect circle for desktop (reduced from 28px)
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        // Desktop circle specific styles
+                        ...(windowWidth >= 576 && {
+                          position: 'relative',
+                          overflow: 'hidden'
+                        })
                       }}
                       onMouseEnter={(e) => {
-                        e.target.style.transform = 'scale(1.1)';
-                        e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
+                        if (windowWidth < 576) {
+                          // Mobile hover
+                          e.target.style.transform = 'scale(1.1)';
+                          e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
+                        } else {
+                          // Desktop hover - appropriate scale for smaller circle
+                          e.target.style.transform = 'scale(1.1)'; // Reduced from 1.15
+                          e.target.style.boxShadow = '0 3px 8px rgba(255, 102, 0, 0.5)'; // Adjusted shadow
+                          e.target.style.background = isInBasket(product.id) ? 
+                            'linear-gradient(135deg, #059669 0%, #047857 100%)' : 
+                            'linear-gradient(135deg, #ff3300 0%, #cc2900 100%)';
+                        }
                       }}
                       onMouseLeave={(e) => {
-                        e.target.style.transform = 'scale(1)';
-                        e.target.style.boxShadow = '0 1px 3px rgba(255, 102, 0, 0.3)';
+                        if (windowWidth < 576) {
+                          // Mobile hover reset
+                          e.target.style.transform = 'scale(1)';
+                          e.target.style.boxShadow = '0 1px 3px rgba(255, 102, 0, 0.3)';
+                        } else {
+                          // Desktop hover reset
+                          e.target.style.transform = 'scale(1)';
+                          e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)'; // Adjusted shadow for smaller circle
+                          e.target.style.background = isInBasket(product.id) ? 
+                            'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
+                            'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
+                        }
                       }}
                     >
                       <i className={isInBasket(product.id) ? 'fas fa-check' : 'fas fa-shopping-basket'}></i>
@@ -1435,11 +1574,11 @@ const AmazonsChoice = () => {
                       textDecoration: 'none',
                       transition: 'all 0.3s ease',
                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                      // Mobile-specific enhancements (will be overridden by CSS for mobile)
+                      // Mobile-specific enhancements - INCREASED SIZES
                       ...(windowWidth < 576 && {
-                        minHeight: '22px',
-                        fontSize: '9px',
-                        padding: '6px 8px'
+                        minHeight: '26px', // Increased from 22px
+                        fontSize: '10px', // Increased from 9px
+                        padding: '7px 8px' // Increased padding
                       })
                     }}
                     onMouseEnter={(e) => {
@@ -1474,6 +1613,7 @@ const AmazonsChoice = () => {
               </div>
             </div>
           ))}
+          </div>
         </div>
 
         {/* Enhanced Pagination */}
