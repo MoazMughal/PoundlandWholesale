@@ -57,13 +57,13 @@ main {
   overflow-x: hidden;
 }
 
-/* Fix container spacing issues */
+/* Fix container spacing issues - MOBILE FIRST */
 .container, .container-fluid {
   margin: 0 auto;
-  padding-left: 15px;
-  padding-right: 15px;
   width: 100%;
   max-width: 100%;
+  padding-left: 15px;
+  padding-right: 15px;
 }
 
 /* Prevent horizontal scroll on all pages */
@@ -78,6 +78,39 @@ main {
   margin: 0 auto;
   padding-left: 15px;
   padding-right: 15px;
+}
+
+/* Mobile-specific container fixes */
+@media (max-width: 768px) {
+  .container, .container-fluid {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  
+  .products-container,
+  .enhanced-container {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+  
+  /* Ensure no elements overflow */
+  * {
+    max-width: 100%;
+  }
+  
+  /* Fix any row negative margins */
+  .row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  
+  /* Fix column padding */
+  [class*="col-"] {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
 }
 
 :root {

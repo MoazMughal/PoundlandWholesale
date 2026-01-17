@@ -112,12 +112,33 @@ const MobileHeader = () => {
           const seenCategories = new Set();
           
           visibleCategories.forEach(cat => {
-            const lowerLabel = cat.label.toLowerCase();
-            if (!seenCategories.has(lowerLabel)) {
-              seenCategories.add(lowerLabel);
+            let normalizedLabel = cat.label.toLowerCase();
+            
+            // Special handling for party accessories variations
+            if (normalizedLabel.includes('party') && (normalizedLabel.includes('accessor') || normalizedLabel.includes('access'))) {
+              normalizedLabel = 'party accessories';
+              // Always prefer "Party Accessories" (proper capitalization)
+              cat.label = 'Party Accessories';
+              cat.value = 'party-accessories'; // Keep URL-friendly value
+            }
+            
+            if (!seenCategories.has(normalizedLabel)) {
+              seenCategories.add(normalizedLabel);
               deduplicatedCategories.push(cat);
             } else {
-              // Removed duplicate category
+              // Check if current category has better capitalization
+              const existingIndex = deduplicatedCategories.findIndex(existing => 
+                existing.label.toLowerCase() === normalizedLabel
+              );
+              
+              if (existingIndex !== -1) {
+                const existing = deduplicatedCategories[existingIndex];
+                // Prefer proper capitalization (starts with uppercase, has spaces)
+                if (cat.label.match(/^[A-Z]/) && cat.label.includes(' ') && 
+                    (!existing.label.match(/^[A-Z]/) || !existing.label.includes(' '))) {
+                  deduplicatedCategories[existingIndex] = cat;
+                }
+              }
             }
           });
           

@@ -278,20 +278,28 @@ router.get('/public/categories', async (req, res) => {
       const seenCategories = new Map(); // Use Map to track both lowercase and original
       
       categories.forEach(cat => {
-        const lowerCat = cat.toLowerCase();
+        let lowerCat = cat.toLowerCase();
+        let normalizedCat = cat;
+        
+        // Special handling for party accessories variations
+        if (lowerCat.includes('party') && (lowerCat.includes('accessor') || lowerCat.includes('access'))) {
+          lowerCat = 'party accessories';
+          normalizedCat = 'Party Accessories'; // Always use proper capitalization
+        }
+        
         if (!seenCategories.has(lowerCat)) {
-          seenCategories.set(lowerCat, cat);
-          deduplicatedCategories.push(cat);
+          seenCategories.set(lowerCat, normalizedCat);
+          deduplicatedCategories.push(normalizedCat);
         } else {
           // If we find a duplicate, prefer the one with better capitalization
           const existing = seenCategories.get(lowerCat);
           // Prefer the one with more proper capitalization (more uppercase letters in right places)
-          if (cat.match(/^[A-Z]/) && cat.includes(' ') && cat.split(' ').every(word => word.match(/^[A-Z]/))) {
+          if (normalizedCat.match(/^[A-Z]/) && normalizedCat.includes(' ') && normalizedCat.split(' ').every(word => word.match(/^[A-Z]/))) {
             // Replace with better capitalized version
             const index = deduplicatedCategories.indexOf(existing);
             if (index !== -1) {
-              deduplicatedCategories[index] = cat;
-              seenCategories.set(lowerCat, cat);
+              deduplicatedCategories[index] = normalizedCat;
+              seenCategories.set(lowerCat, normalizedCat);
             }
           }
         }
@@ -5953,10 +5961,109 @@ router.use('/excel-import', (req, res, next) => {
   next();
 });
 
+// Fix Party Accessories category variations (admin only)
+router.post('/admin/fix-party-accessories-category', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🎉 Fixing Party Accessories category variations...');
+    
+    const partyVariations = [
+      'party-accessories',
+      'party accessories', 
+      'Party-accessories',
+      'PARTY ACCESSORIES',
+      'Party accessory',
+      'party accessory',
+      'Party-accessory', 
+      'party-accessory',
+      'Partyaccessories',
+      'partyaccessories'
+    ];
+    
+    // Update all party variations to "Party Accessories" in main products
+    const mainUpdateResult = await Product.updateMany(
+      { category: { $in: partyVariations } },
+      { $set: { category: 'Party Accessories' } }
+    );
+    
+    console.log(`✅ Fixed ${mainUpdateResult.modifiedCount} main products`);
+    
+    // Update Excel products
+    let excelUpdated = 0;
+    try {
+      const ExcelProduct = (await import('../models/ExcelProduct.js')).default;
+      const excelUpdateResult = await ExcelProduct.updateMany(
+        { category: { $in: partyVariations } },
+        { $set: { category: 'Party Accessories' } }
+      );
+      excelUpdated = excelUpdateResult.modifiedCount;
+      console.log(`✅ Fixed ${excelUpdated} Excel products`);
+    } catch (excelError) {
+      console.log('ℹ️ No Excel products to update');
+    }
+    
+    // Clear cache
+    fastProductsCache = null;
+    cacheTimestamp = Date.now();
+    
+    res.json({
+      success: true,
+      message: 'Successfully fixed Party Accessories category variations',
+      updatedMainProducts: mainUpdateResult.modifiedCount,
+      updatedExcelProducts: excelUpdated,
+      totalUpdated: mainUpdateResult.modifiedCount + excelUpdated,
+      fixedVariations: partyVariations
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fixing Party Accessories category:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fix Party Accessories category',
+      error: error.message
+    });
+  }
+});
+
 // Clean up duplicate categories (admin only)
 router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req, res) => {
   try {
     console.log('🧹 Starting duplicate category cleanup...');
+    
+    // SPECIAL CASE: Fix Party Accessories variations first
+    const partyVariations = [
+      'party-accessories',
+      'party accessories',
+      'Party-accessories',
+      'PARTY ACCESSORIES',
+      'Party accessory',
+      'party accessory',
+      'Party-accessory',
+      'party-accessory',
+      'Partyaccessories',
+      'partyaccessories'
+    ];
+    
+    // Update all party variations to "Party Accessories"
+    const partyUpdateResult = await Product.updateMany(
+      { category: { $in: partyVariations } },
+      { $set: { category: 'Party Accessories' } }
+    );
+    
+    console.log(`🎉 Fixed ${partyUpdateResult.modifiedCount} Party Accessories products`);
+    
+    // Also update Excel products
+    let partyExcelUpdated = 0;
+    try {
+      const ExcelProduct = (await import('../models/ExcelProduct.js')).default;
+      const partyExcelResult = await ExcelProduct.updateMany(
+        { category: { $in: partyVariations } },
+        { $set: { category: 'Party Accessories' } }
+      );
+      partyExcelUpdated = partyExcelResult.modifiedCount;
+      console.log(`📊 Fixed ${partyExcelUpdated} Party Accessories Excel products`);
+    } catch (excelError) {
+      console.log('ℹ️ No Excel products to update for Party Accessories');
+    }
     
     // Get all unique categories from products
     const allCategories = await Product.distinct('category');
@@ -5986,12 +6093,21 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
     
     console.log(`🔍 Found ${duplicateGroups.length} groups with duplicate categories`);
     
-    let totalUpdated = 0;
-    const updateResults = [];
+    let totalUpdated = partyUpdateResult.modifiedCount;
+    const updateResults = [{
+      normalizedCategory: 'Party Accessories',
+      originalCategories: partyVariations,
+      productsUpdated: partyUpdateResult.modifiedCount
+    }];
     
     // Process each duplicate group
     for (const group of duplicateGroups) {
       const { normalized, duplicates } = group;
+      
+      // Skip if already processed (Party Accessories)
+      if (normalized === 'Party Accessories' || duplicates.includes('Party Accessories')) {
+        continue;
+      }
       
       console.log(`🔄 Processing group: ${normalized}`);
       console.log(`   Duplicates: ${duplicates.join(', ')}`);
@@ -6014,12 +6130,17 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
     }
     
     // Also update Excel products if they exist
-    let excelUpdated = 0;
+    let excelUpdated = partyExcelUpdated;
     try {
-      const ExcelProduct = require('../models/ExcelProduct');
+      const ExcelProduct = (await import('../models/ExcelProduct.js')).default;
       
       for (const group of duplicateGroups) {
         const { normalized, duplicates } = group;
+        
+        // Skip if already processed (Party Accessories)
+        if (normalized === 'Party Accessories' || duplicates.includes('Party Accessories')) {
+          continue;
+        }
         
         const excelUpdateResult = await ExcelProduct.updateMany(
           { category: { $in: duplicates } },
@@ -6029,7 +6150,7 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
         excelUpdated += excelUpdateResult.modifiedCount;
       }
       
-      console.log(`📊 Updated ${excelUpdated} Excel products`);
+      console.log(`📊 Updated ${excelUpdated} Excel products total`);
     } catch (excelError) {
       console.log('ℹ️ No Excel products to update or Excel model not available');
     }
@@ -6040,9 +6161,10 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
     
     res.json({
       success: true,
-      message: `Successfully cleaned up ${duplicateGroups.length} duplicate category groups`,
+      message: `Successfully cleaned up duplicate categories. Fixed Party Accessories variations.`,
       totalProductsUpdated: totalUpdated,
       excelProductsUpdated: excelUpdated,
+      partyAccessoriesFixed: partyUpdateResult.modifiedCount,
       duplicateGroups: duplicateGroups.length,
       updateResults: updateResults
     });
