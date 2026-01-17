@@ -97,23 +97,106 @@
   }
 }
 
-/* Mobile Styles */
+/* Mobile Styles - Enhanced */
 @media (max-width: 768px) {
+  .footer {
+    padding: 25px 0 20px;
+  }
+  
+  .footer-container {
+    padding: 0 15px; /* Reduced padding for better mobile fit */
+    max-width: 100%;
+  }
+  
+  .footer-row {
+    grid-template-columns: 1fr;
+    gap: 30px; /* Increased gap for better spacing */
+  }
+  
+  .footer-col {
+    padding: 0;
+    text-align: left; /* Ensure left alignment */
+  }
+  
+  .footer-col h5 {
+    font-size: 1.2rem; /* Slightly larger for mobile */
+    margin-bottom: 18px;
+    font-weight: 700;
+    color: #ff6600; /* Orange color for headers */
+  }
+  
+  .footer-col p {
+    font-size: 0.9rem; /* Larger text for mobile */
+    line-height: 1.5;
+    margin-bottom: 15px;
+  }
+  
+  .footer-col ul {
+    font-size: 0.9rem; /* Larger text for mobile */
+    line-height: 2;
+  }
+  
+  .footer-col ul li {
+    margin-bottom: 12px;
+    padding-left: 0; /* Ensure no extra padding */
+  }
+  
+  .footer-col ul li a {
+    display: block;
+    padding: 5px 0;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+  }
+  
+  .footer-col ul li a:hover {
+    color: #ff6600;
+    padding-left: 5px;
+  }
+  
+  .social-icons {
+    margin-top: 20px;
+    gap: 20px;
+    justify-content: flex-start; /* Left align social icons */
+  }
+  
+  .social-icons a {
+    font-size: 1.3rem;
+    padding: 8px;
+    border-radius: 50%;
+    background: rgba(255, 102, 0, 0.1);
+    transition: all 0.3s ease;
+  }
+  
+  .social-icons a:hover {
+    background: #ff6600;
+    color: white;
+    transform: scale(1.1);
+  }
+  
+  .copyright {
+    margin-top: 25px;
+    padding: 15px 0;
+    border-top: 2px solid rgba(255, 102, 0, 0.2);
+  }
+  
+  .copyright p {
+    font-size: 0.8rem;
+    color: #666;
+  }
+}
+
+/* Extra Small Mobile - Enhanced */
+@media (max-width: 576px) {
   .footer {
     padding: 20px 0 15px;
   }
   
   .footer-container {
-    padding: 0 20px;
+    padding: 0 12px; /* Even more compact for small screens */
   }
   
   .footer-row {
-    grid-template-columns: 1fr;
     gap: 25px;
-  }
-  
-  .footer-col {
-    padding: 0;
   }
   
   .footer-col h5 {
@@ -121,35 +204,17 @@
     margin-bottom: 15px;
   }
   
-  .footer-col p {
-    font-size: 0.85rem;
-  }
-  
+  .footer-col p,
   .footer-col ul {
     font-size: 0.85rem;
   }
   
-  .footer-col ul li {
-    margin-bottom: 10px;
-  }
-  
   .social-icons {
-    margin-top: 15px;
     gap: 15px;
   }
   
   .social-icons a {
-    font-size: 1.1rem;
-  }
-}
-
-/* Extra Small Mobile */
-@media (max-width: 576px) {
-  .footer-container {
-    padding: 0 15px;
-  }
-  
-  .footer-row {
-    gap: 20px;
+    font-size: 1.2rem;
+    padding: 6px;
   }
 }

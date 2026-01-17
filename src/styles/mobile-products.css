@@ -242,13 +242,13 @@
   }
 }
 
-/* Mobile phones - 2 columns */
+/* Mobile phones - 2 columns - ENHANCED SPACING */
 @media (max-width: 576px) {
   #products-grid {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 8px !important;
-    padding: 8px !important;
+    padding: 10px !important; /* Increased padding from 8px */
     width: 100% !important;
   }
 
@@ -384,7 +384,7 @@
   }
 
   .product-info > div > div > div:first-child > span {
-    font-size: 8px !important; /* Increased from 6px to 8px */
+    font-size: 9px !important; /* Increased from 8px to 9px for better readability */
     line-height: 1.2 !important; /* Improved line height */
     display: inline-block !important;
     max-width: 100% !important;
@@ -516,15 +516,15 @@
   }
 }
 
-/* Container padding adjustments */
+/* Container padding adjustments - ENHANCED MOBILE SPACING */
 @media (max-width: 576px) {
   .products-container {
-    padding: 8px !important;
+    padding: 10px !important; /* Increased from 8px */
   }
 
   .container {
-    padding-left: 8px !important;
-    padding-right: 8px !important;
+    padding-left: 15px !important; /* Increased from 8px */
+    padding-right: 15px !important; /* Increased from 8px */
   }
 }
 
@@ -873,9 +873,9 @@ ific fixes for basket icon and deal profit layout issues */
     margin-left: 2px !important;
   }
 
-  /* Fix profit sections to not touch card borders */
+  /* Fix profit sections to not touch card borders - MOVED TO LEFT */
   .product-card .product-info > div[style*="alignItems: flex-start"] {
-    margin: 2px 4px !important;
+    margin: 2px 2px !important; /* Reduced left margin from 4px to 2px */
     padding: 0 !important;
   }
 

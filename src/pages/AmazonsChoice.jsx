@@ -793,7 +793,7 @@ const AmazonsChoice = () => {
   return (
       <div className="container products-container enhanced-container" style={{
         maxWidth: '100%', 
-        padding: windowWidth < 576 ? '0 10px' : '0 15px', 
+        padding: windowWidth < 576 ? '0 15px' : '0 15px', // Increased left padding for mobile from 10px to 15px
         marginTop: '0px', 
         marginBottom: '0px',
         width: '100%'
@@ -1361,7 +1361,7 @@ const AmazonsChoice = () => {
                         flexDirection: 'column', 
                         alignItems: 'flex-start',
                         gap: '2px', // Increased gap from 1px to 2px
-                        marginLeft: '2px', // Reduce margin
+                        marginLeft: windowWidth < 576 ? '0px' : '2px', // Moved to left edge on mobile, keep desktop margin
                         marginTop: windowWidth < 576 ? '8px' : '2px' // Increased mobile margin from 6px to 8px
                       }}>
                         {/* Profit per unit */}
@@ -1426,7 +1426,7 @@ const AmazonsChoice = () => {
                       minWidth: 0 // Allow text to wrap if needed
                     }}>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '10px' : '8px', // Increased mobile font size from 9px to 10px
+                        fontSize: windowWidth < 576 ? '10px' : '8px', // Increased mobile font size to match desktop better
                         color: '#cc3300', 
                         fontWeight: '700',
                         whiteSpace: 'nowrap'
