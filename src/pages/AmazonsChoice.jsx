@@ -793,7 +793,7 @@ const AmazonsChoice = () => {
   return (
       <div className="container products-container enhanced-container" style={{
         maxWidth: '100%', 
-        padding: windowWidth < 576 ? '0 15px' : '0 15px', // Increased left padding for mobile from 10px to 15px
+        padding: windowWidth < 576 ? '0 20px' : '0 15px', // Increased mobile padding from 15px to 20px
         marginTop: '0px', 
         marginBottom: '0px',
         width: '100%'
@@ -850,10 +850,10 @@ const AmazonsChoice = () => {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: windowWidth < 576 ? '8px' : '10px', // Reduced margin on mobile
-            padding: windowWidth < 576 ? '12px 15px' : '15px 20px', // Adjusted padding for mobile
+            marginBottom: windowWidth < 576 ? '10px' : '10px', // Consistent margin
+            padding: windowWidth < 576 ? '15px 20px' : '15px 20px', // Increased mobile padding
             background: 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
-            borderRadius: windowWidth < 576 ? '10px' : '12px', // Slightly smaller radius on mobile
+            borderRadius: windowWidth < 576 ? '12px' : '12px', // Consistent radius
             color: 'white',
             boxShadow: '0 4px 15px rgba(255, 102, 0, 0.3)', // Enhanced shadow
             border: '1px solid rgba(255, 255, 255, 0.2)', // Subtle border

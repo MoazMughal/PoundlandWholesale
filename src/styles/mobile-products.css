@@ -247,9 +247,11 @@
   #products-grid {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
-    gap: 8px !important;
-    padding: 10px !important; /* Increased padding from 8px */
+    gap: 10px !important; /* Increased gap from 8px */
+    padding: 15px !important; /* Increased padding from 10px */
     width: 100% !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
   }
 
   .product-card {
@@ -519,12 +521,25 @@
 /* Container padding adjustments - ENHANCED MOBILE SPACING */
 @media (max-width: 576px) {
   .products-container {
-    padding: 10px !important; /* Increased from 8px */
+    padding: 15px !important; /* Increased from 10px */
   }
 
   .container {
-    padding-left: 15px !important; /* Increased from 8px */
-    padding-right: 15px !important; /* Increased from 8px */
+    padding-left: 20px !important; /* Increased from 15px */
+    padding-right: 20px !important; /* Increased from 15px */
+  }
+  
+  /* Ensure body has proper margins */
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Fix any overflow issues */
+  .enhanced-container {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 }
 
