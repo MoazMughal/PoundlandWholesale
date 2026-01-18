@@ -15,6 +15,12 @@ const Approval = () => {
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [pageSize, setPageSize] = useState(100); // Default to 100 products per page
+  
   // Filtering and sorting states
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
@@ -26,6 +32,8 @@ const Approval = () => {
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [bulkTargetCategory, setBulkTargetCategory] = useState('');
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [allProductsSelected, setAllProductsSelected] = useState(false); // Track if all products across pages are selected
+  const [allProductIds, setAllProductIds] = useState([]); // Store all product IDs for bulk operations
 
   // ASIN search states for products without images
   const [asinInputs, setAsinInputs] = useState({}); // productId -> asin value
@@ -42,83 +50,41 @@ const Approval = () => {
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 5000);
     }
-  }, [location.state]);
+  }, [location.state, currentPage, pageSize, selectedCategory, sortBy, searchTerm]);
 
   // Fetch all categories on component mount
   useEffect(() => {
     fetchAllCategories();
   }, []);
 
-  // Filter and sort products when dependencies change
+  // Reset to first page when filters change
   useEffect(() => {
-    let filtered = [...pendingProducts];
-
-    // Filter by search term
-    if (searchTerm.trim()) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(product => 
-        product.name?.toLowerCase().includes(search) ||
-        product.category?.toLowerCase().includes(search) ||
-        product.brand?.toLowerCase().includes(search) ||
-        product.sku?.toLowerCase().includes(search) ||
-        product.description?.toLowerCase().includes(search)
-      );
+    if (currentPage !== 1) {
+      setCurrentPage(1);
     }
-
-    // Filter by category
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(product => 
-        product.category?.toLowerCase() === selectedCategory.toLowerCase()
-      );
-    }
-
-    // Sort products
-    switch (sortBy) {
-      case 'newest':
-        filtered.sort((a, b) => new Date(b.createdAt || b._id) - new Date(a.createdAt || a._id));
-        break;
-      case 'oldest':
-        filtered.sort((a, b) => new Date(a.createdAt || a._id) - new Date(b.createdAt || b._id));
-        break;
-      case 'name-asc':
-        filtered.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case 'name-desc':
-        filtered.sort((a, b) => b.name.localeCompare(a.name));
-        break;
-      case 'price-low':
-        filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
-        break;
-      case 'price-high':
-        filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
-        break;
-      case 'rating-high':
-        filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        break;
-      case 'rating-low':
-        filtered.sort((a, b) => (a.rating || 0) - (b.rating || 0));
-        break;
-      case 'stock-high':
-        filtered.sort((a, b) => (b.stock || 0) - (a.stock || 0));
-        break;
-      case 'stock-low':
-        filtered.sort((a, b) => (a.stock || 0) - (b.stock || 0));
-        break;
-      default:
-        break;
-    }
-
-    setFilteredProducts(filtered);
-  }, [pendingProducts, selectedCategory, sortBy, searchTerm]);
+  }, [selectedCategory, sortBy, searchTerm]);
 
   const fetchPendingProducts = async () => {
     try {
       setLoading(true);
-      const response = await adminGet('http://localhost:5000/api/products/pending-approval');
+      
+      // Build query parameters for server-side pagination and filtering
+      const params = new URLSearchParams({
+        page: currentPage,
+        limit: pageSize,
+        sortBy: sortBy,
+        ...(searchTerm && { search: searchTerm }),
+        ...(selectedCategory !== 'all' && { category: selectedCategory })
+      });
+
+      const response = await adminGet(`http://localhost:5000/api/products/pending-approval?${params}`);
       
       if (response.ok) {
         const data = await response.json();
         setPendingProducts(data.products || []);
+        setFilteredProducts(data.products || []); // Since filtering is now server-side
+        setTotalPages(data.pagination?.totalPages || 1);
+        setTotalProducts(data.pagination?.totalProducts || 0);
         
         // Fetch all available categories instead of just extracting from pending products
         await fetchAllCategories();
@@ -126,6 +92,7 @@ const Approval = () => {
       }
     } catch (error) {
       // Error fetching pending products
+      console.error('Error fetching pending products:', error);
     } finally {
       setLoading(false);
     }
@@ -204,16 +171,64 @@ const Approval = () => {
   };
 
   const getCategoryCount = (category) => {
-    if (category === 'all') return pendingProducts.length;
-    return pendingProducts.filter(product => 
-      product.category?.toLowerCase() === category.toLowerCase()
-    ).length;
+    // Since we're using server-side pagination, we'll show the total count from server
+    if (category === 'all') return totalProducts;
+    // For individual categories, we'll need to make a separate API call or show approximate count
+    return '?'; // We could implement a separate endpoint to get category counts
   };
 
   const clearAllFilters = () => {
     setSelectedCategory('all');
     setSortBy('newest');
     setSearchTerm('');
+    setCurrentPage(1);
+    // Clear selections when filters change
+    setSelectedProducts(new Set());
+    setShowBulkActions(false);
+    setAllProductsSelected(false);
+    setAllProductIds([]);
+  };
+
+  // Pagination functions
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    setSelectedProducts(new Set()); // Clear selections when changing pages
+    setShowBulkActions(false);
+    setAllProductsSelected(false); // Clear "all products selected" state
+    setAllProductIds([]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handlePageSizeChange = (newPageSize) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1);
+    setSelectedProducts(new Set()); // Clear selections when changing page size
+    setShowBulkActions(false);
+    setAllProductsSelected(false); // Clear "all products selected" state
+    setAllProductIds([]);
+  };
+
+  // Fetch all product IDs for bulk operations
+  const fetchAllProductIds = async () => {
+    try {
+      // Build query parameters for fetching all IDs (without pagination)
+      const params = new URLSearchParams({
+        idsOnly: 'true', // Special parameter to get only IDs
+        ...(searchTerm && { search: searchTerm }),
+        ...(selectedCategory !== 'all' && { category: selectedCategory })
+      });
+
+      const response = await adminGet(`http://localhost:5000/api/products/pending-approval?${params}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.productIds || [];
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching all product IDs:', error);
+      return [];
+    }
   };
 
   // Bulk selection functions
@@ -226,17 +241,47 @@ const Approval = () => {
     }
     setSelectedProducts(newSelected);
     setShowBulkActions(newSelected.size > 0);
+    
+    // Update allProductsSelected state
+    if (allProductsSelected && newSelected.size < allProductIds.length) {
+      setAllProductsSelected(false);
+    }
   };
 
   const selectAllProducts = () => {
     const allIds = new Set(filteredProducts.map(p => p._id));
     setSelectedProducts(allIds);
     setShowBulkActions(allIds.size > 0);
+    setAllProductsSelected(false); // This is just current page
+  };
+
+  const selectAllProductsAcrossPages = async () => {
+    try {
+      setBulkProcessing(true);
+      const allIds = await fetchAllProductIds();
+      setAllProductIds(allIds);
+      setSelectedProducts(new Set(allIds));
+      setAllProductsSelected(true);
+      setShowBulkActions(allIds.length > 0);
+      
+      if (allIds.length > 0) {
+        setSuccessMessage(`Selected all ${allIds.length} products across all pages!`);
+        setShowSuccessToast(true);
+        setTimeout(() => setShowSuccessToast(false), 3000);
+      }
+    } catch (error) {
+      console.error('Error selecting all products:', error);
+      alert('❌ Failed to select all products. Please try again.');
+    } finally {
+      setBulkProcessing(false);
+    }
   };
 
   const clearSelection = () => {
     setSelectedProducts(new Set());
     setShowBulkActions(false);
+    setAllProductsSelected(false);
+    setAllProductIds([]);
   };
 
   const handleBulkCategoryChange = async () => {
@@ -759,7 +804,7 @@ const Approval = () => {
   return (
     <div className="admin-product-form">
       <header className="form-header">
-        <h1>✅ Product Approval ({filteredProducts.length} of {pendingProducts.length} products)</h1>
+        <h1>✅ Product Approval ({totalProducts} total products)</h1>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button
             onClick={handleFixPartyAccessoriesCategory}
@@ -787,7 +832,7 @@ const Approval = () => {
         </div>
       </header>
 
-      {pendingProducts.length === 0 ? (
+      {totalProducts === 0 ? (
         <div style={{
           textAlign: 'center',
           padding: '50px',
@@ -798,7 +843,7 @@ const Approval = () => {
           <div style={{ fontSize: '48px', marginBottom: '20px' }}>✅</div>
           <h2 style={{ color: '#28a745', marginBottom: '10px' }}>All Caught Up!</h2>
           <p style={{ color: '#6c757d', fontSize: '16px' }}>
-            No products are currently pending approval. (0 products)
+            No products are currently pending approval.
           </p>
           <button
             onClick={() => navigate('/admin/add-product')}
@@ -883,7 +928,7 @@ const Approval = () => {
 
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'auto 1fr auto auto',
+              gridTemplateColumns: 'auto 1fr auto auto auto',
               gap: '12px',
               alignItems: 'center'
             }}>
@@ -926,18 +971,43 @@ const Approval = () => {
                 color: '#6c757d',
                 fontSize: '11px'
               }}>
-                {filteredProducts.length !== pendingProducts.length && (
-                  <span>
-                    Showing {filteredProducts.length} of {pendingProducts.length}
-                  </span>
-                )}
-                {(selectedCategory !== 'all' || searchTerm) && (
-                  <div style={{ fontSize: '10px', marginTop: '1px' }}>
-                    {selectedCategory !== 'all' && <span>{selectedCategory}</span>}
-                    {selectedCategory !== 'all' && searchTerm && <span> | </span>}
-                    {searchTerm && <span>"{searchTerm}"</span>}
-                  </div>
-                )}
+                <span>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <div style={{ fontSize: '10px', marginTop: '1px' }}>
+                  Showing {filteredProducts.length} of {totalProducts} total
+                </div>
+              </div>
+
+              {/* Page Size Selector */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  color: '#495057',
+                  marginBottom: '3px'
+                }}>
+                  📄 Per Page
+                </label>
+                <select
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
+                  style={{
+                    padding: '6px 8px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    background: 'white',
+                    cursor: 'pointer',
+                    minWidth: '80px'
+                  }}
+                >
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={150}>150</option>
+                  <option value={200}>200</option>
+                </select>
               </div>
 
               {/* Clear Filters Button */}
@@ -1086,7 +1156,7 @@ const Approval = () => {
                 marginBottom: '8px'
               }}>
                 <div style={{ fontSize: '12px', fontWeight: 'bold' }}>
-                  ✅ {selectedProducts.size} Selected
+                  ✅ {selectedProducts.size} Selected {allProductsSelected ? '(All Products)' : ''}
                 </div>
                 
                 <div style={{
@@ -1166,7 +1236,25 @@ const Approval = () => {
                     fontWeight: '600'
                   }}
                 >
-                  Select All ({filteredProducts.length})
+                  Select Page ({filteredProducts.length})
+                </button>
+
+                <button
+                  onClick={selectAllProductsAcrossPages}
+                  disabled={bulkProcessing}
+                  style={{
+                    padding: '6px 10px',
+                    background: bulkProcessing ? 'rgba(255,255,255,0.1)' : allProductsSelected ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.2)',
+                    color: 'white',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '4px',
+                    cursor: bulkProcessing ? 'not-allowed' : 'pointer',
+                    fontSize: '10px',
+                    fontWeight: '600',
+                    opacity: bulkProcessing ? 0.6 : 1
+                  }}
+                >
+                  {bulkProcessing ? '⏳ Loading...' : allProductsSelected ? `✅ All Selected (${totalProducts})` : `Select All (${totalProducts})`}
                 </button>
 
                 <button
@@ -1211,7 +1299,7 @@ const Approval = () => {
                     gap: '6px'
                   }}
                 >
-                  {bulkProcessing ? '⏳' : '✅'} Bulk Approve ({selectedProducts.size})
+                  {bulkProcessing ? '⏳' : '✅'} Bulk Approve ({selectedProducts.size}{allProductsSelected ? ' - All' : ''})
                 </button>
 
                 <button
@@ -1231,7 +1319,7 @@ const Approval = () => {
                     gap: '6px'
                   }}
                 >
-                  {bulkProcessing ? '⏳' : '❌'} Bulk Disapprove ({selectedProducts.size})
+                  {bulkProcessing ? '⏳' : '❌'} Bulk Disapprove ({selectedProducts.size}{allProductsSelected ? ' - All' : ''})
                 </button>
 
                 <button
@@ -1252,7 +1340,7 @@ const Approval = () => {
                     opacity: selectedProducts.size === 0 ? 0.6 : 1
                   }}
                 >
-                  {bulkProcessing ? '⏳' : '📷'} Fetch Images ({selectedProducts.size})
+                  {bulkProcessing ? '⏳' : '📷'} Fetch Images ({selectedProducts.size}{allProductsSelected ? ' - All' : ''})
                 </button>
               </div>
               
@@ -1263,7 +1351,7 @@ const Approval = () => {
                 opacity: 0.8,
                 textAlign: 'center'
               }}>
-                💡 Select products → Move categories OR approve/disapprove OR fetch images for products with ASINs
+                💡 Select current page OR all products across pages → Move categories OR approve/disapprove OR fetch images for products with ASINs
               </div>
             </div>
           )}
@@ -1293,10 +1381,8 @@ const Approval = () => {
               color: 'white',
               opacity: 0.9 
             }}>
-              {filteredProducts.length !== pendingProducts.length 
-                ? `Filtered from ${pendingProducts.length} total products` 
-                : 'Review and approve products to make them available for purchase'
-              }
+              Page {currentPage} of {totalPages} | {totalProducts} total products
+              {selectedCategory !== 'all' || searchTerm ? ' (filtered)' : ''}
             </p>
           </div>
 
@@ -1815,6 +1901,248 @@ const Approval = () => {
             </div>
           )}
           
+          {/* Pagination Controls */}
+          {!loading && filteredProducts.length > 0 && totalPages > 1 && (
+            <div style={{
+              padding: '12px 16px',
+              borderTop: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: '#f8fafc',
+              flexWrap: 'wrap',
+              gap: '10px',
+              marginTop: '10px',
+              borderRadius: '6px'
+            }}>
+              <div style={{ fontSize: '0.8rem', color: '#666', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span>Page {currentPage} of {totalPages} ({totalProducts} total)</span>
+                
+                {/* Quick Jump Input */}
+                {totalPages > 10 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '0.7rem' }}>Go to:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={totalPages}
+                      placeholder={currentPage}
+                      style={{
+                        width: '50px',
+                        padding: '3px 5px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '3px',
+                        fontSize: '0.7rem',
+                        textAlign: 'center'
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          const page = parseInt(e.target.value);
+                          if (page >= 1 && page <= totalPages) {
+                            handlePageChange(page);
+                            e.target.value = '';
+                          }
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const page = parseInt(e.target.value);
+                        if (page >= 1 && page <= totalPages) {
+                          handlePageChange(page);
+                          e.target.value = '';
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* First and Previous buttons */}
+                <button
+                  onClick={() => handlePageChange(1)}
+                  disabled={currentPage === 1}
+                  style={{
+                    padding: '5px 8px',
+                    background: currentPage === 1 ? '#f3f4f6' : '#667eea',
+                    color: currentPage === 1 ? '#9ca3af' : 'white',
+                    border: 'none',
+                    borderRadius: '3px',
+                    fontSize: '0.7rem',
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                    fontWeight: '500'
+                  }}
+                >
+                  First
+                </button>
+                <button
+                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  style={{
+                    padding: '5px 8px',
+                    background: currentPage === 1 ? '#f3f4f6' : '#667eea',
+                    color: currentPage === 1 ? '#9ca3af' : 'white',
+                    border: 'none',
+                    borderRadius: '3px',
+                    fontSize: '0.7rem',
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                    fontWeight: '500'
+                  }}
+                >
+                  ←
+                </button>
+
+                {/* Page Numbers */}
+                {(() => {
+                  const pageNumbers = [];
+                  const maxVisiblePages = 7;
+                  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                  
+                  if (endPage - startPage + 1 < maxVisiblePages) {
+                    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                  }
+
+                  if (startPage > 1) {
+                    pageNumbers.push(
+                      <button
+                        key={1}
+                        onClick={() => handlePageChange(1)}
+                        style={{
+                          padding: '5px 8px',
+                          background: 1 === currentPage ? '#667eea' : 'white',
+                          color: 1 === currentPage ? 'white' : '#667eea',
+                          border: '1px solid #667eea',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          fontWeight: 1 === currentPage ? 'bold' : '500',
+                          minWidth: '28px'
+                        }}
+                      >
+                        1
+                      </button>
+                    );
+                    
+                    if (startPage > 2) {
+                      pageNumbers.push(
+                        <span key="ellipsis1" style={{ 
+                          padding: '5px 4px', 
+                          fontSize: '0.7rem', 
+                          color: '#9ca3af' 
+                        }}>
+                          ...
+                        </span>
+                      );
+                    }
+                  }
+
+                  for (let i = startPage; i <= endPage; i++) {
+                    pageNumbers.push(
+                      <button
+                        key={i}
+                        onClick={() => handlePageChange(i)}
+                        style={{
+                          padding: '5px 8px',
+                          background: i === currentPage ? '#667eea' : 'white',
+                          color: i === currentPage ? 'white' : '#667eea',
+                          border: '1px solid #667eea',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          fontWeight: i === currentPage ? 'bold' : '500',
+                          minWidth: '28px',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (i !== currentPage) {
+                            e.target.style.background = '#f0f4ff';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (i !== currentPage) {
+                            e.target.style.background = 'white';
+                          }
+                        }}
+                      >
+                        {i}
+                      </button>
+                    );
+                  }
+
+                  if (endPage < totalPages) {
+                    if (endPage < totalPages - 1) {
+                      pageNumbers.push(
+                        <span key="ellipsis2" style={{ 
+                          padding: '5px 4px', 
+                          fontSize: '0.7rem', 
+                          color: '#9ca3af' 
+                        }}>
+                          ...
+                        </span>
+                      );
+                    }
+                    
+                    pageNumbers.push(
+                      <button
+                        key={totalPages}
+                        onClick={() => handlePageChange(totalPages)}
+                        style={{
+                          padding: '5px 8px',
+                          background: totalPages === currentPage ? '#667eea' : 'white',
+                          color: totalPages === currentPage ? 'white' : '#667eea',
+                          border: '1px solid #667eea',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          fontWeight: totalPages === currentPage ? 'bold' : '500',
+                          minWidth: '28px'
+                        }}
+                      >
+                        {totalPages}
+                      </button>
+                    );
+                  }
+
+                  return pageNumbers;
+                })()}
+
+                {/* Next and Last buttons */}
+                <button
+                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    padding: '5px 8px',
+                    background: currentPage === totalPages ? '#f3f4f6' : '#667eea',
+                    color: currentPage === totalPages ? '#9ca3af' : 'white',
+                    border: 'none',
+                    borderRadius: '3px',
+                    fontSize: '0.7rem',
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                    fontWeight: '500'
+                  }}
+                >
+                  →
+                </button>
+                <button
+                  onClick={() => handlePageChange(totalPages)}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    padding: '5px 8px',
+                    background: currentPage === totalPages ? '#f3f4f6' : '#667eea',
+                    color: currentPage === totalPages ? '#9ca3af' : 'white',
+                    border: 'none',
+                    borderRadius: '3px',
+                    fontSize: '0.7rem',
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                    fontWeight: '500'
+                  }}
+                >
+                  Last
+                </button>
+              </div>
+            </div>
+          )}
+          
           {/* Progress Footer */}
           <div style={{
             background: '#f8f9fa',
@@ -1829,12 +2157,13 @@ const Approval = () => {
               color: '#6c757d', 
               fontSize: '10px' 
             }}>
-              📊 Total: <strong>{pendingProducts.length}</strong>
-              {filteredProducts.length !== pendingProducts.length && (
-                <span style={{ marginLeft: '8px' }}>
-                  | Showing: <strong>{filteredProducts.length}</strong>
-                </span>
-              )}
+              📊 Total: <strong>{totalProducts}</strong>
+              <span style={{ marginLeft: '8px' }}>
+                | Page: <strong>{currentPage}/{totalPages}</strong>
+              </span>
+              <span style={{ marginLeft: '8px' }}>
+                | Showing: <strong>{filteredProducts.length}</strong>
+              </span>
               {selectedCategory !== 'all' && (
                 <span style={{ marginLeft: '8px' }}>
                   | Category: <strong>{selectedCategory}</strong>
@@ -1845,7 +2174,7 @@ const Approval = () => {
                   | Search: <strong>"{searchTerm}"</strong>
                 </span>
               )}
-              {pendingProducts.length > 0 && (
+              {totalProducts > 0 && (
                 <span style={{ marginLeft: '8px' }}>
                   ⚡ Process all to clear queue
                 </span>

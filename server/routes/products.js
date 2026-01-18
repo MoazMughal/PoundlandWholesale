@@ -997,15 +997,107 @@ router.get('/debug/sku-check', authenticateAdmin, async (req, res) => {
 // Get products pending approval
 router.get('/pending-approval', authenticateAdmin, async (req, res) => {
   try {
-    const pendingProducts = await Product.find({ 
-      approvalStatus: 'pending' 
-    })
-    .sort({ createdAt: -1 })
-    .lean();
+    const {
+      page = 1,
+      limit = 100,
+      search = '',
+      category = '',
+      sortBy = 'newest',
+      idsOnly = 'false'
+    } = req.query;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build the query
+    let query = { approvalStatus: 'pending' };
+
+    // Add search filter
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { name: searchRegex },
+        { category: searchRegex },
+        { brand: searchRegex },
+        { sku: searchRegex },
+        { description: searchRegex }
+      ];
+    }
+
+    // Add category filter
+    if (category && category !== 'all') {
+      query.category = new RegExp(`^${category}$`, 'i');
+    }
+
+    // If only IDs are requested, return just the IDs
+    if (idsOnly === 'true') {
+      const productIds = await Product.find(query).select('_id').lean();
+      return res.json({
+        success: true,
+        productIds: productIds.map(p => p._id.toString())
+      });
+    }
+
+    // Build sort options
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'newest':
+        sortOptions = { createdAt: -1 };
+        break;
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'name-asc':
+        sortOptions = { name: 1 };
+        break;
+      case 'name-desc':
+        sortOptions = { name: -1 };
+        break;
+      case 'price-low':
+        sortOptions = { price: 1 };
+        break;
+      case 'price-high':
+        sortOptions = { price: -1 };
+        break;
+      case 'rating-high':
+        sortOptions = { rating: -1 };
+        break;
+      case 'rating-low':
+        sortOptions = { rating: 1 };
+        break;
+      case 'stock-high':
+        sortOptions = { stock: -1 };
+        break;
+      case 'stock-low':
+        sortOptions = { stock: 1 };
+        break;
+      default:
+        sortOptions = { createdAt: -1 };
+    }
+
+    // Get total count for pagination
+    const totalProducts = await Product.countDocuments(query);
+    const totalPages = Math.ceil(totalProducts / limitNum);
+
+    // Get paginated products
+    const pendingProducts = await Product.find(query)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
     
     res.json({
       success: true,
-      products: pendingProducts
+      products: pendingProducts,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalProducts,
+        pageSize: limitNum,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1
+      }
     });
   } catch (error) {
     console.error('Error fetching pending products:', error);

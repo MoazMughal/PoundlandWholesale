@@ -23,6 +23,7 @@ import './styles/mobile-improvements.css'
 import './styles/micro-interactions.css'
 import './styles/layout-fix.css'
 import './styles/image-optimization.css'
+import './styles/mobile-pricing-fix.css'
 
 // Lazy load pages for better performance
 const AmazonsChoice = lazy(() => import('./pages/AmazonsChoice'))

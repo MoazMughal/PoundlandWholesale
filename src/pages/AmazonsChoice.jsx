@@ -27,6 +27,7 @@ import '../styles/mobile-image-optimization.css'
 import '../styles/image-fixes.css'
 import '../styles/production-optimizations.css'
 import '../styles/mobile-enhancements.css'
+import '../styles/mobile-pricing-fix.css'
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
