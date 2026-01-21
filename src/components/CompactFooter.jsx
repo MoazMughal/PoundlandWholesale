@@ -25,11 +25,19 @@ const CompactFooter = () => {
       borderTop: '3px solid #ff9900',
       boxShadow: '0 -2px 10px rgba(255, 153, 0, 0.2)',
       width: '100%',
-      margin: 0
+      margin: 0,
+      // Add mobile-specific padding
+      ...(isMobile && {
+        padding: '20px 60px 10px', // Increased horizontal padding for mobile
+      })
     }}>
       <div style={{
         maxWidth: '1200px',
-        margin: '0 auto'
+        margin: '0 auto',
+        // Add mobile-specific margin
+        ...(isMobile && {
+          marginLeft: '50px', // Add left margin for mobile to move content away from edge
+        })
       }}>
         {/* Main Footer Content */}
         <div style={{

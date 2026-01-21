@@ -1196,7 +1196,7 @@ const AmazonsChoice = () => {
                   {/* Left side - Compact Enhanced Price */}
                   <div style={{
                     fontWeight: '800', 
-                    fontSize: windowWidth < 576 ? '10px' : '9px', // Increased mobile font size from 9px to 10px
+                    fontSize: windowWidth < 576 ? '12px' : '9px', // Increased mobile font size from 10px to 12px for better visibility
                     color: '#ff3300',
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
                     padding: windowWidth < 576 ? '2px 4px' : '1px 3px', // Increased mobile padding
@@ -1367,7 +1367,7 @@ const AmazonsChoice = () => {
                       }}>
                         {/* Profit per unit */}
                         <div style={{
-                          fontSize: windowWidth < 576 ? '8px' : '8px', // Reduced mobile font size from 9px to 8px
+                          fontSize: windowWidth < 576 ? '12px' : '8px', // Increased mobile font size from 8px to 12px for better visibility
                           color: '#ff6600',
                           fontWeight: '700',
                           background: 'rgba(255, 102, 0, 0.1)',
@@ -1384,7 +1384,7 @@ const AmazonsChoice = () => {
                         
                         {/* Profit for deal units */}
                         <div style={{
-                          fontSize: windowWidth < 576 ? '8px' : '8px', // Reduced mobile font size from 9px to 8px
+                          fontSize: windowWidth < 576 ? '12px' : '8px', // Increased mobile font size from 8px to 12px for better visibility
                           color: '#ff6600',
                           fontWeight: '700',
                           background: 'rgba(255, 102, 0, 0.1)',
@@ -1427,7 +1427,7 @@ const AmazonsChoice = () => {
                       minWidth: 0 // Allow text to wrap if needed
                     }}>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '10px' : '8px', // Increased mobile font size to match desktop better
+                        fontSize: windowWidth < 576 ? '14px' : '8px', // Increased mobile font size from 10px to 14px for much better visibility
                         color: '#cc3300', 
                         fontWeight: '700',
                         whiteSpace: 'nowrap'
@@ -1435,7 +1435,7 @@ const AmazonsChoice = () => {
                         💰 Deal of {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '10px' : '8px', // Increased mobile font size from 9px to 10px
+                        fontSize: windowWidth < 576 ? '14px' : '8px', // Increased mobile font size from 10px to 14px for much better visibility
                         fontWeight: '800', 
                         color: '#ff3300',
                         whiteSpace: 'nowrap',

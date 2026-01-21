@@ -506,7 +506,7 @@ input, textarea, select {
 /* Mobile Footer Spacing */
 @media (max-width: 768px) {
     .footer .container {
-        padding-left: 25px !important;
+        padding-left: 60px !important; /* Increased from 25px to 60px for better mobile spacing */
         padding-right: 25px !important;
     }
     
@@ -517,7 +517,7 @@ input, textarea, select {
     
     .footer .col-lg-3,
     .footer .col-md-6 {
-        padding-left: 10px !important;
+        padding-left: 20px !important; /* Increased from 10px to 20px for better spacing */
         padding-right: 10px !important;
     }
 }

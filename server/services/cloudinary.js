@@ -112,11 +112,23 @@ export const getOptimizedUrl = (publicId, folder = '', transformations = {}) => 
  * @returns {boolean} - True if configured, false otherwise
  */
 export const isCloudinaryConfigured = () => {
-  return !!(
+  const isConfigured = !!(
     process.env.CLOUDINARY_CLOUD_NAME &&
     process.env.CLOUDINARY_API_KEY &&
     process.env.CLOUDINARY_API_SECRET
   );
+  
+  // Enhanced logging for production debugging
+  if (!isConfigured) {
+    console.warn('⚠️ Cloudinary Configuration Check Failed:');
+    console.warn('- CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Missing');
+    console.warn('- CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Missing');
+    console.warn('- CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Missing');
+    console.warn('- NODE_ENV:', process.env.NODE_ENV);
+    console.warn('Please set these environment variables in your deployment platform (Render Dashboard)');
+  }
+  
+  return isConfigured;
 };
 
 /**

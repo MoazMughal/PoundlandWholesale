@@ -1,77 +1,19 @@
-/* Mobile Pricing Text Improvements */
+/* Mobile Pricing Text Improvements - Simplified and Non-Conflicting */
 
 /* Target mobile devices specifically */
 @media (max-width: 576px) {
   
-  /* Enhanced Deal Price Text - Make it larger and move left */
-  .product-card [style*="Deal of"] {
-    font-size: 12px !important; /* Larger font for "Deal of X units" */
-    font-weight: 800 !important;
-    color: #cc3300 !important;
-    margin-right: 5px !important; /* Add space between text and price */
-  }
-  
-  /* Enhanced Price Display - Make it larger and move left */
-  .product-card span[style*="£"][style*="fontWeight: '800'"] {
-    font-size: 13px !important; /* Larger font for price */
-    font-weight: 900 !important; /* Extra bold */
-    color: #ff3300 !important;
-    margin-left: -8px !important; /* Move price text to the left */
-    padding-left: 5px !important;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.1) !important; /* Add text shadow for better visibility */
-  }
-  
-  /* Deal Container - Adjust layout for better text positioning */
-  .product-card div[style*="background: linear-gradient"][style*="#fff5f0"] {
-    padding: 7px 10px !important; /* More padding for better spacing */
-    margin: 0 -3px !important; /* Extend container slightly to the left */
-    border-radius: 8px !important;
-    min-height: 28px !important; /* Taller container */
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-start !important; /* Align content to the left */
-    gap: 8px !important; /* Better spacing between elements */
-  }
-  
-  /* Profit Information - Better positioning */
-  .product-card div[style*="💰"] {
-    font-size: 11px !important; /* Larger profit text */
-    padding: 4px 7px !important;
-    margin: 2px -2px !important; /* Move slightly left */
-    min-width: 80px !important;
-    text-align: left !important; /* Left align instead of center */
-    border-radius: 6px !important;
-  }
-  
-  .product-card div[style*="📈"] {
-    font-size: 11px !important; /* Larger profit text */
-    padding: 4px 7px !important;
-    margin: 2px -2px !important; /* Move slightly left */
-    min-width: 80px !important;
-    text-align: left !important; /* Left align instead of center */
-    border-radius: 6px !important;
-  }
-  
-  /* Per-unit price display - Make it more prominent */
-  .product-card div[style*="£"][style*="/unit"] {
-    font-size: 11px !important; /* Larger per-unit price */
-    padding: 3px 6px !important;
-    margin-left: -2px !important; /* Move slightly left */
-    font-weight: 800 !important;
-    border-radius: 6px !important;
+  /* Product info container - Better spacing */
+  .product-card .product-info {
+    padding: 8px 6px !important;
+    gap: 6px !important;
   }
   
   /* Ensure all pricing text has good contrast */
   .product-card span[style*="£"],
   .product-card div[style*="£"] {
     text-shadow: 0 1px 2px rgba(255,255,255,0.8) !important;
-    letter-spacing: 0.3px !important; /* Better letter spacing */
-  }
-  
-  /* Product info container - Better spacing */
-  .product-card .product-info {
-    padding: 8px 6px !important; /* More padding */
-    gap: 6px !important; /* Better gap between elements */
+    letter-spacing: 0.3px !important;
   }
   
   /* Price section container - Better alignment */
@@ -80,50 +22,18 @@
     gap: 6px !important;
     margin-top: 3px !important;
   }
-  
-  /* Left side price container - Better positioning */
-  .product-card div[style*="justifyContent: 'space-between'"] > div:first-child {
-    margin-left: -3px !important; /* Move price section left */
-    flex: 0 0 auto !important; /* Don't let it shrink */
-  }
-  
-  /* Right side profit container - Better positioning */
-  .product-card div[style*="justifyContent: 'space-between'"] > div:last-child {
-    margin-left: -5px !important; /* Move profit section left */
-    align-items: flex-start !important;
-  }
 }
 
 /* Extra small mobile devices */
 @media (max-width: 480px) {
-  
-  /* Even larger text for very small screens */
-  .product-card [style*="Deal of"] {
-    font-size: 13px !important;
-  }
-  
-  .product-card span[style*="£"][style*="fontWeight: '800'"] {
-    font-size: 14px !important;
-    margin-left: -10px !important; /* Move even more to the left */
-  }
-  
-  /* Profit text */
-  .product-card div[style*="💰"],
-  .product-card div[style*="📈"] {
-    font-size: 12px !important;
-    margin-left: -3px !important;
+  .product-card .product-info {
+    padding: 6px 4px !important;
   }
 }
 
 /* Landscape orientation adjustments */
 @media (max-width: 768px) and (orientation: landscape) {
-  
-  .product-card [style*="Deal of"] {
-    font-size: 11px !important;
-  }
-  
-  .product-card span[style*="£"][style*="fontWeight: '800'"] {
-    font-size: 12px !important;
-    margin-left: -6px !important;
+  .product-card .product-info {
+    padding: 6px 5px !important;
   }
 }

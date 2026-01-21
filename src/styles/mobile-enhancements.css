@@ -1,12 +1,12 @@
 /* Mobile Enhancements for Amazon's Choice Products */
 
-/* Enhanced Mobile Product Cards - Larger Text and Better Spacing */
+/* Enhanced Mobile Product Cards - Clean and Simple */
 @media (max-width: 576px) {
   /* Product Card Container */
   .product-card {
-    min-height: 240px !important; /* Increased from 230px to accommodate larger text */
-    max-height: 300px !important; /* Increased from 290px */
-    padding: 8px !important; /* Increased padding */
+    min-height: 240px !important;
+    max-height: none !important; /* Remove height restriction */
+    padding: 8px !important;
   }
 
   /* Product Image Container */
@@ -18,102 +18,20 @@
 
   /* Product Info Container */
   .product-info {
-    padding: 8px !important; /* Increased padding */
-    gap: 5px !important; /* Increased gap */
+    padding: 8px !important;
+    gap: 5px !important;
   }
 
   /* Product Title - Larger Font */
   .product-card h5,
   .product-card .product-title {
     font-size: 12px !important;
-    height: 28px !important;
+    height: auto !important; /* Allow natural height */
     line-height: 1.3 !important;
     margin-bottom: 4px !important;
   }
 
-  /* Price Display - Larger Font */
-  .product-card .price,
-  .product-card [style*="fontSize: '9px'"],
-  .product-card [style*="fontSize: '10px'"] {
-    font-size: 11px !important;
-    padding: 3px 5px !important;
-    border-radius: 5px !important;
-  }
-
-  /* Profit Information - MUCH LARGER FONT for better mobile readability */
-  .product-card [style*="💰"],
-  .product-card [style*="📈"] {
-    font-size: 14px !important; /* Increased from 12px to 14px for much better readability */
-    padding: 6px 10px !important; /* Increased padding for better touch targets */
-    margin: 5px 0 !important; /* Increased margin for better spacing */
-    min-height: 28px !important; /* Increased height for better visibility */
-    line-height: 1.4 !important; /* Better line height */
-    text-align: left !important; /* Left align to prevent right overflow */
-    /* Allow dynamic width calculation from inline styles */
-    width: auto !important;
-    min-width: 90px !important; /* Larger minimum width */
-    max-width: 150px !important; /* Larger maximum width */
-    font-weight: 800 !important; /* Make text bolder */
-    margin-left: 0 !important; /* Reset any left margin */
-    margin-right: auto !important; /* Push content to left */
-  }
-
-  /* Deal Price - MUCH LARGER FONT and LEFT positioning */
-  .product-card [style*="£"][style*="minWidth"] {
-    font-size: 16px !important; /* Increased from 14px to 16px for much better visibility */
-    padding: 5px 8px !important; /* Increased padding */
-    text-align: left !important; /* Left align to prevent right overflow */
-    font-weight: 900 !important; /* Make text even bolder */
-    /* Allow dynamic width calculation from inline styles */
-    width: auto !important;
-    min-width: 80px !important; /* Larger minimum width */
-    max-width: 130px !important; /* Larger maximum width */
-    margin-left: 0 !important; /* Reset any left margin */
-    margin-right: auto !important; /* Push content to left */
-  }
-
-  /* Deal Units Section - MUCH LARGER FONT for better readability */
-  .product-card [style*="Deal of"] {
-    font-size: 15px !important; /* Increased from 13px to 15px for much better visibility */
-    line-height: 1.5 !important; /* Better line height */
-    padding: 6px 0 !important; /* Increased padding from 4px to 6px */
-    font-weight: 900 !important; /* Make text even bolder */
-    text-align: left !important; /* Left align to prevent right overflow */
-    margin-left: 0 !important; /* Reset any left margin */
-  }
-
-  /* Deal Container - Better Spacing and LEFT ALIGNMENT */
-  .product-card [style*="background: linear-gradient"][style*="#fff5f0"] {
-    padding: 8px 10px !important; /* Increased padding for better spacing */
-    border-radius: 8px !important;
-    min-height: 30px !important; /* Increased height for better visibility */
-    gap: 10px !important; /* Increased gap for better spacing */
-    margin-left: 0 !important; /* Reset left margin to prevent overflow */
-    margin-right: auto !important; /* Push container to left */
-    justify-content: flex-start !important; /* Align content to left */
-    align-items: flex-start !important; /* Align items to left */
-  }
-
-  /* Specific targeting for deal price text - LEFT ALIGNMENT and LARGER */
-  .product-card [style*="Deal of"] + span,
-  .product-card span[style*="£"][style*="fontWeight: '800'"] {
-    font-size: 16px !important; /* Much larger font for better visibility */
-    font-weight: 900 !important;
-    margin-left: 0 !important; /* Reset left margin */
-    padding-left: 0 !important; /* Reset left padding */
-    text-align: left !important; /* Left align to prevent right overflow */
-    margin-right: auto !important; /* Push text to left */
-  }
-
-  /* Deal Container - Better Spacing */
-  .product-card [style*="background: linear-gradient"][style*="#fff5f0"] {
-    padding: 5px 7px !important;
-    border-radius: 6px !important;
-    min-height: 24px !important;
-    gap: 6px !important;
-  }
-
-  /* Basket Button - Desktop Circle Design */
+  /* Basket Button - Mobile Friendly */
   .product-card button[style*="fas fa-shopping-basket"],
   .product-card button[style*="fas fa-check"] {
     min-width: 24px !important;
@@ -121,34 +39,6 @@
     font-size: 9px !important;
     border-radius: 5px !important;
     padding: 3px 5px !important;
-  }
-
-  /* Desktop-specific basket button circle - SMALLER SIZE */
-  @media (min-width: 577px) {
-    .product-card button[style*="fas fa-shopping-basket"],
-    .product-card button[style*="fas fa-check"] {
-      width: 20px !important; /* Reduced from 28px */
-      height: 20px !important; /* Reduced from 28px */
-      min-width: 20px !important; /* Reduced from 28px */
-      border-radius: 50% !important;
-      padding: 0 !important;
-      font-size: 9px !important; /* Reduced from 11px */
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      box-shadow: 0 2px 6px rgba(255, 102, 0, 0.4) !important; /* Slightly smaller shadow */
-    }
-    
-    .product-card button[style*="fas fa-shopping-basket"]:hover,
-    .product-card button[style*="fas fa-check"]:hover {
-      transform: scale(1.1) !important; /* Reduced scale from 1.15 */
-      box-shadow: 0 3px 8px rgba(255, 102, 0, 0.5) !important; /* Adjusted shadow */
-    }
-  }
-
-  /* Basket Icon - Larger Size */
-  .product-card button i.fas {
-    font-size: 9px !important;
   }
 
   /* Amazon Verify Button - Larger Size */
@@ -160,7 +50,7 @@
     margin-top: 4px !important;
   }
 
-  /* Badge Improvements - Larger and More Visible */
+  /* Badge Improvements */
   .product-card [style*="position: absolute"] {
     font-size: 8px !important;
     padding: 3px 5px !important;
@@ -171,12 +61,6 @@
     font-weight: 800 !important;
     text-shadow: 0 2px 4px rgba(0,0,0,0.8) !important;
     box-shadow: 0 3px 6px rgba(0,0,0,0.6) !important;
-  }
-
-  /* Profit Section Container - Better Spacing */
-  .product-card [style*="alignItems: flex-start"] {
-    margin: 4px 2px !important;
-    gap: 3px !important;
   }
 
   /* Ensure all text is readable */
@@ -191,31 +75,35 @@
     min-height: 24px !important;
     min-width: 24px !important;
   }
+}
 
-  /* Better spacing between sections */
-  .product-card .product-info > div {
-    margin-bottom: 3px !important;
+/* Desktop-specific basket button circle */
+@media (min-width: 577px) {
+  .product-card button[style*="fas fa-shopping-basket"],
+  .product-card button[style*="fas fa-check"] {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    font-size: 9px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 2px 6px rgba(255, 102, 0, 0.4) !important;
   }
-
-  .product-card .product-info > div:last-child {
-    margin-bottom: 0 !important;
+  
+  .product-card button[style*="fas fa-shopping-basket"]:hover,
+  .product-card button[style*="fas fa-check"]:hover {
+    transform: scale(1.1) !important;
+    box-shadow: 0 3px 8px rgba(255, 102, 0, 0.5) !important;
   }
 }
 
-/* Medium Mobile Screens (480px - 576px) */
+/* Medium Mobile Screens */
 @media (max-width: 576px) and (min-width: 481px) {
   .product-card h5 {
     font-size: 13px !important;
-    height: 30px !important;
-  }
-
-  .product-card [style*="Deal of"] {
-    font-size: 12px !important;
-  }
-
-  .product-card [style*="💰"],
-  .product-card [style*="📈"] {
-    font-size: 10px !important;
   }
 
   .product-card a[href*="amazon.com"] {
@@ -224,11 +112,10 @@
   }
 }
 
-/* Small Mobile Screens (360px - 480px) */
+/* Small Mobile Screens */
 @media (max-width: 480px) and (min-width: 361px) {
   .product-card {
     min-height: 220px !important;
-    max-height: 270px !important;
   }
 
   .product-image-container {
@@ -237,15 +124,13 @@
 
   .product-card h5 {
     font-size: 11px !important;
-    height: 26px !important;
   }
 }
 
-/* Extra Small Mobile Screens (≤360px) */
+/* Extra Small Mobile Screens */
 @media (max-width: 360px) {
   .product-card {
     min-height: 210px !important;
-    max-height: 250px !important;
     padding: 4px !important;
   }
 
@@ -255,16 +140,6 @@
 
   .product-card h5 {
     font-size: 10px !important;
-    height: 24px !important;
-  }
-
-  .product-card [style*="Deal of"] {
-    font-size: 9px !important;
-  }
-
-  .product-card [style*="💰"],
-  .product-card [style*="📈"] {
-    font-size: 8px !important;
   }
 }
 
@@ -272,7 +147,6 @@
 @media (max-width: 768px) and (orientation: landscape) {
   .product-card {
     min-height: 180px !important;
-    max-height: 220px !important;
   }
 
   .product-image-container {

@@ -3717,7 +3717,15 @@ router.get('/cloudinary-images', authenticateAdmin, async (req, res) => {
     if (!isCloudinaryConfigured()) {
       return res.status(400).json({
         success: false,
-        message: 'Cloudinary is not configured. Please check your environment variables.'
+        message: 'Cloudinary is not configured. Please check your environment variables.',
+        details: {
+          error: 'CLOUDINARY_NOT_CONFIGURED',
+          required_vars: ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'],
+          current_env: process.env.NODE_ENV,
+          instructions: process.env.NODE_ENV === 'production' 
+            ? 'Set environment variables in Render Dashboard > Service > Environment tab'
+            : 'Check your .env file in the server directory'
+        }
       });
     }
 
@@ -3784,6 +3792,33 @@ router.get('/cloudinary-images', authenticateAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch Cloudinary images',
+      error: error.message
+    });
+  }
+});
+
+// Debug endpoint to check Cloudinary configuration (admin only)
+router.get('/debug/cloudinary-config', authenticateAdmin, async (req, res) => {
+  try {
+    const config = {
+      isConfigured: isCloudinaryConfigured(),
+      environment: process.env.NODE_ENV,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Missing',
+      apiKey: process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Missing',
+      apiSecret: process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Missing',
+      instructions: process.env.NODE_ENV === 'production' 
+        ? 'For production: Set environment variables in Render Dashboard > Service > Environment tab'
+        : 'For development: Check your .env file in the server directory'
+    };
+    
+    res.json({
+      success: true,
+      config
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check Cloudinary configuration',
       error: error.message
     });
   }

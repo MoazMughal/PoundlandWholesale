@@ -67,9 +67,9 @@
     margin-bottom: 15px !important;
   }
   
-  /* Footer mobile spacing */
+  /* Footer mobile spacing - Enhanced with more left spacing */
   footer, .footer {
-    padding-left: 15px !important;
+    padding-left: 60px !important; /* Increased from 15px to 60px for better mobile spacing */
     padding-right: 15px !important;
   }
   
