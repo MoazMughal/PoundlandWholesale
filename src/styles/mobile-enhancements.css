@@ -4,7 +4,7 @@
 @media (max-width: 576px) {
   /* Product Card Container */
   .product-card {
-    min-height: 240px !important;
+    min-height: 260px !important; /* Increased from 240px to 260px to accommodate larger title */
     max-height: none !important; /* Remove height restriction */
     padding: 8px !important;
   }
