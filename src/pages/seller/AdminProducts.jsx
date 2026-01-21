@@ -10,19 +10,18 @@ const AdminProducts = () => {
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [totalProducts, setTotalProducts] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [categories, setCategories] = useState([])
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+  const [productsPerPage, setProductsPerPage] = useState(100)
 
-  const categories = [
-    { value: 'all', label: 'All Categories' },
-    { value: 'electronics', label: 'Electronics' },
-    { value: 'jewelry', label: 'Jewelry' },
-    { value: 'home', label: 'Home & Decor' },
-    { value: 'automotive', label: 'Automotive' },
-    { value: 'party', label: 'Party Supplies' }
-  ]
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   useEffect(() => {
     if (!isLoggedIn || !seller) {
@@ -35,8 +34,35 @@ const AdminProducts = () => {
       return
     }
 
+    fetchCategories()
     fetchAdminProducts()
-  }, [isLoggedIn, seller, currentPage, searchQuery, selectedCategory])
+  }, [isLoggedIn, seller, currentPage, searchQuery, selectedCategory, productsPerPage])
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/products/public/categories?includeCounts=true')
+      if (response.ok) {
+        const data = await response.json()
+        setCategories(data.categories || [])
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error)
+      // Fallback categories
+      setCategories([
+        { value: 'all', label: 'All Categories' },
+        { value: 'electronics', label: 'Electronics' },
+        { value: 'jewelry', label: 'Jewelry' },
+        { value: 'home', label: 'Home & Decor' },
+        { value: 'automotive', label: 'Automotive' },
+        { value: 'party', label: 'Party Supplies' },
+        { value: 'beauty', label: 'Beauty & Personal Care' },
+        { value: 'sports', label: 'Sports & Outdoors' },
+        { value: 'toys', label: 'Toys & Games' },
+        { value: 'books', label: 'Books' },
+        { value: 'clothing', label: 'Clothing & Accessories' }
+      ])
+    }
+  }
 
   const fetchAdminProducts = async () => {
     try {
@@ -45,7 +71,7 @@ const AdminProducts = () => {
       
       const params = new URLSearchParams({
         page: currentPage,
-        limit: 12,
+        limit: productsPerPage,
         ...(searchQuery && { search: searchQuery }),
         ...(selectedCategory !== 'all' && { category: selectedCategory })
       })
@@ -58,8 +84,11 @@ const AdminProducts = () => {
 
       if (response.ok) {
         const data = await response.json()
-        setProducts(data.products)
-        setTotalPages(data.totalPages)
+        // Shuffle products to show random order
+        const shuffledProducts = data.products.sort(() => Math.random() - 0.5)
+        setProducts(shuffledProducts || [])
+        setTotalPages(data.totalPages || 1)
+        setTotalProducts(data.totalProducts || 0)
       } else {
         console.error('Failed to fetch admin products')
       }
@@ -70,42 +99,59 @@ const AdminProducts = () => {
     }
   }
 
-  const handleListProduct = (product) => {
-    setSelectedProduct(product)
-    setShowPaymentModal(true)
-  }
-
-  const handlePaymentSubmit = async () => {
-    if (!selectedProduct) return
-
+  const handleListProduct = async (product) => {
     try {
       const token = localStorage.getItem('sellerToken')
       
-      const response = await fetch('http://localhost:5000/api/products/seller/list-admin-product', {
+      const response = await fetch('http://localhost:5000/api/sellers/list-admin-product', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          adminProductId: selectedProduct._id,
-          paymentTransactionId: `TXN${Date.now()}`
+          adminProductId: product._id,
+          productName: product.name,
+          productPrice: product.price,
+          paymentMethod: 'Direct Listing',
+          transactionId: `LIST_${Date.now()}`,
+          notes: 'Seller listed admin product from Amazon\'s Choice',
+          // Ensure seller information is properly assigned
+          sellerId: seller._id,
+          sellerInfo: {
+            username: seller.username,
+            email: seller.email,
+            whatsappNo: seller.whatsappNo,
+            city: seller.city,
+            country: seller.country,
+            verificationStatus: seller.verificationStatus
+          }
         })
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        alert('✅ Product added to your inventory successfully!')
-        setShowPaymentModal(false)
-        setSelectedProduct(null)
+        alert('✅ Product listed successfully! Seller information has been saved.')
+        fetchAdminProducts()
       } else {
         alert('❌ ' + data.message)
       }
     } catch (error) {
-      console.error('Payment error:', error)
+      console.error('List product error:', error)
       alert('❌ Failed to list product')
     }
+  }
+
+  const handleEditProduct = (product) => {
+    // Navigate to seller edit page with product data
+    navigate(`/seller/edit-product/${product._id}`, {
+      state: { 
+        product: product,
+        returnTo: '/seller/admin-products',
+        isSellerEdit: true
+      }
+    })
   }
 
   const handleSearch = (e) => {
@@ -114,264 +160,657 @@ const AdminProducts = () => {
     fetchAdminProducts()
   }
 
+  const getGridColumns = () => {
+    if (windowWidth < 576) return 'repeat(2, 1fr)' // Mobile: 2 columns
+    if (windowWidth < 768) return 'repeat(3, 1fr)' // Small tablet: 3 columns
+    if (windowWidth < 992) return 'repeat(4, 1fr)' // Tablet: 4 columns
+    if (windowWidth < 1200) return 'repeat(5, 1fr)' // Small desktop: 5 columns
+    if (windowWidth < 1400) return 'repeat(6, 1fr)' // Medium desktop: 6 columns
+    if (windowWidth < 1600) return 'repeat(7, 1fr)' // Large desktop: 7 columns
+    return 'repeat(8, 1fr)' // Extra large: 8 columns
+  }
+
+  const renderPagination = () => {
+    const maxVisiblePages = windowWidth < 768 ? 5 : 10
+    const startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+    const adjustedStartPage = Math.max(1, endPage - maxVisiblePages + 1)
+
+    const pages = []
+    
+    // First page
+    if (adjustedStartPage > 1) {
+      pages.push(
+        <button key={1} className={`page-btn ${currentPage === 1 ? 'active' : ''}`} onClick={() => setCurrentPage(1)}>
+          1
+        </button>
+      )
+      if (adjustedStartPage > 2) {
+        pages.push(<span key="start-ellipsis" className="page-ellipsis">...</span>)
+      }
+    }
+
+    // Visible pages
+    for (let i = adjustedStartPage; i <= endPage; i++) {
+      pages.push(
+        <button key={i} className={`page-btn ${currentPage === i ? 'active' : ''}`} onClick={() => setCurrentPage(i)}>
+          {i}
+        </button>
+      )
+    }
+
+    // Last page
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        pages.push(<span key="end-ellipsis" className="page-ellipsis">...</span>)
+      }
+      pages.push(
+        <button key={totalPages} className={`page-btn ${currentPage === totalPages ? 'active' : ''}`} onClick={() => setCurrentPage(totalPages)}>
+          {totalPages}
+        </button>
+      )
+    }
+
+    return pages
+  }
+
   if (loading && products.length === 0) {
     return (
-      <div className="container mt-5">
-        <div className="text-center">
-          <div className="spinner-border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '60px',
+            height: '60px',
+            border: '4px solid #e3e3e3',
+            borderTop: '4px solid #007bff',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 20px'
+          }}></div>
+          <h5 style={{ color: '#6c757d', marginBottom: '10px' }}>Loading Products...</h5>
+          <p style={{ color: '#adb5bd', fontSize: '14px' }}>Fetching Amazon's Choice products</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container-fluid">
-      {/* Header */}
-      <div className="row mb-4">
-        <div className="col-md-8">
-          <h2>Admin Products - Amazon's Choice</h2>
-          <p className="text-muted mb-0">List verified products to your inventory (₨500 per product)</p>
-        </div>
-        <div className="col-md-4 text-end">
-          <button className="btn btn-secondary" onClick={() => navigate('/seller/dashboard')}>
-            <i className="fas fa-arrow-left"></i> Back to Dashboard
-          </button>
-        </div>
-      </div>
+    <div style={{ 
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+      padding: windowWidth < 768 ? '10px' : '20px'
+    }}>
+      <style>
+        {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          
+          .admin-products-container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          
+          .header-section {
+            background: linear-gradient(135deg, #ff6600 0%, #ff8533 100%);
+            color: white;
+            padding: ${windowWidth < 768 ? '15px 20px' : '20px 30px'};
+            text-align: center;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          
+          .filters-section {
+            padding: ${windowWidth < 768 ? '15px' : '25px'};
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+          }
+          
+          .search-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+          }
+          
+          .search-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+          }
+          
+          .search-btn {
+            padding: 12px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            margin-left: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+          }
+          
+          .search-btn:hover {
+            background: #0056b3;
+            transform: translateY(-1px);
+          }
+          
+          .category-select {
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+          }
+          
+          .category-select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+          }
+          
+          .products-grid {
+            display: grid;
+            grid-template-columns: ${getGridColumns()};
+            gap: ${windowWidth < 768 ? '10px' : '15px'};
+            padding: ${windowWidth < 768 ? '15px' : '25px'};
+            min-height: 400px;
+          }
+          
+          .product-card {
+            background: white;
+            border-radius: 12px;
+            overflow: visible;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            min-height: ${windowWidth < 768 ? '240px' : '260px'};
+            max-height: ${windowWidth < 768 ? '300px' : '320px'};
+          }
+          
+          .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+          }
+          
+          .product-image {
+            width: 100%;
+            height: ${windowWidth < 768 ? '90px' : '100px'};
+            object-fit: contain;
+            background: #f8f9fa;
+            padding: 6px;
+          }
+          
+          .product-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            padding: 3px 6px;
+            border-radius: 10px;
+            font-size: ${windowWidth < 768 ? '7px' : '9px'};
+            font-weight: bold;
+            box-shadow: 0 2px 6px rgba(0,123,255,0.3);
+            z-index: 2;
+          }
+          
+          .product-info {
+            padding: ${windowWidth < 768 ? '8px' : '10px'};
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            overflow: hidden;
+            min-height: 0;
+          }
+          
+          .product-title {
+            font-size: ${windowWidth < 768 ? '10px' : '11px'};
+            font-weight: 600;
+            color: #2c3e50;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            word-wrap: break-word;
+            hyphens: auto;
+            margin-bottom: 4px;
+            flex-shrink: 0;
+          }
+          
+          .product-category {
+            background: #e9ecef;
+            color: #6c757d;
+            padding: 2px 5px;
+            border-radius: 6px;
+            font-size: ${windowWidth < 768 ? '7px' : '8px'};
+            font-weight: 500;
+            display: inline-block;
+            width: fit-content;
+            margin-bottom: 2px;
+          }
+          
+          .product-price {
+            font-size: ${windowWidth < 768 ? '12px' : '14px'};
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 2px;
+          }
+          
+          .product-rating {
+            font-size: ${windowWidth < 768 ? '7px' : '9px'};
+            color: #6c757d;
+            margin-bottom: 0px;
+          }
+          
+          .action-buttons {
+            display: flex;
+            gap: 4px;
+            margin-top: auto;
+            padding: 0px;
+            border-top: 1px solid #f0f0f0;
+            background: white;
+          }
+          
+          .list-btn {
+            flex: 1;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: ${windowWidth < 768 ? '7px 5px' : '8px 6px'};
+            border-radius: 5px;
+            font-size: ${windowWidth < 768 ? '8px' : '9px'};
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            box-shadow: 0 2px 4px rgba(40,167,69,0.25);
+            text-transform: uppercase;
+            letter-spacing: 0.1px;
+            min-height: 28px;
+          }
+          
+          .list-btn:hover {
+            background: linear-gradient(135deg, #20c997 0%, #28a745 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(40,167,69,0.35);
+          }
+          
+          .edit-btn {
+            flex: 0 0 auto;
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border: none;
+            padding: ${windowWidth < 768 ? '7px 5px' : '8px 6px'};
+            border-radius: 5px;
+            font-size: ${windowWidth < 768 ? '8px' : '9px'};
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            box-shadow: 0 2px 4px rgba(0,123,255,0.25);
+            min-width: ${windowWidth < 768 ? '45px' : '50px'};
+            min-height: 28px;
+          }
+          
+          .edit-btn:hover {
+            background: linear-gradient(135deg, #0056b3 0%, #007bff 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0,123,255,0.35);
+          }
+          
+          .pagination-section {
+            padding: ${windowWidth < 768 ? '15px' : '25px'};
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+          }
+          
+          .page-btn {
+            padding: 8px 12px;
+            border: 2px solid #dee2e6;
+            background: white;
+            color: #6c757d;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            min-width: 40px;
+          }
+          
+          .page-btn:hover {
+            border-color: #007bff;
+            color: #007bff;
+          }
+          
+          .page-btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+          }
+          
+          .page-ellipsis {
+            padding: 8px 4px;
+            color: #6c757d;
+          }
+          
+          .nav-btn {
+            padding: 8px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+          }
+          
+          .nav-btn:hover {
+            background: #0056b3;
+          }
+          
+          .nav-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+          }
+          
+          .stats-info {
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+            margin-bottom: 15px;
+          }
+          
+          .no-products {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+          }
+          
+          .no-products i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+          }
+          
+          @media (max-width: 767px) {
+            .filters-section {
+              padding: 15px;
+            }
+            
+            .filters-section > div {
+              margin-bottom: 15px;
+            }
+            
+            .filters-section > div:last-child {
+              margin-bottom: 0;
+            }
+          }
+        `}
+      </style>
 
-      {/* Search and Filters */}
-      <div className="row mb-4">
-        <div className="col-md-8">
-          <form onSubmit={handleSearch} className="d-flex">
-            <input
-              type="text"
-              className="form-control me-2"
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <button type="submit" className="btn btn-primary">
-              <i className="fas fa-search"></i>
+      <div className="admin-products-container">
+        {/* Header */}
+        <div className="header-section">
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            flexWrap: 'wrap', 
+            gap: '15px',
+            width: '100%',
+            maxWidth: '1200px'
+          }}>
+            <div style={{ textAlign: windowWidth < 768 ? 'center' : 'left', flex: 1 }}>
+              <h2 style={{ 
+                margin: '0 0 5px 0', 
+                fontSize: windowWidth < 768 ? '18px' : '22px',
+                color: 'white',
+                fontWeight: '700'
+              }}>
+                <i className="fas fa-star" style={{ marginRight: '8px' }}></i>
+                Amazon's Choice Products
+              </h2>
+              <p style={{ 
+                margin: 0, 
+                opacity: 0.95, 
+                fontSize: windowWidth < 768 ? '12px' : '14px',
+                color: 'white'
+              }}>
+                List verified products to your inventory
+              </p>
+            </div>
+            <button 
+              className="nav-btn" 
+              onClick={() => navigate('/seller/dashboard')}
+              style={{ 
+                fontSize: windowWidth < 768 ? '12px' : '14px',
+                background: 'rgba(255,255,255,0.2)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                color: 'white'
+              }}
+            >
+              <i className="fas fa-arrow-left" style={{ marginRight: '8px' }}></i>
+              Back to Dashboard
             </button>
-          </form>
+          </div>
         </div>
-        <div className="col-md-4">
-          <select
-            className="form-select"
-            value={selectedCategory}
-            onChange={(e) => {
-              setSelectedCategory(e.target.value)
-              setCurrentPage(1)
-            }}
-          >
-            {categories.map(cat => (
-              <option key={cat.value} value={cat.value}>{cat.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
 
-      {/* Products Grid */}
-      <div className="row">
-        {products.length === 0 ? (
-          <div className="col-12">
-            <div className="text-center py-5">
-              <i className="fas fa-box-open fa-3x text-muted mb-3"></i>
-              <h5>No products found</h5>
-              <p className="text-muted">Try adjusting your search or category filter</p>
+        {/* Filters */}
+        <div className="filters-section">
+          <div style={{ 
+            display: windowWidth < 768 ? 'block' : 'flex', 
+            gap: '15px', 
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <form onSubmit={handleSearch} style={{ 
+              display: 'flex', 
+              flex: windowWidth < 768 ? 'none' : '1',
+              marginBottom: windowWidth < 768 ? '15px' : '0'
+            }}>
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <button type="submit" className="search-btn">
+                <i className="fas fa-search"></i>
+              </button>
+            </form>
+            
+            <div style={{ 
+              display: 'flex', 
+              gap: '10px', 
+              alignItems: 'center',
+              flexWrap: 'wrap'
+            }}>
+              <select
+                className="category-select"
+                value={selectedCategory}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value)
+                  setCurrentPage(1)
+                }}
+                style={{ minWidth: windowWidth < 768 ? '150px' : '200px' }}
+              >
+                {categories.map(cat => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label} {cat.count ? `(${cat.count})` : ''}
+                  </option>
+                ))}
+              </select>
+              
+              <select
+                className="category-select"
+                value={productsPerPage}
+                onChange={(e) => {
+                  setProductsPerPage(parseInt(e.target.value))
+                  setCurrentPage(1)
+                }}
+                style={{ minWidth: '80px' }}
+              >
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={300}>300</option>
+              </select>
             </div>
           </div>
+          
+          {totalProducts > 0 && (
+            <div className="stats-info">
+              Showing {((currentPage - 1) * productsPerPage) + 1} - {Math.min(currentPage * productsPerPage, totalProducts)} of {totalProducts} products
+            </div>
+          )}
+        </div>
+
+        {/* Products Grid */}
+        {products.length === 0 ? (
+          <div className="no-products">
+            <i className="fas fa-box-open"></i>
+            <h5>No products found</h5>
+            <p>Try adjusting your search or category filter</p>
+          </div>
         ) : (
-          products.map(product => (
-            <div key={product._id} className="col-lg-3 col-md-4 col-sm-6 mb-4">
-              <div className="card h-100">
-                <div className="position-relative">
+          <div className="products-grid">
+            {products.map(product => (
+              <div key={product._id} className="product-card">
+                <div style={{ position: 'relative' }}>
                   {product.images && product.images.length > 0 ? (
                     <img 
                       src={getImageUrl(product.images[0])}
-                      className="card-img-top"
+                      className="product-image"
                       alt={product.name}
-                      style={{ height: '200px', objectFit: 'contain' }}
                       onError={(e) => {
                         e.target.style.display = 'none'
                       }}
                     />
                   ) : (
                     <div 
-                      className="card-img-top d-flex align-items-center justify-content-center bg-light"
-                      style={{ height: '200px' }}
+                      className="product-image"
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        background: '#f8f9fa'
+                      }}
                     >
-                      <i className="fas fa-image fa-3x text-muted"></i>
+                      <i className="fas fa-image" style={{ fontSize: '24px', color: '#dee2e6' }}></i>
                     </div>
                   )}
                   
-                  {/* Amazon's Choice Badge */}
-                  <div className="position-absolute top-0 end-0 m-2">
-                    <span className="badge bg-primary">
-                      <i className="fas fa-star"></i> Amazon's Choice
-                    </span>
+                  <div className="product-badge">
+                    <i className="fas fa-star" style={{ marginRight: '4px' }}></i>
+                    Amazon's Choice
                   </div>
                 </div>
                 
-                <div className="card-body d-flex flex-column">
-                  <h6 className="card-title" style={{ fontSize: '0.9rem', lineHeight: '1.2' }}>
-                    {product.name}
-                  </h6>
+                <div className="product-info">
+                  <div className="product-title">{product.name}</div>
                   
-                  <div className="mb-2">
-                    <span className="badge bg-secondary">{product.category}</span>
-                  </div>
+                  <div className="product-category">{product.category}</div>
                   
-                  <div className="mb-2">
-                    <strong className="text-success">£{product.price}</strong>
+                  <div className="product-price">
+                    £{parseFloat(product.price).toFixed(2)}
                     {product.originalPrice && (
-                      <small className="text-muted ms-2">
-                        <del>£{product.originalPrice}</del>
-                      </small>
+                      <span style={{ 
+                        fontSize: windowWidth < 768 ? '9px' : '11px',
+                        color: '#6c757d',
+                        textDecoration: 'line-through',
+                        marginLeft: '6px'
+                      }}>
+                        £{parseFloat(product.originalPrice).toFixed(2)}
+                      </span>
                     )}
                   </div>
                   
-                  <div className="mb-2">
-                    <small className="text-muted">
-                      <i className="fas fa-star text-warning"></i> {product.rating || 4.5} 
-                      ({product.reviews || 0} reviews)
-                    </small>
+                  <div className="product-rating">
+                    <i className="fas fa-star" style={{ color: '#ffc107', marginRight: '4px' }}></i>
+                    {product.rating || 4.5} ({product.reviews || 0} reviews)
                   </div>
                   
-                  <div className="mt-auto">
+                  {/* Action buttons container */}
+                  <div className="action-buttons">
                     <button 
-                      className="btn btn-success btn-sm w-100"
+                      className="list-btn"
                       onClick={() => handleListProduct(product)}
+                      title="Add this product to your store inventory"
                     >
-                      <i className="fas fa-plus"></i> List Product (₨500)
+                      <i className="fas fa-plus" style={{ fontSize: '8px' }}></i>
+                      {windowWidth < 768 ? 'ADD TO STORE' : 'ADD TO MY STORE'}
+                    </button>
+                    
+                    <button 
+                      className="edit-btn"
+                      onClick={() => handleEditProduct(product)}
+                      title="Edit product price and assign to your account"
+                    >
+                      <i className="fas fa-edit" style={{ fontSize: '8px' }}></i>
+                      EDIT
                     </button>
                   </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="pagination-section">
+            <button 
+              className="nav-btn"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <i className="fas fa-chevron-left"></i>
+            </button>
+            
+            {renderPagination()}
+            
+            <button 
+              className="nav-btn"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              <i className="fas fa-chevron-right"></i>
+            </button>
+          </div>
         )}
       </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="row">
-          <div className="col-12">
-            <nav>
-              <ul className="pagination justify-content-center">
-                <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                  <button 
-                    className="page-link"
-                    onClick={() => setCurrentPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </button>
-                </li>
-                
-                {[...Array(totalPages)].map((_, index) => (
-                  <li key={index + 1} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
-                    <button 
-                      className="page-link"
-                      onClick={() => setCurrentPage(index + 1)}
-                    >
-                      {index + 1}
-                    </button>
-                  </li>
-                ))}
-                
-                <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                  <button 
-                    className="page-link"
-                    onClick={() => setCurrentPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </button>
-                </li>
-              </ul>
-            </nav>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Modal */}
-      {showPaymentModal && selectedProduct && (
-        <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">List Product - Payment Required</h5>
-                <button 
-                  type="button" 
-                  className="btn-close"
-                  onClick={() => setShowPaymentModal(false)}
-                ></button>
-              </div>
-              <div className="modal-body">
-                <div className="text-center mb-3">
-                  {selectedProduct.images && selectedProduct.images.length > 0 ? (
-                    <img 
-                      src={getImageUrl(selectedProduct.images[0])}
-                      alt={selectedProduct.name}
-                      style={{width: '100px', height: '100px', objectFit: 'contain'}}
-                      onError={(e) => {
-                        e.target.style.display = 'none'
-                      }}
-                    />
-                  ) : (
-                    <div 
-                      className="d-flex align-items-center justify-content-center bg-light"
-                      style={{width: '100px', height: '100px', margin: '0 auto'}}
-                    >
-                      <i className="fas fa-image fa-2x text-muted"></i>
-                    </div>
-                  )}
-                  <h6 className="mt-2">{selectedProduct.name}</h6>
-                  <p className="text-muted">£{selectedProduct.price}</p>
-                </div>
-                
-                <div className="alert alert-info">
-                  <h6><i className="fas fa-info-circle"></i> Listing Details</h6>
-                  <ul className="mb-0">
-                    <li>Listing Fee: <strong>₨500</strong></li>
-                    <li>Product will be added to your inventory</li>
-                    <li>You can start selling immediately</li>
-                    <li>Product will appear in your seller dashboard</li>
-                    <li>This is an Amazon's Choice verified product</li>
-                  </ul>
-                </div>
-
-                <div className="alert alert-warning">
-                  <small>
-                    <i className="fas fa-exclamation-triangle"></i> 
-                    By listing this product, you agree to maintain the quality standards 
-                    and pricing guidelines set by the admin.
-                  </small>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button 
-                  type="button" 
-                  className="btn btn-secondary"
-                  onClick={() => setShowPaymentModal(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button" 
-                  className="btn btn-success"
-                  onClick={handlePaymentSubmit}
-                >
-                  <i className="fas fa-check"></i> Confirm & List Product
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

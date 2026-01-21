@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { adminGet, adminPut, adminDelete } from '../../utils/adminApi';
 import { uploadMultipleImages, validateImageFile } from '../../utils/imageUpload';
 import cacheManager from '../../utils/cacheManager';
+import ImageSelector from '../../components/ImageSelector';
 import '../../styles/AdminProductForm.css';
 
 const EditProduct = () => {
@@ -63,6 +64,7 @@ const EditProduct = () => {
   const [uploadingImages, setUploadingImages] = useState(false);
   const [originalPrice, setOriginalPrice] = useState(0); // Store original price in PKR
   const [originalCurrency, setOriginalCurrency] = useState('PKR'); // Track original currency
+  const [showImageSelector, setShowImageSelector] = useState(false);
   const fileInputRef = useRef(null);
   const additionalFileInputRefs = useRef([null, null, null, null]); // Refs for 4 additional image inputs
 
@@ -327,6 +329,55 @@ const EditProduct = () => {
     }
 
     setFormData(newFormData);
+  };
+
+  const handleImageSelection = (selectedData) => {
+    if (Array.isArray(selectedData) && selectedData.length > 0) {
+      // Check if first item is a File (from device upload) or string (from Cloudinary)
+      if (selectedData[0] instanceof File) {
+        // Handle file uploads from device
+        handleImageFileSelect({ target: { files: selectedData } });
+      } else {
+        // Handle Cloudinary URLs
+        const newImageUrls = [...imageUrls];
+        const newImageFiles = [...imageFiles];
+        
+        // Fill available slots with Cloudinary URLs
+        let urlIndex = 0;
+        for (let i = 0; i < 5 && urlIndex < selectedData.length; i++) {
+          if (!newImageUrls[i]) {
+            newImageUrls[i] = selectedData[urlIndex];
+            newImageFiles[i] = null; // No file for Cloudinary images
+            urlIndex++;
+          }
+        }
+        
+        setImageUrls(newImageUrls);
+        setImageFiles(newImageFiles);
+        
+        // Clear removed flags for slots that are being filled
+        const slotsToUpdate = [];
+        urlIndex = 0;
+        for (let i = 0; i < 5 && urlIndex < selectedData.length; i++) {
+          if (!imageUrls[i]) {
+            slotsToUpdate.push(i);
+            urlIndex++;
+          }
+        }
+        
+        if (slotsToUpdate.length > 0) {
+          setRemovedImages(prev => {
+            const newSet = new Set(prev);
+            slotsToUpdate.forEach(slot => newSet.delete(slot));
+            return newSet;
+          });
+        }
+        
+        if (urlIndex < selectedData.length) {
+          alert(`📸 Only ${urlIndex} images were added. Maximum 5 images allowed.`);
+        }
+      }
+    }
   };
 
   const handleImageFileSelect = (e, imageIndex = null) => {
@@ -980,7 +1031,7 @@ const EditProduct = () => {
                 accept="image/*"
                 style={{ display: 'none' }}
               />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -996,7 +1047,22 @@ const EditProduct = () => {
                 >
                   📁 {imageUrls[0] ? 'Replace Main Image' : 'Select Main Image'}
                 </button>
-                <small>JPEG, PNG, GIF, WebP (max 5MB)</small>
+                <button
+                  type="button"
+                  onClick={() => setShowImageSelector(true)}
+                  style={{
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: '500'
+                  }}
+                >
+                  🌤️ Choose from Cloudinary
+                </button>
+                <small>JPEG, PNG, GIF, WebP (max 5MB) | Or select from existing Cloudinary images</small>
               </div>
             </div>
 
@@ -1149,58 +1215,106 @@ const EditProduct = () => {
                       >
                         ✕
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => additionalFileInputRefs.current[imageIndex - 1]?.click()}
-                        style={{
-                          position: 'absolute',
-                          bottom: '5px',
-                          right: '5px',
-                          background: 'rgba(102, 126, 234, 0.8)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '2px 6px',
-                          cursor: 'pointer',
-                          fontSize: '10px'
-                        }}
-                      >
-                        Replace
-                      </button>
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '5px',
+                        right: '5px',
+                        display: 'flex',
+                        gap: '2px'
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => additionalFileInputRefs.current[imageIndex - 1]?.click()}
+                          style={{
+                            background: 'rgba(40, 167, 69, 0.9)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '3px',
+                            padding: '2px 4px',
+                            cursor: 'pointer',
+                            fontSize: '8px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          📁
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowImageSelector(true)}
+                          style={{
+                            background: 'rgba(59, 130, 246, 0.9)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '3px',
+                            padding: '2px 4px',
+                            cursor: 'pointer',
+                            fontSize: '8px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          🌤️
+                        </button>
+                      </div>
                     </div>
                   ) : (
-                    <div
-                      onClick={() => additionalFileInputRefs.current[imageIndex - 1]?.click()}
-                      style={{
-                        border: '2px dashed #ccc',
-                        borderRadius: '8px',
-                        height: '120px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        background: '#f9f9f9',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.borderColor = '#667eea';
-                        e.target.style.background = '#f0f4ff';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.borderColor = '#ccc';
-                        e.target.style.background = '#f9f9f9';
-                      }}
-                    >
-                      <div style={{ fontSize: '24px', marginBottom: '5px' }}>📷</div>
-                      <div style={{ fontSize: '12px', color: '#666' }}>Add Image #{imageIndex}</div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div
+                        style={{
+                          border: '2px dashed #ccc',
+                          borderRadius: '8px',
+                          height: '120px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: '#f9f9f9',
+                          marginBottom: '8px'
+                        }}
+                      >
+                        <div style={{ fontSize: '24px', marginBottom: '5px' }}>📷</div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Add Image #{imageIndex}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => additionalFileInputRefs.current[imageIndex - 1]?.click()}
+                          style={{
+                            background: '#28a745',
+                            color: 'white',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '10px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          📁 Device
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowImageSelector(true)}
+                          style={{
+                            background: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '10px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          🌤️ Cloud
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
               ))}
             </div>
             <small style={{ display: 'block', marginTop: '10px', color: '#666' }}>
-              Click on empty slots to add images, or use Replace button to change existing images.
+              Use "📁 Device" to upload from computer or "🌤️ Cloud" to select from Cloudinary images.
             </small>
           </div>
 
@@ -1216,24 +1330,42 @@ const EditProduct = () => {
                 style={{ display: 'none' }}
                 id="bulk-upload"
               />
-              <button
-                type="button"
-                onClick={() => document.getElementById('bulk-upload')?.click()}
-                className="upload-btn"
-                style={{
-                  background: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                📁 Select Multiple Images
-              </button>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('bulk-upload')?.click()}
+                  className="upload-btn"
+                  style={{
+                    background: '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  📁 Select Multiple Images
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowImageSelector(true)}
+                  style={{
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  🌤️ Browse Cloudinary
+                </button>
+              </div>
               <small style={{ display: 'block', marginTop: '5px' }}>
-                This will add images to available slots. First image goes to main slot if empty, others fill additional slots.
+                Upload from device or select from existing Cloudinary images. First image goes to main slot if empty, others fill additional slots.
               </small>
             </div>
           </div>
@@ -1500,6 +1632,16 @@ const EditProduct = () => {
           }
         }
       `}</style>
+
+      {/* Image Selector Modal */}
+      {showImageSelector && (
+        <ImageSelector
+          onImageSelect={handleImageSelection}
+          currentImages={imageUrls.filter(Boolean)}
+          maxImages={5}
+          onClose={() => setShowImageSelector(false)}
+        />
+      )}
     </div>
   );
 };

@@ -41,12 +41,39 @@ const productSchema = new mongoose.Schema({
   },
   // Seller contact info (cached for performance)
   sellerInfo: {
+    username: String,
     businessName: String,
+    email: String,
     whatsappNo: String,
     city: String,
     country: String,
-    verificationStatus: String
+    verificationStatus: String,
+    _id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Seller'
+    }
   },
+  // Array of sellers who have listed this product
+  sellers: [{
+    sellerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Seller',
+      required: true
+    },
+    username: String,
+    email: String,
+    whatsappNo: String,
+    city: String,
+    country: String,
+    verificationStatus: String,
+    listedAt: {
+      type: Date,
+      default: Date.now
+    },
+    transactionId: String,
+    paymentMethod: String,
+    notes: String
+  }],
   isAmazonsChoice: {
     type: Boolean,
     default: false

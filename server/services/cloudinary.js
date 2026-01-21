@@ -127,8 +127,6 @@ export const isCloudinaryConfigured = () => {
  */
 export const listCloudinaryImages = async (folder = 'products', maxResults = 500) => {
   try {
-    console.log(`📋 Fetching ALL images from Cloudinary folder: ${folder}`);
-    
     let allImages = [];
     let nextCursor = null;
     let pageCount = 0;
@@ -136,7 +134,6 @@ export const listCloudinaryImages = async (folder = 'products', maxResults = 500
     // Fetch all images using pagination
     do {
       pageCount++;
-      console.log(`📄 Fetching page ${pageCount}...`);
       
       const result = await cloudinary.api.resources({
         type: 'upload',
@@ -161,10 +158,8 @@ export const listCloudinaryImages = async (folder = 'products', maxResults = 500
       allImages = allImages.concat(pageImages);
       nextCursor = result.next_cursor;
       
-      console.log(`✅ Page ${pageCount}: ${pageImages.length} images (Total so far: ${allImages.length})`);
     } while (nextCursor);
 
-    console.log(`✅ Found ${allImages.length} total images in Cloudinary folder: ${folder}`);
     return allImages;
   } catch (error) {
     console.error(`❌ Failed to list Cloudinary images from folder ${folder}:`, error.message);

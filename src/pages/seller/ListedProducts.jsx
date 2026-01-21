@@ -25,29 +25,74 @@ const ListedProducts = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('sellerToken');
+      
+      if (!token) {
+        alert('❌ No authentication token found. Please login again.');
+        navigate('/login/supplier');
+        return;
+      }
+      
       const statusParam = activeTab !== 'all' ? `&status=${activeTab}` : '';
       
-      const response = await fetch(getApiUrl(`products/seller/listed-products?limit=50${statusParam}`), {
+      console.log('Loading products with token:', token ? 'Token exists' : 'No token');
+      console.log('API URL:', `http://localhost:5000/api/products/seller/listed-products?limit=50${statusParam}`);
+      
+      const response = await fetch(`http://localhost:5000/api/products/seller/listed-products?limit=50${statusParam}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
       const data = await response.json();
-      // Listed products response received
+      console.log('API Response:', { status: response.status, data });
       
       if (response.ok) {
-        setProducts(data.products);
-        setCounts(data.counts);
+        setProducts(data.products || []);
+        setCounts(data.counts || { total: 0, pending: 0, approved: 0, rejected: 0 });
         // Products loaded
       } else {
         console.error('Listed products error:', data);
-        alert('❌ ' + data.message);
+        if (response.status === 401) {
+          alert('❌ Authentication failed. Please login again.');
+          navigate('/login/supplier');
+        } else {
+          alert('❌ ' + (data.message || 'Failed to load products'));
+        }
       }
     } catch (error) {
+      console.error('Network error:', error);
       alert('❌ Could not load products: ' + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUnlistProduct = async (product) => {
+    if (!confirm(`Are you sure you want to unlist "${product.name}"? This will remove your seller information from this product.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('sellerToken');
+      
+      const response = await fetch(`http://localhost:5000/api/sellers/unlist-product/${product._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert('✅ Product unlisted successfully!');
+        loadProducts(); // Refresh the list
+      } else {
+        alert('❌ ' + data.message);
+      }
+    } catch (error) {
+      console.error('Unlist product error:', error);
+      alert('❌ Failed to unlist product');
     }
   };
 
@@ -63,7 +108,7 @@ const ListedProducts = () => {
     try {
       const token = localStorage.getItem('sellerToken');
       
-      const response = await fetch(getApiUrl(`products/seller/update-inventory/${productId}`), {
+      const response = await fetch(`http://localhost:5000/api/sellers/update-inventory/${productId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -285,18 +330,45 @@ const ListedProducts = () => {
                   {products.map((product) => (
                     <tr key={product._id}>
                       <td>
-                        <img 
-                          src={product.images?.[0] || 'https://via.placeholder.com/50x50?text=No+Image'} 
-                          alt={product.name}
-                          style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
-                          onError={(e) => {
-                            e.target.src = 'https://via.placeholder.com/40x40?text=No+Image';
-                          }}
-                        />
+                        <a 
+                          href={`/product/${product._id}`}
+                          style={{ textDecoration: 'none' }}
+                        >
+                          <img 
+                            src={product.images?.[0] || 'https://via.placeholder.com/50x50?text=No+Image'} 
+                            alt={product.name}
+                            style={{ 
+                              width: '40px', 
+                              height: '40px', 
+                              objectFit: 'cover', 
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              transition: 'transform 0.2s ease'
+                            }}
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/40x40?text=No+Image';
+                            }}
+                            onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
+                            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                          />
+                        </a>
                       </td>
                       <td>
                         <div style={{ maxWidth: '200px' }}>
-                          <strong className="d-block text-truncate">{product.name}</strong>
+                          <a 
+                            href={`/product/${product._id}`}
+                            style={{
+                              textDecoration: 'none',
+                              color: '#0066cc',
+                              fontWeight: 'bold'
+                            }}
+                            className="d-block text-truncate"
+                            onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                            onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                            title={product.name}
+                          >
+                            {product.name}
+                          </a>
                           {product.asin && (
                             <small className="text-muted">ASIN: {product.asin}</small>
                           )}
@@ -372,14 +444,30 @@ const ListedProducts = () => {
                             </button>
                           </div>
                         ) : (
-                          <button 
-                            className="btn btn-outline-primary btn-sm"
-                            onClick={() => handleEditInventory(product)}
-                            disabled={product.approvalStatus !== 'approved'}
-                            title={product.approvalStatus !== 'approved' ? 'Only approved products can be edited' : 'Edit price and stock'}
-                          >
-                            <i className="fas fa-edit"></i>
-                          </button>
+                          <div className="btn-group btn-group-sm">
+                            <a
+                              href={`/product/${product._id}`}
+                              className="btn btn-info btn-sm"
+                              title="View Product"
+                            >
+                              <i className="fas fa-eye"></i>
+                            </a>
+                            <button 
+                              className="btn btn-outline-primary btn-sm"
+                              onClick={() => handleEditInventory(product)}
+                              disabled={product.approvalStatus !== 'approved'}
+                              title={product.approvalStatus !== 'approved' ? 'Only approved products can be edited' : 'Edit price and stock'}
+                            >
+                              <i className="fas fa-edit"></i>
+                            </button>
+                            <button 
+                              className="btn btn-outline-danger btn-sm"
+                              onClick={() => handleUnlistProduct(product)}
+                              title="Remove your listing from this product"
+                            >
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

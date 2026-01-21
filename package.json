@@ -13,6 +13,7 @@
     "test:api": "node server/test-email-simple.js"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.12",
     "react": "^19.2.0",

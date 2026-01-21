@@ -1079,6 +1079,9 @@ const AdminDashboard = () => {
         <button onClick={() => navigate('/admin/sellers')} className="tool-btn">
           👥 Sellers ({stats?.sellers.total || 0})
         </button>
+        <button onClick={() => navigate('/admin/seller-management')} className="tool-btn success">
+          🏪 Seller Management
+        </button>
         <button onClick={() => navigate('/admin/seller-products')} className="tool-btn warning">
           📋 Seller Products
         </button>

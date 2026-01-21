@@ -828,6 +828,527 @@ router.post('/submit-product-listing', authenticateSeller, async (req, res) => {
   }
 });
 
+// Debug route to test seller authentication and data
+router.get('/debug/seller-info', authenticateSeller, async (req, res) => {
+  try {
+    console.log('🔍 Debug - Seller authentication test:', {
+      sellerId: req.seller._id,
+      sellerUsername: req.seller.username,
+      sellerEmail: req.seller.email,
+      sellerVerificationStatus: req.seller.verificationStatus,
+      sellerWhatsappNo: req.seller.whatsappNo,
+      sellerCity: req.seller.city,
+      sellerCountry: req.seller.country
+    });
+
+    const seller = await Seller.findById(req.seller._id);
+    
+    console.log('🔍 Debug - Seller from database:', {
+      found: !!seller,
+      sellerId: seller?._id,
+      username: seller?.username,
+      email: seller?.email,
+      verificationStatus: seller?.verificationStatus,
+      whatsappNo: seller?.whatsappNo,
+      city: seller?.city,
+      country: seller?.country
+    });
+
+    res.json({
+      success: true,
+      message: 'Seller authentication working',
+      authSeller: {
+        id: req.seller._id,
+        username: req.seller.username,
+        email: req.seller.email,
+        verificationStatus: req.seller.verificationStatus,
+        whatsappNo: req.seller.whatsappNo,
+        city: req.seller.city,
+        country: req.seller.country
+      },
+      dbSeller: seller ? {
+        id: seller._id,
+        username: seller.username,
+        email: seller.email,
+        verificationStatus: seller.verificationStatus,
+        whatsappNo: seller.whatsappNo,
+        city: seller.city,
+        country: seller.country
+      } : null
+    });
+  } catch (error) {
+    console.error('❌ Debug seller info error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Debug failed', 
+      error: error.message 
+    });
+  }
+});
+
+// List admin product to seller's inventory
+router.post('/list-admin-product', authenticateSeller, async (req, res) => {
+  try {
+    const {
+      adminProductId,
+      productName,
+      productPrice,
+      paymentMethod = 'Direct Listing',
+      transactionId,
+      notes = 'Seller listed admin product',
+      sellerId,
+      sellerInfo: frontendSellerInfo
+    } = req.body;
+
+    console.log('🔄 Processing list-admin-product request:', {
+      adminProductId,
+      sellerId: req.seller._id,
+      sellerUsername: req.seller.username,
+      sellerVerificationStatus: req.seller.verificationStatus,
+      frontendSellerId: sellerId,
+      frontendSellerInfo: frontendSellerInfo,
+      requestBodyKeys: Object.keys(req.body)
+    });
+
+    // Import Product model
+    const Product = (await import('../models/Product.js')).default;
+    
+    // Check if admin product exists
+    const adminProduct = await Product.findById(adminProductId);
+    if (!adminProduct) {
+      return res.status(404).json({ message: 'Admin product not found' });
+    }
+
+    console.log('🔍 Admin product found:', {
+      adminProductId: adminProduct._id,
+      adminProductName: adminProduct.name,
+      isAdminProduct: adminProduct.isAdminProduct
+    });
+
+    // Check if seller already listed this product
+    const alreadyListed = adminProduct.sellers?.some(
+      sellerEntry => sellerEntry.sellerId.toString() === req.seller._id.toString()
+    );
+
+    if (alreadyListed) {
+      console.log('❌ Seller already listed this product');
+      return res.status(400).json({ message: 'You have already listed this product' });
+    }
+
+    // Get seller for caching info
+    const seller = await Seller.findById(req.seller._id);
+    
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+    
+    console.log('🔍 Seller data retrieved:', {
+      sellerId: seller._id,
+      username: seller.username,
+      email: seller.email,
+      verificationStatus: seller.verificationStatus,
+      whatsappNo: seller.whatsappNo,
+      city: seller.city,
+      country: seller.country
+    });
+    
+    // Enhanced seller info for caching
+    const enhancedSellerInfo = {
+      sellerId: seller._id,
+      username: seller.username,
+      email: seller.email,
+      whatsappNo: seller.whatsappNo,
+      city: seller.city,
+      country: seller.country,
+      verificationStatus: seller.verificationStatus,
+      listedAt: new Date(),
+      transactionId: transactionId || `LIST_${Date.now()}`,
+      paymentMethod,
+      notes
+    };
+
+    console.log('📋 Enhanced seller info to be added:', enhancedSellerInfo);
+
+    // Add seller info to the existing admin product instead of creating new product
+    if (!adminProduct.sellers) {
+      adminProduct.sellers = [];
+    }
+    
+    adminProduct.sellers.push(enhancedSellerInfo);
+    
+    // Also update the main sellerInfo field for backward compatibility (use the first/primary seller)
+    if (!adminProduct.sellerInfo || adminProduct.sellers.length === 1) {
+      adminProduct.sellerInfo = {
+        username: seller.username,
+        email: seller.email,
+        whatsappNo: seller.whatsappNo,
+        city: seller.city,
+        country: seller.country,
+        verificationStatus: seller.verificationStatus,
+        _id: seller._id
+      };
+      adminProduct.seller = seller._id; // Set primary seller
+    }
+
+    await adminProduct.save();
+
+    console.log('✅ Seller info added to admin product:', {
+      productId: adminProduct._id,
+      productName: adminProduct.name,
+      totalSellers: adminProduct.sellers.length,
+      primarySeller: adminProduct.seller,
+      hasSellerInfo: !!adminProduct.sellerInfo
+    });
+
+    // Verify the product was updated correctly by fetching it back
+    const savedProduct = await Product.findById(adminProduct._id).lean();
+    console.log('🔍 DETAILED VERIFICATION - Product updated in database:', {
+      productId: savedProduct._id,
+      productName: savedProduct.name,
+      hasSeller: !!savedProduct.seller,
+      sellerValue: savedProduct.seller,
+      hasSellerInfo: !!savedProduct.sellerInfo,
+      sellersCount: savedProduct.sellers?.length || 0,
+      sellersData: savedProduct.sellers
+    });
+
+    // Add to seller's listing requests for tracking
+    if (!seller.productListingRequests) {
+      seller.productListingRequests = [];
+    }
+    
+    const listingRequest = {
+      productId: adminProduct._id, // Use admin product ID since we're not creating new product
+      productName: adminProduct.name,
+      productPrice: adminProduct.price,
+      transactionId: transactionId || `LIST_${Date.now()}`,
+      paymentMethod,
+      notes,
+      status: 'approved', // Auto-approved
+      submittedAt: new Date(),
+      approvedAt: new Date()
+    };
+    
+    seller.productListingRequests.push(listingRequest);
+    await seller.save();
+
+    // Create notification for admin
+    try {
+      console.log(`📧 Admin notification: Seller ${seller.username} listed product ${adminProduct.name}`);
+    } catch (notificationError) {
+      console.error('Failed to send admin notification:', notificationError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Product listed successfully! Your seller information has been added to this product.',
+      productId: adminProduct._id, // Return admin product ID since we're not creating new product
+      requestId: seller.productListingRequests[seller.productListingRequests.length - 1]._id,
+      status: 'active',
+      sellerAssigned: true,
+      sellerInfo: enhancedSellerInfo,
+      totalSellers: adminProduct.sellers.length
+    });
+  } catch (error) {
+    console.error('List admin product error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Update seller's inventory for a listed product
+router.put('/update-inventory/:productId', authenticateSeller, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { price, stock } = req.body;
+    
+    // Import Product model
+    const Product = (await import('../models/Product.js')).default;
+    
+    // Find the product and check if seller has listed it
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Check if seller has listed this product
+    const sellerListed = product.sellers?.some(
+      s => s.sellerId.toString() === req.seller._id.toString()
+    );
+
+    if (!sellerListed) {
+      return res.status(403).json({ message: 'You have not listed this product' });
+    }
+
+    // Update the product price and stock
+    if (price !== undefined) {
+      product.price = parseFloat(price);
+    }
+    if (stock !== undefined) {
+      product.stock = parseInt(stock);
+    }
+
+    await product.save();
+
+    console.log('✅ Seller updated inventory:', {
+      productId: product._id,
+      sellerId: req.seller._id,
+      newPrice: product.price,
+      newStock: product.stock
+    });
+
+    res.json({
+      success: true,
+      message: 'Inventory updated successfully',
+      product: {
+        _id: product._id,
+        price: product.price,
+        stock: product.stock
+      }
+    });
+  } catch (error) {
+    console.error('Error updating inventory:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get seller's listed products (products where seller added their info to admin products)
+router.get('/my-listed-products', authenticateSeller, async (req, res) => {
+  try {
+    const { page = 1, limit = 50, status, marketplace } = req.query;
+    
+    // Import Product model
+    const Product = (await import('../models/Product.js')).default;
+    
+    // Find products where this seller has added their info
+    const query = {
+      'sellers.sellerId': req.seller._id
+    };
+    
+    if (status) query.approvalStatus = status;
+    if (marketplace) query.marketplace = marketplace;
+
+    const products = await Product.find(query)
+      .populate('seller', 'username email whatsappNo city country verificationStatus _id') // Populate seller info
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images sellers seller sellerInfo');
+
+    const count = await Product.countDocuments(query);
+
+    // Process products to show seller-specific info and ensure seller can see their own info
+    const processedProducts = products.map(product => {
+      const sellerEntry = product.sellers.find(s => s.sellerId.toString() === req.seller._id.toString());
+      const productObj = product.toObject();
+      
+      // Ensure seller can see their own information
+      if (product.seller && product.seller._id.toString() === req.seller._id.toString()) {
+        // This seller owns the product - show full seller info
+        if (!productObj.sellerInfo) {
+          productObj.sellerInfo = {
+            username: product.seller.username,
+            email: product.seller.email,
+            whatsappNo: product.seller.whatsappNo,
+            city: product.seller.city,
+            country: product.seller.country,
+            verificationStatus: product.seller.verificationStatus,
+            _id: product.seller._id
+          };
+        }
+        console.log('✅ Showing seller their own info for product:', product.name);
+      } else if (product.seller && product.seller.verificationStatus === 'approved') {
+        // Other seller's product - show limited info if verified
+        if (!productObj.sellerInfo) {
+          productObj.sellerInfo = {
+            username: product.seller.username,
+            whatsappNo: product.seller.whatsappNo,
+            city: product.seller.city,
+            country: product.seller.country,
+            verificationStatus: product.seller.verificationStatus,
+            _id: product.seller._id
+          };
+        } else {
+          // Remove email from cached info for other sellers
+          delete productObj.sellerInfo.email;
+        }
+        console.log('✅ Showing limited seller info for verified seller');
+      } else {
+        // Hide seller info for unverified sellers
+        delete productObj.sellerInfo;
+        delete productObj.seller;
+        console.log('❌ Hiding seller info for unverified seller');
+      }
+      
+      return {
+        ...productObj,
+        sellerListedAt: sellerEntry?.listedAt,
+        sellerTransactionId: sellerEntry?.transactionId,
+        sellerPaymentMethod: sellerEntry?.paymentMethod,
+        sellerNotes: sellerEntry?.notes
+      };
+    });
+
+    // Get counts by status for seller's listed products
+    const statusCounts = await Product.aggregate([
+      { $match: { 'sellers.sellerId': req.seller._id } },
+      { $group: { _id: '$approvalStatus', count: { $sum: 1 } } }
+    ]);
+
+    const counts = {
+      total: count,
+      pending: statusCounts.find(s => s._id === 'pending')?.count || 0,
+      approved: statusCounts.find(s => s._id === 'approved')?.count || 0,
+      rejected: statusCounts.find(s => s._id === 'rejected')?.count || 0
+    };
+
+    console.log('📋 Seller listed products response:', {
+      sellerId: req.seller._id,
+      sellerUsername: req.seller.username,
+      totalProducts: processedProducts.length,
+      productsWithSellerInfo: processedProducts.filter(p => p.sellerInfo).length
+    });
+
+    res.json({
+      success: true,
+      products: processedProducts,
+      totalPages: Math.ceil(count / parseInt(limit)),
+      currentPage: parseInt(page),
+      total: count,
+      counts
+    });
+  } catch (error) {
+    console.error('Error fetching seller listed products:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Delete seller's listing (remove seller info from admin product)
+router.delete('/unlist-product/:productId', authenticateSeller, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    
+    // Import Product model
+    const Product = (await import('../models/Product.js')).default;
+    
+    // Find the product
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Check if seller has listed this product (check both seller field and sellers array)
+    const isPrimarySeller = product.seller && product.seller.toString() === req.seller._id.toString();
+    const sellerIndex = product.sellers?.findIndex(
+      s => s.sellerId.toString() === req.seller._id.toString()
+    );
+    const isInSellersArray = sellerIndex !== -1;
+
+    if (!isPrimarySeller && !isInSellersArray) {
+      return res.status(400).json({ message: 'You have not listed this product' });
+    }
+
+    console.log('🔍 Unlist check:', {
+      productId: product._id,
+      sellerId: req.seller._id,
+      isPrimarySeller,
+      isInSellersArray,
+      sellerIndex,
+      sellersCount: product.sellers?.length || 0
+    });
+
+    // Remove seller from the sellers array if present
+    if (isInSellersArray) {
+      product.sellers.splice(sellerIndex, 1);
+    }
+
+    // Handle primary seller field
+    if (isPrimarySeller) {
+      if (product.sellers && product.sellers.length > 0) {
+        // Set the first remaining seller as primary
+        const newPrimarySeller = product.sellers[0];
+        product.seller = newPrimarySeller.sellerId;
+        product.sellerInfo = {
+          username: newPrimarySeller.username,
+          email: newPrimarySeller.email,
+          whatsappNo: newPrimarySeller.whatsappNo,
+          city: newPrimarySeller.city,
+          country: newPrimarySeller.country,
+          verificationStatus: newPrimarySeller.verificationStatus,
+          _id: newPrimarySeller.sellerId
+        };
+      } else {
+        // No sellers left, remove seller info
+        product.seller = undefined;
+        product.sellerInfo = undefined;
+      }
+    }
+
+    await product.save();
+
+    // Also remove from seller's listing requests
+    const seller = await Seller.findById(req.seller._id);
+    if (seller && seller.productListingRequests) {
+      seller.productListingRequests = seller.productListingRequests.filter(
+        request => request.productId.toString() !== productId
+      );
+      await seller.save();
+    }
+
+    console.log('✅ Seller unlisted from product:', {
+      productId: product._id,
+      sellerId: req.seller._id,
+      remainingSellers: product.sellers?.length || 0,
+      newPrimarySeller: product.seller
+    });
+
+    res.json({
+      success: true,
+      message: 'Product unlisted successfully. Your seller information has been removed.',
+      productId: product._id,
+      remainingSellers: product.sellers?.length || 0
+    });
+  } catch (error) {
+    console.error('Error unlisting product:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get all sellers for admin management
+router.get('/admin/sellers', authenticateAdmin, async (req, res) => {
+  try {
+    const sellers = await Seller.find({})
+      .select('username email supplierId whatsappNo city country productCategory verificationStatus status createdAt')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      sellers
+    });
+  } catch (error) {
+    console.error('Error fetching sellers:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get products by seller ID for admin
+router.get('/admin/seller/:sellerId', authenticateAdmin, async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    const products = await Product.find({ seller: sellerId })
+      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images originalProductId')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      products
+    });
+  } catch (error) {
+    console.error('Error fetching seller products:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get seller's product listing requests
 router.get('/listing-requests', authenticateSeller, async (req, res) => {
   try {
@@ -872,6 +1393,105 @@ router.get('/debug/statuses', authenticateAdmin, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Debug route to check recent seller products
+router.get('/debug/recent-products', authenticateSeller, async (req, res) => {
+  try {
+    const Product = (await import('../models/Product.js')).default;
+    
+    // Get recent products created by this seller
+    const recentProducts = await Product.find({
+      seller: req.seller._id
+    })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .lean();
+
+    console.log('🔍 Debug - Recent seller products:', {
+      sellerId: req.seller._id,
+      productCount: recentProducts.length,
+      products: recentProducts.map(p => ({
+        id: p._id,
+        name: p.name,
+        hasSeller: !!p.seller,
+        hasSellerInfo: !!p.sellerInfo,
+        sellerInfo: p.sellerInfo,
+        status: p.status,
+        approvalStatus: p.approvalStatus
+      }))
+    });
+
+    res.json({
+      success: true,
+      sellerId: req.seller._id,
+      productCount: recentProducts.length,
+      products: recentProducts.map(p => ({
+        id: p._id,
+        name: p.name,
+        hasSeller: !!p.seller,
+        hasSellerInfo: !!p.sellerInfo,
+        sellerInfo: p.sellerInfo,
+        status: p.status,
+        approvalStatus: p.approvalStatus,
+        createdAt: p.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Debug recent products error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Debug failed', 
+      error: error.message 
+    });
+  }
+});
+
+// Debug route to check specific product's seller info
+router.get('/debug/product-seller-info/:productId', authenticateSeller, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const Product = (await import('../models/Product.js')).default;
+    
+    const product = await Product.findById(productId).lean();
+    
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    console.log('🔍 Debug - Product seller info check:', {
+      productId: product._id,
+      productName: product.name,
+      hasSeller: !!product.seller,
+      sellerValue: product.seller,
+      hasSellerInfo: !!product.sellerInfo,
+      sellerInfoContent: product.sellerInfo,
+      sellerInfoKeys: product.sellerInfo ? Object.keys(product.sellerInfo) : [],
+      status: product.status,
+      approvalStatus: product.approvalStatus,
+      originalProductId: product.originalProductId,
+      isAmazonsChoice: product.isAmazonsChoice
+    });
+    
+    res.json({
+      success: true,
+      productId: product._id,
+      productName: product.name,
+      hasSeller: !!product.seller,
+      sellerValue: product.seller,
+      hasSellerInfo: !!product.sellerInfo,
+      sellerInfo: product.sellerInfo,
+      status: product.status,
+      approvalStatus: product.approvalStatus
+    });
+  } catch (error) {
+    console.error('❌ Debug product seller info error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Debug failed', 
+      error: error.message 
+    });
   }
 });
 

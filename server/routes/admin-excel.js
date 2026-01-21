@@ -2449,7 +2449,7 @@ router.get('/public/images/by-asin/:asin', async (req, res) => {
     // PRIORITY 1: Directly construct Cloudinary URL based on ASIN
     // This assumes images are uploaded to Cloudinary with ASIN as the filename in the 'products' folder
     if (isCloudinaryConfigured()) {
-      const cloudinaryUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/v1/products/${asin}`;
+      const cloudinaryUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/products/${asin}`;
       
       // Return JSON with Cloudinary URL
       return res.json({
@@ -3711,11 +3711,9 @@ router.post('/single-convert-to-approval', authenticateAdmin, async (req, res) =
   }
 });
 
-// Get all Cloudinary images from products folder
+// Get all Cloudinary images from products folder with pagination and search
 router.get('/cloudinary-images', authenticateAdmin, async (req, res) => {
   try {
-    console.log('📋 Fetching ALL Cloudinary images...');
-    
     if (!isCloudinaryConfigured()) {
       return res.status(400).json({
         success: false,
@@ -3723,15 +3721,61 @@ router.get('/cloudinary-images', authenticateAdmin, async (req, res) => {
       });
     }
 
-    const { folder = 'products' } = req.query;
+    const { 
+      folder = 'products', 
+      page = 1, 
+      limit = 20, 
+      search = '' 
+    } = req.query;
     
-    // Fetch ALL images (no limit)
-    const images = await listCloudinaryImages(folder);
+    // Fetch ALL images first (we'll implement pagination client-side for now)
+    const allImages = await listCloudinaryImages(folder);
+    
+    // Filter images based on search query (search in ASIN from public_id)
+    let filteredImages = allImages;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredImages = allImages.filter(image => {
+        // Extract ASIN from public_id (format: products/ASIN)
+        const asin = image.public_id.split('/').pop();
+        return asin && asin.toLowerCase().includes(searchLower);
+      });
+    }
+    
+    // Implement pagination
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const startIndex = (pageNum - 1) * limitNum;
+    const endIndex = startIndex + limitNum;
+    
+    const paginatedImages = filteredImages.slice(startIndex, endIndex);
+    
+    // Format images with ASIN for easier frontend handling
+    const formattedImages = paginatedImages.map(image => {
+      // Safely extract ASIN from public_id or publicId
+      const publicId = image.public_id || image.publicId || '';
+      const asin = publicId.includes('/') ? publicId.split('/').pop() : publicId;
+      
+      return {
+        url: image.secure_url || image.url, // Handle both formats
+        public_id: publicId,
+        name: asin || 'Unknown', // Add name property for frontend compatibility
+        asin: asin || 'Unknown',
+        created_at: image.created_at || image.createdAt,
+        width: image.width || 0,
+        height: image.height || 0,
+        format: image.format || 'jpg',
+        size: image.size || image.bytes || 0
+      };
+    });
     
     res.json({
       success: true,
-      images,
-      total: images.length,
+      images: formattedImages,
+      total: filteredImages.length,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(filteredImages.length / limitNum),
       folder
     });
 

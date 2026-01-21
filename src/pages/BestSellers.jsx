@@ -142,7 +142,7 @@ const BestSellers = () => {
                 {categories.slice(1).map(category => (
                   <div key={category.id} className="col-xl-2 col-lg-2 col-md-3 col-4 mb-3">
                     <Link 
-                      to={`/amazons-choice?cat=${category.id}`}
+                      to={`/amazons-choice?cat=${encodeURIComponent(category.id)}`}
                       className="category-link-card modern-category-card"
                     >
                       <div className="category-image-container">

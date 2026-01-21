@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Seller Debug Test</title>
+</head>
+<body>
+    <h1>Seller Debug Test</h1>
+    
+    <button onclick="testSellerAuth()">Test Seller Authentication</button>
+    <button onclick="testRecentProducts()">Test Recent Products</button>
+    <button onclick="testListProduct()">Test List Product</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        
+        function getSellerToken() {
+            return localStorage.getItem('sellerToken');
+        }
+        
+        function displayResult(title, data) {
+            const results = document.getElementById('results');
+            results.innerHTML += `<h3>${title}</h3><pre>${JSON.stringify(data, null, 2)}</pre><hr>`;
+        }
+        
+        async function testSellerAuth() {
+            try {
+                const token = getSellerToken();
+                if (!token) {
+                    displayResult('Seller Auth Test', { error: 'No seller token found' });
+                    return;
+                }
+                
+                const response = await fetch(`${API_BASE}/sellers/debug/seller-info`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                displayResult('Seller Auth Test', data);
+            } catch (error) {
+                displayResult('Seller Auth Test', { error: error.message });
+            }
+        }
+        
+        async function testRecentProducts() {
+            try {
+                const token = getSellerToken();
+                if (!token) {
+                    displayResult('Recent Products Test', { error: 'No seller token found' });
+                    return;
+                }
+                
+                const response = await fetch(`${API_BASE}/sellers/debug/recent-products`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                displayResult('Recent Products Test', data);
+            } catch (error) {
+                displayResult('Recent Products Test', { error: error.message });
+            }
+        }
+        
+        async function testListProduct() {
+            try {
+                const token = getSellerToken();
+                if (!token) {
+                    displayResult('List Product Test', { error: 'No seller token found' });
+                    return;
+                }
+                
+                // Test with a dummy product ID (replace with actual product ID)
+                const testProductId = '507f1f77bcf86cd799439011'; // dummy ObjectId
+                
+                const response = await fetch(`${API_BASE}/sellers/list-admin-product`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        adminProductId: testProductId,
+                        productName: 'Test Product',
+                        productPrice: 29.99,
+                        paymentMethod: 'Direct Listing',
+                        transactionId: `TEST_${Date.now()}`,
+                        notes: 'Test listing from debug page'
+                    })
+                });
+                
+                const data = await response.json();
+                displayResult('List Product Test', data);
+            } catch (error) {
+                displayResult('List Product Test', { error: error.message });
+            }
+        }
+    </script>
+</body>
+</html>

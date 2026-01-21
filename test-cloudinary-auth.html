@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Cloudinary Auth</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button { margin: 5px; padding: 8px 16px; cursor: pointer; }
+        input { margin: 5px; padding: 8px; width: 300px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Cloudinary Authentication Test</h1>
+    
+    <div>
+        <h3>Step 1: Check Admin Token</h3>
+        <button onclick="checkToken()">Check Current Token</button>
+        <div id="token-result"></div>
+    </div>
+    
+    <div>
+        <h3>Step 2: Test Cloudinary Endpoint</h3>
+        <input type="text" id="token-input" placeholder="Enter admin token (if different)" />
+        <button onclick="testCloudinaryEndpoint()">Test Cloudinary API</button>
+        <div id="cloudinary-result"></div>
+    </div>
+    
+    <div>
+        <h3>Step 3: Test Without Auth (should fail)</h3>
+        <button onclick="testWithoutAuth()">Test Without Token</button>
+        <div id="no-auth-result"></div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:5000';
+        
+        function checkToken() {
+            const resultDiv = document.getElementById('token-result');
+            const token = localStorage.getItem('adminToken');
+            
+            if (token) {
+                resultDiv.innerHTML = `
+                    <div class="result success">✅ Admin token found in localStorage</div>
+                    <pre>Token: ${token.substring(0, 50)}...</pre>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="result error">❌ No admin token found in localStorage</div>
+                    <div class="result info">💡 Please login to admin panel first to get a token</div>
+                `;
+            }
+        }
+        
+        async function testCloudinaryEndpoint() {
+            const resultDiv = document.getElementById('cloudinary-result');
+            const customToken = document.getElementById('token-input').value.trim();
+            const token = customToken || localStorage.getItem('adminToken');
+            
+            if (!token) {
+                resultDiv.innerHTML = '<div class="result error">❌ No token available. Please login first.</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div class="result info">🔄 Testing Cloudinary endpoint...</div>';
+                
+                const response = await fetch(`${BASE_URL}/api/admin-excel/cloudinary-images?folder=products&page=1&limit=5`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const responseText = await response.text();
+                let data;
+                
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    data = { rawResponse: responseText };
+                }
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="result success">✅ Cloudinary endpoint works!</div>
+                        <div class="result info">Status: ${response.status}</div>
+                        <div class="result info">Images found: ${data.images ? data.images.length : 0}</div>
+                        <div class="result info">Total: ${data.total || 0}</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result error">❌ Cloudinary endpoint failed</div>
+                        <div class="result error">Status: ${response.status} ${response.statusText}</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">❌ Network error: ${error.message}</div>
+                `;
+            }
+        }
+        
+        async function testWithoutAuth() {
+            const resultDiv = document.getElementById('no-auth-result');
+            
+            try {
+                resultDiv.innerHTML = '<div class="result info">🔄 Testing without authentication...</div>';
+                
+                const response = await fetch(`${BASE_URL}/api/admin-excel/cloudinary-images?folder=products&page=1&limit=5`);
+                const data = await response.json();
+                
+                if (response.status === 401) {
+                    resultDiv.innerHTML = `
+                        <div class="result success">✅ Correctly rejected without auth</div>
+                        <div class="result info">Status: ${response.status}</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result error">❌ Unexpected response without auth</div>
+                        <div class="result error">Status: ${response.status}</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">❌ Network error: ${error.message}</div>
+                `;
+            }
+        }
+        
+        // Auto-check token on load
+        window.onload = () => {
+            checkToken();
+        };
+    </script>
+</body>
+</html>

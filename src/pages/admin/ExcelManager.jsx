@@ -32,6 +32,11 @@ const ExcelManager = () => {
   const [cloudinaryImages, setCloudinaryImages] = useState([]);
   const [cloudinaryLoading, setCloudinaryLoading] = useState(false);
   const [cloudinarySearch, setCloudinarySearch] = useState('');
+  const [cloudinaryPagination, setCloudinaryPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    total: 0
+  });
 
   useEffect(() => {
     // Show table structure immediately, then load data
@@ -347,41 +352,90 @@ const ExcelManager = () => {
     }
   };
 
-  const fetchCloudinaryImages = async () => {
+  const fetchCloudinaryImages = async (page = 1) => {
     setCloudinaryLoading(true);
     try {
       const token = localStorage.getItem('adminToken');
-      // Remove maxResults to fetch ALL images
-      const response = await fetch(getApiUrl('admin-excel/cloudinary-images?folder=products'), {
-        headers: { 'Authorization': `Bearer ${token}` }
+      
+      if (!token) {
+        alert('❌ No admin token found. Please login again.');
+        return;
+      }
+      
+      // Use pagination to avoid memory issues - increased to 100 per page
+      const url = getApiUrl(`admin-excel/cloudinary-images?folder=products&page=${page}&limit=100`);
+      
+      const response = await fetch(url, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (response.ok) {
         const data = await response.json();
-        console.log(`✅ Loaded ${data.images?.length || 0} Cloudinary images`);
-        setCloudinaryImages(data.images || []);
+        
+        if (page === 1) {
+          // First page - replace existing images
+          setCloudinaryImages(data.images || []);
+        } else {
+          // Subsequent pages - append to existing images
+          setCloudinaryImages(prev => [...prev, ...(data.images || [])]);
+        }
+        
+        // Store pagination info for potential "Load More" functionality
+        setCloudinaryPagination({
+          currentPage: data.page,
+          totalPages: data.totalPages,
+          total: data.total
+        });
       } else {
-        const error = await response.json();
-        alert(`❌ Failed to fetch Cloudinary images: ${error.message}`);
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { message: errorText };
+        }
+        
+        console.error('❌ Cloudinary API error:', response.status, errorData);
+        alert(`❌ Failed to fetch Cloudinary images: ${errorData.message || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error fetching Cloudinary images:', error);
-      alert('❌ Failed to fetch Cloudinary images');
+      console.error('❌ Network error fetching Cloudinary images:', error);
+      alert(`❌ Failed to fetch Cloudinary images: ${error.message}`);
     } finally {
       setCloudinaryLoading(false);
     }
   };
 
+  const handleCloseCloudinaryModal = () => {
+    setShowCloudinaryModal(false);
+    // Clear images to free memory
+    setCloudinaryImages([]);
+    setCloudinarySearch('');
+    setCloudinaryPagination({
+      currentPage: 1,
+      totalPages: 1,
+      total: 0
+    });
+  };
+
   const handleShowCloudinaryImages = () => {
     setShowCloudinaryModal(true);
-    fetchCloudinaryImages();
+    fetchCloudinaryImages(1);
   };
 
   const filteredCloudinaryImages = cloudinaryImages.filter(img => {
+    if (!img) return false;
+    
     const searchLower = cloudinarySearch.toLowerCase();
-    // Search by name (filename) or ASIN
-    return img.name.toLowerCase().includes(searchLower) || 
-           (img.asin && img.asin.toLowerCase().includes(searchLower));
+    // Search by name (filename) or ASIN - with null checks
+    const name = img.name || '';
+    const asin = img.asin || '';
+    
+    return name.toLowerCase().includes(searchLower) || 
+           asin.toLowerCase().includes(searchLower);
   });
 
   const handleDeleteUpload = async (uploadId, fileName) => {
@@ -1356,11 +1410,14 @@ const ExcelManager = () => {
                   ☁️ Cloudinary Images
                 </h2>
                 <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.9)' }}>
-                  {cloudinaryLoading ? 'Loading...' : `${filteredCloudinaryImages.length} images in products folder`}
+                  {cloudinaryLoading ? 
+                    `Loading page ${cloudinaryPagination.currentPage + 1}...` : 
+                    `${filteredCloudinaryImages.length} images loaded${cloudinaryPagination.total > filteredCloudinaryImages.length ? ` (${cloudinaryPagination.total} total)` : ''}`
+                  }
                 </p>
               </div>
               <button
-                onClick={() => setShowCloudinaryModal(false)}
+                onClick={handleCloseCloudinaryModal}
                 style={{
                   background: 'rgba(255, 255, 255, 0.2)',
                   border: 'none',
@@ -1438,8 +1495,8 @@ const ExcelManager = () => {
               ) : (
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                  gap: '16px'
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                  gap: '12px'
                 }}>
                   {filteredCloudinaryImages.map((image, index) => (
                     <div
@@ -1464,7 +1521,7 @@ const ExcelManager = () => {
                       {/* Image */}
                       <div style={{
                         width: '100%',
-                        height: '200px',
+                        height: '150px',
                         background: '#f3f4f6',
                         display: 'flex',
                         alignItems: 'center',
@@ -1502,13 +1559,13 @@ const ExcelManager = () => {
                           color: '#666',
                           marginBottom: '8px'
                         }}>
-                          {image.width} × {image.height} • {image.format.toUpperCase()}
+                          {(image.width || 0)} × {(image.height || 0)} • {(image.format || 'jpg').toUpperCase()}
                         </div>
                         <div style={{
                           fontSize: '0.7rem',
                           color: '#999'
                         }}>
-                          {formatFileSize(image.size)}
+                          {formatFileSize(image.size || 0)}
                         </div>
                         <a
                           href={image.url}
@@ -1545,11 +1602,32 @@ const ExcelManager = () => {
               background: '#f8fafc'
             }}>
               <div style={{ fontSize: '0.85rem', color: '#666' }}>
-                Total: {filteredCloudinaryImages.length} images
+                Showing: {filteredCloudinaryImages.length} images
                 {cloudinarySearch && ` (filtered from ${cloudinaryImages.length})`}
+                {!cloudinarySearch && cloudinaryPagination.total > 0 && (
+                  <span> | Total in Cloudinary: {cloudinaryPagination.total}</span>
+                )}
               </div>
+              {!cloudinarySearch && cloudinaryPagination.currentPage < cloudinaryPagination.totalPages && (
+                <button
+                  onClick={() => fetchCloudinaryImages(cloudinaryPagination.currentPage + 1)}
+                  disabled={cloudinaryLoading}
+                  style={{
+                    padding: '6px 12px',
+                    background: cloudinaryLoading ? '#ccc' : '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: cloudinaryLoading ? 'not-allowed' : 'pointer',
+                    fontSize: '0.8rem',
+                    marginLeft: '10px'
+                  }}
+                >
+                  {cloudinaryLoading ? 'Loading...' : `Load More (${cloudinaryPagination.totalPages - cloudinaryPagination.currentPage} pages left)`}
+                </button>
+              )}
               <button
-                onClick={() => setShowCloudinaryModal(false)}
+                onClick={handleCloseCloudinaryModal}
                 style={{
                   padding: '8px 16px',
                   background: '#6b7280',

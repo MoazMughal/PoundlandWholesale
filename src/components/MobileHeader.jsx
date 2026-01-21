@@ -1163,7 +1163,7 @@ const MobileHeader = () => {
             {categories.map(cat => (
               <Link
                 key={cat.value}
-                to={cat.value === 'all' ? '/' : `/?cat=${cat.value}`}
+                to={cat.value === 'all' ? '/' : `/?cat=${encodeURIComponent(cat.value)}`}
                 className="mobile-menu-item"
                 onClick={() => setShowMobileMenu(false)}
               >

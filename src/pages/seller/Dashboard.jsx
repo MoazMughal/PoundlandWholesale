@@ -758,45 +758,16 @@ const SellerDashboard = () => {
               <small className="text-muted">Browse and list products from our catalog</small>
             </div>
             <div className="card-body">
-              <div className="row g-2">
-                <div className="col-md-3">
+              <div className="row g-2 justify-content-center">
+                <div className="col-md-6">
                   <button 
-                    className="btn btn-primary w-100"
+                    className="btn btn-warning w-100 py-3"
                     disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
-                    onClick={() => navigate('/seller/uk-products')}
+                    onClick={() => navigate('/seller/admin-products')}
+                    style={{ fontSize: '1.1rem' }}
                   >
-                    <i className="fas fa-file-excel me-1"></i> UK Products
-                    <small className="d-block">Browse UK Excel products</small>
-                  </button>
-                </div>
-                <div className="col-md-3">
-                  <button 
-                    className="btn btn-success w-100"
-                    disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
-                    onClick={() => navigate('/seller/uae-products')}
-                  >
-                    <i className="fas fa-file-excel me-1"></i> UAE Products
-                    <small className="d-block">Browse UAE Excel products</small>
-                  </button>
-                </div>
-                <div className="col-md-3">
-                  <button 
-                    className="btn btn-info w-100"
-                    disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
-                    onClick={() => navigate('/seller/amazon10-products')}
-                  >
-                    <i className="fas fa-file-excel me-1"></i> Amazon 10 Products
-                    <small className="d-block">Browse Amazon 10 products</small>
-                  </button>
-                </div>
-                <div className="col-md-3">
-                  <button 
-                    className="btn btn-warning w-100"
-                    disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
-                    onClick={() => navigate('/seller/amazons-choice-products')}
-                  >
-                    <i className="fas fa-trophy me-1"></i> Amazon's Choice
-                    <small className="d-block">Browse existing products</small>
+                    <i className="fas fa-trophy me-2"></i> Amazon's Choice Products
+                    <small className="d-block mt-1">List admin products to your inventory</small>
                   </button>
                 </div>
               </div>

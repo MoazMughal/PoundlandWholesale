@@ -48,6 +48,7 @@ const AdminApproval = lazy(() => import('./pages/admin/Approval'))
 const EditProduct = lazy(() => import('./pages/admin/EditProduct'))
 const ExcelProducts = lazy(() => import('./pages/ExcelProducts'))
 const AdminSellers = lazy(() => import('./pages/admin/Sellers'))
+const AdminSellerManagement = lazy(() => import('./pages/admin/SellerManagement'))
 const AdminSellerProducts = lazy(() => import('./pages/admin/SellerProducts'))
 const AdminSellerVerifications = lazy(() => import('./pages/admin/SellerVerifications'))
 const ExcelImport = lazy(() => import('./pages/admin/ExcelImport'))
@@ -71,6 +72,8 @@ const SellerEditProfile = lazy(() => import('./pages/seller/EditProfile'))
 const SellerAdminProducts = lazy(() => import('./pages/seller/AdminProducts'))
 const SellerAmazonsChoiceProducts = lazy(() => import('./pages/seller/AmazonsChoiceProducts'))
 const SellerListedProducts = lazy(() => import('./pages/seller/ListedProducts'))
+const MyListedProducts = lazy(() => import('./pages/seller/MyListedProducts'))
+const SellerEditProduct = lazy(() => import('./pages/seller/EditProduct'))
 
 // Legal Pages
 const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'))
@@ -160,6 +163,8 @@ function App() {
           <Route path="/seller/admin-products" element={<SellerAdminProducts />} />
           <Route path="/seller/amazons-choice-products" element={<SellerAmazonsChoiceProducts />} />
           <Route path="/seller/listed-products" element={<SellerListedProducts />} />
+          <Route path="/seller/my-listed-products" element={<MyListedProducts />} />
+          <Route path="/seller/edit-product/:id" element={<SellerEditProduct />} />
           
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
@@ -169,6 +174,7 @@ function App() {
           <Route path="/admin/approval" element={<ProtectedRoute><AdminApproval /></ProtectedRoute>} />
           <Route path="/admin/products/edit/:id" element={<ProtectedRoute><EditProduct /></ProtectedRoute>} />
           <Route path="/admin/sellers" element={<ProtectedRoute><AdminSellers /></ProtectedRoute>} />
+          <Route path="/admin/seller-management" element={<ProtectedRoute><AdminSellerManagement /></ProtectedRoute>} />
           <Route path="/admin/seller-products" element={<ProtectedRoute><AdminSellerProducts /></ProtectedRoute>} />
           <Route path="/admin/seller-verifications" element={<ProtectedRoute><AdminSellerVerifications /></ProtectedRoute>} />
           <Route path="/admin/buyers" element={<ProtectedRoute><AdminBuyers /></ProtectedRoute>} />

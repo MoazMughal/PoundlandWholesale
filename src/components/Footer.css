@@ -104,7 +104,7 @@
   }
   
   .footer-container {
-    padding: 0 30px; /* Increased padding from 20px to 30px for more right spacing */
+    padding: 0 40px; /* Increased padding from 30px to 40px for more right spacing */
     max-width: 100%;
   }
   
@@ -114,9 +114,9 @@
   }
   
   .footer-col {
-    padding: 0 15px; /* Increased horizontal padding from 5px to 15px to move content right */
+    padding: 0 20px; /* Increased horizontal padding from 15px to 20px to move content right */
     text-align: left; /* Ensure left alignment */
-    margin-left: 20px; /* Added margin to move content more to the right */
+    margin-left: 30px; /* Increased margin from 20px to 30px to move content more to the right */
   }
   
   .footer-col h5 {
@@ -176,9 +176,9 @@
   
   .copyright {
     margin-top: 25px;
-    padding: 15px 15px; /* Increased horizontal padding from 5px to 15px */
+    padding: 15px 20px; /* Increased horizontal padding from 15px to 20px */
     border-top: 2px solid rgba(255, 102, 0, 0.2);
-    margin-left: 20px; /* Added margin to move copyright text right */
+    margin-left: 30px; /* Increased margin from 20px to 30px to move copyright text right */
   }
   
   .copyright p {
@@ -194,7 +194,7 @@
   }
   
   .footer-container {
-    padding: 0 35px; /* Increased padding from 25px to 35px for more right spacing */
+    padding: 0 45px; /* Increased padding from 35px to 45px for more right spacing */
   }
   
   .footer-row {
@@ -202,8 +202,8 @@
   }
   
   .footer-col {
-    padding: 0 20px; /* Increased horizontal padding from 8px to 20px */
-    margin-left: 25px; /* Increased margin to move content further right */
+    padding: 0 25px; /* Increased horizontal padding from 20px to 25px */
+    margin-left: 35px; /* Increased margin from 25px to 35px to move content further right */
   }
   
   .footer-col h5 {
@@ -226,7 +226,7 @@
   }
   
   .copyright {
-    padding: 15px 20px; /* Increased horizontal padding from 8px to 20px */
-    margin-left: 25px; /* Increased margin to move copyright text further right */
+    padding: 15px 25px; /* Increased horizontal padding from 20px to 25px */
+    margin-left: 35px; /* Increased margin from 25px to 35px to move copyright text further right */
   }
 }

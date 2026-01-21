@@ -1918,7 +1918,7 @@ router.get('/public/:id', async (req, res) => {
     }
     
     const product = await Product.findById(id)
-      .populate('seller', 'username whatsappNo city country verificationStatus');
+      .populate('seller', 'username email supplierId whatsappNo city country verificationStatus');
     
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
@@ -1937,12 +1937,13 @@ router.get('/public/:id', async (req, res) => {
       return res.status(404).json({ message: 'Product not available' });
     }
 
-    // Include seller info only for verified sellers and only if product is from seller
+    // Include seller info - always populate for seller object, cache for performance
     let productData = product.toObject();
     
-    // Use cached sellerInfo if available, otherwise populate from seller object
-    if (!productData.sellerInfo && product.seller && product.seller.verificationStatus === 'approved') {
+    // Always populate seller info if seller exists (for admin and seller access)
+    if (!productData.sellerInfo && product.seller) {
       productData.sellerInfo = {
+        username: product.seller.username,
         whatsappNo: product.seller.whatsappNo,
         city: product.seller.city,
         country: product.seller.country,
@@ -1950,19 +1951,23 @@ router.get('/public/:id', async (req, res) => {
       };
     }
     
-    // Keep seller ID for admin access, but remove full seller object for security
+    // Keep full seller object for admin access, or just ID for others
     if (product.seller) {
-      productData.seller = product.seller._id; // Keep only the ID
+      // Keep the full seller object so admin can access it
+      // The frontend will handle what to display based on user permissions
+      productData.seller = product.seller._id; // Keep ID for reference
+      productData.sellerData = product.seller; // Keep full data for admin access
     } else {
       delete productData.seller;
       delete productData.sellerInfo;
+      delete productData.sellerData;
     }
     
     res.json(productData);
   } catch (error) {
     console.error('Error fetching product by ID:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
-  }
+  } 
 });
 
 // Specific endpoint for Excel products (for sellers)
@@ -2279,10 +2284,36 @@ router.get('/', authenticateAdmin, async (req, res) => {
 router.get('/:id', authenticateAdmin, async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
-      .populate('seller', 'businessName email phone');
+      .populate('seller', 'username email whatsappNo city country verificationStatus _id businessName phone');
     
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Ensure admin can see all seller information
+    if (product.seller) {
+      // Use cached sellerInfo if available, otherwise populate from seller object
+      if (!product.sellerInfo) {
+        product.sellerInfo = {
+          username: product.seller.username,
+          email: product.seller.email,
+          whatsappNo: product.seller.whatsappNo,
+          city: product.seller.city,
+          country: product.seller.country,
+          verificationStatus: product.seller.verificationStatus,
+          _id: product.seller._id,
+          businessName: product.seller.businessName,
+          phone: product.seller.phone
+        };
+      }
+      
+      // Keep full seller object for admin access
+      product.sellerData = product.seller;
+      console.log('✅ Admin access - showing full seller info:', {
+        sellerId: product.seller._id,
+        username: product.seller.username,
+        verificationStatus: product.seller.verificationStatus
+      });
     }
 
     res.json(product);
@@ -3588,9 +3619,29 @@ router.post('/seller/add', authenticateSeller, async (req, res) => {
       });
     }
 
+    // CRITICAL FIX: Always fetch fresh seller data and cache it
+    const Seller = (await import('../models/Seller.js')).default;
+    const seller = await Seller.findById(req.seller._id);
+    
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Enhanced seller info for caching using fresh database data
+    const enhancedSellerInfo = {
+      username: seller.username,
+      email: seller.email,
+      whatsappNo: seller.whatsappNo,
+      city: seller.city,
+      country: seller.country,
+      verificationStatus: seller.verificationStatus,
+      _id: seller._id
+    };
+
     const productData = {
       ...req.body,
       seller: req.seller._id,
+      sellerInfo: enhancedSellerInfo, // Cache seller info
       isAdminProduct: false,
       approvalStatus: 'pending',
       status: 'pending'
@@ -3599,11 +3650,19 @@ router.post('/seller/add', authenticateSeller, async (req, res) => {
     const product = new Product(productData);
     await product.save();
 
+    console.log('✅ New seller product created with cached seller info:', {
+      productId: product._id,
+      sellerId: seller._id,
+      sellerUsername: seller.username,
+      sellerInfoCached: !!product.sellerInfo
+    });
+
     res.status(201).json({
       message: 'Product submitted for approval',
       product
     });
   } catch (error) {
+    console.error('❌ Error creating seller product:', error);
     res.status(400).json({ message: 'Error creating product', error: error.message });
   }
 });
@@ -3640,11 +3699,40 @@ router.put('/seller/:id', authenticateSeller, async (req, res) => {
       });
     }
 
+    // CRITICAL FIX: Always fetch fresh seller data and cache it
+    const Seller = (await import('../models/Seller.js')).default;
+    const seller = await Seller.findById(req.seller._id);
+    
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Enhanced seller info for caching using fresh database data
+    const enhancedSellerInfo = {
+      username: seller.username,
+      email: seller.email,
+      whatsappNo: seller.whatsappNo,
+      city: seller.city,
+      country: seller.country,
+      verificationStatus: seller.verificationStatus,
+      _id: seller._id
+    };
+
+    // Update product with seller info caching
     Object.assign(product, req.body);
+    product.sellerInfo = enhancedSellerInfo; // Always cache fresh seller info
     await product.save();
+
+    console.log('✅ Seller product updated with cached seller info:', {
+      productId: product._id,
+      sellerId: seller._id,
+      sellerUsername: seller.username,
+      sellerInfoCached: !!product.sellerInfo
+    });
 
     res.json({ message: 'Product updated successfully', product });
   } catch (error) {
+    console.error('❌ Error updating seller product:', error);
     res.status(400).json({ message: 'Error updating product', error: error.message });
   }
 });
@@ -3672,7 +3760,7 @@ router.get('/admin/available', authenticateSeller, async (req, res) => {
   try {
     // Remove payment check - allow all sellers to browse products
 
-    const { page = 1, limit = 20, search, category } = req.query;
+    const { page = 1, limit = 100, search, category } = req.query;
     
     let query = { 
       isAdminProduct: true, 
@@ -3683,20 +3771,24 @@ router.get('/admin/available', authenticateSeller, async (req, res) => {
     if (search) {
       query.$text = { $search: search };
     }
-    if (category && category !== 'all') query.category = category;
+    if (category && category !== 'all') {
+      // Handle category filtering - support both exact match and case-insensitive
+      query.category = new RegExp(`^${category}$`, 'i');
+    }
 
     const products = await Product.find(query)
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
 
-    const count = await Product.countDocuments(query);
+    const totalProducts = await Product.countDocuments(query);
 
     res.json({
       products,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
-      total: count
+      totalPages: Math.ceil(totalProducts / parseInt(limit)),
+      currentPage: parseInt(page),
+      totalProducts,
+      limit: parseInt(limit)
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -3705,28 +3797,52 @@ router.get('/admin/available', authenticateSeller, async (req, res) => {
 
 // Admin routes for managing seller products
 
+// Get products by seller ID for admin (add this endpoint)
+router.get('/admin/seller/:sellerId', authenticateAdmin, async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    const products = await Product.find({ seller: sellerId })
+      .populate('seller', 'username email supplierId whatsappNo city country verificationStatus')
+      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images originalProductId')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      products
+    });
+  } catch (error) {
+    console.error('Error fetching seller products:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get all seller products for admin review
 router.get('/admin/seller-products', authenticateAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 20, status = 'pending' } = req.query;
     
     let query = { 
-      isAdminProduct: false,
-      approvalStatus: status
+      isAdminProduct: false
     };
 
+    // Only filter by status if it's not 'all'
+    if (status !== 'all') {
+      query.approvalStatus = status;
+    }
+
     const products = await Product.find(query)
-      .populate('seller', 'username email supplierId')
+      .populate('seller', 'username email supplierId whatsappNo city country verificationStatus')
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
 
     const count = await Product.countDocuments(query);
 
     res.json({
       products,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
+      totalPages: Math.ceil(count / parseInt(limit)),
+      currentPage: parseInt(page),
       total: count
     });
   } catch (error) {
@@ -3903,27 +4019,80 @@ router.put('/seller/update-inventory/:id', authenticateSeller, async (req, res) 
 // Get seller's listed products with detailed info
 router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, marketplace } = req.query;
+    const { page = 1, limit = 50, status, marketplace } = req.query;
     
     let query = { 
-      seller: req.seller._id,
-      isAdminProduct: false // Only seller's own products
+      $or: [
+        { seller: req.seller._id }, // Primary seller (backward compatibility)
+        { 'sellers.sellerId': req.seller._id } // Seller in sellers array
+      ]
     };
     
     if (status) query.approvalStatus = status;
     if (marketplace) query.marketplace = marketplace;
 
     const products = await Product.find(query)
+      .populate('seller', 'username email whatsappNo city country verificationStatus _id') // Populate seller info
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images asin sku dealUnits');
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images asin sku dealUnits originalProductId sellers seller sellerInfo');
 
     const count = await Product.countDocuments(query);
 
+    // Process products to ensure seller can see their own information
+    const processedProducts = products.map(product => {
+      const productObj = product.toObject();
+      
+      // Ensure seller can see their own information
+      if (product.seller && product.seller._id.toString() === req.seller._id.toString()) {
+        // This seller owns the product - show full seller info
+        if (!productObj.sellerInfo) {
+          productObj.sellerInfo = {
+            username: product.seller.username,
+            email: product.seller.email,
+            whatsappNo: product.seller.whatsappNo,
+            city: product.seller.city,
+            country: product.seller.country,
+            verificationStatus: product.seller.verificationStatus,
+            _id: product.seller._id
+          };
+        }
+        console.log('✅ Showing seller their own info for product:', product.name);
+      } else if (product.seller && product.seller.verificationStatus === 'approved') {
+        // Other seller's product - show limited info if verified
+        if (!productObj.sellerInfo) {
+          productObj.sellerInfo = {
+            username: product.seller.username,
+            whatsappNo: product.seller.whatsappNo,
+            city: product.seller.city,
+            country: product.seller.country,
+            verificationStatus: product.seller.verificationStatus,
+            _id: product.seller._id
+          };
+        } else {
+          // Remove email from cached info for other sellers
+          delete productObj.sellerInfo.email;
+        }
+      } else {
+        // Hide seller info for unverified sellers
+        delete productObj.sellerInfo;
+        delete productObj.seller;
+      }
+      
+      return productObj;
+    });
+
     // Get counts by status
     const statusCounts = await Product.aggregate([
-      { $match: { seller: req.seller._id, isAdminProduct: false } },
+      { 
+        $match: { 
+          $or: [
+            { seller: req.seller._id },
+            { 'sellers.sellerId': req.seller._id }
+          ]
+        } 
+      },
       { $group: { _id: '$approvalStatus', count: { $sum: 1 } } }
     ]);
 
@@ -3934,14 +4103,22 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
       rejected: statusCounts.find(s => s._id === 'rejected')?.count || 0
     };
 
+    console.log('📋 Seller listed products response:', {
+      sellerId: req.seller._id,
+      sellerUsername: req.seller.username,
+      totalProducts: processedProducts.length,
+      productsWithSellerInfo: processedProducts.filter(p => p.sellerInfo).length
+    });
+
     res.json({
-      products,
-      totalPages: Math.ceil(count / limit),
+      products: processedProducts,
+      totalPages: Math.ceil(count / parseInt(limit)),
       currentPage: parseInt(page),
       total: count,
       counts
     });
   } catch (error) {
+    console.error('Error fetching seller listed products:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -3973,6 +4150,25 @@ router.post('/seller/list-admin-product', authenticateSeller, async (req, res) =
       return res.status(400).json({ message: 'You already have this product in your inventory' });
     }
 
+    // CRITICAL FIX: Always fetch fresh seller data and cache it
+    const Seller = (await import('../models/Seller.js')).default;
+    const seller = await Seller.findById(req.seller._id);
+    
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Enhanced seller info for caching using fresh database data
+    const enhancedSellerInfo = {
+      username: seller.username,
+      email: seller.email,
+      whatsappNo: seller.whatsappNo,
+      city: seller.city,
+      country: seller.country,
+      verificationStatus: seller.verificationStatus,
+      _id: seller._id
+    };
+
     // Create a copy for the seller
     const sellerProduct = new Product({
       name: adminProduct.name,
@@ -3992,6 +4188,7 @@ router.post('/seller/list-admin-product', authenticateSeller, async (req, res) =
       isAmazonsChoice: adminProduct.isAmazonsChoice,
       isBestSeller: adminProduct.isBestSeller,
       seller: req.seller._id,
+      sellerInfo: enhancedSellerInfo, // Cache seller info
       isAdminProduct: false,
       originalAdminProductId: adminProductId,
       paymentTransactionId: paymentTransactionId,
@@ -4002,11 +4199,19 @@ router.post('/seller/list-admin-product', authenticateSeller, async (req, res) =
 
     await sellerProduct.save();
 
+    console.log('✅ Admin product listed by seller with cached seller info:', {
+      productId: sellerProduct._id,
+      sellerId: seller._id,
+      sellerUsername: seller.username,
+      sellerInfoCached: !!sellerProduct.sellerInfo
+    });
+
     res.json({ 
       message: 'Product successfully added to your inventory',
       product: sellerProduct
     });
   } catch (error) {
+    console.error('❌ Error listing admin product by seller:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -6568,6 +6773,284 @@ router.get('/admin/debug/party-accessories', authenticateAdmin, async (req, res)
       success: false,
       message: 'Failed to debug Party-Accessories products',
       error: error.message
+    });
+  }
+});
+
+// Public endpoint to get a single product by ID (no auth required)
+router.get('/public/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate product ID format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid product ID format' 
+      });
+    }
+
+    // Find the product and populate seller information
+    const product = await Product.findById(id)
+      .populate('seller', 'username email whatsappNo city country verificationStatus _id')
+      .lean();
+    
+    if (!product) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Product not found' 
+      });
+    }
+
+    console.log('🔍 Product seller info debug (public):', {
+      productId: id,
+      hasSeller: !!product.seller,
+      hasSellerInfo: !!product.sellerInfo,
+      sellerVerificationStatus: product.seller?.verificationStatus
+    });
+
+    // For public access, only show seller info for verified sellers and admin products
+    if (product.seller && (product.seller.verificationStatus === 'approved' || product.isAdminProduct)) {
+      // Use cached sellerInfo if available, otherwise populate from seller object
+      if (!product.sellerInfo) {
+        product.sellerInfo = {
+          username: product.seller.username,
+          whatsappNo: product.seller.whatsappNo,
+          city: product.seller.city,
+          country: product.seller.country,
+          verificationStatus: product.seller.verificationStatus,
+          _id: product.seller._id
+        };
+        console.log('✅ Added seller info for verified seller (public access)');
+      }
+    } else {
+      // Remove seller info for unverified sellers in public access
+      delete product.sellerInfo;
+      delete product.seller;
+      console.log('❌ Seller info hidden for unverified seller (public access)');
+    }
+
+    res.json({
+      success: true,
+      ...product
+    });
+  } catch (error) {
+    console.error('❌ Error fetching product by ID:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error', 
+      error: error.message 
+    });
+  }
+});
+
+// Seller endpoint to get a single product by ID (seller can see their own info)
+router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate product ID format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid product ID format' 
+      });
+    }
+
+    // Find the product and populate seller information
+    const product = await Product.findById(id)
+      .populate('seller', 'username email whatsappNo city country verificationStatus _id')
+      .lean();
+    
+    if (!product) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Product not found' 
+      });
+    }
+
+    console.log('🔍 Product seller info debug (seller access):', {
+      productId: id,
+      requestingSellerId: req.seller._id.toString(),
+      productSellerId: product.seller?._id?.toString(),
+      isOwnProduct: product.seller?._id?.toString() === req.seller._id.toString(),
+      hasSeller: !!product.seller,
+      hasSellerInfo: !!product.sellerInfo
+    });
+
+    // Check if this seller owns the product
+    const isOwnProduct = product.seller && product.seller._id.toString() === req.seller._id.toString();
+    
+    if (isOwnProduct) {
+      // Seller can see their own full info
+      if (!product.sellerInfo) {
+        product.sellerInfo = {
+          username: product.seller.username,
+          email: product.seller.email,
+          whatsappNo: product.seller.whatsappNo,
+          city: product.seller.city,
+          country: product.seller.country,
+          verificationStatus: product.seller.verificationStatus,
+          _id: product.seller._id
+        };
+      }
+      console.log('✅ Showing full seller info to product owner');
+    } else if (product.seller && product.seller.verificationStatus === 'approved') {
+      // For other sellers' products, only show limited info if verified
+      if (!product.sellerInfo) {
+        product.sellerInfo = {
+          username: product.seller.username,
+          whatsappNo: product.seller.whatsappNo,
+          city: product.seller.city,
+          country: product.seller.country,
+          verificationStatus: product.seller.verificationStatus,
+          _id: product.seller._id
+        };
+      } else {
+        // Remove email from cached info for other sellers
+        delete product.sellerInfo.email;
+      }
+      console.log('✅ Showing limited seller info for verified seller');
+    } else {
+      // Hide seller info for unverified sellers or if no seller
+      delete product.sellerInfo;
+      delete product.seller;
+      console.log('❌ Seller info hidden for unverified seller');
+    }
+
+    res.json({
+      success: true,
+      ...product
+    });
+  } catch (error) {
+    console.error('❌ Error fetching product by ID (seller):', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error', 
+      error: error.message 
+    });
+  }
+});
+
+// Seller endpoint to update product (seller can only update price and assign to themselves)
+router.put('/seller-update/:id', authenticateSeller, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { price, seller: sellerId, sellerInfo } = req.body;
+    
+    console.log('🔄 Seller updating product:', {
+      productId: id,
+      sellerId: req.seller._id,
+      sellerUsername: req.seller.username,
+      newPrice: price
+    });
+    
+    // Validate product ID format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid product ID format' 
+      });
+    }
+
+    // Ensure seller can only assign product to themselves
+    if (sellerId !== req.seller._id.toString()) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'You can only assign products to yourself' 
+      });
+    }
+
+    // CRITICAL FIX: Always fetch fresh seller data from database
+    // instead of relying on req.seller which might be incomplete
+    const Seller = (await import('../models/Seller.js')).default;
+    const seller = await Seller.findById(req.seller._id);
+    
+    if (!seller) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Seller not found' 
+      });
+    }
+
+    console.log('🔍 Fresh seller data retrieved:', {
+      sellerId: seller._id,
+      username: seller.username,
+      email: seller.email,
+      whatsappNo: seller.whatsappNo,
+      city: seller.city,
+      country: seller.country,
+      verificationStatus: seller.verificationStatus
+    });
+
+    // Enhanced seller info for caching using fresh database data
+    const enhancedSellerInfo = {
+      username: seller.username,
+      email: seller.email,
+      whatsappNo: seller.whatsappNo,
+      city: seller.city,
+      country: seller.country,
+      verificationStatus: seller.verificationStatus,
+      _id: seller._id
+    };
+
+    // Find and update the product
+    const updateData = {
+      price: parseFloat(price),
+      seller: req.seller._id,
+      sellerInfo: sellerInfo || enhancedSellerInfo
+    };
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProduct) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Product not found' 
+      });
+    }
+
+    // Clear cache
+    if (typeof fastProductsCache !== 'undefined') {
+      fastProductsCache = null;
+      cacheTimestamp = Date.now();
+    }
+
+    console.log('✅ Product updated by seller with details:', {
+      productId: id,
+      sellerId: req.seller._id,
+      sellerUsername: req.seller.username,
+      newPrice: price,
+      sellerInfoCached: !!updatedProduct.sellerInfo,
+      sellerInfoDetails: updatedProduct.sellerInfo,
+      updateDataUsed: updateData
+    });
+
+    // Verify the product was updated correctly by fetching it back
+    const verifyProduct = await Product.findById(id).lean();
+    console.log('🔍 Verification - Product updated in database:', {
+      productId: verifyProduct._id,
+      hasSeller: !!verifyProduct.seller,
+      hasSellerInfo: !!verifyProduct.sellerInfo,
+      sellerInfoContent: verifyProduct.sellerInfo
+    });
+
+    res.json({
+      success: true,
+      message: 'Product updated successfully with seller information',
+      product: updatedProduct,
+      sellerInfo: enhancedSellerInfo
+    });
+  } catch (error) {
+    console.error('❌ Error updating product by seller:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error', 
+      error: error.message 
     });
   }
 });

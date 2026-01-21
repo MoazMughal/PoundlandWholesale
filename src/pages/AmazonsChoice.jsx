@@ -161,7 +161,7 @@ const AmazonsChoice = () => {
   const [isLoadingRequest, setIsLoadingRequest] = useState(false) // Track active requests
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('cat') || 'all')
+  const [selectedCategory, setSelectedCategory] = useState(decodeURIComponent(searchParams.get('cat') || 'all'))
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '')
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page')) || 1)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
@@ -523,7 +523,7 @@ const AmazonsChoice = () => {
 
   // Handle URL parameters and trigger server-side filtering
   useEffect(() => {
-    const catParam = searchParams.get('cat') || 'all'
+    const catParam = decodeURIComponent(searchParams.get('cat') || 'all')
     const searchParam = searchParams.get('search') || ''
     const pageParam = parseInt(searchParams.get('page')) || 1
     

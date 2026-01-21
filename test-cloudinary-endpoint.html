@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Cloudinary Images Endpoint</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
+        .image-item { border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+        .image-item img { width: 100%; height: 150px; object-fit: cover; }
+        .image-info { padding: 10px; background: #f5f5f5; }
+        .loading { text-align: center; padding: 20px; }
+        .error { color: red; padding: 20px; }
+        .controls { margin-bottom: 20px; }
+        .controls input, .controls button { margin: 5px; padding: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Cloudinary Images Test</h1>
+    
+    <div class="controls">
+        <input type="text" id="searchInput" placeholder="Search by ASIN..." />
+        <button onclick="searchImages()">Search</button>
+        <button onclick="loadImages()">Load All</button>
+        <span id="status"></span>
+    </div>
+    
+    <div id="results">
+        <div class="loading">Click "Load All" to fetch images...</div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+
+        async function loadImages(page = 1, search = '') {
+            const resultsDiv = document.getElementById('results');
+            const statusSpan = document.getElementById('status');
+            
+            try {
+                resultsDiv.innerHTML = '<div class="loading">Loading images...</div>';
+                statusSpan.textContent = 'Loading...';
+                
+                // You'll need to get a valid admin token for this to work
+                const token = localStorage.getItem('adminToken') || 'your-admin-token-here';
+                
+                const params = new URLSearchParams({
+                    page: page,
+                    limit: 20,
+                    ...(search && { search })
+                });
+                
+                const response = await fetch(`http://localhost:5000/api/admin-excel/cloudinary-images?${params}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayImages(data);
+                    statusSpan.textContent = `Page ${data.page} of ${data.totalPages} (${data.total} total images)`;
+                    currentPage = data.page;
+                    totalPages = data.totalPages;
+                } else {
+                    throw new Error(data.message || 'Failed to load images');
+                }
+                
+            } catch (error) {
+                console.error('Error loading images:', error);
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                statusSpan.textContent = 'Error occurred';
+            }
+        }
+        
+        function displayImages(data) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (!data.images || data.images.length === 0) {
+                resultsDiv.innerHTML = '<div class="loading">No images found</div>';
+                return;
+            }
+            
+            const imagesHtml = data.images.map(image => `
+                <div class="image-item">
+                    <img src="${image.url}" alt="ASIN: ${image.asin}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkVycm9yPC90ZXh0Pjwvc3ZnPg=='" />
+                    <div class="image-info">
+                        <strong>ASIN:</strong> ${image.asin}<br>
+                        <strong>Size:</strong> ${image.width}x${image.height}<br>
+                        <strong>Created:</strong> ${new Date(image.created_at).toLocaleDateString()}
+                    </div>
+                </div>
+            `).join('');
+            
+            const paginationHtml = totalPages > 1 ? `
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="loadImages(${currentPage - 1}, '${document.getElementById('searchInput').value}')" ${currentPage <= 1 ? 'disabled' : ''}>Previous</button>
+                    <span style="margin: 0 15px;">Page ${currentPage} of ${totalPages}</span>
+                    <button onclick="loadImages(${currentPage + 1}, '${document.getElementById('searchInput').value}')" ${currentPage >= totalPages ? 'disabled' : ''}>Next</button>
+                </div>
+            ` : '';
+            
+            resultsDiv.innerHTML = `
+                <div class="image-grid">${imagesHtml}</div>
+                ${paginationHtml}
+            `;
+        }
+        
+        function searchImages() {
+            const searchValue = document.getElementById('searchInput').value.trim();
+            loadImages(1, searchValue);
+        }
+        
+        // Allow Enter key to search
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchImages();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -53,7 +53,8 @@ const AdminSellerListings = () => {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
       
-      const response = await fetch(getApiUrl('products?excludeSellerCopies=false'), {
+      // Use the correct admin seller-products endpoint that populates seller info
+      const response = await fetch(getApiUrl('products/admin/seller-products?limit=1000&status=all'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -61,8 +62,7 @@ const AdminSellerListings = () => {
 
       if (response.ok) {
         const data = await response.json();
-        // Filter only seller-created products
-        const sellerListings = data.products.filter(p => p.listedBy === 'seller' || (!p.isAdminProduct && p.seller));
+        const sellerListings = data.products || [];
         setListings(sellerListings);
         setFilteredListings(sellerListings);
         
@@ -310,6 +310,7 @@ const AdminSellerListings = () => {
             <table className="table table-hover">
               <thead>
                 <tr>
+                  <th style={{fontSize: '0.75rem', width: '60px'}}>Image</th>
                   <th style={{fontSize: '0.75rem'}}>Product</th>
                   <th style={{fontSize: '0.75rem'}}>Seller</th>
                   <th style={{fontSize: '0.75rem'}}>Price</th>
@@ -323,8 +324,47 @@ const AdminSellerListings = () => {
                 {filteredListings.map((listing) => (
                   <tr key={listing._id} style={{fontSize: '0.8rem'}}>
                     <td>
+                      <a 
+                        href={`/product/${listing._id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ textDecoration: 'none' }}
+                      >
+                        <img 
+                          src={listing.images?.[0] || 'https://via.placeholder.com/50x50?text=No+Image'} 
+                          alt={listing.name}
+                          style={{ 
+                            width: '40px', 
+                            height: '40px', 
+                            objectFit: 'cover', 
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            transition: 'transform 0.2s ease'
+                          }}
+                          onError={(e) => {
+                            e.target.src = 'https://via.placeholder.com/40x40?text=No+Image';
+                          }}
+                          onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
+                          onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                        />
+                      </a>
+                    </td>
+                    <td>
                       <div style={{maxWidth: '250px'}}>
-                        <strong>{listing.name}</strong>
+                        <a 
+                          href={`/product/${listing._id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            textDecoration: 'none',
+                            color: '#0066cc',
+                            fontWeight: 'bold'
+                          }}
+                          onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                          onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                        >
+                          {listing.name}
+                        </a>
                         <div className="text-muted" style={{fontSize: '0.7rem'}}>
                           {listing.marketplace && <span className="badge bg-info me-1">{listing.marketplace}</span>}
                           {listing.isAmazonsChoice && <span className="badge bg-warning">Amazon's Choice</span>}
@@ -359,6 +399,15 @@ const AdminSellerListings = () => {
                     </td>
                     <td>
                       <div className="btn-group" role="group">
+                        <a
+                          href={`/product/${listing._id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-info btn-sm"
+                          title="View Product"
+                        >
+                          <i className="fas fa-eye"></i>
+                        </a>
                         {listing.approvalStatus === 'pending' && (
                           <>
                             <button

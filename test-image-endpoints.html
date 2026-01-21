@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Image Endpoints</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .loading { background: #d1ecf1; color: #0c5460; }
+        .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+        .image-item { border: 1px solid #ddd; border-radius: 4px; overflow: hidden; }
+        .image-item img { width: 100%; height: 120px; object-fit: cover; }
+        .image-info { padding: 5px; font-size: 12px; background: #f8f9fa; }
+        button { margin: 5px; padding: 8px 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Image Endpoints Test</h1>
+    
+    <!-- Test 1: Cloudinary Images List -->
+    <div class="test-section">
+        <h2>Test 1: Cloudinary Images List</h2>
+        <button onclick="testCloudinaryList()">Test Cloudinary Images Endpoint</button>
+        <div id="cloudinary-result"></div>
+        <div id="cloudinary-images"></div>
+    </div>
+    
+    <!-- Test 2: By ASIN Endpoint -->
+    <div class="test-section">
+        <h2>Test 2: By ASIN Endpoint</h2>
+        <input type="text" id="asin-input" placeholder="Enter ASIN (e.g., B08N5WRWNW)" value="B08N5WRWNW" />
+        <button onclick="testByAsin()">Test By ASIN Endpoint</button>
+        <div id="asin-result"></div>
+        <div id="asin-image"></div>
+    </div>
+    
+    <!-- Test 3: Direct Cloudinary URL -->
+    <div class="test-section">
+        <h2>Test 3: Direct Cloudinary URL Construction</h2>
+        <input type="text" id="direct-asin-input" placeholder="Enter ASIN" value="B08N5WRWNW" />
+        <button onclick="testDirectCloudinary()">Test Direct Cloudinary URL</button>
+        <div id="direct-result"></div>
+        <div id="direct-image"></div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:5000';
+        
+        async function testCloudinaryList() {
+            const resultDiv = document.getElementById('cloudinary-result');
+            const imagesDiv = document.getElementById('cloudinary-images');
+            
+            try {
+                resultDiv.innerHTML = '<div class="test-result loading">Testing Cloudinary images list...</div>';
+                imagesDiv.innerHTML = '';
+                
+                // You'll need a valid admin token for this
+                const token = localStorage.getItem('adminToken') || 'test-token';
+                
+                const response = await fetch(`${BASE_URL}/api/admin-excel/cloudinary-images?limit=5`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<div class="test-result success">✅ Success! Found ${data.total} images, showing ${data.images.length}</div>`;
+                    
+                    if (data.images.length > 0) {
+                        const imagesHtml = data.images.map(img => `
+                            <div class="image-item">
+                                <img src="${img.url}" alt="${img.asin}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                                <div style="display:none; padding:20px; text-align:center; color:#999;">Failed to load</div>
+                                <div class="image-info">
+                                    ASIN: ${img.asin}<br>
+                                    Size: ${img.width}x${img.height}
+                                </div>
+                            </div>
+                        `).join('');
+                        imagesDiv.innerHTML = `<div class="image-grid">${imagesHtml}</div>`;
+                    }
+                } else {
+                    resultDiv.innerHTML = `<div class="test-result error">❌ Error: ${data.message}</div>`;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">❌ Network Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testByAsin() {
+            const asin = document.getElementById('asin-input').value.trim();
+            const resultDiv = document.getElementById('asin-result');
+            const imageDiv = document.getElementById('asin-image');
+            
+            if (!asin) {
+                resultDiv.innerHTML = '<div class="test-result error">❌ Please enter an ASIN</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div class="test-result loading">Testing by ASIN endpoint...</div>';
+                imageDiv.innerHTML = '';
+                
+                const response = await fetch(`${BASE_URL}/api/admin-excel/public/images/by-asin/${asin}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<div class="test-result success">✅ Success! Source: ${data.source}</div>`;
+                    
+                    imageDiv.innerHTML = `
+                        <div class="image-item" style="max-width: 300px;">
+                            <img src="${data.imageUrl}" alt="${data.asin}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                            <div style="display:none; padding:20px; text-align:center; color:#999;">Failed to load image</div>
+                            <div class="image-info">
+                                ASIN: ${data.asin}<br>
+                                URL: ${data.imageUrl}<br>
+                                Source: ${data.source}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="test-result error">❌ Error: ${data.message}</div>`;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">❌ Network Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testDirectCloudinary() {
+            const asin = document.getElementById('direct-asin-input').value.trim();
+            const resultDiv = document.getElementById('direct-result');
+            const imageDiv = document.getElementById('direct-image');
+            
+            if (!asin) {
+                resultDiv.innerHTML = '<div class="test-result error">❌ Please enter an ASIN</div>';
+                return;
+            }
+            
+            // Construct direct Cloudinary URL (you'll need to replace with your cloud name)
+            const cloudName = 'your-cloud-name'; // Replace with actual cloud name
+            const directUrl = `https://res.cloudinary.com/${cloudName}/image/upload/products/${asin}`;
+            
+            resultDiv.innerHTML = `<div class="test-result loading">Testing direct Cloudinary URL...</div>`;
+            imageDiv.innerHTML = '';
+            
+            // Test if image loads
+            const img = new Image();
+            img.onload = () => {
+                resultDiv.innerHTML = `<div class="test-result success">✅ Direct Cloudinary URL works!</div>`;
+                imageDiv.innerHTML = `
+                    <div class="image-item" style="max-width: 300px;">
+                        <img src="${directUrl}" alt="${asin}" />
+                        <div class="image-info">
+                            ASIN: ${asin}<br>
+                            Direct URL: ${directUrl}
+                        </div>
+                    </div>
+                `;
+            };
+            img.onerror = () => {
+                resultDiv.innerHTML = `<div class="test-result error">❌ Direct Cloudinary URL failed to load</div>`;
+                imageDiv.innerHTML = `
+                    <div class="image-info">
+                        Attempted URL: ${directUrl}<br>
+                        This might mean the image doesn't exist or the cloud name is incorrect.
+                    </div>
+                `;
+            };
+            img.src = directUrl;
+        }
+        
+        // Auto-load cloudinary list on page load if token exists
+        window.onload = () => {
+            if (localStorage.getItem('adminToken')) {
+                console.log('Admin token found, auto-testing Cloudinary list...');
+                setTimeout(testCloudinaryList, 1000);
+            } else {
+                console.log('No admin token found. Please login to admin panel first to get a token.');
+            }
+        };
+    </script>
+</body>
+</html>
