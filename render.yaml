@@ -38,7 +38,7 @@ services:
       - key: EMAIL_FROM_NAME
         value: Generic Wholesale
       - key: FRONTEND_URL
-        value: https://www.genericwholesale.pk
+        value: https://poundlandwholesale.com
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN
