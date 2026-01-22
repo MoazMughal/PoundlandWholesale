@@ -2,12 +2,12 @@
 
 /* Enhanced Mobile Product Cards - Clean and Readable */
 @media (max-width: 576px) {
-  /* Product Card Container - Larger and more spacious */
+  /* Product Card Container - Balanced size */
   .product-card {
-    min-height: 320px !important; /* Increased from 260px to 320px for better spacing */
+    min-height: 280px !important; /* Reduced from 320px to 280px for better balance */
     max-height: none !important;
-    padding: 12px !important; /* Increased padding for better spacing */
-    margin-bottom: 16px !important;
+    padding: 10px !important; /* Reduced padding */
+    margin-bottom: 12px !important;
   }
 
   /* Product Image Container - Larger for better visibility */
@@ -23,38 +23,61 @@
     gap: 8px !important; /* Increased gap between elements */
   }
 
-  /* Product Title - Much Larger Font */
+  /* Product Title - Balanced Font Size */
   .product-card h5,
   .product-card .product-title {
-    font-size: 16px !important; /* Increased from 12px to 16px */
+    font-size: 13px !important; /* Reduced from 16px to 13px for better balance */
     height: auto !important;
-    line-height: 1.4 !important; /* Better line spacing */
-    margin-bottom: 8px !important;
+    line-height: 1.4 !important;
+    margin-bottom: 6px !important;
     font-weight: 600 !important;
     color: #333 !important;
   }
 
-  /* Price per unit - Larger and more visible */
+  /* Price per unit - Smaller but readable */
   .product-card div[style*="£"][style*="/unit"] {
-    font-size: 16px !important; /* Much larger price text */
+    font-size: 13px !important; /* Reduced from 16px to 13px */
     font-weight: 800 !important;
-    padding: 4px 8px !important;
-    margin: 4px 0 !important;
-  }
-
-  /* Profit information - Larger text */
-  .product-card div[style*="profit"] {
-    font-size: 14px !important;
-    font-weight: 600 !important;
     padding: 3px 6px !important;
+    margin: 3px 0 !important;
   }
 
-  /* Deal information - Better spacing and size */
-  .product-card div[style*="Deal of"] {
-    font-size: 14px !important;
+  /* Profit information - Smaller text */
+  .product-card div[style*="profit"] {
+    font-size: 11px !important; /* Reduced from 14px to 11px */
     font-weight: 600 !important;
-    padding: 6px 10px !important;
-    margin: 6px 0 !important;
+    padding: 2px 4px !important;
+  }
+
+  /* Deal information - Ensure it shows properly */
+  .product-card div[style*="Deal of"],
+  .product-card span[style*="Deal of"] {
+    font-size: 11px !important; /* Reduced from 14px to 11px */
+    font-weight: 600 !important;
+    padding: 4px 6px !important;
+    margin: 3px 0 !important;
+    white-space: normal !important; /* Allow text wrapping if needed */
+    overflow: visible !important; /* Ensure text is visible */
+    max-width: none !important; /* Remove width restrictions */
+    display: block !important; /* Ensure it displays */
+    word-wrap: break-word !important; /* Break long words if needed */
+    min-width: auto !important; /* Remove minimum width restrictions */
+  }
+  
+  /* Specific fix for Deal of units container */
+  .product-card div[style*="justifyContent: 'space-between'"] {
+    flex-wrap: wrap !important; /* Allow wrapping */
+    align-items: flex-start !important;
+    gap: 4px !important;
+    margin-top: 4px !important;
+    padding: 2px 0 !important;
+  }
+  
+  /* Deal text spans - ensure they're visible */
+  .product-card span[style*="Deal of"] {
+    white-space: normal !important; /* Override nowrap */
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
   }
 
   /* Basket Button - Mobile Friendly */
