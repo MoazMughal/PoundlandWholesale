@@ -49,7 +49,7 @@ const AmazonsChoice = () => {
         gap: 1px !important;
         padding: 2px 4px !important;
         border-radius: 3px !important;
-        font-size: 6px !important;
+        font-size: 9px !important; /* Increased from 6px to 9px for better readability */
         font-weight: bold !important;
         color: white !important;
         box-shadow: 0 2px 4px rgba(0,0,0,0.6) !important;
@@ -58,7 +58,7 @@ const AmazonsChoice = () => {
         pointer-events: none !important;
         opacity: 1 !important;
         visibility: visible !important;
-        max-width: 60px !important;
+        max-width: 80px !important; /* Increased from 60px */
         overflow: hidden !important;
         border: 1px solid rgba(255,255,255,0.4) !important;
       }
@@ -77,7 +77,7 @@ const AmazonsChoice = () => {
         gap: 2px !important;
         padding: 3px 6px !important;
         border-radius: 4px !important;
-        font-size: 7px !important;
+        font-size: 9px !important; /* Increased from 7px to 9px for consistency */
         font-weight: bold !important;
         color: white !important;
         box-shadow: 0 2px 6px rgba(0,0,0,0.5) !important;
@@ -121,7 +121,8 @@ const AmazonsChoice = () => {
         
         /* Ensure product cards are properly sized on mobile */
         .product-card {
-          min-height: 200px !important;
+          min-height: 320px !important; /* Increased from 200px for better mobile spacing */
+          padding: 12px !important; /* Added padding for better spacing */
         }
         
         .product-image-container {
@@ -1199,16 +1200,17 @@ const AmazonsChoice = () => {
                   {/* Left side - Compact Enhanced Price */}
                   <div style={{
                     fontWeight: '800', 
-                    fontSize: windowWidth < 576 ? '12px' : '9px', // Increased mobile font size from 10px to 12px for better visibility
+                    fontSize: windowWidth < 576 ? '16px' : '9px', // Increased mobile font size from 12px to 16px for much better visibility
                     color: '#ff3300',
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
-                    padding: windowWidth < 576 ? '2px 4px' : '1px 3px', // Increased mobile padding
-                    borderRadius: windowWidth < 576 ? '4px' : '3px', // Increased mobile border radius
+                    padding: windowWidth < 576 ? '4px 8px' : '1px 3px', // Increased mobile padding
+                    borderRadius: windowWidth < 576 ? '6px' : '3px', // Increased mobile border radius
                     border: '1px solid #ff6600',
                     textShadow: '0 1px 2px rgba(255, 51, 0, 0.3)',
                     boxShadow: '0 1px 3px rgba(255, 102, 0, 0.15)', // Lighter shadow
                     whiteSpace: 'nowrap',
-                    maxWidth: 'fit-content'
+                    maxWidth: 'fit-content',
+                    margin: windowWidth < 576 ? '4px 0' : '2px 0' // Added margin for mobile
                   }}>
                     {(() => {
                       // Use the raw database price directly as per-unit price
