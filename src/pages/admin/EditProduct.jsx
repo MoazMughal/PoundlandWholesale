@@ -67,6 +67,14 @@ const EditProduct = () => {
   const [showImageSelector, setShowImageSelector] = useState(false);
   const fileInputRef = useRef(null);
   const additionalFileInputRefs = useRef([null, null, null, null]); // Refs for 4 additional image inputs
+  
+  // Auto-image functionality state
+  const [autoImageLoading, setAutoImageLoading] = useState(false);
+  const [autoImageMessage, setAutoImageMessage] = useState('');
+  
+  // Drag and drop state
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
 
   // Dynamic categories loaded from API
   const [categories, setCategories] = useState([]);
@@ -328,7 +336,167 @@ const EditProduct = () => {
       }
     }
 
+    // Auto-image functionality for ASIN changes
+    if (name === 'asin' && value && value.length === 10) {
+      const normalizedAsin = value.toUpperCase();
+      if (normalizedAsin !== formData.asin) {
+        // ASIN changed to a valid 10-character value, check for images
+        checkAndAddAsinImages(normalizedAsin);
+      }
+    }
+
     setFormData(newFormData);
+  };
+
+  // Function to check for ASIN-based images and auto-add them
+  const checkAndAddAsinImages = async (asin) => {
+    if (!asin || asin.length !== 10) return;
+    
+    setAutoImageLoading(true);
+    setAutoImageMessage('');
+    
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`http://localhost:5000/api/admin-excel/asin/${asin}/add-images`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success && data.images && data.images.length > 0) {
+          // Auto-add images to the form (not saved yet)
+          const newImageUrls = [...imageUrls];
+          const newImageFiles = [...imageFiles];
+          
+          // Fill available slots with the ASIN images
+          let addedCount = 0;
+          for (let i = 0; i < 5 && i < data.images.length; i++) {
+            if (data.images[i] && (!newImageUrls[i] || newImageUrls[i] === undefined)) {
+              newImageUrls[i] = data.images[i];
+              newImageFiles[i] = null; // No file for Cloudinary images
+              addedCount++;
+              
+              // Clear removed flag for this slot
+              setRemovedImages(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(i);
+                return newSet;
+              });
+            }
+          }
+          
+          if (addedCount > 0) {
+            setImageUrls(newImageUrls);
+            setImageFiles(newImageFiles);
+            setAutoImageMessage(`✅ Auto-added ${addedCount} image${addedCount > 1 ? 's' : ''} for ASIN ${asin}. Click "Save Changes" to apply.`);
+            
+            // Clear message after 5 seconds
+            setTimeout(() => setAutoImageMessage(''), 5000);
+          } else {
+            setAutoImageMessage(`ℹ️ Found ${data.availableImageCount} image${data.availableImageCount > 1 ? 's' : ''} for ASIN ${asin}, but all image slots are already filled.`);
+            setTimeout(() => setAutoImageMessage(''), 3000);
+          }
+        } else {
+          setAutoImageMessage(`ℹ️ No images found for ASIN ${asin} in uploaded ZIP files.`);
+          setTimeout(() => setAutoImageMessage(''), 3000);
+        }
+      } else {
+        const errorData = await response.json();
+        console.log('No images found for ASIN:', asin, errorData.message);
+      }
+    } catch (error) {
+      console.error('Error checking ASIN images:', error);
+    } finally {
+      setAutoImageLoading(false);
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.target.outerHTML);
+    
+    // Add visual feedback
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = (e) => {
+    // Only clear drag over if we're actually leaving the drop zone
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverIndex(null);
+    }
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDragOverIndex(null);
+      return;
+    }
+
+    // Create new arrays for reordering
+    const newImageUrls = [...imageUrls];
+    const newImageFiles = [...imageFiles];
+    
+    // Get the dragged items
+    const draggedUrl = newImageUrls[draggedIndex];
+    const draggedFile = newImageFiles[draggedIndex];
+    
+    // Only proceed if there's actually something to move
+    if (!draggedUrl && !draggedFile) {
+      setDragOverIndex(null);
+      return;
+    }
+    
+    // Remove from original position
+    newImageUrls[draggedIndex] = undefined;
+    newImageFiles[draggedIndex] = undefined;
+    
+    // Place at new position
+    newImageUrls[dropIndex] = draggedUrl;
+    newImageFiles[dropIndex] = draggedFile;
+    
+    // Update state
+    setImageUrls(newImageUrls);
+    setImageFiles(newImageFiles);
+    
+    // Update removed images set properly
+    setRemovedImages(prev => {
+      const newSet = new Set(prev);
+      
+      // Clear the removed flag for the drop position (we're adding an image there)
+      newSet.delete(dropIndex);
+      
+      // Add the drag source position to removed (since we moved the image away)
+      newSet.add(draggedIndex);
+      
+      return newSet;
+    });
+    
+    setDragOverIndex(null);
+    console.log(`🔄 Moved image from position ${draggedIndex + 1} to position ${dropIndex + 1}`);
+    
+    // Debug log
+    setTimeout(() => logImageState(`Drag from ${draggedIndex + 1} to ${dropIndex + 1}`), 100);
   };
 
   const handleImageSelection = (selectedData) => {
@@ -487,6 +655,15 @@ const EditProduct = () => {
     }
   };
 
+  // Debug function to log current state
+  const logImageState = (action) => {
+    console.log(`🔍 Image State After ${action}:`, {
+      imageUrls: imageUrls.map((url, i) => ({ index: i, url: url ? 'HAS_IMAGE' : 'EMPTY' })),
+      removedImages: Array.from(removedImages),
+      imageFiles: imageFiles.map((file, i) => ({ index: i, hasFile: !!file }))
+    });
+  };
+
   const removeImage = (index) => {
     const imageUrl = imageUrls[index];
     
@@ -506,7 +683,9 @@ const EditProduct = () => {
     
     // Mark this slot as explicitly removed by the user
     setRemovedImages(prev => new Set([...prev, index]));
-
+    
+    // Debug log
+    setTimeout(() => logImageState(`Remove Image ${index + 1}`), 100);
   };
 
   const uploadImages = async () => {
@@ -561,7 +740,7 @@ const EditProduct = () => {
       }
       
       // Process images - maintain order and handle uploads
-      let allImageUrls = [];
+      let finalImageUrls = [];
       
       // Check if we have any new files to upload
       const validFiles = imageFiles.filter(file => file && file instanceof File);
@@ -571,7 +750,7 @@ const EditProduct = () => {
         newImageUrls = await uploadImages();
       }
       
-      // Build final image array maintaining the 5-slot structure (main + 4 additional)
+      // Build final image array - only include images that are actually present
       let uploadIndex = 0;
       
       for (let i = 0; i < 5; i++) {
@@ -579,34 +758,31 @@ const EditProduct = () => {
         const currentFile = imageFiles[i];
         const wasExplicitlyRemoved = removedImages.has(i);
         
+        let imageToAdd = null;
+        
         if (currentFile && currentFile instanceof File) {
           // New file uploaded for this position
           if (uploadIndex < newImageUrls.length) {
-            allImageUrls[i] = newImageUrls[uploadIndex];
+            imageToAdd = newImageUrls[uploadIndex];
             uploadIndex++;
           }
-        } else if (currentUrl && !currentUrl.startsWith('data:')) {
-          // Existing image URL (not a preview) - preserve it
-          allImageUrls[i] = currentUrl;
-        } else if (!wasExplicitlyRemoved && i < originalImages.length && originalImages[i]) {
-          // Only fallback to original image if it wasn't explicitly removed by the user
-          allImageUrls[i] = originalImages[i];
+        } else if (currentUrl && !currentUrl.startsWith('data:') && !wasExplicitlyRemoved) {
+          // Existing image URL (not a preview) and not explicitly removed
+          imageToAdd = currentUrl;
         }
-        // If none of the above conditions are met, this slot remains empty (undefined)
-      }
-      
-      // Filter out undefined values and keep only valid URLs, maintaining order
-      const finalImageUrls = [];
-      for (let i = 0; i < allImageUrls.length; i++) {
-        if (allImageUrls[i] && typeof allImageUrls[i] === 'string' && allImageUrls[i].trim() !== '') {
-          finalImageUrls.push(allImageUrls[i]);
+        
+        // Only add valid images to the final array (this creates a compact array)
+        if (imageToAdd && typeof imageToAdd === 'string' && imageToAdd.trim() !== '') {
+          finalImageUrls.push(imageToAdd);
         }
       }
       
-      // Final safety check - if we somehow lost all images and had original images, restore them
-      if (finalImageUrls.length === 0 && originalImages.length > 0) {
-        finalImageUrls.push(...originalImages);
-      }
+      console.log('🖼️ Final image processing:', {
+        originalImageUrls: imageUrls,
+        removedImages: Array.from(removedImages),
+        finalImageUrls: finalImageUrls,
+        uploadedNewImages: newImageUrls.length
+      });
 
       // Save price in GBP
       const currentPrice = isNaN(parseFloat(formData.price)) ? 0 : parseFloat(formData.price);
@@ -903,6 +1079,60 @@ const EditProduct = () => {
                 }}
               />
               <small>Optional: 10-character Amazon product identifier for admin tracking</small>
+              
+              {/* Auto-image functionality indicator */}
+              {autoImageLoading && (
+                <div style={{
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  background: '#e3f2fd',
+                  border: '1px solid #2196f3',
+                  borderRadius: '4px',
+                  fontSize: '0.85rem',
+                  color: '#1976d2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    border: '2px solid #e3f2fd',
+                    borderTop: '2px solid #2196f3',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                  }}></div>
+                  Checking for images for ASIN {formData.asin}...
+                </div>
+              )}
+              
+              {autoImageMessage && (
+                <div style={{
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  background: autoImageMessage.startsWith('✅') ? '#e8f5e8' : '#fff3cd',
+                  border: `1px solid ${autoImageMessage.startsWith('✅') ? '#28a745' : '#ffc107'}`,
+                  borderRadius: '4px',
+                  fontSize: '0.85rem',
+                  color: autoImageMessage.startsWith('✅') ? '#155724' : '#856404'
+                }}>
+                  {autoImageMessage}
+                </div>
+              )}
+              
+              {!autoImageLoading && !autoImageMessage && formData.asin && formData.asin.length === 10 && (
+                <div style={{
+                  marginTop: '8px',
+                  padding: '6px 10px',
+                  background: '#f8f9fa',
+                  border: '1px solid #dee2e6',
+                  borderRadius: '4px',
+                  fontSize: '0.8rem',
+                  color: '#6c757d'
+                }}>
+                  💡 Images will be auto-added from ZIP uploads when you enter a valid ASIN
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -1020,6 +1250,62 @@ const EditProduct = () => {
         <div className="form-section">
           <h2>🖼️ Product Images</h2>
           
+          {/* Auto-image functionality for ASIN */}
+          {formData.asin && formData.asin.length === 10 && (
+            <div style={{
+              marginBottom: '20px',
+              padding: '15px',
+              background: '#f0f8ff',
+              border: '1px solid #b3d9ff',
+              borderRadius: '8px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <strong style={{ color: '#0066cc' }}>🎯 ASIN-Based Images</strong>
+                  <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '4px' }}>
+                    Auto-add images from ZIP uploads for ASIN: <code style={{ background: '#e9ecef', padding: '2px 6px', borderRadius: '3px' }}>{formData.asin}</code>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => checkAndAddAsinImages(formData.asin)}
+                  disabled={autoImageLoading}
+                  style={{
+                    background: autoImageLoading ? '#6c757d' : '#0066cc',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: autoImageLoading ? 'not-allowed' : 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {autoImageLoading ? (
+                    <>
+                      <div style={{
+                        width: '14px',
+                        height: '14px',
+                        border: '2px solid transparent',
+                        borderTop: '2px solid white',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                      }}></div>
+                      Checking...
+                    </>
+                  ) : (
+                    <>
+                      🔍 Find Images
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+          
           {/* Main Image */}
           <div className="form-group">
             <label>Main Product Image * <small>(This will be the primary image shown)</small></label>
@@ -1068,14 +1354,24 @@ const EditProduct = () => {
 
             {/* Main Image Preview */}
             {imageUrls[0] && (
-              <div style={{
-                position: 'relative',
-                border: '3px solid #28a745',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                width: '200px',
-                marginTop: '10px'
-              }}>
+              <div 
+                style={{
+                  position: 'relative',
+                  border: dragOverIndex === 0 ? '3px solid #007bff' : '3px solid #28a745',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  width: '200px',
+                  marginTop: '10px',
+                  cursor: 'move',
+                  transition: 'all 0.2s ease'
+                }}
+                draggable
+                onDragStart={(e) => handleDragStart(e, 0)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleDragOver(e, 0)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, 0)}
+              >
                 <div style={{
                   position: 'absolute',
                   top: '5px',
@@ -1089,6 +1385,20 @@ const EditProduct = () => {
                   zIndex: 1
                 }}>
                   MAIN
+                </div>
+                <div style={{
+                  position: 'absolute',
+                  top: '5px',
+                  right: '30px',
+                  background: 'rgba(0, 123, 255, 0.9)',
+                  color: 'white',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  zIndex: 1
+                }}>
+                  🔄 DRAG
                 </div>
                 <img
                   src={imageUrls[0]}
@@ -1135,11 +1445,41 @@ const EditProduct = () => {
                 </button>
               </div>
             )}
+            
+            {/* Drop zone for main image when empty */}
+            {!imageUrls[0] && (
+              <div
+                style={{
+                  border: dragOverIndex === 0 ? '3px solid #007bff' : '3px dashed #ccc',
+                  borderRadius: '8px',
+                  width: '200px',
+                  height: '200px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: dragOverIndex === 0 ? '#f0f8ff' : '#f9f9f9',
+                  marginTop: '10px',
+                  transition: 'all 0.2s ease'
+                }}
+                onDragOver={(e) => handleDragOver(e, 0)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, 0)}
+              >
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>📷</div>
+                <div style={{ fontSize: '14px', color: '#666', textAlign: 'center' }}>
+                  {dragOverIndex === 0 ? 'Drop image here' : 'Main Image Slot'}
+                </div>
+                <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+                  Drag from other positions
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Additional Images */}
           <div className="form-group">
-            <label>Additional Images <small>(Up to 4 more images)</small></label>
+            <label>Additional Images <small>(Up to 4 more images - Drag to reorder)</small></label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px', marginTop: '10px' }}>
               {[1, 2, 3, 4].map((imageIndex) => (
                 <div key={imageIndex} style={{ textAlign: 'center' }}>
@@ -1152,12 +1492,23 @@ const EditProduct = () => {
                   />
                   
                   {imageUrls[imageIndex] ? (
-                    <div style={{
-                      position: 'relative',
-                      border: '2px solid #667eea',
-                      borderRadius: '8px',
-                      overflow: 'hidden'
-                    }}>
+                    <div 
+                      style={{
+                        position: 'relative',
+                        border: dragOverIndex === imageIndex ? '3px solid #007bff' : '2px solid #667eea',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        cursor: 'move',
+                        transition: 'all 0.2s ease',
+                        transform: draggedIndex === imageIndex ? 'scale(0.95)' : 'scale(1)'
+                      }}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, imageIndex)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={(e) => handleDragOver(e, imageIndex)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, imageIndex)}
+                    >
                       <div style={{
                         position: 'absolute',
                         top: '5px',
@@ -1171,6 +1522,20 @@ const EditProduct = () => {
                         zIndex: 1
                       }}>
                         #{imageIndex}
+                      </div>
+                      <div style={{
+                        position: 'absolute',
+                        top: '5px',
+                        right: '25px',
+                        background: 'rgba(0, 123, 255, 0.9)',
+                        color: 'white',
+                        padding: '1px 4px',
+                        borderRadius: '3px',
+                        fontSize: '8px',
+                        fontWeight: 'bold',
+                        zIndex: 1
+                      }}>
+                        🔄
                       </div>
                       <img
                         src={imageUrls[imageIndex]}
@@ -1260,19 +1625,30 @@ const EditProduct = () => {
                     <div style={{ textAlign: 'center' }}>
                       <div
                         style={{
-                          border: '2px dashed #ccc',
+                          border: dragOverIndex === imageIndex ? '3px solid #007bff' : '2px dashed #ccc',
                           borderRadius: '8px',
                           height: '120px',
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          background: '#f9f9f9',
-                          marginBottom: '8px'
+                          background: dragOverIndex === imageIndex ? '#f0f8ff' : '#f9f9f9',
+                          marginBottom: '8px',
+                          transition: 'all 0.2s ease'
                         }}
+                        onDragOver={(e) => handleDragOver(e, imageIndex)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, imageIndex)}
                       >
                         <div style={{ fontSize: '24px', marginBottom: '5px' }}>📷</div>
-                        <div style={{ fontSize: '12px', color: '#666' }}>Add Image #{imageIndex}</div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>
+                          {dragOverIndex === imageIndex ? 'Drop here' : `Image #${imageIndex}`}
+                        </div>
+                        {dragOverIndex === imageIndex && (
+                          <div style={{ fontSize: '10px', color: '#007bff', marginTop: '2px' }}>
+                            Drop to place image
+                          </div>
+                        )}
                       </div>
                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                         <button
@@ -1314,7 +1690,7 @@ const EditProduct = () => {
               ))}
             </div>
             <small style={{ display: 'block', marginTop: '10px', color: '#666' }}>
-              Use "📁 Device" to upload from computer or "🌤️ Cloud" to select from Cloudinary images.
+              📌 <strong>Drag & Drop:</strong> Click and drag images to reorder them. Drop on empty slots to move images around.
             </small>
           </div>
 

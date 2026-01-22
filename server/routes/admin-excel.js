@@ -2088,8 +2088,11 @@ router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'),
     let validImages = 0;
     let matchedAsins = 0;
     let uploadedToCloudinary = 0;
+    let replacedImages = 0;
+    let skippedInUse = 0;
     let errors = 0;
     const processedImages = [];
+    const replacementDetails = [];
 
     for (const entry of zipEntries) {
       if (entry.isDirectory) continue;
@@ -2108,13 +2111,30 @@ router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'),
         // Extract ASIN from filename (remove extension and path)
         const justFileName = path.basename(fileName);
         const baseName = path.basename(justFileName, fileExt);
-        const asin = baseName.toUpperCase();
+        
+        // Handle numbered images like "B08KR3G8VP 2", "B08KR3G8VP 3", etc.
+        // Extract base ASIN and image number
+        let asin, imageNumber = 1;
+        const numberedMatch = baseName.match(/^([A-Z0-9]{10})\s+(\d+)$/i);
+        
+        if (numberedMatch) {
+          // This is a numbered image like "B08KR3G8VP 2"
+          asin = numberedMatch[1].toUpperCase();
+          imageNumber = parseInt(numberedMatch[2]);
+          console.log('🔢 Found numbered image:', { asin, imageNumber, originalName: baseName });
+        } else {
+          // Regular ASIN without number (image 1)
+          asin = baseName.toUpperCase();
+          imageNumber = 1;
+          console.log('🔍 Found regular ASIN:', { asin, imageNumber: 1, originalName: baseName });
+        }
 
         console.log('🔍 Processing image:', {
           fullPath: fileName,
           justFileName: justFileName,
           baseName: baseName,
-          asin: asin
+          asin: asin,
+          imageNumber: imageNumber
         });
 
         // Validate ASIN format (10 characters, alphanumeric)
@@ -2149,42 +2169,170 @@ router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'),
 
         console.log('✅ Extracted image:', extractedFileName, 'to:', extractedPath);
 
-        // Upload to Cloudinary
+        // Check for existing images and handle replacement logic
+        let shouldReplaceExisting = false;
+        let existingImageUrl = null;
+        
+        // Check if this ASIN + imageNumber combination already exists in any ImageUpload
+        const existingImageUpload = await ImageUpload.findOne({
+          'images.asin': asin,
+          'images.imageNumber': imageNumber,
+          status: 'completed'
+        });
+        
+        if (existingImageUpload) {
+          const existingImage = existingImageUpload.images.find(
+            img => img.asin === asin && img.imageNumber === imageNumber
+          );
+          
+          if (existingImage) {
+            // Check if this image is currently used in any saved product
+            const isInMainProduct = await Product.findOne({ 
+              asin: asin,
+              images: { $in: [existingImage.cloudinaryUrl] }
+            });
+            
+            const isInExcelProduct = await ExcelProduct.findOne({ 
+              asin: asin,
+              images: { $in: [existingImage.cloudinaryUrl] }
+            });
+            
+            if (isInMainProduct || isInExcelProduct) {
+              // Image is in use by saved product, don't replace
+              console.log(`🔒 Skipping replacement of ${asin} image ${imageNumber} - in use by saved product`);
+              cloudinaryUrl = existingImage.cloudinaryUrl;
+              uploadedToCloudinary++; // Count as processed
+              skippedInUse++;
+            } else {
+              // Image exists but not in use, safe to replace
+              shouldReplaceExisting = true;
+              existingImageUrl = existingImage.cloudinaryUrl;
+              console.log(`🔄 Will replace existing ${asin} image ${imageNumber} - not in use by saved products`);
+            }
+          }
+        }
+
+        // Upload to Cloudinary with unique identifier for numbered images
         let cloudinaryUrl = null;
-        try {
-          console.log(`📤 Uploading ${asin} to Cloudinary...`);
-          const cloudinaryResult = await uploadToCloudinary(extractedPath, asin, 'products');
-          cloudinaryUrl = cloudinaryResult.secure_url;
-          uploadedToCloudinary++;
-          console.log(`✅ Uploaded to Cloudinary: ${cloudinaryUrl}`);
-        } catch (uploadError) {
-          console.error(`❌ Failed to upload ${asin} to Cloudinary:`, uploadError.message);
-          errors++;
-          continue;
+        if (!shouldReplaceExisting && existingImageUrl) {
+          // Use existing image URL (image is in use, so we skipped replacement)
+          cloudinaryUrl = existingImageUrl;
+        } else {
+          try {
+            // Create unique public_id for numbered images: "B08KR3G8VP_2", "B08KR3G8VP_3", etc.
+            const publicId = imageNumber === 1 ? asin : `${asin}_${imageNumber}`;
+            
+            if (shouldReplaceExisting) {
+              console.log(`🔄 Replacing ${asin} (image ${imageNumber}) in Cloudinary with public_id: ${publicId}...`);
+            } else {
+              console.log(`📤 Uploading ${asin} (image ${imageNumber}) to Cloudinary with public_id: ${publicId}...`);
+            }
+            
+            const cloudinaryResult = await uploadToCloudinary(extractedPath, publicId, 'products');
+            cloudinaryUrl = cloudinaryResult.secure_url;
+            uploadedToCloudinary++;
+            
+            if (shouldReplaceExisting) {
+              replacedImages++;
+              replacementDetails.push({
+                asin: asin,
+                imageNumber: imageNumber,
+                fileName: extractedFileName,
+                oldUrl: existingImageUrl,
+                newUrl: cloudinaryUrl
+              });
+              console.log(`✅ Replaced in Cloudinary: ${cloudinaryUrl}`);
+            } else {
+              console.log(`✅ Uploaded to Cloudinary: ${cloudinaryUrl}`);
+            }
+          } catch (uploadError) {
+            console.error(`❌ Failed to upload ${asin} (image ${imageNumber}) to Cloudinary:`, uploadError.message);
+            errors++;
+            continue;
+          }
         }
 
         // Check if product exists with this ASIN and update it
         const product = await Product.findOne({ asin: asin });
         const excelProduct = await ExcelProduct.findOne({ asin: asin });
         
-        // Update products with Cloudinary URL
+        // Update products with Cloudinary URL - handle multiple images properly
         if (product) {
-          product.images = [cloudinaryUrl];
-          product.image = cloudinaryUrl;
+          // Initialize images array if it doesn't exist
+          if (!product.images) {
+            product.images = [];
+          }
+          
+          // For image 1, replace the first image or add if none exist
+          if (imageNumber === 1) {
+            if (product.images.length === 0) {
+              product.images.push(cloudinaryUrl);
+            } else {
+              product.images[0] = cloudinaryUrl; // Replace first image
+            }
+            product.image = cloudinaryUrl; // Set as main image
+          } else {
+            // For images 2, 3, 4, 5 - add to specific positions
+            const targetIndex = imageNumber - 1;
+            
+            // Extend array if needed
+            while (product.images.length <= targetIndex) {
+              product.images.push('');
+            }
+            
+            product.images[targetIndex] = cloudinaryUrl;
+          }
+          
+          // Remove empty strings from the end of the array
+          while (product.images.length > 0 && product.images[product.images.length - 1] === '') {
+            product.images.pop();
+          }
+          
           await product.save();
-          console.log('🎯 Updated Product with Cloudinary URL:', product.name);
+          console.log(`🎯 Updated Product "${product.name}" with image ${imageNumber}:`, cloudinaryUrl);
+          console.log(`📷 Product now has ${product.images.length} images:`, product.images);
         }
         
         if (excelProduct) {
-          excelProduct.images = [cloudinaryUrl];
-          excelProduct.image = cloudinaryUrl;
+          // Initialize images array if it doesn't exist
+          if (!excelProduct.images) {
+            excelProduct.images = [];
+          }
+          
+          // For image 1, replace the first image or add if none exist
+          if (imageNumber === 1) {
+            if (excelProduct.images.length === 0) {
+              excelProduct.images.push(cloudinaryUrl);
+            } else {
+              excelProduct.images[0] = cloudinaryUrl; // Replace first image
+            }
+            excelProduct.image = cloudinaryUrl; // Set as main image
+          } else {
+            // For images 2, 3, 4, 5 - add to specific positions
+            const targetIndex = imageNumber - 1;
+            
+            // Extend array if needed
+            while (excelProduct.images.length <= targetIndex) {
+              excelProduct.images.push('');
+            }
+            
+            excelProduct.images[targetIndex] = cloudinaryUrl;
+          }
+          
+          // Remove empty strings from the end of the array
+          while (excelProduct.images.length > 0 && excelProduct.images[excelProduct.images.length - 1] === '') {
+            excelProduct.images.pop();
+          }
+          
           await excelProduct.save();
-          console.log('🎯 Updated ExcelProduct with Cloudinary URL:', excelProduct.name);
+          console.log(`🎯 Updated ExcelProduct "${excelProduct.name}" with image ${imageNumber}:`, cloudinaryUrl);
+          console.log(`📷 ExcelProduct now has ${excelProduct.images.length} images:`, excelProduct.images);
         }
 
         const imageData = {
           fileName: extractedFileName,
           asin: asin,
+          imageNumber: imageNumber,
           filePath: cloudinaryUrl, // Store Cloudinary URL instead of local path
           cloudinaryUrl: cloudinaryUrl,
           fileSize: entry.header.size,
@@ -2195,11 +2343,31 @@ router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'),
         processedImages.push(imageData);
         validImages++;
         
+        // If we replaced an existing image, remove the old record from the database
+        if (shouldReplaceExisting && existingImageUpload) {
+          try {
+            await ImageUpload.updateOne(
+              { _id: existingImageUpload._id },
+              { 
+                $pull: { 
+                  images: { 
+                    asin: asin, 
+                    imageNumber: imageNumber 
+                  } 
+                } 
+              }
+            );
+            console.log(`🧹 Removed old image record for ${asin} image ${imageNumber} from previous upload`);
+          } catch (dbError) {
+            console.error(`⚠️ Failed to remove old image record:`, dbError.message);
+          }
+        }
+        
         if (product || excelProduct) {
           matchedAsins++;
-          console.log('🎯 Matched ASIN:', asin, 'with product:', (product || excelProduct).name);
+          console.log(`🎯 Matched ASIN: ${asin} (image ${imageNumber}) with product: ${(product || excelProduct).name}`);
         } else {
-          console.log('❓ No product found for ASIN:', asin, '- Image uploaded to Cloudinary anyway');
+          console.log(`❓ No product found for ASIN: ${asin} (image ${imageNumber}) - Image uploaded to Cloudinary anyway`);
         }
 
       } catch (error) {
@@ -2238,8 +2406,11 @@ router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'),
         validImages,
         matchedAsins,
         uploadedToCloudinary,
+        replacedImages,
+        skippedInUse,
         errors
       },
+      replacementDetails,
       cloudinaryInfo: {
         folder: 'products',
         totalUploaded: uploadedToCloudinary,
@@ -2316,7 +2487,151 @@ router.get('/image-uploads/:id', authenticateAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/admin-excel/image-uploads/:id - Delete image upload and all images
+// GET /api/admin-excel/asin/:asin/images - Get all Cloudinary images for a specific ASIN
+router.get('/asin/:asin/images', authenticateAdmin, async (req, res) => {
+  try {
+    const { asin } = req.params;
+    
+    if (!asin || !/^[A-Z0-9]{10}$/i.test(asin)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid ASIN format. ASIN must be 10 alphanumeric characters.'
+      });
+    }
+    
+    const normalizedAsin = asin.toUpperCase();
+    
+    // Find all image uploads that contain images for this ASIN
+    const imageUploads = await ImageUpload.find({
+      'images.asin': normalizedAsin,
+      status: 'completed'
+    }).select('images uploadedAt originalFileName');
+    
+    // Extract and organize images by image number
+    const asinImages = [];
+    
+    imageUploads.forEach(upload => {
+      upload.images.forEach(image => {
+        if (image.asin === normalizedAsin && image.cloudinaryUrl) {
+          asinImages.push({
+            url: image.cloudinaryUrl,
+            imageNumber: image.imageNumber || 1,
+            fileName: image.fileName,
+            uploadDate: upload.uploadedAt,
+            uploadFileName: upload.originalFileName
+          });
+        }
+      });
+    });
+    
+    // Sort by image number
+    asinImages.sort((a, b) => a.imageNumber - b.imageNumber);
+    
+    // Also check if the ASIN exists in products
+    const product = await Product.findOne({ asin: normalizedAsin });
+    const excelProduct = await ExcelProduct.findOne({ asin: normalizedAsin });
+    
+    res.json({
+      success: true,
+      asin: normalizedAsin,
+      images: asinImages,
+      productExists: {
+        mainProduct: !!product,
+        excelProduct: !!excelProduct,
+        productName: (product || excelProduct)?.name
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching ASIN images:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch ASIN images',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/admin-excel/asin/:asin/add-images - Add images to product in edit mode (not saved)
+router.post('/asin/:asin/add-images', authenticateAdmin, async (req, res) => {
+  try {
+    const { asin } = req.params;
+    
+    if (!asin || !/^[A-Z0-9]{10}$/i.test(asin)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid ASIN format. ASIN must be 10 alphanumeric characters.'
+      });
+    }
+    
+    const normalizedAsin = asin.toUpperCase();
+    
+    // Find all available images for this ASIN
+    const imageUploads = await ImageUpload.find({
+      'images.asin': normalizedAsin,
+      status: 'completed'
+    }).select('images');
+    
+    // Extract and organize images by image number
+    const availableImages = [];
+    
+    imageUploads.forEach(upload => {
+      upload.images.forEach(image => {
+        if (image.asin === normalizedAsin && image.cloudinaryUrl) {
+          availableImages.push({
+            url: image.cloudinaryUrl,
+            imageNumber: image.imageNumber || 1
+          });
+        }
+      });
+    });
+    
+    // Sort by image number and remove duplicates
+    const uniqueImages = availableImages
+      .sort((a, b) => a.imageNumber - b.imageNumber)
+      .reduce((acc, current) => {
+        const existing = acc.find(img => img.imageNumber === current.imageNumber);
+        if (!existing) {
+          acc.push(current);
+        }
+        return acc;
+      }, []);
+    
+    // Create ordered array of image URLs (up to 5 images)
+    const orderedImageUrls = [];
+    for (let i = 1; i <= 5; i++) {
+      const imageForPosition = uniqueImages.find(img => img.imageNumber === i);
+      if (imageForPosition) {
+        orderedImageUrls.push(imageForPosition.url);
+      } else {
+        orderedImageUrls.push(''); // Empty slot
+      }
+    }
+    
+    // Remove trailing empty strings
+    while (orderedImageUrls.length > 0 && orderedImageUrls[orderedImageUrls.length - 1] === '') {
+      orderedImageUrls.pop();
+    }
+    
+    res.json({
+      success: true,
+      asin: normalizedAsin,
+      images: orderedImageUrls,
+      availableImageCount: uniqueImages.length,
+      message: `Found ${uniqueImages.length} images for ASIN ${normalizedAsin}. Images are ready to be added to product (not saved yet).`
+    });
+    
+  } catch (error) {
+    console.error('Error preparing ASIN images:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to prepare ASIN images',
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/admin-excel/image-uploads/:id - Delete image upload and all images (Enhanced)
 router.delete('/image-uploads/:id', authenticateAdmin, async (req, res) => {
   try {
     const upload = await ImageUpload.findById(req.params.id);
@@ -2325,42 +2640,135 @@ router.delete('/image-uploads/:id', authenticateAdmin, async (req, res) => {
       return res.status(404).json({ message: 'Image upload not found' });
     }
 
-    // Delete all image files
-    let deletedImages = 0;
+    console.log(`🗑️ Starting deletion of image upload: ${upload.originalFileName}`);
+    
+    let deletedFromCloudinary = 0;
+    let skippedInUse = 0;
+    let deletedLocalFiles = 0;
+    let errors = 0;
+    const inUseImages = [];
+    const deletedImages = [];
+
+    // Check each image to see if it's in use by products
     for (const image of upload.images) {
       try {
-        if (fs.existsSync(image.filePath)) {
-          fs.unlinkSync(image.filePath);
-          deletedImages++;
+        if (!image.cloudinaryUrl || !image.asin) {
+          console.log(`⚠️ Skipping image without Cloudinary URL or ASIN: ${image.fileName}`);
+          continue;
         }
+
+        // Check if this image is currently used in any Product or ExcelProduct
+        const isInMainProduct = await Product.findOne({ 
+          asin: image.asin,
+          images: { $in: [image.cloudinaryUrl] }
+        });
+        
+        const isInExcelProduct = await ExcelProduct.findOne({ 
+          asin: image.asin,
+          images: { $in: [image.cloudinaryUrl] }
+        });
+
+        if (isInMainProduct || isInExcelProduct) {
+          // Image is in use, don't delete from Cloudinary
+          skippedInUse++;
+          inUseImages.push({
+            fileName: image.fileName,
+            asin: image.asin,
+            imageNumber: image.imageNumber,
+            productName: (isInMainProduct || isInExcelProduct)?.name,
+            productType: isInMainProduct ? 'Main Product' : 'Excel Product'
+          });
+          console.log(`🔒 Skipping deletion of ${image.fileName} (ASIN: ${image.asin}) - in use by product`);
+        } else {
+          // Image not in use, safe to delete from Cloudinary
+          try {
+            // Extract public_id from Cloudinary URL or construct it
+            let publicId;
+            if (image.imageNumber === 1) {
+              publicId = image.asin;
+            } else {
+              publicId = `${image.asin}_${image.imageNumber}`;
+            }
+            
+            await deleteFromCloudinary(publicId, 'products');
+            deletedFromCloudinary++;
+            deletedImages.push({
+              fileName: image.fileName,
+              asin: image.asin,
+              imageNumber: image.imageNumber,
+              cloudinaryUrl: image.cloudinaryUrl
+            });
+            console.log(`✅ Deleted from Cloudinary: ${image.fileName} (${publicId})`);
+          } catch (cloudinaryError) {
+            console.error(`❌ Failed to delete from Cloudinary: ${image.fileName}`, cloudinaryError.message);
+            errors++;
+          }
+        }
+
+        // Always try to delete local file if it exists (cleanup)
+        if (image.filePath && fs.existsSync(image.filePath)) {
+          try {
+            fs.unlinkSync(image.filePath);
+            deletedLocalFiles++;
+            console.log(`🧹 Deleted local file: ${image.filePath}`);
+          } catch (localError) {
+            console.error(`⚠️ Failed to delete local file: ${image.filePath}`, localError.message);
+          }
+        }
+
       } catch (error) {
-        console.error('Error deleting image file:', image.filePath, error);
+        console.error(`❌ Error processing image ${image.fileName}:`, error.message);
+        errors++;
       }
     }
 
     // Delete extraction directory if it exists
     const extractDir = path.dirname(upload.images[0]?.filePath || '');
-    if (extractDir && fs.existsSync(extractDir)) {
+    if (extractDir && extractDir.includes('extracted') && fs.existsSync(extractDir)) {
       try {
         fs.rmSync(extractDir, { recursive: true, force: true });
+        console.log(`🧹 Deleted extraction directory: ${extractDir}`);
       } catch (error) {
-        console.error('Error deleting extraction directory:', error);
+        console.error('⚠️ Error deleting extraction directory:', error.message);
       }
     }
 
-    // Delete upload record
+    // Delete the ZIP file if it exists
+    if (upload.filePath && fs.existsSync(upload.filePath)) {
+      try {
+        fs.unlinkSync(upload.filePath);
+        console.log(`🧹 Deleted ZIP file: ${upload.filePath}`);
+      } catch (error) {
+        console.error('⚠️ Error deleting ZIP file:', error.message);
+      }
+    }
+
+    // Delete upload record from database
     await ImageUpload.findByIdAndDelete(req.params.id);
+    console.log(`✅ Deleted upload record: ${upload.originalFileName}`);
 
     res.json({
       success: true,
       message: 'Image upload deleted successfully',
-      deletedImages
+      summary: {
+        totalImages: upload.images.length,
+        deletedFromCloudinary,
+        skippedInUse,
+        deletedLocalFiles,
+        errors
+      },
+      details: {
+        inUseImages,
+        deletedImages
+      }
     });
+
   } catch (error) {
-    console.error('Error deleting image upload:', error);
+    console.error('❌ Error deleting image upload:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Failed to delete image upload' 
+      message: 'Failed to delete image upload',
+      error: error.message
     });
   }
 });

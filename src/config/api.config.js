@@ -1,11 +1,46 @@
 // API Configuration
 // This file centralizes all API endpoint configurations
 
-// Get API base URL from environment variable
-// In development: uses .env file (VITE_API_URL=http://localhost:5000/api)
-// In production: uses Render environment variable or fallback to production URL
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (import.meta.env.PROD ? 'https://generic-wholesale-backend.onrender.com/api' : 'http://localhost:5000/api');
+// Dynamic API URL based on current domain
+const getApiBaseUrl = () => {
+  // In development, use environment variable or localhost
+  if (import.meta.env.DEV) {
+    return import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  }
+  
+  // In production, determine API URL based on current domain
+  const currentDomain = window.location.hostname;
+  
+  // Map domains to their respective backend URLs
+  const domainToApiMap = {
+    'genericwholesale.pk': 'https://generic-wholesale-backend.onrender.com/api',
+    'www.genericwholesale.pk': 'https://generic-wholesale-backend.onrender.com/api',
+    'poundlandwholesale.com': 'https://generic-wholesale-backend.onrender.com/api',
+    'www.poundlandwholesale.com': 'https://generic-wholesale-backend.onrender.com/api',
+    'genericwholesale.co.uk': 'https://generic-wholesale-backend.onrender.com/api',
+    'www.genericwholesale.co.uk': 'https://generic-wholesale-backend.onrender.com/api'
+  };
+  
+  // Return mapped API URL or fallback to environment variable or default
+  const apiUrl = domainToApiMap[currentDomain] || 
+         import.meta.env.VITE_API_URL || 
+         'https://generic-wholesale-backend.onrender.com/api';
+  
+  // Debug logging in development
+  if (import.meta.env.DEV) {
+    console.log('🔧 API Configuration:', {
+      currentDomain,
+      selectedApiUrl: apiUrl,
+      isDev: import.meta.env.DEV,
+      envApiUrl: import.meta.env.VITE_API_URL
+    });
+  }
+  
+  return apiUrl;
+};
+
+// Get API base URL dynamically
+export const API_BASE_URL = getApiBaseUrl();
 
 // Remove /api suffix if present to get base server URL
 export const SERVER_BASE_URL = API_BASE_URL.replace('/api', '');

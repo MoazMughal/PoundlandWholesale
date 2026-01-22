@@ -30,7 +30,9 @@ const imageUploadSchema = new mongoose.Schema({
   images: [{
     fileName: String,
     asin: String,
+    imageNumber: { type: Number, default: 1 }, // New field for numbered images
     filePath: String,
+    cloudinaryUrl: String, // New field for Cloudinary URL
     fileSize: Number,
     matched: { type: Boolean, default: false },
     productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' }

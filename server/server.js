@@ -42,6 +42,8 @@ const corsOptions = {
     'https://genericwholesale.pk',
     'https://genericwholesale.co.uk',
     'https://www.genericwholesale.co.uk',
+    'https://www.poundlandwholesale.com', // New domain added
+    'https://poundlandwholesale.com', // New domain added
     'https://generic-wholesale-frontend.onrender.com',
     process.env.FRONTEND_URL
   ].filter(Boolean), // Remove any undefined values

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Connection Test - poundlandwholesale.com</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>API Connection Test for poundlandwholesale.com</h1>
+    <p>This page tests if the API is working correctly on the new domain.</p>
+    
+    <button onclick="testHealthEndpoint()">Test Health Endpoint</button>
+    <button onclick="testProductsEndpoint()">Test Products Endpoint</button>
+    <button onclick="testAmazonsChoiceEndpoint()">Test Amazon's Choice Endpoint</button>
+    <button onclick="testCategoriesEndpoint()">Test Categories Endpoint</button>
+    <button onclick="runAllTests()">Run All Tests</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = window.location.hostname === 'localhost' 
+            ? 'http://localhost:5000/api' 
+            : 'https://generic-wholesale-backend.onrender.com/api';
+        
+        function addResult(title, success, message, data = null) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${success ? 'success' : 'error'}`;
+            
+            let content = `<h3>${title}</h3><p>${message}</p>`;
+            if (data) {
+                content += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            div.innerHTML = content;
+            results.appendChild(div);
+        }
+        
+        function addInfo(message) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = 'test-result info';
+            div.innerHTML = `<p>${message}</p>`;
+            results.appendChild(div);
+        }
+        
+        async function testHealthEndpoint() {
+            addInfo('Testing health endpoint...');
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'ok') {
+                    addResult('Health Check', true, 'API server is healthy and database is connected', {
+                        status: data.status,
+                        database: data.database,
+                        environment: data.environment
+                    });
+                } else {
+                    addResult('Health Check', false, 'API server responded but may have issues', data);
+                }
+            } catch (error) {
+                addResult('Health Check', false, `Failed to connect to API: ${error.message}`);
+            }
+        }
+        
+        async function testProductsEndpoint() {
+            addInfo('Testing products endpoint...');
+            try {
+                const response = await fetch(`${API_BASE}/products/public?limit=5`);
+                const data = await response.json();
+                
+                if (response.ok && data.success && data.products && data.products.length > 0) {
+                    addResult('Products Endpoint', true, `Successfully fetched ${data.products.length} products`, {
+                        total: data.total,
+                        source: data.source,
+                        sampleProduct: data.products[0]
+                    });
+                } else if (response.ok && data.success && data.products && data.products.length === 0) {
+                    addResult('Products Endpoint', false, 'API responded but no products found', data);
+                } else {
+                    addResult('Products Endpoint', false, 'Failed to fetch products', data);
+                }
+            } catch (error) {
+                addResult('Products Endpoint', false, `Failed to fetch products: ${error.message}`);
+            }
+        }
+        
+        async function testAmazonsChoiceEndpoint() {
+            addInfo('Testing Amazon\'s Choice endpoint...');
+            try {
+                const response = await fetch(`${API_BASE}/products/public?isAmazonsChoice=true&limit=5`);
+                const data = await response.json();
+                
+                if (response.ok && data.success && data.products && data.products.length > 0) {
+                    addResult('Amazon\'s Choice Endpoint', true, `Successfully fetched ${data.products.length} Amazon's Choice products`, {
+                        total: data.total,
+                        source: data.source,
+                        sampleProduct: data.products[0]
+                    });
+                } else if (response.ok && data.success && data.products && data.products.length === 0) {
+                    addResult('Amazon\'s Choice Endpoint', false, 'API responded but no Amazon\'s Choice products found', data);
+                } else {
+                    addResult('Amazon\'s Choice Endpoint', false, 'Failed to fetch Amazon\'s Choice products', data);
+                }
+            } catch (error) {
+                addResult('Amazon\'s Choice Endpoint', false, `Failed to fetch Amazon's Choice products: ${error.message}`);
+            }
+        }
+        
+        async function testCategoriesEndpoint() {
+            addInfo('Testing categories endpoint...');
+            try {
+                const response = await fetch(`${API_BASE}/products/public/categories`);
+                const data = await response.json();
+                
+                if (response.ok && data.success && data.categories && data.categories.length > 0) {
+                    addResult('Categories Endpoint', true, `Successfully fetched ${data.categories.length} categories`, {
+                        categories: data.categories.slice(0, 5) // Show first 5 categories
+                    });
+                } else {
+                    addResult('Categories Endpoint', false, 'Failed to fetch categories', data);
+                }
+            } catch (error) {
+                addResult('Categories Endpoint', false, `Failed to fetch categories: ${error.message}`);
+            }
+        }
+        
+        async function runAllTests() {
+            document.getElementById('results').innerHTML = '';
+            addInfo(`Testing API connection to: ${API_BASE}`);
+            addInfo(`Current domain: ${window.location.hostname}`);
+            
+            await testHealthEndpoint();
+            await testProductsEndpoint();
+            await testAmazonsChoiceEndpoint();
+            await testCategoriesEndpoint();
+            
+            addInfo('All tests completed!');
+        }
+        
+        // Auto-run tests when page loads
+        window.onload = () => {
+            runAllTests();
+        };
+    </script>
+</body>
+</html>
