@@ -75,6 +75,11 @@ export default defineConfig({
   // Handle client-side routing
   preview: {
     port: 3000,
-    strictPort: true
-  }
+    strictPort: true,
+    // Add fallback for client-side routing in preview mode
+    open: true,
+    cors: true
+  },
+  // Add base configuration for production
+  base: './'
 })

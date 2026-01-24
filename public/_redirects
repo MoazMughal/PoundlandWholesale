@@ -1,1 +1,14 @@
+# Netlify/Render redirects for React Router
 /*    /index.html   200
+
+# API routes should go to backend
+/api/*  https://generic-wholesale-backend.onrender.com/api/:splat  200
+
+# Handle specific routes
+/product/*  /index.html  200
+/admin/*    /index.html  200
+/seller/*   /index.html  200
+/buyer/*    /index.html  200
+/auth/*     /index.html  200
+/login/*    /index.html  200
+/register/* /index.html  200
