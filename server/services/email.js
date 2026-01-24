@@ -106,9 +106,9 @@ export const sendEmailOTP = async (email, otp, userName = 'User') => {
       const transporter = createTransport(configurations[configIndex]);
 
     const mailOptions = {
-      from: `"${process.env.EMAIL_FROM_NAME || 'Your App'}" <${process.env.EMAIL_USER}>`,
+      from: `"${process.env.EMAIL_FROM_NAME || 'PoundlandWholesale.com'}" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: 'Your Password Reset OTP',
+      subject: 'Password Reset OTP - PoundlandWholesale.com',
       html: `
         <!DOCTYPE html>
         <html>
@@ -127,6 +127,7 @@ export const sendEmailOTP = async (email, otp, userName = 'User') => {
           <div class="container">
             <div class="header">
               <h1 style="margin: 0;">🔐 Password Reset OTP</h1>
+              <p style="margin: 10px 0 0 0; opacity: 0.9;">PoundlandWholesale.com</p>
             </div>
             <div class="content">
               <p>Hi <strong>${userName}</strong>,</p>
@@ -152,7 +153,7 @@ export const sendEmailOTP = async (email, otp, userName = 'User') => {
             </div>
             <div class="footer">
               <p>This is an automated email. Please do not reply.</p>
-              <p>&copy; ${new Date().getFullYear()} Your Company. All rights reserved.</p>
+              <p>&copy; ${new Date().getFullYear()} PoundlandWholesale.com. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -200,7 +201,7 @@ export const sendPasswordResetEmail = async (email, userName, resetUrl) => {
     const mailOptions = {
       from: `"${process.env.EMAIL_FROM_NAME || 'PoundlandWholesale.com'}" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: 'Password Reset Request - Generic Wholesale',
+      subject: 'Password Reset Request - PoundlandWholesale.com',
       html: `
         <!DOCTYPE html>
         <html>
