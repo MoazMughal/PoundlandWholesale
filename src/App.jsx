@@ -193,10 +193,24 @@ function App() {
           <Route path="/faq" element={<FAQ />} />
           
           {/* Catch-all route for 404 - should be last */}
-          <Route path="*" element={<div style={{padding: '50px', textAlign: 'center'}}>
-            <h2>Page Not Found</h2>
-            <p>The page you're looking for doesn't exist.</p>
-            <a href="/" style={{color: '#667eea'}}>Go Home</a>
+          <Route path="*" element={<div style={{padding: '50px', textAlign: 'center', minHeight: '60vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center'}}>
+            <div style={{fontSize: '4rem', marginBottom: '20px'}}>🔍</div>
+            <h2 style={{color: '#ff6600', marginBottom: '15px'}}>Page Not Found</h2>
+            <p style={{marginBottom: '20px', color: '#666'}}>The page you're looking for doesn't exist.</p>
+            <p style={{marginBottom: '30px', fontSize: '0.9rem', color: '#999'}}>
+              Current URL: <code style={{background: '#f5f5f5', padding: '2px 6px', borderRadius: '3px'}}>{window.location.pathname}</code>
+            </p>
+            <div style={{display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center'}}>
+              <a href="/" style={{color: '#667eea', textDecoration: 'none', padding: '10px 20px', border: '2px solid #667eea', borderRadius: '5px', transition: 'all 0.3s'}}>
+                🏠 Go Home
+              </a>
+              <a href="/about-us" style={{color: '#667eea', textDecoration: 'none', padding: '10px 20px', border: '2px solid #667eea', borderRadius: '5px', transition: 'all 0.3s'}}>
+                ℹ️ About Us
+              </a>
+              <a href="/categories" style={{color: '#667eea', textDecoration: 'none', padding: '10px 20px', border: '2px solid #667eea', borderRadius: '5px', transition: 'all 0.3s'}}>
+                📂 Categories
+              </a>
+            </div>
           </div>} />
         </Routes>
         </Suspense>

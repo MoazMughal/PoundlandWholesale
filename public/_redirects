@@ -1,14 +1,19 @@
-# Netlify/Render redirects for React Router
-/*    /index.html   200
-
-# API routes should go to backend
+# Render/Netlify redirects for React Router SPA
+# Handle API routes first (highest priority)
 /api/*  https://generic-wholesale-backend.onrender.com/api/:splat  200
 
-# Handle specific routes
-/product/*  /index.html  200
-/admin/*    /index.html  200
-/seller/*   /index.html  200
-/buyer/*    /index.html  200
-/auth/*     /index.html  200
-/login/*    /index.html  200
-/register/* /index.html  200
+# Handle specific static files (don't redirect these)
+/favicon.ico  /favicon.ico  200
+/robots.txt   /robots.txt   200
+/sitemap.xml  /sitemap.xml  200
+/manifest.json /manifest.json 200
+/assets/*     /assets/:splat 200
+/*.js         /:splat        200
+/*.css        /:splat        200
+/*.png        /:splat        200
+/*.jpg        /:splat        200
+/*.svg        /:splat        200
+/*.ico        /:splat        200
+
+# Handle all other routes with React Router (SPA fallback)
+/*    /index.html   200
