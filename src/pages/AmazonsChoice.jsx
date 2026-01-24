@@ -1251,31 +1251,37 @@ const AmazonsChoice = () => {
           }} />
           
           <div style={{ position: 'relative', zIndex: 1, display: 'contents' }}>
-          {currentProducts.map((product, index) => (
-            <div 
+          {currentProducts.map((product, index) => {
+            // Generate the product URL with parameters
+            const badges = getProductBadges(product, index)
+            const uniqueBadge = badges.secondary // Use the unique badge for this product
+            
+            const params = new URLSearchParams({
+              name: product.name,
+              img: product.image,
+              price: product.price.replace(/[£$₨]/g, ''),
+              rating: product.rating,
+              reviews: product.reviews,
+              category: product.category,
+              brand: product.brand,
+              discount: product.discount,
+              badgeText: uniqueBadge.text,
+              badgeColor: uniqueBadge.color,
+              badgeIcon: uniqueBadge.icon,
+              // Also pass Amazon's Choice info
+              isAmazonsChoice: 'true'
+            })
+            const productUrl = `/product/${product.id}?${params.toString()}`
+            
+            return (
+            <a 
               key={product.id} 
+              href={productUrl}
               className="product-card enhanced-card"
-              onClick={() => {
-                // Get the unique badge for this product (consistent with badge display)
-                const badges = getProductBadges(product, index)
-                const uniqueBadge = badges.secondary // Use the unique badge for this product
-                
-                const params = new URLSearchParams({
-                  name: product.name,
-                  img: product.image,
-                  price: product.price.replace(/[£$₨]/g, ''),
-                  rating: product.rating,
-                  reviews: product.reviews,
-                  category: product.category,
-                  brand: product.brand,
-                  discount: product.discount,
-                  badgeText: uniqueBadge.text,
-                  badgeColor: uniqueBadge.color,
-                  badgeIcon: uniqueBadge.icon,
-                  // Also pass Amazon's Choice info
-                  isAmazonsChoice: 'true'
-                })
-                navigate(`/product/${product.id}?${params.toString()}`)
+              onClick={(e) => {
+                // For normal clicks, prevent default and use React Router
+                e.preventDefault()
+                navigate(productUrl)
               }}
               style={{
                 cursor: 'pointer',
@@ -1292,7 +1298,9 @@ const AmazonsChoice = () => {
                 minHeight: windowWidth < 576 ? '260px' : '280px',
                 maxHeight: windowWidth < 576 ? '300px' : 'none',
                 boxSizing: 'border-box',
-                padding: windowWidth < 576 ? '6px' : '0px'
+                padding: windowWidth < 576 ? '6px' : '0px',
+                textDecoration: 'none',
+                color: 'inherit'
               }}
               onMouseEnter={(e) => {
                 if (windowWidth >= 576) {
@@ -1961,8 +1969,9 @@ const AmazonsChoice = () => {
                   </a>
                 </div>
               </div>
-            </div>
-          ))}
+            </a>
+            )
+          })}
           </div>
         </div>
 
