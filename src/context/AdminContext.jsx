@@ -19,7 +19,7 @@ export const AdminProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
 
-  // Cross-tab synchronization - simplified approach
+  // Cross-tab synchronization - enhanced approach
   useEffect(() => {
     const handleStorageChange = (event) => {
       // Handle logout from another tab
@@ -44,11 +44,40 @@ export const AdminProvider = ({ children }) => {
           }
         }
       }
+      // Handle admin data updates from another tab
+      else if (event.key === 'adminData' && event.newValue) {
+        try {
+          const parsedAdmin = JSON.parse(event.newValue)
+          setAdmin(parsedAdmin)
+        } catch (error) {
+          console.error('Error parsing updated admin data:', error)
+        }
+      }
     }
+
+    // Also check for existing auth state when component mounts (for new tabs)
+    const checkExistingAuth = () => {
+      const token = localStorage.getItem('adminToken')
+      const adminData = localStorage.getItem('adminData')
+      
+      if (token && adminData && !isLoggedIn) {
+        try {
+          const parsedAdmin = JSON.parse(adminData)
+          console.log('🔄 Found existing auth state, syncing to new tab')
+          setAdmin(parsedAdmin)
+          setIsLoggedIn(true)
+        } catch (error) {
+          console.error('Error parsing existing admin data:', error)
+        }
+      }
+    }
+
+    // Check for existing auth when this context initializes
+    checkExistingAuth()
 
     window.addEventListener('storage', handleStorageChange)
     return () => window.removeEventListener('storage', handleStorageChange)
-  }, [])
+  }, [isLoggedIn])
 
   // Token refresh management
   const startTokenRefresh = () => {
@@ -142,10 +171,16 @@ export const AdminProvider = ({ children }) => {
           
           // Validate token with server in background (non-blocking)
           validateTokenInBackground(token, admin)
-        } else {
-          // Clear auth data if not on admin pages
-          console.log('🔑 Not on admin pages, clearing auth data')
+        } else if (window.location.pathname === '/admin/login') {
+          // Clear auth data only if on login page
+          console.log('🔑 On login page, clearing auth data')
           authPersistence.clearAuth()
+        } else {
+          // For non-admin pages (like product pages), preserve auth state but don't validate
+          // This allows users to stay logged in when opening products in new tabs
+          console.log('🔑 On non-admin page, preserving auth state for cross-tab compatibility')
+          setAdmin(admin)
+          setIsLoggedIn(true)
         }
         
       } catch (error) {
