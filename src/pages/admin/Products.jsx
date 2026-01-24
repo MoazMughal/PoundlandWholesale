@@ -2650,6 +2650,13 @@ const AdminProducts = () => {
           border-radius: 8px;
           padding: 12px;
           margin-bottom: 10px;
+          transition: all 0.2s ease;
+        }
+        
+        .mobile-product-card:hover {
+          border-color: #007bff;
+          box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+          transform: translateY(-1px);
         }
         
         .mobile-product-card-header {
@@ -2659,6 +2666,13 @@ const AdminProducts = () => {
           margin-bottom: 10px;
           padding-bottom: 10px;
           border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .mobile-product-card-header > div:first-child:hover {
+          background-color: rgba(0, 123, 255, 0.05);
+          border-radius: 4px;
+          padding: 4px;
+          margin: -4px;
         }
         
         .mobile-product-card-body {
@@ -3439,7 +3453,6 @@ const AdminProducts = () => {
                           marginBottom: '1px',
                           cursor: 'pointer',
                           color: '#667eea',
-                          textDecoration: 'underline',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '4px'
@@ -3829,8 +3842,11 @@ const AdminProducts = () => {
             {filteredProducts.map(product => (
               <div key={product._id} className="mobile-product-card">
                 <div className="mobile-product-card-header">
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: 4 }}>
+                  <div 
+                    style={{ flex: 1, cursor: 'pointer' }}
+                    onClick={() => handleProductClick(product)}
+                  >
+                    <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: 4, color: '#007bff' }}>
                       {product.name}
                     </div>
                     <div style={{ fontSize: '0.7rem', color: '#666' }}>
@@ -3841,11 +3857,16 @@ const AdminProducts = () => {
                     type="checkbox"
                     checked={selectedProducts.has(product._id)}
                     onChange={() => handleProductSelection(product._id)}
+                    onClick={(e) => e.stopPropagation()} // Prevent triggering product click
                     style={{ transform: 'scale(1.2)' }}
                   />
                 </div>
                 
-                <div className="mobile-product-card-body">
+                <div 
+                  className="mobile-product-card-body"
+                  onClick={() => handleProductClick(product)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div>
                     <div style={{ color: '#666', fontSize: '0.65rem' }}>Price</div>
                     <div style={{ fontWeight: 'bold', color: '#059669' }}>£{product.price}</div>
@@ -3866,19 +3887,28 @@ const AdminProducts = () => {
                 
                 <div className="mobile-product-card-actions">
                   <button
-                    onClick={() => navigate(`/admin/products/edit/${product._id}${filters.category ? `?returnCategory=${filters.category}` : ''}`)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering product click
+                      navigate(`/admin/products/edit/${product._id}${filters.category ? `?returnCategory=${filters.category}` : ''}`);
+                    }}
                     style={{ background: '#667eea', color: 'white' }}
                   >
                     ✏️ Edit
                   </button>
                   <button
-                    onClick={() => startProfitEditing(product)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering product click
+                      startProfitEditing(product);
+                    }}
                     style={{ background: '#ff9800', color: 'white' }}
                   >
                     💰 Profit
                   </button>
                   <button
-                    onClick={() => handleDeleteProduct(product._id)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering product click
+                      handleDeleteProduct(product._id);
+                    }}
                     style={{ background: '#ef4444', color: 'white' }}
                   >
                     🗑️
