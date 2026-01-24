@@ -110,7 +110,7 @@ const AboutUs = () => {
                 <h3>Contact Information</h3>
                 <div className="row">
                   <div className="col-md-6">
-                    <p><i className="fas fa-envelope text-primary me-2"></i>support@genericwholesale.pk</p>
+                    <p><i className="fas fa-envelope text-primary me-2"></i>support@poundlandwholesale.com</p>
                     <p><i className="fas fa-phone text-success me-2"></i>+92 301 6611011</p>
                   </div>
                   <div className="col-md-6">

@@ -88,7 +88,7 @@ const PrivacyPolicy = () => {
                 <h3>9. Contact Us</h3>
                 <p>If you have any questions about this Privacy Policy, please contact us:</p>
                 <ul>
-                  <li>Email: privacy@genericwholesale.pk</li>
+                  <li>Email: privacy@poundlandwholesale.com</li>
                   <li>Phone: +92 301 6611011</li>
                   <li>Address: Karachi, Pakistan</li>
                 </ul>

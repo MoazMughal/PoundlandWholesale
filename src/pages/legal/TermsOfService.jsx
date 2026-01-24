@@ -74,7 +74,7 @@ const TermsOfService = () => {
                 <h3>9. Contact Information</h3>
                 <p>If you have any questions about these Terms of Service, please contact us:</p>
                 <ul>
-                  <li>Email: support@genericwholesale.pk</li>
+                  <li>Email: support@poundlandwholesale.com</li>
                   <li>Phone: +92 301 6611011</li>
                   <li>Address: Karachi, Pakistan</li>
                 </ul>
