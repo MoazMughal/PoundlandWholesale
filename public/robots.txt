@@ -4,17 +4,53 @@ Allow: /
 # Disallow admin and private areas
 Disallow: /admin/
 Disallow: /seller/dashboard/
+Disallow: /buyer/dashboard/
 Disallow: /api/
+Disallow: /server/
+Disallow: /uploads/
+Disallow: /dist/
+Disallow: /node_modules/
 
-# Allow important pages
-Allow: /amazons-choice
-Allow: /categories
+# Disallow authentication pages (reduce crawl waste)
+Disallow: /login/
+Disallow: /register/
+Disallow: /auth/
+Disallow: /forgot-password
+Disallow: /reset-password/
+
+# Allow important public pages
 Allow: /about-us
-Allow: /seller/register
-Allow: /seller/login
+Allow: /categories
+Allow: /basket
+Allow: /excel-products
+Allow: /join-now
+Allow: /terms-of-service
+Allow: /privacy-policy
+Allow: /help-center
+Allow: /faq
+
+# Allow product pages
+Allow: /product/
 
 # Sitemap location
 Sitemap: https://poundlandwholesale.com/sitemap.xml
 
-# Crawl delay (optional - helps prevent server overload)
+# Crawl delay (helps prevent server overload)
 Crawl-delay: 1
+
+# Additional search engine directives
+User-agent: Googlebot
+Crawl-delay: 1
+
+User-agent: Bingbot
+Crawl-delay: 2
+
+# Block bad bots (optional security)
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
