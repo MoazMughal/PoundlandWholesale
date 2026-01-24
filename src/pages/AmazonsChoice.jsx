@@ -26,129 +26,408 @@ import '../styles/enhanced-images.css'
 import '../styles/mobile-image-optimization.css'
 import '../styles/image-fixes.css'
 import '../styles/production-optimizations.css'
-import '../styles/mobile-enhancements.css'
-import '../styles/mobile-pricing-fix.css'
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
-  // Add CSS for badge visibility - mobile badges smaller and positioned more to the right
+  // Critical mobile fixes for Amazon Choice page
   useEffect(() => {
     const style = document.createElement('style')
-    style.id = 'amazons-choice-badges'
+    style.id = 'amazons-choice-mobile-fix'
     style.textContent = `
-      /* Mobile badge styles - smaller size and moved more to the right */
-      .mobile-badge {
-        position: absolute !important;
-        top: 2px !important;
-        right: 2px !important;
-        z-index: 9999 !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 1px !important;
-        padding: 2px 4px !important;
-        border-radius: 3px !important;
-        font-size: 9px !important; /* Increased from 6px to 9px for better readability */
-        font-weight: bold !important;
-        color: white !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.6) !important;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
-        white-space: nowrap !important;
-        pointer-events: none !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        max-width: 80px !important; /* Increased from 60px */
-        overflow: hidden !important;
-        border: 1px solid rgba(255,255,255,0.4) !important;
-      }
-      
-      .mobile-badge span {
-        color: white !important;
-      }
-      
-      .desktop-badge {
-        position: absolute !important;
-        top: 3px !important;
-        right: 3px !important;
-        z-index: 9999 !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 2px !important;
-        padding: 3px 6px !important;
-        border-radius: 4px !important;
-        font-size: 9px !important; /* Increased from 7px to 9px for consistency */
-        font-weight: bold !important;
-        color: white !important;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.5) !important;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.7) !important;
-        white-space: nowrap !important;
-        pointer-events: none !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        border: 1px solid rgba(255,255,255,0.4) !important;
-      }
-      
-      .desktop-badge span {
-        color: white !important;
-      }
-      
-      .desktop-badge:hover {
-        transform: scale(1.05) !important;
-        transition: transform 0.2s ease !important;
-      }
-      
-      /* Ensure badges show on mobile screens */
+      /* CRITICAL MOBILE FIXES - ENHANCED VERSION */
       @media (max-width: 576px) {
-        .mobile-badge {
-          display: flex !important;
-          opacity: 1 !important;
-          visibility: visible !important;
+        /* Container */
+        .products-container {
+          padding: 0 8px !important;
+          margin: 0 !important;
+          width: 100% !important;
         }
+        
+        /* Grid - Force 2 columns */
+        #products-grid {
+          display: grid !important;
+          grid-template-columns: 1fr 1fr !important;
+          gap: 8px !important;
+          padding: 8px 4px !important;
+          margin: 0 !important;
+          width: 100% !important;
+          background: transparent !important;
+        }
+        
+        /* Cards - Compact but readable */
+        .product-card, .enhanced-card {
+          display: flex !important;
+          flex-direction: column !important;
+          background: white !important;
+          border: 2px solid #ff6600 !important;
+          border-radius: 8px !important;
+          padding: 6px !important;
+          min-height: 280px !important;
+          max-height: 320px !important;
+          width: 100% !important;
+          position: relative !important;
+          overflow: hidden !important;
+          box-shadow: 0 2px 8px rgba(255, 102, 0, 0.2) !important;
+          margin: 0 !important;
+        }
+        
+        /* Images */
+        .product-image-container {
+          height: 90px !important;
+          min-height: 90px !important;
+          max-height: 90px !important;
+          width: 100% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          background: #fff !important;
+          margin-bottom: 6px !important;
+          padding: 4px !important;
+        }
+        
+        .product-image-container img {
+          max-width: 80px !important;
+          max-height: 80px !important;
+          width: auto !important;
+          height: auto !important;
+          object-fit: contain !important;
+        }
+        
+        /* Product Info */
+        .product-info {
+          flex: 1 !important;
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 4px !important;
+          padding: 0 2px !important;
+          overflow: hidden !important;
+        }
+        
+        /* Title - FIXED VISIBILITY */
+        .product-info h5 {
+          font-size: 10px !important;
+          line-height: 1.2 !important;
+          font-weight: 600 !important;
+          margin: 0 0 4px 0 !important;
+          height: 24px !important;
+          overflow: hidden !important;
+          display: -webkit-box !important;
+          -webkit-line-clamp: 2 !important;
+          -webkit-box-orient: vertical !important;
+          color: #1a1a1a !important; /* Ensure dark text */
+          background: transparent !important; /* Ensure no white background */
+          z-index: 2 !important; /* Ensure it appears above other elements */
+          position: relative !important;
+        }
+        
+        /* FORCE ALL PRICE AND PROFIT ELEMENTS TO BE VISIBLE AND LARGER */
+        
+        /* Unit Price - Light cream with orange text, DYNAMIC BORDERS */
+        .product-info div[style*="/unit"] {
+          font-size: 10px !important;
+          font-weight: 700 !important;
+          padding: 3px 5px !important; /* Reduced padding */
+          margin: 2px 0 !important;
+          border-radius: 4px !important; /* Reduced border radius */
+          text-align: center !important;
+          background: #fff8dc !important;
+          color: #ff6600 !important;
+          border: 1px solid #ffe4b5 !important; /* Thinner border */
+          min-width: 70px !important; /* Reduced min-width */
+          max-width: 100px !important; /* Added max-width for dynamic sizing */
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          box-shadow: 0 1px 2px rgba(255, 228, 181, 0.2) !important; /* Reduced shadow */
+          width: fit-content !important; /* Dynamic width based on content */
+        }
+        
+        /* Profit containers - MOVED TO LEFT */
+        .product-info > div[style*="flexDirection: column"] {
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 2px !important;
+          margin: 2px 0 2px 0 !important; /* Moved to left - reduced left margin */
+          visibility: visible !important;
+          opacity: 1 !important;
+          align-items: flex-start !important; /* Align to left */
+        }
+        
+        /* Profit boxes - Light cream with orange text, DYNAMIC BORDERS */
+        .product-info > div[style*="flexDirection: column"] > div {
+          font-size: 9px !important;
+          font-weight: 700 !important;
+          padding: 2px 4px !important; /* Reduced padding */
+          margin: 1px 0 !important;
+          border-radius: 3px !important; /* Reduced border radius */
+          text-align: center !important;
+          background: #fff8dc !important;
+          color: #ff6600 !important;
+          border: 1px solid #ffe4b5 !important; /* Thinner border */
+          min-width: 60px !important; /* Reduced min-width */
+          max-width: 90px !important; /* Added max-width for dynamic sizing */
+          white-space: nowrap !important;
+          box-shadow: 0 1px 2px rgba(255, 228, 181, 0.2) !important; /* Reduced shadow */
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          width: fit-content !important; /* Dynamic width based on content */
+        }
+        
+        /* Deal container - REDUCED HEIGHT and more visible */
+        .product-info > div:last-of-type > div {
+          font-size: 10px !important;
+          font-weight: 700 !important;
+          padding: 4px 6px !important; /* Reduced padding for smaller height */
+          margin: 4px 0 !important;
+          border-radius: 4px !important; /* Reduced border radius */
+          background: #fff8dc !important;
+          color: #ff6600 !important;
+          border: 1px solid #ffe4b5 !important; /* Thinner border */
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: center !important;
+          gap: 8px !important; /* Increased gap for better text spacing */
+          min-height: 22px !important; /* Reduced height */
+          max-height: 24px !important; /* Added max height */
+          box-shadow: 0 1px 3px rgba(255, 228, 181, 0.3) !important; /* Reduced shadow */
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
+        
+        /* Deal Text - ADJUSTED FONT SIZES */
+        .product-info span[style*="Deal"] {
+          font-size: 9px !important; /* Mobile font size */
+          font-weight: 700 !important;
+          color: #ff6600 !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          flex: 1 !important;
+          max-width: calc(100% - 50px) !important; /* More space for price */
+        }
+        
+        /* Price in Deal Section - MOBILE POSITIONING */
+        .product-info span[style*="£"] {
+          font-size: 9px !important; /* Mobile font size */
+          font-weight: 700 !important;
+          color: #ff6600 !important;
+          white-space: nowrap !important;
+          min-width: 35px !important; /* Reduced for mobile */
+          text-align: left !important; /* Left align to move left */
+          margin-left: -5px !important; /* Move left on mobile */
+        }
+        
+        /* Basket Button - MOBILE SMALL CIRCLE - CENTERED ICON */
+        .product-info button {
+          font-size: 8px !important;
+          width: 20px !important;
+          height: 20px !important;
+          min-width: 20px !important;
+          border-radius: 50% !important; /* Make it circular like desktop */
+          background: #ff6600 !important;
+          color: white !important;
+          border: none !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          flex-shrink: 0 !important;
+          box-shadow: 0 2px 4px rgba(255, 102, 0, 0.4) !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          margin-left: 4px !important;
+          padding: 0 !important; /* Remove padding for perfect centering */
+          line-height: 1 !important; /* Ensure proper line height for centering */
+        }
+        
+        /* Center the basket icon specifically */
+        .product-info button i {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 100% !important;
+          height: 100% !important;
+        }
+        
+        /* Amazon Button - LARGER */
+        .product-info a[href*="amazon"] {
+          font-size: 9px !important;
+          padding: 6px 8px !important;
+          margin-top: 4px !important;
+          border-radius: 6px !important;
+          min-height: 26px !important;
+          font-weight: 600 !important;
+          background: #1a1a1a !important;
+          color: white !important;
+          border: 2px solid #ff6600 !important;
+          text-align: center !important;
+          text-decoration: none !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 4px !important;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
+        
+        /* Badges - MOBILE OPTIMIZED - WIDER */
+        .mobile-badge {
+          position: absolute !important;
+          top: 6px !important;
+          right: 6px !important;
+          font-size: 8px !important;
+          padding: 3px 8px !important; /* Increased horizontal padding */
+          border-radius: 4px !important;
+          max-width: 100px !important; /* Increased from 80px to 100px */
+          min-width: 85px !important; /* Added min-width for consistency */
+          z-index: 10 !important;
+          font-weight: 600 !important;
+          color: white !important;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+          text-align: center !important;
+        }
+        
         .desktop-badge {
           display: none !important;
         }
         
-        /* Mobile image fixes */
-        .product-image-container img {
-          max-width: 100% !important;
-          max-height: 100% !important;
-          width: auto !important;
-          height: auto !important;
-          object-fit: contain !important;
-          display: block !important;
+        /* FORCE ALL ELEMENTS TO BE VISIBLE */
+        .product-info * {
+          display: inherit !important;
+          visibility: visible !important;
+          opacity: 1 !important;
         }
         
-        /* Ensure product cards are properly sized on mobile */
-        .product-card {
-          min-height: 280px !important; /* Reduced from 320px for better balance */
-          padding: 10px !important; /* Reduced padding */
-        }
-        
-        .product-image-container {
-          background: #fff !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
+        /* Remove hover effects on mobile */
+        .product-card:hover {
+          transform: none !important;
+          box-shadow: 0 2px 8px rgba(255, 102, 0, 0.2) !important;
         }
       }
       
-      /* Ensure badges show on desktop screens */
+      /* Desktop Badge Styling - Show badges on laptop/desktop - TOP RIGHT OF CARD */
       @media (min-width: 577px) {
         .mobile-badge {
           display: none !important;
         }
+        
+        /* Position badge relative to product card, not image */
+        .product-card, .enhanced-card {
+          position: relative !important;
+        }
+        
         .desktop-badge {
+          position: absolute !important;
+          top: 8px !important;
+          right: 8px !important;
+          font-size: 10px !important;
+          padding: 4px 8px !important;
+          border-radius: 6px !important;
+          max-width: 120px !important;
+          z-index: 20 !important; /* Higher z-index to appear above image */
+          font-weight: 600 !important;
+          color: white !important;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+          box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3) !important;
           display: flex !important;
-          opacity: 1 !important;
+          align-items: center !important;
+          gap: 4px !important;
           visibility: visible !important;
+          opacity: 1 !important;
+        }
+        
+        /* Ensure image container doesn't interfere with badge positioning */
+        .product-image-container {
+          position: relative !important;
+          z-index: 1 !important;
+        }
+        
+        /* Desktop Deal Text - SMALLER FONT */
+        .product-info span[style*="Deal"] {
+          font-size: 8px !important; /* Smaller font for desktop */
+        }
+        
+        .product-info span[style*="£"] {
+          font-size: 8px !important; /* Smaller font for desktop */
+          text-align: center !important; /* Center align on desktop */
+          margin-left: 0px !important; /* No left margin on desktop */
+        }
+      }
+      
+      /* Large Mobile (577px-768px) - 3 columns with larger elements */
+      @media (min-width: 577px) and (max-width: 768px) {
+        #products-grid {
+          grid-template-columns: repeat(3, 1fr) !important;
+          gap: 10px !important;
+        }
+        
+        .product-card, .enhanced-card {
+          min-height: 320px !important;
+          max-height: 360px !important;
+          padding: 8px !important;
+        }
+        
+        .product-image-container {
+          height: 110px !important;
+          min-height: 110px !important;
+          max-height: 110px !important;
+        }
+        
+        .product-image-container img {
+          max-width: 100px !important;
+          max-height: 100px !important;
+        }
+        
+        .product-info h5 {
+          font-size: 11px !important;
+          height: 28px !important;
+          color: #1a1a1a !important; /* Ensure dark text */
+          background: transparent !important; /* Ensure no white background */
+          z-index: 2 !important; /* Ensure it appears above other elements */
+          position: relative !important;
+        }
+        
+        .product-info div[style*="/unit"] {
+          font-size: 11px !important;
+          padding: 5px 10px !important;
+          min-width: 90px !important;
+        }
+        
+        .product-info > div[style*="flexDirection: column"] > div {
+          font-size: 10px !important;
+          padding: 4px 8px !important;
+          min-width: 80px !important;
+        }
+        
+        .product-info > div:last-of-type > div {
+          font-size: 12px !important; /* Increased from 11px for better readability */
+          padding: 7px 10px !important;
+          min-height: 32px !important;
+        }
+        
+        .product-info button {
+          width: 22px !important;
+          height: 22px !important;
+          font-size: 9px !important;
+          border-radius: 50% !important; /* Make it circular */
+          box-shadow: 0 2px 4px rgba(255, 102, 0, 0.4) !important;
+        }
+        
+        .product-info a[href*="amazon"] {
+          font-size: 10px !important;
+          padding: 8px 10px !important;
+          min-height: 30px !important;
         }
       }
     `
     document.head.appendChild(style)
     
     return () => {
-      const existingStyle = document.getElementById('amazons-choice-badges')
+      const existingStyle = document.getElementById('amazons-choice-mobile-fix')
       if (existingStyle) {
         document.head.removeChild(existingStyle)
       }
@@ -911,24 +1190,26 @@ const AmazonsChoice = () => {
         {/* Enhanced Products Grid */}
         <div id="products-grid" style={{
           display: 'grid', 
-          gridTemplateColumns:windowWidth < 576 ? 'repeat(2, 1fr)' : 
-                              windowWidth < 768 ? 'repeat(4, 1fr)' : 
-                              windowWidth < 992 ? 'repeat(5, 1fr)' : 
-                              windowWidth < 1200 ? 'repeat(6, 1fr)' :
-                              windowWidth < 1400 ? 'repeat(7, 1fr)' :
+          gridTemplateColumns: windowWidth < 576 ? 'repeat(2, 1fr)' : 
+                              windowWidth < 768 ? 'repeat(3, 1fr)' : 
+                              windowWidth < 992 ? 'repeat(4, 1fr)' : 
+                              windowWidth < 1200 ? 'repeat(5, 1fr)' :
+                              windowWidth < 1400 ? 'repeat(6, 1fr)' :
+                              windowWidth < 1600 ? 'repeat(7, 1fr)' :
                               'repeat(8, 1fr)', 
           gap: windowWidth < 576 ? '8px' : '15px',
           maxWidth: '100%',
           width: '100%',
           margin: '0 auto',
-          padding: windowWidth < 576 ? '8px' : '10px',
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 248, 245, 0.95) 100%)', // Enhanced gradient
-          borderRadius: windowWidth < 576 ? '10px' : '15px',
-          boxShadow: '0 8px 25px rgba(255, 102, 0, 0.12)', // Softer shadow
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 102, 0, 0.15)', // Softer border
+          padding: windowWidth < 576 ? '8px 4px' : '10px',
+          background: windowWidth < 576 ? 'transparent' : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 248, 245, 0.95) 100%)',
+          borderRadius: windowWidth < 576 ? '0px' : '15px',
+          boxShadow: windowWidth < 576 ? 'none' : '0 8px 25px rgba(255, 102, 0, 0.12)',
+          backdropFilter: windowWidth < 576 ? 'none' : 'blur(10px)',
+          border: windowWidth < 576 ? 'none' : '1px solid rgba(255, 102, 0, 0.15)',
           position: 'relative',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          boxSizing: 'border-box'
         }}>
           {/* Background pattern */}
           <div style={{
@@ -972,34 +1253,46 @@ const AmazonsChoice = () => {
               style={{
                 cursor: 'pointer',
                 background: '#ffffff',
-                border: '2px solid transparent',
-                borderRadius: '15px',
+                border: windowWidth < 576 ? '1px solid #ff6600' : '2px solid transparent',
+                borderRadius: windowWidth < 576 ? '8px' : '15px',
                 overflow: 'hidden',
-                boxShadow: '0 8px 25px rgba(255, 102, 0, 0.15)',
-                transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                position: 'relative'
+                boxShadow: windowWidth < 576 ? '0 2px 8px rgba(255, 102, 0, 0.15)' : '0 8px 25px rgba(255, 102, 0, 0.15)',
+                transition: windowWidth < 576 ? 'none' : 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                width: '100%',
+                minHeight: windowWidth < 576 ? '260px' : '280px',
+                maxHeight: windowWidth < 576 ? '300px' : 'none',
+                boxSizing: 'border-box',
+                padding: windowWidth < 576 ? '6px' : '0px'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
-                e.currentTarget.style.boxShadow = '0 20px 40px rgba(255, 102, 0, 0.25)';
-                e.currentTarget.style.borderColor = '#ff6600';
+                if (windowWidth >= 576) {
+                  e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+                  e.currentTarget.style.boxShadow = '0 20px 40px rgba(255, 102, 0, 0.25)';
+                  e.currentTarget.style.borderColor = '#ff6600';
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 102, 0, 0.15)';
-                e.currentTarget.style.borderColor = 'transparent';
+                if (windowWidth >= 576) {
+                  e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 102, 0, 0.15)';
+                  e.currentTarget.style.borderColor = 'transparent';
+                }
               }}
             >
               <div className="product-image-container" style={{
                 position: 'relative', 
-                height: windowWidth < 576 ? '140px' : '160px', 
+                height: windowWidth < 576 ? '100px' : '160px', 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center', 
                 background: '#fff',
-                padding: windowWidth < 576 ? '10px' : '15px',
+                padding: windowWidth < 576 ? '4px' : '15px',
                 margin: '0px',
-                overflow: 'visible'
+                overflow: 'visible',
+                marginBottom: windowWidth < 576 ? '4px' : '0px'
               }}>
                 <ProductImage
                   src={product.image}
@@ -1009,8 +1302,8 @@ const AmazonsChoice = () => {
                   loading={index < 8 ? "eager" : "lazy"} // Eager load first 8, lazy load rest
                   fallbackSrc={product.images && product.images[1]} // Use second image as fallback
                   style={{
-                    maxWidth: '100%',
-                    maxHeight: '100%',
+                    maxWidth: windowWidth < 576 ? '80px' : '100%',
+                    maxHeight: windowWidth < 576 ? '80px' : '100%',
                     width: 'auto',
                     height: 'auto',
                     objectFit: 'contain',
@@ -1041,20 +1334,28 @@ const AmazonsChoice = () => {
 
               </div>
               
-              <div className="product-info" style={{padding: '4px 6px', display: 'flex', flexDirection: 'column', gap: '3px'}}>
+              <div className="product-info" style={{
+                padding: windowWidth < 576 ? '0 4px 4px 4px' : '4px 6px', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: windowWidth < 576 ? '4px' : '3px', 
+                overflow: 'hidden',
+                flex: 1,
+                justifyContent: 'space-between'
+              }}>
                 <h5 style={{
-                  fontSize: windowWidth < 576 ? '12px' : '10px', // Increased mobile font size from 11px to 12px for better readability
+                  fontSize: windowWidth < 576 ? '11px' : '10px',
                   fontWeight: '700', 
                   margin: 0, 
                   lineHeight: '1.3', 
-                  height: windowWidth < 576 ? '32px' : '22px', // Increased mobile height from 26px to 32px to show full title
+                  height: windowWidth < 576 ? '32px' : '22px',
                   overflow: 'hidden',
                   color: '#1a1a1a',
                   textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
                   transition: 'color 0.3s ease',
-                  marginBottom: '2px', // Add small margin
-                  display: '-webkit-box', // Enable multi-line text truncation
-                  WebkitLineClamp: windowWidth < 576 ? 2 : 2, // Allow 2 lines on mobile
+                  marginBottom: '4px',
+                  display: '-webkit-box',
+                  WebkitLineClamp: windowWidth < 576 ? 2 : 2,
                   WebkitBoxOrient: 'vertical'
                 }}
                 onMouseEnter={(e) => e.target.style.color = '#ff6600'}
@@ -1196,21 +1497,24 @@ const AmazonsChoice = () => {
                   </div>
                 )}
                 
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '3px', marginTop: '1px'}}>
+                <div style={{display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-start', gap: '5px', marginTop: '1px', overflow: 'hidden', flexDirection: windowWidth < 576 ? 'column' : 'row'}}>
                   {/* Left side - Compact Enhanced Price */}
                   <div style={{
                     fontWeight: '800', 
-                    fontSize: windowWidth < 576 ? '13px' : '9px', // Reduced mobile font size from 16px to 13px for better balance
+                    fontSize: windowWidth < 576 ? '8px' : '9px',
                     color: '#ff3300',
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
-                    padding: windowWidth < 576 ? '3px 6px' : '1px 3px', // Adjusted mobile padding
-                    borderRadius: windowWidth < 576 ? '4px' : '3px', // Adjusted mobile border radius
+                    padding: windowWidth < 576 ? '3px 6px' : '1px 3px',
+                    borderRadius: windowWidth < 576 ? '4px' : '3px',
                     border: '1px solid #ff6600',
                     textShadow: '0 1px 2px rgba(255, 51, 0, 0.3)',
-                    boxShadow: '0 1px 3px rgba(255, 102, 0, 0.15)', // Lighter shadow
+                    boxShadow: '0 1px 3px rgba(255, 102, 0, 0.15)',
                     whiteSpace: 'nowrap',
                     maxWidth: 'fit-content',
-                    margin: windowWidth < 576 ? '3px 0' : '2px 0' // Adjusted margin for mobile
+                    margin: windowWidth < 576 ? '2px 0' : '2px 0',
+                    flex: 'none',
+                    textAlign: 'center',
+                    minWidth: windowWidth < 576 ? '80px' : 'auto'
                   }}>
                     {(() => {
                       // Use the raw database price directly as per-unit price
@@ -1366,40 +1670,50 @@ const AmazonsChoice = () => {
                         display: 'flex', 
                         flexDirection: 'column', 
                         alignItems: 'flex-start',
-                        gap: '2px', // Increased gap from 1px to 2px
-                        marginLeft: windowWidth < 576 ? '0px' : '2px', // Moved to left edge on mobile, keep desktop margin
-                        marginTop: windowWidth < 576 ? '8px' : '2px' // Increased mobile margin from 6px to 8px
+                        gap: '2px',
+                        marginLeft: windowWidth < 576 ? '0px' : '0px',
+                        marginTop: windowWidth < 576 ? '2px' : '2px',
+                        width: windowWidth < 576 ? 'fit-content' : '100%', /* Dynamic width on mobile */
+                        overflow: 'hidden'
                       }}>
                         {/* Profit per unit */}
                         <div style={{
-                          fontSize: windowWidth < 576 ? '10px' : '8px', // Reduced mobile font size from 12px to 10px for better fit
+                          fontSize: windowWidth < 576 ? '9px' : '8px',
                           color: '#ff6600',
                           fontWeight: '700',
-                          background: 'rgba(255, 102, 0, 0.1)',
-                          padding: windowWidth < 576 ? '3px 5px' : '2px 3px', // Increased mobile padding
-                          borderRadius: windowWidth < 576 ? '4px' : '3px', // Increased mobile border radius
-                          border: '1px solid rgba(255, 102, 0, 0.3)',
+                          background: '#fff8dc',
+                          padding: windowWidth < 576 ? '2px 4px' : '2px 3px',
+                          borderRadius: windowWidth < 576 ? '3px' : '4px',
+                          border: '1px solid #ffe4b5',
                           whiteSpace: 'nowrap',
-                          minWidth: windowWidth < 576 ? profitPerUnitWidth : 'auto', // Dynamic width for mobile
-                          width: windowWidth < 576 ? profitPerUnitWidth : 'auto', // Dynamic width for mobile
-                          textAlign: 'center' // Center text in dynamic width box
+                          minWidth: windowWidth < 576 ? 'fit-content' : 'fit-content',
+                          width: windowWidth < 576 ? 'fit-content' : 'fit-content',
+                          maxWidth: windowWidth < 576 ? '90px' : 'none',
+                          textAlign: 'center',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          boxShadow: windowWidth < 576 ? '0 1px 2px rgba(255, 228, 181, 0.2)' : '0 1px 3px rgba(255, 102, 0, 0.15)'
                         }}>
                           💰 £{profitPerUnit.toFixed(2)}/unit
                         </div>
                         
                         {/* Profit for deal units */}
                         <div style={{
-                          fontSize: windowWidth < 576 ? '10px' : '8px', // Reduced mobile font size from 12px to 10px for better fit
+                          fontSize: windowWidth < 576 ? '9px' : '8px',
                           color: '#ff6600',
                           fontWeight: '700',
-                          background: 'rgba(255, 102, 0, 0.1)',
-                          padding: windowWidth < 576 ? '3px 5px' : '2px 3px', // Increased mobile padding
-                          borderRadius: windowWidth < 576 ? '4px' : '3px', // Increased mobile border radius
-                          border: '1px solid rgba(255, 102, 0, 0.3)',
+                          background: '#fff8dc',
+                          padding: windowWidth < 576 ? '2px 4px' : '2px 3px',
+                          borderRadius: windowWidth < 576 ? '3px' : '4px',
+                          border: '1px solid #ffe4b5',
                           whiteSpace: 'nowrap',
-                          minWidth: windowWidth < 576 ? totalProfitWidth : '60px', // Dynamic width for mobile
-                          width: windowWidth < 576 ? totalProfitWidth : 'auto', // Dynamic width for mobile
-                          textAlign: 'center' // Center text in dynamic width box
+                          minWidth: windowWidth < 576 ? 'fit-content' : 'fit-content',
+                          width: windowWidth < 576 ? 'fit-content' : 'fit-content',
+                          maxWidth: windowWidth < 576 ? '100px' : 'none',
+                          textAlign: 'center',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          boxShadow: windowWidth < 576 ? '0 1px 2px rgba(255, 228, 181, 0.2)' : '0 1px 3px rgba(255, 102, 0, 0.15)'
                         }}>
                           📈 £{totalProfit.toFixed(2)}/{dealUnits}units
                         </div>
@@ -1409,67 +1723,54 @@ const AmazonsChoice = () => {
                 </div>
 
                 {/* Deal Units Display - Moved Down for Mobile */}
-                <div style={{ marginTop: windowWidth < 576 ? '5px' : '3px' }}> {/* Increased mobile margin from 4px to 5px */}
+                <div style={{ marginTop: windowWidth < 576 ? '4px' : '3px' }}>
                   <div style={{
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)', 
-                    padding: windowWidth < 576 ? '5px 7px' : '2px 3px', // Increased mobile padding
-                    borderRadius: windowWidth < 576 ? '6px' : '4px', // Increased mobile border radius
+                    padding: windowWidth < 576 ? '4px 6px' : '2px 3px',
+                    borderRadius: windowWidth < 576 ? '4px' : '4px',
                     border: '1px solid #ff6600', 
-                    boxShadow: '0 1px 4px rgba(255, 102, 0, 0.15)',
+                    boxShadow: windowWidth < 576 ? '0 1px 3px rgba(255, 102, 0, 0.15)' : '0 1px 4px rgba(255, 102, 0, 0.15)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    minWidth: windowWidth < 576 ? '100%' : 'auto', // Full width on mobile
-                    width: windowWidth < 576 ? '100%' : 'auto', // Full width on mobile
-                    gap: windowWidth < 576 ? '6px' : '4px', // Increased mobile gap
-                    minHeight: windowWidth < 576 ? '28px' : 'auto' // Increased minimum height from 24px to 28px for mobile
+                    minWidth: windowWidth < 576 ? '100%' : 'auto',
+                    width: '100%',
+                    gap: windowWidth < 576 ? '8px' : '6px', // Increased gap for better spacing
+                    minHeight: windowWidth < 576 ? '22px' : 'auto',
+                    maxHeight: windowWidth < 576 ? '24px' : 'auto',
+                    boxSizing: 'border-box'
                   }}>
                     <div style={{
                       display: 'flex', 
                       alignItems: 'center', 
-                      gap: '3px',
+                      gap: windowWidth < 576 ? '8px' : '6px', // Increased gap for better spacing
                       flex: 1,
                       minWidth: 0 // Allow text to wrap if needed
                     }}>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '11px' : '8px', // Reduced mobile font size from 14px to 11px to fit in container
+                        fontSize: windowWidth < 576 ? '9px' : '8px', // Decreased laptop font from 10px to 8px
                         color: '#cc3300', 
                         fontWeight: '700',
-                        whiteSpace: windowWidth < 576 ? 'normal' : 'nowrap' // Allow wrapping on mobile
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: windowWidth < 576 ? 'calc(100% - 55px)' : '100%', // More space for price
+                        flex: '0 1 auto' // Allow shrinking but don't grow
                       }}>
                         💰 Deal of {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '11px' : '8px', // Reduced mobile font size from 14px to 11px to fit in container
+                        fontSize: windowWidth < 576 ? '9px' : '8px', // Decreased laptop font from 10px to 8px
                         fontWeight: '800', 
                         color: '#ff3300',
-                        whiteSpace: windowWidth < 576 ? 'normal' : 'nowrap', // Allow wrapping on mobile
-                        minWidth: (() => {
-                          if (windowWidth >= 576) return '45px';
-                          
-                          // Calculate dynamic width for mobile based on price
-                          try {
-                            const unitPrice = product.rawPrice || 0;
-                            const dealUnits = product.dealUnits || 1;
-                            const totalPrice = unitPrice * dealUnits;
-                            const priceStr = `£${totalPrice.toFixed(2)}`;
-                            
-                            // Base width + character width calculation
-                            const baseWidth = 50;
-                            const charWidth = 7;
-                            const calculatedWidth = baseWidth + (priceStr.length * charWidth);
-                            
-                            // Set minimum and maximum widths for mobile
-                            const minWidth = 60;
-                            const maxWidth = 100;
-                            
-                            return `${Math.min(Math.max(calculatedWidth, minWidth), maxWidth)}px`;
-                          } catch (error) {
-                            return '60px'; // Fallback width
-                          }
-                        })(),
-                        display: 'inline-block', // Ensure minWidth works
-                        textAlign: 'center' // Center text in dynamic width
+                        whiteSpace: 'nowrap',
+                        minWidth: windowWidth < 576 ? '35px' : '45px', // Reduced mobile min-width to move left
+                        display: 'inline-block',
+                        textAlign: windowWidth < 576 ? 'left' : 'center', // Left align on mobile to move left
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        flex: '0 0 auto', // Don't grow or shrink
+                        marginLeft: windowWidth < 576 ? '-5px' : '0px' // Move left on mobile
                       }}>
                         {(() => {
                           try {
@@ -1501,23 +1802,21 @@ const AmazonsChoice = () => {
                           'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
                         color: 'white',
                         border: 'none',
-                        // Desktop: Perfect circle, Mobile: Rectangular
-                        padding: windowWidth < 576 ? '3px 4px' : '0', // No padding for desktop circle
-                        borderRadius: windowWidth < 576 ? '4px' : '50%', // Circle for desktop, rounded rect for mobile
-                        fontSize: windowWidth < 576 ? '8px' : '9px', // Smaller icon for smaller desktop circle (reduced from 10px)
+                        padding: windowWidth < 576 ? '0' : '0',
+                        borderRadius: windowWidth < 576 ? '50%' : '50%',
+                        fontSize: windowWidth < 576 ? '8px' : '9px',
                         cursor: 'pointer',
                         boxShadow: windowWidth < 576 ? 
-                          '0 2px 4px rgba(255, 102, 0, 0.3)' : 
-                          '0 3px 8px rgba(255, 102, 0, 0.4)', // Stronger shadow for desktop circle
+                          '0 2px 4px rgba(255, 102, 0, 0.4)' : 
+                          '0 3px 8px rgba(255, 102, 0, 0.4)',
                         transition: 'all 0.2s ease',
-                        // Desktop: Perfect circle dimensions, Mobile: Rectangular
-                        minWidth: windowWidth < 576 ? '22px' : '20px', // Smaller circle for desktop (reduced from 28px)
-                        width: windowWidth < 576 ? 'auto' : '20px', // Fixed width for desktop circle (reduced from 28px)
-                        height: windowWidth < 576 ? '20px' : '20px', // Perfect circle for desktop (reduced from 28px)
+                        minWidth: windowWidth < 576 ? '20px' : '20px',
+                        width: windowWidth < 576 ? '20px' : '20px',
+                        height: windowWidth < 576 ? '20px' : '20px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        // Desktop circle specific styles
+                        flexShrink: 0,
                         ...(windowWidth >= 576 && {
                           position: 'relative',
                           overflow: 'hidden'
@@ -1525,13 +1824,11 @@ const AmazonsChoice = () => {
                       }}
                       onMouseEnter={(e) => {
                         if (windowWidth < 576) {
-                          // Mobile hover
-                          e.target.style.transform = 'scale(1.1)';
+                          e.target.style.transform = 'scale(1.05)';
                           e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
                         } else {
-                          // Desktop hover - appropriate scale for smaller circle
-                          e.target.style.transform = 'scale(1.1)'; // Reduced from 1.15
-                          e.target.style.boxShadow = '0 3px 8px rgba(255, 102, 0, 0.5)'; // Adjusted shadow
+                          e.target.style.transform = 'scale(1.1)';
+                          e.target.style.boxShadow = '0 3px 8px rgba(255, 102, 0, 0.5)';
                           e.target.style.background = isInBasket(product.id) ? 
                             'linear-gradient(135deg, #059669 0%, #047857 100%)' : 
                             'linear-gradient(135deg, #ff3300 0%, #cc2900 100%)';
@@ -1539,13 +1836,11 @@ const AmazonsChoice = () => {
                       }}
                       onMouseLeave={(e) => {
                         if (windowWidth < 576) {
-                          // Mobile hover reset
                           e.target.style.transform = 'scale(1)';
                           e.target.style.boxShadow = '0 1px 3px rgba(255, 102, 0, 0.3)';
                         } else {
-                          // Desktop hover reset
                           e.target.style.transform = 'scale(1)';
-                          e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)'; // Adjusted shadow for smaller circle
+                          e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
                           e.target.style.background = isInBasket(product.id) ? 
                             'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
                             'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
@@ -1568,9 +1863,9 @@ const AmazonsChoice = () => {
                       background: 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)',
                       color: 'white',
                       border: '2px solid #ff6600',
-                      padding: '5px 8px',
+                      padding: windowWidth < 576 ? '4px 6px' : '5px 8px',
                       borderRadius: '8px',
-                      fontSize: '8.5px',
+                      fontSize: windowWidth < 576 ? '8px' : '8.5px',
                       fontWeight: '700',
                       display: 'flex',
                       alignItems: 'center',
@@ -1580,12 +1875,8 @@ const AmazonsChoice = () => {
                       textDecoration: 'none',
                       transition: 'all 0.3s ease',
                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                      // Mobile-specific enhancements - INCREASED SIZES
-                      ...(windowWidth < 576 && {
-                        minHeight: '26px', // Increased from 22px
-                        fontSize: '10px', // Increased from 9px
-                        padding: '7px 8px' // Increased padding
-                      })
+                      minHeight: windowWidth < 576 ? '22px' : '26px',
+                      boxSizing: 'border-box'
                     }}
                     onMouseEnter={(e) => {
                       e.target.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
