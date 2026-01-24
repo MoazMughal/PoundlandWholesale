@@ -3,21 +3,18 @@ Allow: /
 
 # Disallow admin and private areas
 Disallow: /admin/
-Disallow: /seller/dashboard
-Disallow: /buyer/dashboard
+Disallow: /seller/dashboard/
 Disallow: /api/
 
 # Allow important pages
-Allow: /
-Allow: /about-us
+Allow: /amazons-choice
 Allow: /categories
-Allow: /product/
-Allow: /auth
-Allow: /login/
-Allow: /register/
+Allow: /about-us
+Allow: /seller/register
+Allow: /seller/login
 
 # Sitemap location
-Sitemap: https://www.poundlandwholesale.com/sitemap.xml
+Sitemap: https://poundlandwholesale.com/sitemap.xml
 
-# Crawl delay (optional)
+# Crawl delay (optional - helps prevent server overload)
 Crawl-delay: 1

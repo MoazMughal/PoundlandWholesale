@@ -136,7 +136,7 @@ const AmazonsChoice = () => {
           text-align: center !important;
           background: #fff8dc !important;
           color: #ff6600 !important;
-          border: 1px solid #ffe4b5 !important;
+          border: 0.5px solid #ffe4b5 !important; /* Reduced border width from 1px to 0.5px */
           min-width: 70px !important;
           max-width: 100px !important;
           display: block !important;
@@ -201,7 +201,7 @@ const AmazonsChoice = () => {
         
         /* Deal Text - ADJUSTED FONT SIZES */
         .product-info span[style*="Deal"] {
-          font-size: 8px !important; /* Decreased mobile font size from 9px to 8px */
+          font-size: 7px !important; /* Decreased mobile font size from 8px to 7px */
           font-weight: 700 !important;
           color: #ff6600 !important;
           white-space: nowrap !important;
@@ -213,7 +213,7 @@ const AmazonsChoice = () => {
         
         /* Price in Deal Section - MOBILE POSITIONING */
         .product-info span[style*="£"] {
-          font-size: 8px !important; /* Decreased mobile font size from 9px to 8px */
+          font-size: 7px !important; /* Decreased mobile font size from 8px to 7px */
           font-weight: 700 !important;
           color: #ff6600 !important;
           white-space: nowrap !important;
@@ -1559,7 +1559,7 @@ const AmazonsChoice = () => {
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
                     padding: windowWidth < 576 ? '3px 6px' : '1px 3px',
                     borderRadius: windowWidth < 576 ? '4px' : '3px',
-                    border: '1px solid #ff6600',
+                    border: windowWidth < 576 ? '0.5px solid #ff6600' : '1px solid #ff6600', /* Reduced mobile border width */
                     textShadow: '0 1px 2px rgba(255, 51, 0, 0.3)',
                     boxShadow: '0 1px 3px rgba(255, 102, 0, 0.15)',
                     whiteSpace: 'nowrap',
@@ -1801,7 +1801,7 @@ const AmazonsChoice = () => {
                       minWidth: 0 // Allow text to wrap if needed
                     }}>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '8px' : '7px', // Decreased mobile font from 9px to 8px
+                        fontSize: windowWidth < 576 ? '7px' : '7px', /* Decreased mobile font from 8px to 7px */
                         color: '#cc3300', 
                         fontWeight: '700',
                         whiteSpace: 'nowrap',
@@ -1813,7 +1813,7 @@ const AmazonsChoice = () => {
                         💰 Deal of {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '8px' : '7px', // Decreased mobile font from 9px to 8px
+                        fontSize: windowWidth < 576 ? '7px' : '7px', /* Decreased mobile font from 8px to 7px */
                         fontWeight: '800', 
                         color: '#ff3300',
                         whiteSpace: 'nowrap',
