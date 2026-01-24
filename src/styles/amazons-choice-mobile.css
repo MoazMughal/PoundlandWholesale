@@ -1,0 +1,21 @@
+/* Amazon's Choice Mobile Styles */
+
+/* This file provides mobile-specific styles for Amazon Choice products */
+/* Main mobile styles are handled in mobile-improvements.css */
+
+@media (max-width: 768px) {
+  /* Amazon Choice specific mobile overrides */
+  .amazons-choice-container {
+    padding: 0 8px;
+  }
+  
+  .amazons-choice-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  
+  .amazons-choice-card {
+    border: 1px solid #ff6600;
+    border-radius: 8px;
+  }
+}

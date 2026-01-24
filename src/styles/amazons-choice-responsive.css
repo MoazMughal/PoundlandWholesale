@@ -1,0 +1,26 @@
+/* Amazon's Choice Responsive Styles */
+
+/* This file provides responsive styles for Amazon Choice products */
+/* Main responsive styles are handled in mobile-improvements.css */
+
+@media (min-width: 769px) {
+  /* Desktop specific styles */
+  .amazons-choice-desktop {
+    display: block;
+  }
+  
+  .amazons-choice-mobile {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Mobile specific styles */
+  .amazons-choice-desktop {
+    display: none;
+  }
+  
+  .amazons-choice-mobile {
+    display: block;
+  }
+}

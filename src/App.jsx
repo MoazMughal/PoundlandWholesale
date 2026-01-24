@@ -11,7 +11,6 @@ import { SellerProvider } from './context/SellerContext'
 import { AdminProvider } from './context/AdminContext'
 import { BasketProvider } from './context/BasketContext'
 import './App.css'
-import './styles/mobile-fixes.css'
 import './styles/mobile-responsive.css'
 import './styles/enhanced-theme.css'
 import './styles/design-system.css'
@@ -23,8 +22,6 @@ import './styles/mobile-improvements.css'
 import './styles/micro-interactions.css'
 import './styles/layout-fix.css'
 import './styles/image-optimization.css'
-import './styles/mobile-pricing-fix.css'
-import './styles/mobile-typography.css'
 
 // Lazy load pages for better performance
 const AmazonsChoice = lazy(() => import('./pages/AmazonsChoice'))
