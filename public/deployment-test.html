@@ -21,7 +21,11 @@
         </div>
         
         <div class="status info">
-            📋 Testing React Router client-side routing...
+            📋 Testing SPA Rewrite Rule: Source: /* → Destination: /index.html
+        </div>
+        
+        <div class="status info">
+            🔧 Manual Render Configuration Applied - Testing Direct URL Access
         </div>
         
         <h3>Test Links (should work in production):</h3>
@@ -53,6 +57,30 @@
         document.getElementById('timestamp').textContent = new Date().toISOString();
         document.getElementById('current-url').textContent = window.location.href;
         document.getElementById('user-agent').textContent = navigator.userAgent;
+        
+        // Test if we're getting the React app or a 404
+        function testRewriteRule() {
+            const testUrls = [
+                '/product/test123',
+                '/admin/test',
+                '/nonexistent-route'
+            ];
+            
+            console.log('🧪 Testing SPA Rewrite Rule...');
+            
+            testUrls.forEach(url => {
+                fetch(url)
+                    .then(response => {
+                        console.log(`${url}: ${response.status} - ${response.ok ? '✅ Rewrite working' : '❌ Rewrite failed'}`);
+                    })
+                    .catch(error => {
+                        console.log(`${url}: ❌ Network error - ${error.message}`);
+                    });
+            });
+        }
+        
+        // Run test after page loads
+        setTimeout(testRewriteRule, 1000);
     </script>
 </body>
 </html>

@@ -5,16 +5,26 @@ import './styles/mobile-responsive.css'
 import App from './App.jsx'
 import './config/env-check.js'
 
-// Register Service Worker for caching
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+// Temporarily disable Service Worker to fix asset loading issues
+// TODO: Re-enable after fixing base path issues
+if (false && 'serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
-        
+        console.log('SW registered: ', registration)
       })
       .catch((error) => {
-        
+        console.log('SW registration failed: ', error)
       })
+  })
+}
+
+// Clear existing service worker cache
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+    for(let registration of registrations) {
+      registration.unregister()
+    }
   })
 }
 

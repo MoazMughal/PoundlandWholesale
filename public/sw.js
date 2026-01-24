@@ -1,9 +1,12 @@
-// Service Worker for caching static assets
-const CACHE_NAME = 'generic-wholesale-v1'
+// Service Worker for SPA with proper asset handling
+const CACHE_NAME = 'poundland-wholesale-v2' // Updated cache name to force refresh
 const urlsToCache = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/favicon.ico',
+  '/robots.txt',
+  '/sitemap.xml'
 ]
 
 // Install event - cache static assets
@@ -33,7 +36,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - handle SPA routing and assets properly
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return
@@ -41,34 +44,48 @@ self.addEventListener('fetch', (event) => {
   // Skip API requests
   if (event.request.url.includes('/api/')) return
   
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response
-        }
-        
-        // Clone the request
-        const fetchRequest = event.request.clone()
-        
-        return fetch(fetchRequest).then((response) => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response
-          }
-          
-          // Clone the response
-          const responseToCache = response.clone()
-          
-          // Cache the fetched response
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache)
-            })
-          
-          return response
+  // Skip chrome-extension requests (causing the console errors)
+  if (event.request.url.startsWith('chrome-extension://')) return
+  
+  const url = new URL(event.request.url)
+  
+  // Handle static assets (CSS, JS, images) - serve directly, don't cache aggressively
+  if (url.pathname.startsWith('/assets/') || 
+      url.pathname.endsWith('.js') || 
+      url.pathname.endsWith('.css') || 
+      url.pathname.endsWith('.png') || 
+      url.pathname.endsWith('.jpg') || 
+      url.pathname.endsWith('.svg') ||
+      url.pathname.endsWith('.ico')) {
+    
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => {
+          // If asset fails to load, don't serve from cache as it might be stale
+          return new Response('Asset not found', { status: 404 })
         })
+    )
+    return
+  }
+  
+  // Handle SPA routes - serve index.html for navigation requests
+  if (event.request.mode === 'navigate' || 
+      (event.request.method === 'GET' && event.request.headers.get('accept').includes('text/html'))) {
+    
+    event.respondWith(
+      fetch('/index.html')
+        .catch(() => {
+          return caches.match('/index.html')
+        })
+    )
+    return
+  }
+  
+  // Default fetch behavior for other requests
+  event.respondWith(
+    fetch(event.request)
+      .catch(() => {
+        return caches.match(event.request)
       })
   )
 })

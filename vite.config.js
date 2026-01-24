@@ -80,6 +80,6 @@ export default defineConfig({
     open: true,
     cors: true
   },
-  // Add base configuration for production
-  base: './'
+  // Use absolute base path for SPA routing
+  base: '/'
 })

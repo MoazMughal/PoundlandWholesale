@@ -1,19 +1,31 @@
-# Render/Netlify redirects for React Router SPA
-# Handle API routes first (highest priority)
-/api/*  https://generic-wholesale-backend.onrender.com/api/:splat  200
+# Render SPA Configuration - Fixed Asset Paths
+# Manual Render config: Source: /* → Destination: /index.html → Action: Rewrite
 
-# Handle specific static files (don't redirect these)
-/favicon.ico  /favicon.ico  200
-/robots.txt   /robots.txt   200
-/sitemap.xml  /sitemap.xml  200
-/manifest.json /manifest.json 200
-/assets/*     /assets/:splat 200
-/*.js         /:splat        200
-/*.css        /:splat        200
-/*.png        /:splat        200
-/*.jpg        /:splat        200
-/*.svg        /:splat        200
-/*.ico        /:splat        200
+# CRITICAL: Static assets must be served directly with correct MIME types
+/assets/*       /assets/:splat      200!
+/*.js           /:splat             200!
+/*.css          /:splat             200!
+/*.png          /:splat             200!
+/*.jpg          /:splat             200!
+/*.jpeg         /:splat             200!
+/*.svg          /:splat             200!
+/*.ico          /:splat             200!
+/*.woff         /:splat             200!
+/*.woff2        /:splat             200!
+/*.ttf          /:splat             200!
+/*.eot          /:splat             200!
 
-# Handle all other routes with React Router (SPA fallback)
+# Important files that should be served directly
+/favicon.ico        /favicon.ico        200!
+/robots.txt         /robots.txt         200!
+/sitemap.xml        /sitemap.xml        200!
+/manifest.json      /manifest.json      200!
+/sw.js              /sw.js              200!
+/deployment-test.html  /deployment-test.html  200!
+
+# API routes - proxy to backend (if not handled by Render)
+/api/*  https://generic-wholesale-backend.onrender.com/api/:splat  200!
+
+# SPA fallback - serve index.html for all other routes
+# This handles /product/123, /admin/dashboard, etc.
 /*    /index.html   200
