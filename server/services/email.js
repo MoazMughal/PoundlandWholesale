@@ -198,7 +198,7 @@ export const sendPasswordResetEmail = async (email, userName, resetUrl) => {
     }
 
     const mailOptions = {
-      from: `"${process.env.EMAIL_FROM_NAME || 'Generic Wholesale'}" <${process.env.EMAIL_USER}>`,
+      from: `"${process.env.EMAIL_FROM_NAME || 'PoundlandWholesale.com'}" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: 'Password Reset Request - Generic Wholesale',
       html: `
@@ -223,12 +223,12 @@ export const sendPasswordResetEmail = async (email, userName, resetUrl) => {
           <div class="container">
             <div class="header">
               <h1 style="margin: 0;">🔐 Password Reset Request</h1>
-              <p style="margin: 10px 0 0 0; opacity: 0.9;">Generic Wholesale</p>
+              <p style="margin: 10px 0 0 0; opacity: 0.9;">PoundlandWholesale.com</p>
             </div>
             <div class="content">
               <p>Hi <strong>${userName}</strong>,</p>
               
-              <p>We received a request to reset your password for your Generic Wholesale account.</p>
+              <p>We received a request to reset your password for your PoundlandWholesale.com account.</p>
               
               <p><strong>To reset your password:</strong></p>
               <ol style="padding-left: 20px;">
@@ -266,7 +266,7 @@ export const sendPasswordResetEmail = async (email, userName, resetUrl) => {
             </div>
             <div class="footer">
               <p>This is an automated email. Please do not reply.</p>
-              <p>&copy; ${new Date().getFullYear()} Generic Wholesale. All rights reserved.</p>
+              <p>&copy; ${new Date().getFullYear()} PoundlandWholesale.com. All rights reserved.</p>
             </div>
           </div>
         </body>

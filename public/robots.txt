@@ -1,7 +1,23 @@
 User-agent: *
 Allow: /
+
+# Disallow admin and private areas
 Disallow: /admin/
 Disallow: /seller/dashboard
 Disallow: /buyer/dashboard
+Disallow: /api/
 
-Sitemap: https://genericwholesale.pk/sitemap.xml
+# Allow important pages
+Allow: /
+Allow: /about-us
+Allow: /categories
+Allow: /product/
+Allow: /auth
+Allow: /login/
+Allow: /register/
+
+# Sitemap location
+Sitemap: https://www.poundlandwholesale.com/sitemap.xml
+
+# Crawl delay (optional)
+Crawl-delay: 1

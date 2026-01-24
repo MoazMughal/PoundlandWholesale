@@ -76,7 +76,7 @@ const CompactFooter = () => {
               color: 'rgba(255,255,255,0.8)', 
               margin: 0 
             }}>
-              Your trusted wholesale marketplace connecting Pakistani suppliers with global retailers.
+              Your trusted wholesale marketplace connecting suppliers with global retailers.
             </p>
           </div>
 
@@ -297,7 +297,7 @@ const CompactFooter = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <i className="fas fa-envelope" style={{ color: '#ff9900', fontSize: '14px', width: '16px' }}></i>
-                <span style={{ color: 'rgba(255,255,255,0.8)' }}>support@genericwholesale.com</span>
+                <span style={{ color: 'rgba(255,255,255,0.8)' }}>support@poundlandwholesale.com</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <i className="fas fa-phone" style={{ color: '#ff9900', fontSize: '14px', width: '16px' }}></i>
@@ -309,7 +309,7 @@ const CompactFooter = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <i className="fas fa-map-marker-alt" style={{ color: '#ff9900', fontSize: '14px', width: '16px' }}></i>
-                <span style={{ color: 'rgba(255,255,255,0.8)' }}>Islamabad, Pakistan</span>
+                <span style={{ color: 'rgba(255,255,255,0.8)' }}>London, United Kingdom</span>
               </div>
             </div>
           </div>
@@ -456,7 +456,7 @@ const CompactFooter = () => {
             fontSize: '14px',
             textAlign: isMobile ? 'center' : 'right'
           }}>
-            © 2024 Generic Wholesale. All rights reserved.
+            © 2024 PoundlandWholesale.com. All rights reserved.
           </div>
         </div>
       </div>

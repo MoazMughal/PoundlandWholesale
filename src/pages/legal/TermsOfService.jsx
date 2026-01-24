@@ -13,12 +13,12 @@ const TermsOfService = () => {
 
               <section className="mb-4">
                 <h3>1. Acceptance of Terms</h3>
-                <p>By accessing and using Generic Wholesale ("the Service"), you accept and agree to be bound by the terms and provision of this agreement.</p>
+                <p>By accessing and using PoundlandWholesale.com ("the Service"), you accept and agree to be bound by the terms and provision of this agreement.</p>
               </section>
 
               <section className="mb-4">
                 <h3>2. Description of Service</h3>
-                <p>Generic Wholesale is a B2B marketplace platform that connects wholesale suppliers with buyers. We provide a platform for:</p>
+                <p>PoundlandWholesale.com is a B2B marketplace platform that connects wholesale suppliers with buyers. We provide a platform for:</p>
                 <ul>
                   <li>Product listings and catalog management</li>
                   <li>Supplier verification and communication</li>
@@ -62,7 +62,7 @@ const TermsOfService = () => {
 
               <section className="mb-4">
                 <h3>7. Limitation of Liability</h3>
-                <p>Generic Wholesale shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses.</p>
+                <p>PoundlandWholesale.com shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses.</p>
               </section>
 
               <section className="mb-4">

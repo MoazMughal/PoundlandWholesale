@@ -36,7 +36,7 @@ services:
       - key: EMAIL_PASS
         sync: false
       - key: EMAIL_FROM_NAME
-        value: Generic Wholesale
+        value: PoundlandWholesale.com
       - key: FRONTEND_URL
         value: https://poundlandwholesale.com
       - key: TWILIO_ACCOUNT_SID

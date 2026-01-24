@@ -10,8 +10,8 @@ const FAQ = () => {
       category: 'General',
       questions: [
         {
-          question: 'What is Generic Wholesale?',
-          answer: 'Generic Wholesale is Pakistan\'s premier B2B marketplace connecting verified wholesale suppliers with genuine buyers. We provide a secure platform for wholesale trading with features like supplier verification, secure payments, and direct communication.'
+          question: 'What is PoundlandWholesale.com?',
+          answer: 'PoundlandWholesale.com is the UK\'s premier B2B marketplace connecting verified wholesale suppliers with genuine buyers. We provide a secure platform for wholesale trading with features like supplier verification, secure payments, and direct communication.'
         },
         {
           question: 'How do I get started?',
@@ -83,7 +83,7 @@ const FAQ = () => {
         },
         {
           question: 'Do you have a mobile app?',
-          answer: 'Yes, our mobile app is available on Google Play Store and Apple App Store. Search for "Generic Wholesale" to download.'
+          answer: 'Yes, our mobile app is available on Google Play Store and Apple App Store. Search for "PoundlandWholesale" to download.'
         },
         {
           question: 'Which browsers are supported?',

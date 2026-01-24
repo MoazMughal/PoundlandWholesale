@@ -569,7 +569,7 @@ const MobileHeader = () => {
         /* Remove any white background from logo */
         .mobile-logo img,
         .mobile-menu-header img,
-        img[alt="Generic Wholesale"] {
+        img[alt="PoundlandWholesale"] {
           background: transparent !important;
           background-color: transparent !important;
         }
@@ -586,7 +586,7 @@ const MobileHeader = () => {
             padding: 10px 14px 10px 40px;
           }
 
-          .desktop-header img[alt="Generic Wholesale"] {
+          .desktop-header img[alt="PoundlandWholesale"] {
             height: 58px;
             max-width: none;
             width: auto;
@@ -604,7 +604,7 @@ const MobileHeader = () => {
             display: none !important;
           }
 
-          .desktop-header img[alt="Generic Wholesale"] {
+          .desktop-header img[alt="PoundlandWholesale"] {
             width: auto;
             height: 55px;
             object-fit: contain;
@@ -613,7 +613,7 @@ const MobileHeader = () => {
 
         /* Large Desktop - Wider */
         @media (min-width: 1200px) {
-          .desktop-header img[alt="Generic Wholesale"] {
+          .desktop-header img[alt="PoundlandWholesale"] {
             width: auto;
             height: 60px;
             object-fit: contain;
@@ -622,7 +622,7 @@ const MobileHeader = () => {
 
         /* Extra Large Desktop - Maximum Width */
         @media (min-width: 1600px) {
-          .desktop-header img[alt="Generic Wholesale"] {
+          .desktop-header img[alt="PoundlandWholesale"] {
             width: auto;
             height: 65px;
             object-fit: contain;
@@ -650,7 +650,7 @@ const MobileHeader = () => {
                 textShadow: '0 2px 4px rgba(0,0,0,0.3)',
                 letterSpacing: '-0.5px'
               }}>
-                Generic Wholesale
+                PoundlandWholesale
               </span>
               <span style={{
                 position: 'absolute',
@@ -663,7 +663,7 @@ const MobileHeader = () => {
                 letterSpacing: '0px',
                 whiteSpace: 'nowrap'
               }}>
-                .co.uk
+                .com
               </span>
             </div>
           </Link>
@@ -758,7 +758,7 @@ const MobileHeader = () => {
                   textShadow: '0 2px 4px rgba(0,0,0,0.3)',
                   letterSpacing: '-0.5px'
                 }}>
-                  Generic Wholesale
+                  PoundlandWholesale
                 </span>
                 <span style={{
                   position: 'absolute',
@@ -771,7 +771,7 @@ const MobileHeader = () => {
                   letterSpacing: '0px',
                   whiteSpace: 'nowrap'
                 }}>
-                  .co.uk
+                  .com
                 </span>
               </div>
             </Link>
@@ -1092,7 +1092,7 @@ const MobileHeader = () => {
                 textShadow: '0 2px 4px rgba(0,0,0,0.3)',
                 letterSpacing: '-0.5px'
               }}>
-                Generic Wholesale
+                PoundlandWholesale
               </span>
               <span style={{
                 position: 'absolute',
@@ -1105,7 +1105,7 @@ const MobileHeader = () => {
                 letterSpacing: '0px',
                 whiteSpace: 'nowrap'
               }}>
-                .co.uk
+                .com
               </span>
             </div>
             <button className="mobile-menu-close" onClick={() => setShowMobileMenu(false)}>

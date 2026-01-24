@@ -32,14 +32,14 @@ const AboutUs = () => {
     <div style={{ background: '#f8f9fa' }}>
       {/* Hero Section */}
       <div style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: 'linear-gradient(135deg, #f46709ff 0%, #764ba2 100%)',
         padding: '20px 20px',
         color: '#fff',
         textAlign: 'center'
       }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <h1 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '20px' }}>
-            About Generic Wholesale
+            About PoundlandWholesale.com
           </h1>
           <p style={{ fontSize: '1.1rem', opacity: 0.95 }}>
             Your trusted partner for wholesale products and Amazon FBA success
@@ -156,8 +156,8 @@ const AboutUs = () => {
                   <span style={{ fontSize: '1.5rem' }}>📧</span>
                   <div>
                     <div style={{ fontWeight: '600', color: '#111' }}>Email</div>
-                    <a href="mailto:info@genericwholesale.com" style={{ color: '#667eea', textDecoration: 'none' }}>
-                      info@genericwholesale.com
+                    <a href="mailto:info@poundlandwholesale.com" style={{ color: '#667eea', textDecoration: 'none' }}>
+                      info@poundlandwholesale.com
                     </a>
                   </div>
                 </div>
@@ -168,8 +168,8 @@ const AboutUs = () => {
                   <span style={{ fontSize: '1.5rem' }}>📱</span>
                   <div>
                     <div style={{ fontWeight: '600', color: '#111' }}>Phone</div>
-                    <a href="tel:+923016611011" style={{ color: '#667eea', textDecoration: 'none' }}>
-                      +92 301 6611011
+                    <a href="tel:+447123456789" style={{ color: '#667eea', textDecoration: 'none' }}>
+                      +44 7123 456789
                     </a>
                   </div>
                 </div>
@@ -180,8 +180,8 @@ const AboutUs = () => {
                   <span style={{ fontSize: '1.5rem' }}>💬</span>
                   <div>
                     <div style={{ fontWeight: '600', color: '#111' }}>WhatsApp</div>
-                    <a href="https://wa.me/923016611011" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', textDecoration: 'none' }}>
-                      +92 301 6611011
+                    <a href="https://wa.me/447123456789" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', textDecoration: 'none' }}>
+                      +44 7123 456789
                     </a>
                   </div>
                 </div>
@@ -192,7 +192,7 @@ const AboutUs = () => {
                   <span style={{ fontSize: '1.5rem' }}>📍</span>
                   <div>
                     <div style={{ fontWeight: '600', color: '#111' }}>Location</div>
-                    <div style={{ color: '#666' }}>Pakistan</div>
+                    <div style={{ color: '#666' }}>United Kingdom</div>
                   </div>
                 </div>
               </div>

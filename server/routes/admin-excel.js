@@ -1666,7 +1666,7 @@ router.post('/uploads/:uploadId/bulk-convert-products', authenticateAdmin, async
           price: updatedPrice,
           category: productCategory,
           description: excelProduct.description || `High-quality ${excelProduct.name} available for wholesale. Perfect for resellers and businesses.`,
-          brand: excelProduct.brand || 'Generic Wholesale',
+          brand: excelProduct.brand || 'PoundlandWholesale',
           rating: excelProduct.rating || 4.2,
           reviews: excelProduct.reviews || Math.floor(Math.random() * 500) + 50, // Random reviews if not provided
           dealUnits: excelProduct.dealUnits || 1,
