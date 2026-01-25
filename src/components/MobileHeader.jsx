@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSeller } from '../context/SellerContext';
+import { useAdmin } from '../context/AdminContext';
+import { useBuyer } from '../context/BuyerContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
 
@@ -8,22 +10,37 @@ import { useBasket } from '../context/BasketContext';
 const MobileHeader = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isLoggedIn: isSellerLoggedIn, logout: sellerLogout } = useSeller();
+  const { isLoggedIn: isSellerLoggedIn, seller, logout: sellerLogout } = useSeller();
+  const { isLoggedIn: isAdminLoggedIn, admin, logout: adminLogout } = useAdmin();
+  const { isLoggedIn: isBuyerLoggedIn, buyer, logout: buyerLogout } = useBuyer();
   const { currency, setCurrency } = useCurrency();
   const { getBasketCount } = useBasket();
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showLoginMenu, setShowLoginMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const isBuyerLoggedIn = !!localStorage.getItem('buyerToken');
-  const isAdminLoggedIn = !!localStorage.getItem('adminToken');
   const loginMenuRef = useRef(null);
   const userMenuRef = useRef(null);
 
   const getUserInfo = () => {
-    if (isAdminLoggedIn) return { type: 'Admin', name: 'Admin' };
-    if (isSellerLoggedIn) return { type: 'Seller', name: 'Seller' };
-    if (isBuyerLoggedIn) return { type: 'Buyer', name: 'Buyer' };
+    if (isAdminLoggedIn && admin) {
+      return { 
+        type: 'Admin', 
+        name: admin.username || admin.name || 'Admin' 
+      };
+    }
+    if (isSellerLoggedIn && seller) {
+      return { 
+        type: 'Seller', 
+        name: seller.username || seller.name || 'Seller' 
+      };
+    }
+    if (isBuyerLoggedIn && buyer) {
+      return { 
+        type: 'Buyer', 
+        name: buyer.username || buyer.name || 'Buyer' 
+      };
+    }
     return null;
   };
 
@@ -45,16 +62,13 @@ const MobileHeader = () => {
 
   const handleLogout = () => {
     if (isAdminLoggedIn) {
-      localStorage.removeItem('adminToken');
+      adminLogout();
     } else if (isSellerLoggedIn) {
-      localStorage.removeItem('sellerToken');
       sellerLogout();
     } else if (isBuyerLoggedIn) {
-      localStorage.removeItem('buyerToken');
+      buyerLogout();
     }
     setShowUserMenu(false);
-    navigate('/');
-    window.location.reload();
   };
 
   const [categories, setCategories] = useState([
@@ -896,7 +910,7 @@ const MobileHeader = () => {
                       padding: '2px 6px'
                     }}
                   >
-                    <i className="fas fa-user-circle"></i> {userInfo.type}
+                    <i className="fas fa-user-circle"></i> {userInfo.name}
                   </button>
                   {showUserMenu && (
                     <div style={{
@@ -1134,7 +1148,8 @@ const MobileHeader = () => {
               <>
                 <div style={{ padding: '10px 12px', background: '#f3f4f6', borderRadius: '4px', marginBottom: '8px' }}>
                   <div style={{ fontSize: '12px', color: '#666' }}>Logged in as</div>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#111' }}>{userInfo.type}</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#111' }}>{userInfo.name}</div>
+                  <div style={{ fontSize: '10px', color: '#888' }}>{userInfo.type}</div>
                 </div>
                 <Link 
                   to={isAdminLoggedIn ? '/admin/dashboard' : isBuyerLoggedIn ? '/buyer/dashboard' : '/seller/dashboard'} 

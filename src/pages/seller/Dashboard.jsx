@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
+import '../../styles/dashboard-responsive.css'
+import '../../styles/mobile-dashboard.css'
 
 const SellerDashboard = () => {
   const navigate = useNavigate()
@@ -404,21 +406,25 @@ const SellerDashboard = () => {
   }
 
   return (
-    <div className="container-fluid">
+    <div className="container-fluid dashboard-container">
 
       {/* Header */}
       <div className="row mb-4">
-        <div className="col-md-8">
-          <h2>Seller Dashboard</h2>
-          <p className="text-muted mb-0">Manage your products and track your business</p>
-        </div>
-        <div className="col-md-4 text-end">
-          <button className="btn btn-success btn-sm me-2" onClick={handleRefreshProfile}>
-            <i className="fas fa-sync"></i> Refresh Data
-          </button>
-          <button className="btn btn-primary btn-sm me-2" onClick={() => navigate('/seller/profile')}>
-            <i className="fas fa-user"></i> Profile
-          </button>
+        <div className="col-12">
+          <div className="dashboard-header d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+              <h2>Seller Dashboard</h2>
+              <p className="text-muted mb-0">Manage your products and track your business</p>
+            </div>
+            <div className="d-flex gap-2 flex-wrap">
+              <button className="btn btn-success btn-sm" onClick={handleRefreshProfile}>
+                <i className="fas fa-sync"></i> <span className="mobile-hide">Refresh Data</span>
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate('/seller/profile')}>
+                <i className="fas fa-user"></i> <span className="mobile-hide">Profile</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -475,9 +481,9 @@ const SellerDashboard = () => {
       )}
 
       {/* Stats Cards */}
-      <div className="row mb-4">
-        <div className="col-lg-3 col-md-6 mb-3">
-          <div className="card bg-primary text-white">
+      <div className="stats-grid row mb-4">
+        <div className="col-lg-3 col-md-6 col-sm-6 mb-3">
+          <div className="card bg-primary text-white stats-card">
             <div className="card-body">
               <div className="d-flex justify-content-between">
                 <div>
@@ -492,8 +498,8 @@ const SellerDashboard = () => {
           </div>
         </div>
 
-        <div className="col-lg-3 col-md-6 mb-3">
-          <div className="card bg-success text-white">
+        <div className="col-lg-3 col-md-6 col-sm-6 mb-3">
+          <div className="card bg-success text-white stats-card">
             <div className="card-body">
               <div className="d-flex justify-content-between">
                 <div>
@@ -508,8 +514,8 @@ const SellerDashboard = () => {
           </div>
         </div>
 
-        <div className="col-lg-3 col-md-6 mb-3">
-          <div className="card bg-info text-white">
+        <div className="col-lg-3 col-md-6 col-sm-6 mb-3">
+          <div className="card bg-info text-white stats-card">
             <div className="card-body">
               <div className="d-flex justify-content-between">
                 <div>
@@ -524,8 +530,8 @@ const SellerDashboard = () => {
           </div>
         </div>
 
-        <div className="col-lg-3 col-md-6 mb-3">
-          <div className="card bg-warning text-white">
+        <div className="col-lg-3 col-md-6 col-sm-6 mb-3">
+          <div className="card bg-warning text-white stats-card">
             <div className="card-body">
               <div className="d-flex justify-content-between">
                 <div>
@@ -550,7 +556,7 @@ const SellerDashboard = () => {
               <h5><i className="fas fa-user"></i> Seller Information</h5>
             </div>
             <div className="card-body">
-              <table className="table table-borderless">
+              <table className="table table-borderless seller-info-table">
                 <tbody>
                   <tr>
                     <td><strong>Username:</strong></td>
@@ -558,10 +564,10 @@ const SellerDashboard = () => {
                   </tr>
                   <tr>
                     <td><strong>Email:</strong></td>
-                    <td>{seller?.email || 'Loading...'}</td>
+                    <td className="text-break">{seller?.email || 'Loading...'}</td>
                   </tr>
                   <tr>
-                    <td><strong>WhatsApp Number:</strong></td>
+                    <td><strong>WhatsApp:</strong></td>
                     <td>
                       {seller?.whatsappNo ? (
                         <a 
@@ -575,7 +581,8 @@ const SellerDashboard = () => {
                           }}
                         >
                           <i className="fab fa-whatsapp me-1"></i>
-                          {seller.whatsappNo}
+                          <span className="mobile-hide">{seller.whatsappNo}</span>
+                          <span className="mobile-show">WhatsApp</span>
                         </a>
                       ) : (
                         'Not provided'
@@ -752,29 +759,37 @@ const SellerDashboard = () => {
       {/* Product Listing Section */}
       <div className="row mb-4">
         <div className="col-12">
-          <div className="card">
+          <div className="card amazon-choice-card">
             <div className="card-header">
-              <h5><i className="fas fa-shopping-cart"></i> List Products to Amazon's Choice</h5>
+              <h5><i className="fas fa-shopping-cart me-2"></i> List Products to Amazon's Choice</h5>
               <small className="text-muted">Browse and list products from our catalog</small>
             </div>
             <div className="card-body">
-              <div className="row g-2 justify-content-center">
-                <div className="col-md-6">
-                  <button 
-                    className="btn btn-warning w-100 py-3"
-                    disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
-                    onClick={() => navigate('/seller/admin-products')}
-                    style={{ fontSize: '1.1rem' }}
-                  >
-                    <i className="fas fa-trophy me-2"></i> Amazon's Choice Products
-                    <small className="d-block mt-1">List admin products to your inventory</small>
-                  </button>
+              <div className="row g-3 justify-content-center">
+                <div className="col-lg-8 col-md-10 col-sm-12">
+                  <div className="d-flex justify-content-center">
+                    <button 
+                      className="btn btn-warning amazon-choice-btn"
+                      disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
+                      onClick={() => navigate('/seller/admin-products')}
+                    >
+                      <div className="d-flex flex-column align-items-center">
+                        <div className="d-flex align-items-center mb-1">
+                          <i className="fas fa-trophy me-2"></i>
+                          <span>Amazon's Choice</span>
+                        </div>
+                        <small className="text-center">
+                          List admin products
+                        </small>
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </div>
               
               {!(seller?.canListProducts || seller?.verificationStatus === 'approved') && (
-                <div className="alert alert-warning mt-3 mb-0">
-                  <i className="fas fa-exclamation-triangle"></i> 
+                <div className="alert alert-warning mt-4 mb-0">
+                  <i className="fas fa-exclamation-triangle me-2"></i> 
                   <strong>Verification Required:</strong> Complete your verification to list products.
                 </div>
               )}
@@ -791,38 +806,38 @@ const SellerDashboard = () => {
               <h5><i className="fas fa-bolt"></i> Quick Actions</h5>
             </div>
             <div className="card-body">
-              <div className="row">
-                <div className="col-md-3 mb-2">
+              <div className="quick-actions-grid row">
+                <div className="col-md-3 col-sm-6 mb-2">
                   <button 
                     className="btn btn-primary w-100"
                     onClick={() => navigate('/seller/add-products')}
                   >
-                    <i className="fas fa-plus"></i> Add Custom Products
+                    <i className="fas fa-plus"></i> <span className="mobile-hide">Add Custom Products</span><span className="mobile-show">Add Products</span>
                   </button>
                 </div>
-                <div className="col-md-3 mb-2">
+                <div className="col-md-3 col-sm-6 mb-2">
                   <button 
                     className="btn btn-info w-100"
                     onClick={() => navigate('/seller/listed-products')}
                   >
-                    <i className="fas fa-list"></i> My Listed Products
+                    <i className="fas fa-list"></i> <span className="mobile-hide">My Listed Products</span><span className="mobile-show">My Products</span>
                   </button>
                 </div>
-                <div className="col-md-3 mb-2">
+                <div className="col-md-3 col-sm-6 mb-2">
                   <button 
                     className="btn btn-success w-100"
                     disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
                     onClick={() => navigate('/seller/admin-products')}
                   >
-                    <i className="fas fa-shopping-cart"></i> Admin Products
+                    <i className="fas fa-shopping-cart"></i> <span className="mobile-hide">Admin Products</span><span className="mobile-show">Admin</span>
                   </button>
                 </div>
-                <div className="col-md-3 mb-2">
+                <div className="col-md-3 col-sm-6 mb-2">
                   <button 
                     className="btn btn-warning w-100"
                     onClick={() => navigate('/seller/profile/edit')}
                   >
-                    <i className="fas fa-edit"></i> Edit Profile
+                    <i className="fas fa-edit"></i> <span className="mobile-hide">Edit Profile</span><span className="mobile-show">Profile</span>
                   </button>
                 </div>
               </div>

@@ -465,7 +465,6 @@ router.post('/verification/submit', authenticateSeller, async (req, res) => {
 // Check dashboard access
 router.get('/dashboard-access', authenticateSeller, async (req, res) => {
   try {
-    console.log('Checking dashboard access for seller ID:', req.seller._id); // Debug log
     const seller = await Seller.findById(req.seller._id);
     
     if (!seller) {
@@ -704,8 +703,6 @@ router.post('/forgot-password', async (req, res) => {
     await seller.save();
 
     // Send OTP via WhatsApp
-    console.log(`📱 Sending OTP to ${seller.whatsappNo}`);
-
     res.json({
       success: true,
       message: 'OTP sent to your WhatsApp number',
@@ -831,29 +828,8 @@ router.post('/submit-product-listing', authenticateSeller, async (req, res) => {
 // Debug route to test seller authentication and data
 router.get('/debug/seller-info', authenticateSeller, async (req, res) => {
   try {
-    console.log('🔍 Debug - Seller authentication test:', {
-      sellerId: req.seller._id,
-      sellerUsername: req.seller.username,
-      sellerEmail: req.seller.email,
-      sellerVerificationStatus: req.seller.verificationStatus,
-      sellerWhatsappNo: req.seller.whatsappNo,
-      sellerCity: req.seller.city,
-      sellerCountry: req.seller.country
-    });
-
     const seller = await Seller.findById(req.seller._id);
     
-    console.log('🔍 Debug - Seller from database:', {
-      found: !!seller,
-      sellerId: seller?._id,
-      username: seller?.username,
-      email: seller?.email,
-      verificationStatus: seller?.verificationStatus,
-      whatsappNo: seller?.whatsappNo,
-      city: seller?.city,
-      country: seller?.country
-    });
-
     res.json({
       success: true,
       message: 'Seller authentication working',

@@ -2,6 +2,8 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import path from 'path';
+import fs from 'fs';
 import Admin from '../models/Admin.js';
 import Buyer from '../models/Buyer.js';
 import Seller from '../models/Seller.js';
@@ -833,6 +835,206 @@ router.post('/refresh', async (req, res) => {
       success: false,
       message: 'Server error' 
     });
+  }
+});
+
+// Admin: Get all payment verifications
+router.get('/admin/payment-verifications', async (req, res) => {
+  try {
+    // Verify admin token
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const admin = await Admin.findById(decoded.id);
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid admin token' });
+    }
+
+    const PaymentVerification = (await import('../models/PaymentVerification.js')).default;
+    
+    const { status = 'all', page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    let query = {};
+    if (status !== 'all') {
+      query.status = status;
+    }
+
+    const verifications = await PaymentVerification.find(query)
+      .populate('buyerId', 'firstName lastName email')
+      .populate('reviewedBy', 'username')
+      .sort({ submittedAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await PaymentVerification.countDocuments(query);
+
+    res.json({
+      success: true,
+      verifications,
+      pagination: {
+        current: parseInt(page),
+        total: Math.ceil(total / limit),
+        count: total
+      }
+    });
+
+  } catch (error) {
+    console.error('Get payment verifications error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin: Approve/Reject payment verification
+router.put('/admin/payment-verifications/:id', async (req, res) => {
+  try {
+    // Verify admin token
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const admin = await Admin.findById(decoded.id);
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid admin token' });
+    }
+
+    const { status, adminNotes } = req.body;
+    
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Status must be approved or rejected' });
+    }
+
+    const PaymentVerification = (await import('../models/PaymentVerification.js')).default;
+    
+    const verification = await PaymentVerification.findById(req.params.id);
+    if (!verification) {
+      return res.status(404).json({ message: 'Payment verification not found' });
+    }
+
+    if (verification.status !== 'pending') {
+      return res.status(400).json({ message: 'Only pending verifications can be updated' });
+    }
+
+    verification.status = status;
+    verification.adminNotes = adminNotes || '';
+    verification.reviewedAt = new Date();
+    verification.reviewedBy = admin._id;
+
+    await verification.save();
+
+    // If approved, update buyer's supplier unlock status
+    if (status === 'approved') {
+      const Buyer = (await import('../models/Buyer.js')).default;
+      await Buyer.findByIdAndUpdate(verification.buyerId, {
+        $set: { supplierUnlocked: true }
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Payment verification ${status} successfully`,
+      verification
+    });
+
+  } catch (error) {
+    console.error('Update payment verification error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin: Generate temporary file access token
+router.post('/admin/payment-verification-file-token', async (req, res) => {
+  try {
+    // Verify admin token
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const admin = await Admin.findById(decoded.id);
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid admin token' });
+    }
+
+    const { filename } = req.body;
+    
+    // Generate temporary token valid for 5 minutes
+    const tempToken = jwt.sign(
+      { filename, adminId: admin._id, type: 'file_access' },
+      process.env.JWT_SECRET,
+      { expiresIn: '5m' }
+    );
+
+    res.json({ success: true, tempToken });
+  } catch (error) {
+    console.error('Error generating file token:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin: Serve payment verification files with temporary token
+router.get('/admin/payment-verification-file/:filename/:tempToken', async (req, res) => {
+  try {
+    const { filename, tempToken } = req.params;
+    
+    // Verify temporary token
+    const decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
+    if (decoded.type !== 'file_access' || decoded.filename !== filename) {
+      return res.status(401).json({ message: 'Invalid file access token' });
+    }
+
+    const filePath = path.join(process.cwd(), 'uploads', 'payment-verifications', filename);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    // Serve the file
+    res.sendFile(filePath);
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'File access token expired' });
+    }
+    console.error('Error serving payment verification file:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin: Serve payment verification files
+router.get('/admin/payment-verification-file/:filename', async (req, res) => {
+  try {
+    // Verify admin token
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const admin = await Admin.findById(decoded.id);
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid admin token' });
+    }
+
+    const { filename } = req.params;
+    const filePath = path.join(process.cwd(), 'uploads', 'payment-verifications', filename);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    // Serve the file
+    res.sendFile(filePath);
+  } catch (error) {
+    console.error('Error serving payment verification file:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

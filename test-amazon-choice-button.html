@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon's Choice Button Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        /* Amazon's Choice Card Container */
+        .amazon-choice-card {
+          border: 2px solid rgba(255, 153, 0, 0.2) !important;
+          border-radius: 15px !important;
+          background: linear-gradient(135deg, #fff 0%, #fefefe 100%) !important;
+          box-shadow: 0 4px 20px rgba(255, 153, 0, 0.1) !important;
+          transition: all 0.3s ease !important;
+        }
+
+        .amazon-choice-card:hover {
+          border-color: rgba(255, 153, 0, 0.4) !important;
+          box-shadow: 0 6px 25px rgba(255, 153, 0, 0.15) !important;
+          transform: translateY(-2px) !important;
+        }
+
+        .amazon-choice-card .card-header {
+          background: linear-gradient(135deg, #ff9900 0%, #ffc107 100%) !important;
+          color: #fff !important;
+          border-bottom: none !important;
+          border-radius: 13px 13px 0 0 !important;
+          padding: 15px 20px !important;
+        }
+
+        .amazon-choice-card .card-header h5 {
+          margin: 0 !important;
+          font-weight: 700 !important;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+        }
+
+        .amazon-choice-card .card-header small {
+          color: rgba(255, 255, 255, 0.9) !important;
+          font-weight: 500 !important;
+        }
+
+        /* Amazon's Choice Button Specific Styles */
+        .amazon-choice-btn {
+          font-size: 1rem !important;
+          font-weight: 600 !important;
+          border: 2px solid #ff9900 !important;
+          border-radius: 12px !important;
+          padding: 16px 24px !important;
+          max-width: 320px !important;
+          margin: 0 auto !important;
+          background: linear-gradient(135deg, #ffc107 0%, #ff9900 100%) !important;
+          color: #fff !important;
+          box-shadow: 0 4px 15px rgba(255, 153, 0, 0.3) !important;
+          transition: all 0.3s ease !important;
+          position: relative !important;
+          overflow: hidden !important;
+        }
+
+        .amazon-choice-btn:hover {
+          transform: translateY(-2px) !important;
+          box-shadow: 0 6px 20px rgba(255, 153, 0, 0.4) !important;
+          border-color: #e68900 !important;
+        }
+
+        .amazon-choice-btn i {
+          font-size: 1.1rem !important;
+          color: #fff !important;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+        }
+
+        .amazon-choice-btn small {
+          font-size: 0.8rem !important;
+          line-height: 1.3 !important;
+          color: rgba(255, 255, 255, 0.9) !important;
+          font-weight: 500 !important;
+          margin-top: 4px !important;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+          .amazon-choice-card {
+            border-radius: 12px !important;
+            margin: 0 5px !important;
+          }
+          
+          .amazon-choice-btn {
+            max-width: 100% !important;
+            font-size: 0.9rem !important;
+            padding: 12px 16px !important;
+            border-radius: 10px !important;
+          }
+          
+          .amazon-choice-btn i {
+            font-size: 0.95rem !important;
+          }
+          
+          .amazon-choice-btn small {
+            font-size: 0.7rem !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .amazon-choice-btn {
+            font-size: 0.85rem !important;
+            padding: 10px 14px !important;
+            border-radius: 8px !important;
+          }
+          
+          .amazon-choice-btn i {
+            font-size: 0.9rem !important;
+          }
+          
+          .amazon-choice-btn small {
+            font-size: 0.65rem !important;
+          }
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <h2 class="text-center mb-4">📱 Amazon's Choice Button Test</h2>
+        <p class="text-center text-muted mb-4">Resize your browser window to test responsive behavior</p>
+        
+        <div class="row justify-content-center">
+            <div class="col-lg-8 col-md-10">
+                <div class="card amazon-choice-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-shopping-cart me-2"></i> List Products to Amazon's Choice</h5>
+                        <small>Browse and list products from our catalog</small>
+                    </div>
+                    <div class="card-body" style="padding: 25px 20px;">
+                        <div class="row g-3 justify-content-center">
+                            <div class="col-lg-8 col-md-10 col-sm-12">
+                                <div class="d-flex justify-content-center">
+                                    <button class="btn btn-warning amazon-choice-btn">
+                                        <div class="d-flex flex-column align-items-center">
+                                            <div class="d-flex align-items-center mb-1">
+                                                <i class="fas fa-trophy me-2"></i>
+                                                <span>Amazon's Choice</span>
+                                            </div>
+                                            <small class="text-center">
+                                                List admin products
+                                            </small>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info mt-4 mb-0">
+                            <i class="fas fa-info-circle me-2"></i> 
+                            <strong>Test Button:</strong> This button demonstrates the responsive design across all screen sizes.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 p-3 bg-white rounded shadow-sm">
+            <h6>📱 Responsive Breakpoints:</h6>
+            <ul class="mb-0">
+                <li><strong>Desktop (>992px):</strong> Full size with gradient background and shadows</li>
+                <li><strong>Tablet (768-992px):</strong> Medium size with adjusted padding</li>
+                <li><strong>Mobile (480-768px):</strong> Full width with smaller text</li>
+                <li><strong>Small Mobile (360-480px):</strong> Compact size with minimal padding</li>
+                <li><strong>Extra Small (≤360px):</strong> Ultra-compact for very small screens</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

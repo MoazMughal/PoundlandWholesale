@@ -15,6 +15,7 @@ const ProductImage = ({
   const [currentSrc, setCurrentSrc] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [showPlaceholder, setShowPlaceholder] = useState(true); // Show placeholder initially
   const imgRef = useRef(null);
   const loadAttemptRef = useRef(0);
   const timeoutRef = useRef(null);
@@ -145,12 +146,14 @@ const ProductImage = ({
     tryLoadImage(fallbackUrls)
       .then((loadedUrl) => {
         setCurrentSrc(loadedUrl);
+        setShowPlaceholder(false); // Hide placeholder when image loads
         setIsLoading(false);
         setHasError(false);
         if (onLoad) onLoad({ target: { src: loadedUrl } });
       })
       .catch((error) => {
         setHasError(true);
+        setShowPlaceholder(false); // Hide placeholder on error
         setIsLoading(false);
         if (onError) onError(error);
       });

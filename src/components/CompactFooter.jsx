@@ -2,12 +2,21 @@ import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
 const CompactFooter = () => {
-  // Add responsive grid handling
-  const [isMobile, setIsMobile] = useState(false);
+  // Add responsive grid handling with more breakpoints
+  const [screenSize, setScreenSize] = useState('desktop');
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      const width = window.innerWidth;
+      if (width < 576) {
+        setScreenSize('mobile');
+      } else if (width < 768) {
+        setScreenSize('tablet');
+      } else if (width < 992) {
+        setScreenSize('desktop-small');
+      } else {
+        setScreenSize('desktop');
+      }
     };
     
     handleResize(); // Check initial size
@@ -15,30 +24,56 @@ const CompactFooter = () => {
     
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const isMobile = screenSize === 'mobile' || screenSize === 'tablet';
+  const isDesktop = screenSize === 'desktop' || screenSize === 'desktop-small';
+
+  // Dynamic padding based on screen size
+  const getFooterPadding = () => {
+    switch (screenSize) {
+      case 'mobile':
+        return '20px 70px 10px'; // More right padding for mobile
+      case 'tablet':
+        return '20px 50px 10px'; // Medium padding for tablet
+      case 'desktop-small':
+        return '20px 30px 10px'; // Less padding for small desktop
+      default:
+        return '20px 20px 10px'; // Default for large desktop
+    }
+  };
+
+  // Dynamic container margin
+  const getContainerStyle = () => {
+    const baseStyle = {
+      maxWidth: '1200px',
+      margin: '0 auto',
+    };
+
+    if (isMobile) {
+      return {
+        ...baseStyle,
+        marginLeft: screenSize === 'mobile' ? '50px' : '30px', // More margin for mobile
+      };
+    } else {
+      return {
+        ...baseStyle,
+        paddingLeft: screenSize === 'desktop' ? '60px' : '40px', // More left padding for desktop
+      };
+    }
+  };
   return (
     <footer style={{
       background: 'linear-gradient(135deg, #232f3e 0%, #1a252f 100%)',
       color: '#fff',
-      padding: '20px 20px 10px',
+      padding: getFooterPadding(),
       marginTop: 'auto',
       flexShrink: 0,
       borderTop: '3px solid #ff9900',
       boxShadow: '0 -2px 10px rgba(255, 153, 0, 0.2)',
       width: '100%',
       margin: 0,
-      // Add mobile-specific padding
-      ...(isMobile && {
-        padding: '20px 60px 10px', // Increased horizontal padding for mobile
-      })
     }}>
-      <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        // Add mobile-specific margin
-        ...(isMobile && {
-          marginLeft: '50px', // Add left margin for mobile to move content away from edge
-        })
-      }}>
+      <div style={getContainerStyle()}>
         {/* Main Footer Content */}
         <div style={{
           display: 'grid',
@@ -46,7 +81,9 @@ const CompactFooter = () => {
           gap: isMobile ? '15px' : '20px',
           marginBottom: '15px',
           paddingBottom: '15px',
-          borderBottom: '1px solid rgba(255,255,255,0.15)'
+          borderBottom: '1px solid rgba(255,255,255,0.15)',
+          // Add extra left padding for desktop to move content more to the right
+          paddingLeft: isDesktop ? '20px' : '0',
         }}>
           {/* About Section */}
           <div>
@@ -322,7 +359,9 @@ const CompactFooter = () => {
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: '20px',
-          paddingTop: '10px'
+          paddingTop: '10px',
+          // Add extra left padding for desktop to move content more to the right
+          paddingLeft: isDesktop ? '20px' : '0',
         }}>
           {/* Social Media Icons */}
           <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>

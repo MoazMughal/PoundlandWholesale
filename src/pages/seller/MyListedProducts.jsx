@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
 import { getImageUrl } from '../../utils/imageImports'
 
@@ -430,21 +430,38 @@ const MyListedProducts = () => {
             </button>
           </div>
           
-          <Link 
-            to="/seller/admin-products"
+          <button 
+            onClick={(e) => {
+              e.preventDefault()
+              if (e.ctrlKey || e.metaKey || e.button === 1) {
+                // Open in new tab while preserving auth
+                window.open('/seller/admin-products', '_blank')
+              } else {
+                // Navigate in current tab
+                navigate('/seller/admin-products')
+              }
+            }}
+            onMouseDown={(e) => {
+              // Handle middle mouse button click
+              if (e.button === 1) {
+                e.preventDefault()
+                window.open('/seller/admin-products', '_blank')
+              }
+            }}
             style={{
               padding: '10px 20px',
               background: '#28a745',
               color: 'white',
               borderRadius: '6px',
-              textDecoration: 'none',
+              border: 'none',
               fontSize: '14px',
-              fontWeight: '600'
+              fontWeight: '600',
+              cursor: 'pointer'
             }}
           >
             <i className="fas fa-plus" style={{ marginRight: '8px' }}></i>
             List More Products
-          </Link>
+          </button>
         </div>
 
         {totalProducts > 0 && (
@@ -459,8 +476,24 @@ const MyListedProducts = () => {
             <i className="fas fa-box-open"></i>
             <h5>No listed products found</h5>
             <p>You haven't listed any products yet.</p>
-            <Link 
-              to="/seller/admin-products"
+            <button 
+              onClick={(e) => {
+                e.preventDefault()
+                if (e.ctrlKey || e.metaKey || e.button === 1) {
+                  // Open in new tab while preserving auth
+                  window.open('/seller/admin-products', '_blank')
+                } else {
+                  // Navigate in current tab
+                  navigate('/seller/admin-products')
+                }
+              }}
+              onMouseDown={(e) => {
+                // Handle middle mouse button click
+                if (e.button === 1) {
+                  e.preventDefault()
+                  window.open('/seller/admin-products', '_blank')
+                }
+              }}
               style={{
                 display: 'inline-block',
                 marginTop: '20px',
@@ -468,13 +501,14 @@ const MyListedProducts = () => {
                 background: '#28a745',
                 color: 'white',
                 borderRadius: '6px',
-                textDecoration: 'none',
-                fontWeight: '600'
+                border: 'none',
+                fontWeight: '600',
+                cursor: 'pointer'
               }}
             >
               <i className="fas fa-plus" style={{ marginRight: '8px' }}></i>
               Start Listing Products
-            </Link>
+            </button>
           </div>
         ) : (
           <div className="products-grid">
@@ -547,13 +581,30 @@ const MyListedProducts = () => {
                   </div>
                   
                   <div className="action-buttons">
-                    <Link 
-                      to={`/product/${product._id}`}
+                    <button 
                       className="view-btn"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        if (e.ctrlKey || e.metaKey || e.button === 1) {
+                          // Open in new tab while preserving auth
+                          window.open(`/product/${product._id}`, '_blank')
+                        } else {
+                          // Navigate in current tab
+                          navigate(`/product/${product._id}`)
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        // Handle middle mouse button click
+                        if (e.button === 1) {
+                          e.preventDefault()
+                          window.open(`/product/${product._id}`, '_blank')
+                        }
+                      }}
+                      style={{ cursor: 'pointer' }}
                     >
                       <i className="fas fa-eye" style={{ marginRight: '6px' }}></i>
                       View Product
-                    </Link>
+                    </button>
                     
                     <button 
                       className="unlist-btn"

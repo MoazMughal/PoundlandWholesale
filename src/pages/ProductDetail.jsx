@@ -5,6 +5,7 @@ import { products } from '../data/allProducts'
 import { getImageUrl } from '../utils/imageImports'
 import ScrollToTop from '../components/ScrollToTop'
 import PaymentModal from '../components/PaymentModal'
+import PaymentUploadModal from '../components/PaymentUploadModal'
 import ProductVariations from '../components/ProductVariations'
 import apiConfig from '../config/api.config'
 import { useCurrency } from '../context/CurrencyContext'
@@ -103,6 +104,7 @@ const ProductDetail = () => {
   const [isAdmin, setIsAdmin] = useState(false)
   const [sellerInfo, setSellerInfo] = useState(null)
   const [showLoginModal, setShowLoginModal] = useState(false)
+  const [showPaymentUploadModal, setShowPaymentUploadModal] = useState(false)
   const [isSellerLoggedIn, setIsSellerLoggedIn] = useState(false)
   const [currentSeller, setCurrentSeller] = useState(null)
   const [savingUnits, setSavingUnits] = useState(false) // Loading state for saving units
@@ -2200,19 +2202,23 @@ const ProductDetail = () => {
       const token = localStorage.getItem('buyerToken')
       setIsBuyerLoggedIn(!!token)
 
-      if (token && product?.supplierId) {
+      if (token) {
         try {
-          const response = await fetch(apiConfig.getApiUrl(`buyer/check-unlock/${product.supplierId}`), {
+          // Check buyer's payment verification status
+          const response = await fetch('/api/buyer/payment-verification-status', {
             headers: {
               'Authorization': `Bearer ${token}`
             }
-          })
+          });
+          
           if (response.ok) {
-            const data = await response.json()
-            setIsSupplierUnlocked(data.isUnlocked)
+            const data = await response.json();
+            if (data.hasVerification && data.status === 'approved') {
+              setIsSupplierUnlocked(true);
+            }
           }
         } catch (error) {
-          console.error('Error checking unlock status:', error)
+          console.error('Error checking payment verification status:', error);
         }
       }
     }
@@ -2668,17 +2674,23 @@ const ProductDetail = () => {
                 returnCategory: returnCategory,
                 locationState: location.state
               });
-              return location.state?.returnTo === '/admin/products';
+              return location.state?.returnTo === '/admin/products' || location.state?.returnTo === '/admin/seller-listings';
             })() ? (
               <>
                 <li className="breadcrumb-item">
                   <span 
                     onClick={() => {
-                      console.log('🔙 ProductDetail back clicked, returnCategory:', returnCategory);
-                      const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
-                      navigate(backUrl, {
-                        state: { category: returnCategory }
-                      });
+                      const returnTo = location.state?.returnTo;
+                      console.log('🔙 ProductDetail back clicked, returnTo:', returnTo, 'returnCategory:', returnCategory);
+                      
+                      if (returnTo === '/admin/seller-listings') {
+                        navigate('/admin/seller-listings');
+                      } else {
+                        const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
+                        navigate(backUrl, {
+                          state: { category: returnCategory }
+                        });
+                      }
                     }}
                     style={{
                       cursor: 'pointer',
@@ -2690,7 +2702,8 @@ const ProductDetail = () => {
                     onMouseEnter={(e) => e.target.style.color = '#ff9900'}
                     onMouseLeave={(e) => e.target.style.color = '#0066c0'}
                   >
-                    <i className="fas fa-arrow-left me-2"></i>Back to Products
+                    <i className="fas fa-arrow-left me-2"></i>
+                    {location.state?.returnTo === '/admin/seller-listings' ? 'Back to Seller Listings' : 'Back to Products'}
                   </span>
                 </li>
                 <li className="breadcrumb-item active" style={{fontWeight: '600', color: '#232f3e'}}>{product.name}</li>
@@ -3734,18 +3747,26 @@ const ProductDetail = () => {
 
                     
                     {/* Debug Information - Shows current state */}
-                    {console.log('🔍 Supplier Info Debug:', {
-                      isAdmin,
-                      isAdminLoggedIn,
+                    {console.log('🔍 Seller Debug - Detailed:', {
                       isSellerLoggedIn,
-                      currentSeller: currentSeller?._id,
+                      currentSeller: currentSeller,
+                      currentSellerId: currentSeller?._id,
+                      currentSellerIdString: currentSeller?._id?.toString(),
+                      productSellerInfo: product.sellerInfo,
                       productSeller: product.seller,
-                      productSellerInfo: !!product.sellerInfo,
-                      productSellerData: !!product.sellerData,
-                      hasSellerInfo: !!(product.sellerInfo || product.sellerData),
-                      shouldShowForAdmin: isAdmin && (product.sellerInfo || product.sellerData || product.seller),
-                      shouldShowForSeller: isSellerLoggedIn && currentSeller && product.seller && 
-                        (product.seller === currentSeller._id || product.seller?.toString() === currentSeller._id?.toString())
+                      productSellerString: product.seller?.toString(),
+                      productSellerIdString: product.seller?._id?.toString(),
+                      // Detailed sellerInfo checks
+                      sellerInfoSellerId: product.sellerInfo?.sellerId,
+                      sellerInfoSellerIdString: product.sellerInfo?.sellerId?.toString(),
+                      sellerInfoId: product.sellerInfo?._id,
+                      sellerInfoIdString: product.sellerInfo?._id?.toString(),
+                      // Ownership checks
+                      ownershipViaSellerInfo1: product.sellerInfo?.sellerId?.toString() === currentSeller?._id?.toString(),
+                      ownershipViaSellerInfo2: product.sellerInfo?._id?.toString() === currentSeller?._id?.toString(),
+                      ownershipViaProductSeller1: product.seller === currentSeller?._id,
+                      ownershipViaProductSeller2: product.seller?.toString() === currentSeller?._id?.toString(),
+                      ownershipViaProductSeller3: product.seller?._id?.toString() === currentSeller?._id?.toString()
                     })}
 
                     {/* Supplier Information for Admin and Seller */}
@@ -3858,6 +3879,102 @@ const ProductDetail = () => {
                       </div>
                     )}
 
+                    {/* TEST: Show seller info if ANY ownership condition is met */}
+                    {isSellerLoggedIn && currentSeller && (
+                      (product.sellerInfo && (
+                        product.sellerInfo.sellerId?.toString() === currentSeller._id?.toString() ||
+                        product.sellerInfo._id?.toString() === currentSeller._id?.toString()
+                      )) ||
+                      (product.seller && (
+                        product.seller === currentSeller._id ||
+                        product.seller?.toString() === currentSeller._id?.toString() ||
+                        product.seller?._id?.toString() === currentSeller._id?.toString()
+                      )) ||
+                      (product.sellers && product.sellers.some(s => s.sellerId?.toString() === currentSeller._id?.toString()))
+                    ) && !isAdmin && (
+                      <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9'}}>
+                        <div className="mb-2">
+                          <div className="d-flex align-items-center mb-1">
+                            <i className="fas fa-check-circle text-success me-1" style={{fontSize: '0.75rem'}}></i>
+                            <span className="fw-semibold text-success" style={{fontSize: '0.75rem'}}>
+                              ✅ TEST: Your Product (Ownership Detected)
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Current Seller ID:</strong> {currentSeller._id?.toString()}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Product Seller:</strong> {product.seller?.toString() || 'N/A'}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Product Seller ID:</strong> {product.seller?._id?.toString() || 'N/A'}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>SellerInfo Seller ID:</strong> {product.sellerInfo?.sellerId?.toString() || 'N/A'}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>SellerInfo ID:</strong> {product.sellerInfo?._id?.toString() || 'N/A'}
+                        </div>
+                        <div className="alert alert-success border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
+                          <i className="fas fa-info-circle me-1"></i>
+                          TEST: This should show if you own this product
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Show for Seller viewing their own product (via sellerInfo) */}
+                    {isSellerLoggedIn && currentSeller && (
+                      (product.sellerInfo && (
+                        product.sellerInfo.sellerId?.toString() === currentSeller._id?.toString() ||
+                        product.sellerInfo._id?.toString() === currentSeller._id?.toString()
+                      )) ||
+                      (product.sellerData && product.sellerData._id?.toString() === currentSeller._id?.toString())
+                    ) && !isAdmin && (
+                      <div className="border rounded p-2 mb-2" style={{background: '#f0f9ff'}}>
+                        <div className="mb-2">
+                          <div className="d-flex align-items-center mb-1">
+                            <i className="fas fa-user text-primary me-1" style={{fontSize: '0.75rem'}}></i>
+                            <span className="fw-semibold text-primary" style={{fontSize: '0.75rem'}}>Your Listed Product</span>
+                          </div>
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Seller:</strong> {product.sellerInfo.username || currentSeller.username}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Supplier ID:</strong> {currentSeller.supplierId}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Email:</strong> {product.sellerInfo.email || currentSeller.email}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Location:</strong> 📍 {product.sellerInfo.city || currentSeller.city}, {product.sellerInfo.country || currentSeller.country}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>WhatsApp:</strong> 
+                          <a 
+                            href={`https://wa.me/${(product.sellerInfo.whatsappNo || currentSeller.whatsappNo)?.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary ms-1"
+                          >
+                            <i className="fab fa-whatsapp me-1"></i>
+                            {product.sellerInfo.whatsappNo || currentSeller.whatsappNo}
+                          </a>
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Status:</strong> 
+                          <span className={`badge ms-1 ${(product.sellerInfo.verificationStatus || currentSeller.verificationStatus) === 'approved' ? 'bg-success' : 'bg-warning'}`} style={{fontSize: '0.65rem'}}>
+                            {product.sellerInfo.verificationStatus || currentSeller.verificationStatus}
+                          </span>
+                        </div>
+                        <div className="alert alert-info border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
+                          <i className="fas fa-info-circle me-1"></i>
+                          You have listed this product - you can see your seller information
+                        </div>
+                      </div>
+                    )}
+
                     {/* Show for Seller viewing their own product */}
                     {isSellerLoggedIn && currentSeller && product.sellers && 
                      product.sellers.some(s => s.sellerId.toString() === currentSeller._id.toString()) && 
@@ -3913,9 +4030,15 @@ const ProductDetail = () => {
                       </div>
                     )}
                     
-                    {/* Show for Seller viewing their own product */}
-                    {isSellerLoggedIn && currentSeller && product.seller && 
-                     (product.seller === currentSeller._id || product.seller?.toString() === currentSeller._id?.toString()) && (
+                    {/* Show for Seller viewing their own product (via product.seller) */}
+                    {isSellerLoggedIn && currentSeller && (
+                      (product.seller && (
+                        product.seller === currentSeller._id || 
+                        product.seller?.toString() === currentSeller._id?.toString() ||
+                        product.seller._id?.toString() === currentSeller._id?.toString()
+                      )) ||
+                      (product.sellerData && product.sellerData._id?.toString() === currentSeller._id?.toString())
+                    ) && (
                       <div className="border rounded p-2 mb-2" style={{background: '#f0f9ff'}}>
                         <div className="mb-2">
                           <div className="d-flex align-items-center mb-1">
@@ -3956,45 +4079,6 @@ const ProductDetail = () => {
                         <div className="alert alert-info border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
                           <i className="fas fa-info-circle me-1"></i>
                           This is your product - you can see your full seller information
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Show seller info for any seller when sellerInfo exists */}
-                    {isSellerLoggedIn && product.sellerInfo && 
-                     !(currentSeller && product.seller && (product.seller === currentSeller._id || product.seller?.toString() === currentSeller._id?.toString())) && (
-                      <div className="border rounded p-2 mb-2" style={{background: '#f8f9fa'}}>
-                        <div className="mb-2">
-                          <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-store text-secondary me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-secondary" style={{fontSize: '0.75rem'}}>Seller Information</span>
-                          </div>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Seller:</strong> {product.sellerInfo.username}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Location:</strong> 📍 {product.sellerInfo.city}, {product.sellerInfo.country}
-                        </div>
-                        {product.sellerInfo.whatsappNo && (
-                          <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                            <strong>WhatsApp:</strong> 
-                            <a 
-                              href={`https://wa.me/${product.sellerInfo.whatsappNo?.replace(/[^0-9]/g, '')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary ms-1"
-                            >
-                              <i className="fab fa-whatsapp me-1"></i>
-                              {product.sellerInfo.whatsappNo}
-                            </a>
-                          </div>
-                        )}
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Status:</strong> 
-                          <span className={`badge ms-1 ${product.sellerInfo.verificationStatus === 'approved' ? 'bg-success' : 'bg-warning'}`} style={{fontSize: '0.65rem'}}>
-                            {product.sellerInfo.verificationStatus}
-                          </span>
                         </div>
                       </div>
                     )}
@@ -4041,23 +4125,103 @@ const ProductDetail = () => {
                     
 
                     
-                    {/* Locked state for other users */}
+                    {/* PRIORITY: Show seller info for ANY logged-in seller on ANY product with seller data */}
+                    {isSellerLoggedIn && currentSeller && (product.seller || product.sellerInfo || product.sellerData) && 
+                     !isAdmin && (
+                      <div className="border rounded p-2 mb-2" style={{background: '#fff3cd'}}>
+                        <div className="mb-2">
+                          <div className="d-flex align-items-center mb-1">
+                            <i className="fas fa-user text-warning me-1" style={{fontSize: '0.75rem'}}></i>
+                            <span className="fw-semibold text-warning" style={{fontSize: '0.75rem'}}>
+                              Seller Information (Debug Mode)
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Your ID:</strong> {currentSeller._id}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Product Seller ID:</strong> {product.seller?.toString() || 'N/A'}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Product SellerInfo:</strong> {JSON.stringify(product.sellerInfo) || 'N/A'}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Product SellerData:</strong> {JSON.stringify(product.sellerData) || 'N/A'}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Match Check:</strong> {product.seller?.toString() === currentSeller._id?.toString() ? '✅ MATCH' : '❌ NO MATCH'}
+                        </div>
+                        {(product.seller?.toString() === currentSeller._id?.toString()) && (
+                          <div>
+                            <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                              <strong>Seller:</strong> {currentSeller.username}
+                            </div>
+                            <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                              <strong>Email:</strong> {currentSeller.email}
+                            </div>
+                            <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                              <strong>WhatsApp:</strong> {currentSeller.whatsappNo}
+                            </div>
+                            <div className="alert alert-success border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
+                              <i className="fas fa-check-circle me-1"></i>
+                              This is your product!
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* DEBUG: Log ownership check details */}
+                    {isSellerLoggedIn && currentSeller && console.log('🔍 Seller Ownership Debug:', {
+                      currentSellerId: currentSeller._id,
+                      currentSellerIdString: currentSeller._id?.toString(),
+                      productSeller: product.seller,
+                      productSellerString: product.seller?.toString(),
+                      productSellerInfo: product.sellerInfo,
+                      productSellerInfoSellerId: product.sellerInfo?.sellerId,
+                      productSellerInfoSellerIdString: product.sellerInfo?.sellerId?.toString(),
+                      productSellerInfoId: product.sellerInfo?._id,
+                      productSellerInfoIdString: product.sellerInfo?._id?.toString(),
+                      productSellerData: product.sellerData,
+                      productSellerDataId: product.sellerData?._id,
+                      // Main ownership checks
+                      ownershipCheck1: product.seller === currentSeller._id,
+                      ownershipCheck2: product.seller?.toString() === currentSeller._id?.toString(),
+                      ownershipCheck3: product.seller?._id?.toString() === currentSeller._id?.toString(),
+                      ownershipCheck4: product.sellerInfo?.sellerId?.toString() === currentSeller._id?.toString(),
+                      ownershipCheck5: product.sellerInfo?._id?.toString() === currentSeller._id?.toString(),
+                      ownershipCheck6: product.sellerData?._id?.toString() === currentSeller._id?.toString(),
+                      finalOwnership: (
+                        (product.seller && (
+                          product.seller === currentSeller._id || 
+                          product.seller?.toString() === currentSeller._id?.toString() || 
+                          product.seller._id?.toString() === currentSeller._id?.toString()
+                        )) ||
+                        (product.sellers && product.sellers.some(s => s.sellerId?.toString() === currentSeller._id?.toString())) ||
+                        (product.sellerInfo && (
+                          product.sellerInfo.sellerId?.toString() === currentSeller._id?.toString() || 
+                          product.sellerInfo._id?.toString() === currentSeller._id?.toString()
+                        )) ||
+                        (product.sellerData && product.sellerData._id?.toString() === currentSeller._id?.toString())
+                      )
+                    })}
+
+                    {/* Locked state for users who don't have access (including sellers who don't own this product) */}
                     {!isAdmin && 
-                     !(isSellerLoggedIn && currentSeller && product.seller && 
-                       (product.seller === currentSeller._id || product.seller?.toString() === currentSeller._id?.toString())) &&
+                     !isSellerLoggedIn && // Only show for non-sellers (buyers and guests)
                      !(product.sellerInfo && product.sellerInfo.verificationStatus === 'approved' && isSupplierUnlocked) && 
-                     !(isSellerLoggedIn && product.sellerInfo) && // Don't show locked state if seller is logged in and sellerInfo exists
-                     product.seller && ( // Only show if there is a seller
+                     (product.seller || product.sellerInfo) && ( // Only show if there is a seller
                       <div className="border rounded p-2 mb-2" style={{background: '#f8f9fa'}}>
                         <div className="mb-2">
                           <div className="d-flex align-items-center mb-1">
                             <i className="fas fa-lock text-warning me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-warning" style={{fontSize: '0.75rem'}}>Supplier Information - Locked</span>
+                            <span className="fw-semibold text-warning" style={{fontSize: '0.75rem'}}>Seller Information - Locked</span>
                           </div>
                         </div>
                         <div className="mb-2" style={{fontSize: '0.7rem', color: '#6c757d'}}>
                           <i className="fas fa-eye-slash me-1"></i>
-                          Supplier details are protected
+                          Seller details are protected
                         </div>
                         {!isSellerLoggedIn && !isBuyerLoggedIn ? (
                           <button 
@@ -4066,31 +4230,190 @@ const ProductDetail = () => {
                             onClick={() => setShowLoginModal(true)}
                           >
                             <i className="fas fa-sign-in-alt me-1"></i>
-                            Join Now to View Supplier
+                            Join Now to View Seller
                           </button>
                         ) : isSellerLoggedIn ? (
                           <button 
                             className="btn btn-warning btn-sm w-100"
                             style={{fontSize: '0.7rem'}}
                             onClick={() => {
-                              alert('Payment required to unlock supplier details. Contact admin for pricing.');
+                              alert('Payment required to unlock seller details. Contact admin for pricing.');
                             }}
                           >
                             <i className="fas fa-unlock me-1"></i>
-                            Pay to Unlock Supplier Details
+                            Pay to Unlock Seller Details
                           </button>
                         ) : (
                           <button 
                             className="btn btn-success btn-sm w-100"
                             style={{fontSize: '0.7rem'}}
                             onClick={() => {
-                              alert('Upgrade to premium to view supplier details.');
+                              setShowPaymentUploadModal(true);
                             }}
                           >
                             <i className="fas fa-crown me-1"></i>
-                            Upgrade to View Supplier
+                            Upgrade to View Seller
                           </button>
                         )}
+                      </div>
+                    )}
+
+                    {/* Show seller info when seller is logged in and viewing their own product */}
+                    {isSellerLoggedIn && currentSeller && product.sellerInfo && (
+                      <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9'}}>
+                        <div className="mb-2">
+                          <div className="d-flex align-items-center mb-1">
+                            <i className="fas fa-check-circle text-success me-1" style={{fontSize: '0.75rem'}}></i>
+                            <span className="fw-semibold text-success" style={{fontSize: '0.75rem'}}>
+                              Your Product - Seller Information
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Seller:</strong> {product.sellerInfo.username || currentSeller.username}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Email:</strong> {product.sellerInfo.email || currentSeller.email}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Location:</strong> 📍 {product.sellerInfo.city || currentSeller.city}, {product.sellerInfo.country || currentSeller.country}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>WhatsApp:</strong> 
+                          <a 
+                            href={`https://wa.me/${(product.sellerInfo.whatsappNo || currentSeller.whatsappNo)?.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-success ms-1"
+                          >
+                            <i className="fab fa-whatsapp me-1"></i>
+                            {product.sellerInfo.whatsappNo || currentSeller.whatsappNo}
+                          </a>
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Verification:</strong> 
+                          <span className={`ms-1 ${product.sellerInfo.verificationStatus === 'approved' ? 'text-success' : 'text-warning'}`}>
+                            <i className={`fas ${product.sellerInfo.verificationStatus === 'approved' ? 'fa-check-circle' : 'fa-clock'} me-1`}></i>
+                            {product.sellerInfo.verificationStatus === 'approved' ? 'Verified' : 'Pending'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* COMPREHENSIVE: Show seller info for product owner */}
+                    {isSellerLoggedIn && currentSeller && (product.seller || product.sellerInfo || product.sellerData) && 
+                     !isAdmin && 
+                     (
+                       // Direct seller ID match
+                       (product.seller === currentSeller._id) ||
+                       (product.seller?.toString() === currentSeller._id?.toString()) ||
+                       // SellerInfo matches
+                       (product.sellerInfo?.sellerId?.toString() === currentSeller._id?.toString()) ||
+                       (product.sellerInfo?._id?.toString() === currentSeller._id?.toString()) ||
+                       // SellerData matches
+                       (product.sellerData?._id?.toString() === currentSeller._id?.toString())
+                     ) && (
+                      <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9'}}>
+                        <div className="mb-2">
+                          <div className="d-flex align-items-center mb-1">
+                            <i className="fas fa-check-circle text-success me-1" style={{fontSize: '0.75rem'}}></i>
+                            <span className="fw-semibold text-success" style={{fontSize: '0.75rem'}}>
+                              Your Product - Seller Information
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Seller:</strong> {product.sellerData?.username || product.sellerInfo?.username || currentSeller.username}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Seller ID:</strong> {currentSeller._id}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Email:</strong> {product.sellerData?.email || product.sellerInfo?.email || currentSeller.email}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Location:</strong> 📍 {product.sellerData?.city || product.sellerInfo?.city || currentSeller.city}, {product.sellerData?.country || product.sellerInfo?.country || currentSeller.country}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>WhatsApp:</strong> 
+                          <a 
+                            href={`https://wa.me/${(product.sellerData?.whatsappNo || product.sellerInfo?.whatsappNo || currentSeller.whatsappNo)?.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-success ms-1"
+                          >
+                            <i className="fab fa-whatsapp me-1"></i>
+                            {product.sellerData?.whatsappNo || product.sellerInfo?.whatsappNo || currentSeller.whatsappNo}
+                          </a>
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Status:</strong> 
+                          <span className={`badge ms-1 ${(product.sellerData?.verificationStatus || product.sellerInfo?.verificationStatus || currentSeller.verificationStatus) === 'approved' ? 'bg-success' : 'bg-warning'}`} style={{fontSize: '0.65rem'}}>
+                            {product.sellerData?.verificationStatus || product.sellerInfo?.verificationStatus || currentSeller.verificationStatus}
+                          </span>
+                        </div>
+                        <div className="alert alert-success border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
+                          <i className="fas fa-info-circle me-1"></i>
+                          This is your product - you can always see your seller information
+                        </div>
+                      </div>
+                    )}
+
+                    {/* FALLBACK: Ensure sellers always see their own information if not shown above */}
+                    {isSellerLoggedIn && currentSeller && (product.seller || product.sellerInfo) && 
+                     !isAdmin && 
+                     // Check if this seller owns the product but wasn't shown above
+                     (
+                       (product.seller && (
+                         product.seller === currentSeller._id || 
+                         product.seller?.toString() === currentSeller._id?.toString() || 
+                         product.seller._id?.toString() === currentSeller._id?.toString()
+                       )) ||
+                       (product.sellers && product.sellers.some(s => s.sellerId?.toString() === currentSeller._id?.toString())) ||
+                       (product.sellerInfo && (
+                         product.sellerInfo.sellerId?.toString() === currentSeller._id?.toString() || 
+                         product.sellerInfo._id?.toString() === currentSeller._id?.toString()
+                       )) ||
+                       (product.sellerData && product.sellerData._id?.toString() === currentSeller._id?.toString())
+                     ) && (
+                      <div className="border rounded p-2 mb-2" style={{background: '#f0f9ff'}}>
+                        <div className="mb-2">
+                          <div className="d-flex align-items-center mb-1">
+                            <i className="fas fa-user text-primary me-1" style={{fontSize: '0.75rem'}}></i>
+                            <span className="fw-semibold text-primary" style={{fontSize: '0.75rem'}}>Your Product (Fallback)</span>
+                          </div>
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Seller:</strong> {currentSeller.username}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Email:</strong> {currentSeller.email}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Location:</strong> 📍 {currentSeller.city}, {currentSeller.country}
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>WhatsApp:</strong> 
+                          <a 
+                            href={`https://wa.me/${currentSeller.whatsappNo?.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary ms-1"
+                          >
+                            <i className="fab fa-whatsapp me-1"></i>
+                            {currentSeller.whatsappNo}
+                          </a>
+                        </div>
+                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
+                          <strong>Status:</strong> 
+                          <span className={`badge ms-1 ${currentSeller.verificationStatus === 'approved' ? 'bg-success' : 'bg-warning'}`} style={{fontSize: '0.65rem'}}>
+                            {currentSeller.verificationStatus}
+                          </span>
+                        </div>
+                        <div className="alert alert-success border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
+                          <i className="fas fa-check-circle me-1"></i>
+                          This is your product - you can always see your seller information
+                        </div>
                       </div>
                     )}
 
@@ -5262,6 +5585,14 @@ const ProductDetail = () => {
         supplierId={supplierId}
         productId={product?.id}
         onSuccess={handlePaymentSuccess}
+      />
+
+      {/* Payment Upload Modal */}
+      <PaymentUploadModal
+        show={showPaymentUploadModal}
+        onClose={() => setShowPaymentUploadModal(false)}
+        productId={product?._id || product?.id}
+        productName={product?.name}
       />
 
       {/* Login Modal */}

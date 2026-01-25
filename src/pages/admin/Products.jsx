@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAdmin } from '../../context/AdminContext';
 import cacheManager from '../../utils/cacheManager';
 import { getImageUrl } from '../../utils/imageImports';
 import { getValidAdminToken, cleanupAuthTokens } from '../../utils/authFix';
@@ -303,6 +304,7 @@ const SmartProductImage = ({ product, onClick }) => {
 const AdminProducts = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { navigateToProduct } = useAdmin();
 
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
@@ -1612,7 +1614,7 @@ const AdminProducts = () => {
     }
   };
 
-  const handleProductClick = (product) => {
+  const handleProductClick = (product, event = null) => {
     console.log('🔗 Navigating to product detail:', {
       productId: product._id,
       productName: product.name,
@@ -1620,17 +1622,35 @@ const AdminProducts = () => {
       returnTo: '/admin/products'
     });
 
-    navigate(`/product/${product._id}`, {
-      state: {
-        returnTo: '/admin/products',
-        category: filters.category,
-        productPreview: {
-          name: product.name,
-          price: product.price,
-          category: product.category
-        }
-      }
+    // Notify AdminContext that we're navigating to a product
+    navigateToProduct(product._id, {
+      category: filters.category,
+      returnTo: '/admin/products'
     });
+
+    // Check if user wants to open in new tab (Ctrl+Click, Cmd+Click, or middle mouse button)
+    const openInNewTab = event && (event.ctrlKey || event.metaKey || event.button === 1);
+    
+    if (openInNewTab) {
+      // Open in new tab while preserving admin authentication
+      const productUrl = `/product/${product._id}?returnCategory=${filters.category || ''}`;
+      window.open(productUrl, '_blank');
+    } else {
+      // Navigate in current tab with state preservation
+      navigate(`/product/${product._id}`, {
+        state: {
+          returnTo: '/admin/products',
+          category: filters.category,
+          productPreview: {
+            name: product.name,
+            price: product.price,
+            category: product.category
+          },
+          // Preserve admin context
+          adminNavigation: true
+        }
+      });
+    }
   };
 
   // Variations management functions
@@ -3440,13 +3460,20 @@ const AdminProducts = () => {
                     <td style={{ padding: '4px 8px', textAlign: 'center' }}>
                       <SmartProductImage 
                         product={product} 
-                        onClick={() => handleProductClick(product)}
+                        onClick={(e) => handleProductClick(product, e)}
                       />
                     </td>
                     <td className="product-info" style={{ padding: '4px 8px' }}>
                       <div
                         className="product-name"
-                        onClick={() => handleProductClick(product)}
+                        onClick={(e) => handleProductClick(product, e)}
+                        onMouseDown={(e) => {
+                          // Handle middle mouse button click
+                          if (e.button === 1) {
+                            e.preventDefault();
+                            handleProductClick(product, e);
+                          }
+                        }}
                         style={{
                           fontSize: '0.75rem',
                           fontWeight: '500',
@@ -3844,7 +3871,14 @@ const AdminProducts = () => {
                 <div className="mobile-product-card-header">
                   <div 
                     style={{ flex: 1, cursor: 'pointer' }}
-                    onClick={() => handleProductClick(product)}
+                    onClick={(e) => handleProductClick(product, e)}
+                    onMouseDown={(e) => {
+                      // Handle middle mouse button click
+                      if (e.button === 1) {
+                        e.preventDefault();
+                        handleProductClick(product, e);
+                      }
+                    }}
                   >
                     <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: 4, color: '#007bff' }}>
                       {product.name}
@@ -3864,7 +3898,14 @@ const AdminProducts = () => {
                 
                 <div 
                   className="mobile-product-card-body"
-                  onClick={() => handleProductClick(product)}
+                  onClick={(e) => handleProductClick(product, e)}
+                  onMouseDown={(e) => {
+                    // Handle middle mouse button click
+                    if (e.button === 1) {
+                      e.preventDefault();
+                      handleProductClick(product, e);
+                    }
+                  }}
                   style={{ cursor: 'pointer' }}
                 >
                   <div>

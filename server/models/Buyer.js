@@ -122,7 +122,11 @@ const buyerSchema = new mongoose.Schema({
   },
   // Password reset fields (Token-based)
   passwordResetToken: String,
-  passwordResetTokenExpiry: Date
+  passwordResetTokenExpiry: Date,
+  supplierUnlocked: {
+    type: Boolean,
+    default: false
+  }
 }, { timestamps: true });
 
 buyerSchema.pre('save', async function(next) {

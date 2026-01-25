@@ -9,7 +9,7 @@
 .footer-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 40px; /* Increased from 20px to 40px for more right spacing on desktop */
   width: 100%;
 }
 
@@ -18,6 +18,7 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 30px;
   margin: 0;
+  padding-left: 20px; /* Added padding to move content right on desktop */
 }
 
 .footer-col {
@@ -82,6 +83,7 @@
   margin-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   text-align: center;
+  padding-left: 20px; /* Added padding to move copyright text right on desktop */
 }
 
 .copyright p {
@@ -89,11 +91,50 @@
   font-size: 0.75rem;
 }
 
+/* Large Desktop Styles */
+@media (min-width: 1200px) {
+  .footer-container {
+    padding: 0 60px; /* More padding for large screens */
+  }
+  
+  .footer-row {
+    padding-left: 40px; /* More left padding for large screens */
+  }
+  
+  .copyright {
+    padding-left: 40px; /* More left padding for copyright on large screens */
+  }
+}
+
+/* Desktop Styles */
+@media (min-width: 992px) and (max-width: 1199px) {
+  .footer-container {
+    padding: 0 50px; /* Increased padding for desktop */
+  }
+  
+  .footer-row {
+    padding-left: 30px; /* Increased left padding */
+  }
+  
+  .copyright {
+    padding-left: 30px; /* Increased left padding for copyright */
+  }
+}
+
 /* Tablet Styles */
 @media (max-width: 991px) {
+  .footer-container {
+    padding: 0 45px; /* Increased from default for better right spacing */
+  }
+  
   .footer-row {
     grid-template-columns: repeat(2, 1fr);
     gap: 25px;
+    padding-left: 25px; /* Added left padding for tablet */
+  }
+  
+  .copyright {
+    padding-left: 25px; /* Added left padding for copyright on tablet */
   }
 }
 
@@ -111,6 +152,7 @@
   .footer-row {
     grid-template-columns: 1fr;
     gap: 30px; /* Increased gap for better spacing */
+    padding-left: 0; /* Reset left padding for mobile */
   }
   
   .footer-col {
@@ -179,6 +221,7 @@
     padding: 15px 30px; /* Increased horizontal padding from 20px to 30px */
     border-top: 2px solid rgba(255, 102, 0, 0.2);
     margin-left: 50px; /* Increased margin from 30px to 50px to move copyright text much more right */
+    padding-left: 0; /* Reset left padding for mobile */
   }
   
   .copyright p {
@@ -228,5 +271,6 @@
   .copyright {
     padding: 15px 35px; /* Increased horizontal padding from 25px to 35px */
     margin-left: 60px; /* Increased margin from 35px to 60px to move copyright text much further right */
+    padding-left: 0; /* Reset left padding for mobile */
   }
 }

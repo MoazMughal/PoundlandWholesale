@@ -1,64 +1,19 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useSeller } from '../context/SellerContext'
+import { useAdmin } from '../context/AdminContext'
+import { useBuyer } from '../context/BuyerContext'
 
 const Navbar = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const { seller, isLoggedIn: isSellerLoggedIn, logout: sellerLogout } = useSeller()
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false)
-  const [adminData, setAdminData] = useState(null)
-  const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(false)
-  const [buyerData, setBuyerData] = useState(null)
+  const { admin, isLoggedIn: isAdminLoggedIn, logout: adminLogout } = useAdmin()
+  const { buyer, isLoggedIn: isBuyerLoggedIn, logout: buyerLogout } = useBuyer()
 
-  useEffect(() => {
-    // Check if admin is logged in
-    const adminToken = localStorage.getItem('adminToken')
-    const admin = localStorage.getItem('adminData')
-    
-    if (adminToken && admin) {
-      try {
-        setIsAdminLoggedIn(true)
-        setAdminData(JSON.parse(admin))
-      } catch (error) {
-        setIsAdminLoggedIn(false)
-      }
-    } else {
-      setIsAdminLoggedIn(false)
-    }
+  // No need for useEffect since we're using context hooks
 
-    // Check if buyer is logged in
-    const buyerToken = localStorage.getItem('buyerToken')
-    const buyer = localStorage.getItem('buyerData')
-    
-    if (buyerToken && buyer) {
-      try {
-        setIsBuyerLoggedIn(true)
-        setBuyerData(JSON.parse(buyer))
-      } catch (error) {
-        setIsBuyerLoggedIn(false)
-      }
-    } else {
-      setIsBuyerLoggedIn(false)
-    }
-  }, [location])
-
-  const handleAdminLogout = () => {
-    localStorage.removeItem('adminToken')
-    localStorage.removeItem('adminData')
-    setIsAdminLoggedIn(false)
-    setAdminData(null)
-    navigate('/admin/login')
-  }
-
-  const handleBuyerLogout = () => {
-    localStorage.removeItem('buyerToken')
-    localStorage.removeItem('buyerData')
-    setIsBuyerLoggedIn(false)
-    setBuyerData(null)
-    // Navigate to auth landing page instead of specific login
-    navigate('/auth')
-  }
+  // Logout functions now use context logout methods
 
   return (
     <nav className="navbar navbar-expand-lg navbar-dark sticky-top">

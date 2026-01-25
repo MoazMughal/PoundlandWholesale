@@ -18,10 +18,18 @@ export const AdminProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const [isNavigatingToProduct, setIsNavigatingToProduct] = useState(false)
 
   // Cross-tab synchronization - enhanced approach
   useEffect(() => {
     const handleStorageChange = (event) => {
+      console.log('🔄 AdminContext storage change detected:', {
+        key: event.key,
+        oldValue: event.oldValue ? 'exists' : 'null',
+        newValue: event.newValue ? 'exists' : 'null',
+        currentPath: window.location.pathname
+      });
+      
       // Handle logout from another tab
       if (event.key === 'adminToken' && !event.newValue && event.oldValue) {
         console.log('🔄 Admin token removed in another tab, logging out')
@@ -120,6 +128,34 @@ export const AdminProvider = ({ children }) => {
           return
         }
 
+        // Check if this is a fresh browser session (new browser window/tab from scratch)
+        if (authPersistence.isFreshBrowserSession()) {
+          // Only clear auth on fresh session if we're on admin-specific pages
+          // For product pages and other non-admin pages, preserve auth state for cross-tab compatibility
+          if (window.location.pathname.startsWith('/admin/') && 
+              window.location.pathname !== '/admin/login') {
+            console.log('🔑 Fresh browser session detected on admin page, clearing any existing auth')
+            authPersistence.clearAuth()
+            setLoading(false)
+            return
+          } else {
+            // On non-admin pages (like product pages), preserve auth but initialize session
+            console.log('🔑 Fresh browser session on non-admin page, preserving admin auth state for cross-tab compatibility')
+            authPersistence.initializeBrowserSession()
+          }
+        }
+
+        // Initialize browser session tracking
+        authPersistence.initializeBrowserSession()
+
+        // Check if server has restarted since last login
+        const serverRestarted = await authPersistence.checkServerRestart()
+        if (serverRestarted) {
+          console.log('🔄 Server restart detected, user must login again')
+          setLoading(false)
+          return
+        }
+
         // Check if session is too old
         if (authPersistence.isSessionExpired()) {
           console.log('🔑 Session expired, clearing auth data')
@@ -171,16 +207,18 @@ export const AdminProvider = ({ children }) => {
           
           // Validate token with server in background (non-blocking)
           validateTokenInBackground(token, admin)
-        } else if (window.location.pathname === '/admin/login') {
-          // Clear auth data only if on login page
-          console.log('🔑 On login page, clearing auth data')
-          authPersistence.clearAuth()
         } else {
           // For non-admin pages (like product pages), preserve auth state but don't validate
-          // This allows users to stay logged in when opening products in new tabs
-          console.log('🔑 On non-admin page, preserving auth state for cross-tab compatibility')
+          // This allows admins to stay logged in when opening products from admin pages
+          console.log('🔑 On non-admin page, preserving admin auth state for cross-page compatibility')
           setAdmin(admin)
           setIsLoggedIn(true)
+          
+          // For product pages accessed from admin, we still want to preserve admin state
+          // but we don't need to validate the token as aggressively
+          if (window.location.pathname.startsWith('/product/')) {
+            console.log('🔑 Admin accessing product page, maintaining admin session')
+          }
         }
         
       } catch (error) {
@@ -211,8 +249,10 @@ export const AdminProvider = ({ children }) => {
           }
         } else if (response.status === 401) {
           console.log('🔑 Token validation failed - token expired or invalid')
-          // Only logout if we're on an admin page
-          if (window.location.pathname.startsWith('/admin/') && window.location.pathname !== '/admin/login') {
+          // Only logout if we're on an admin page AND not navigating to a product
+          if (window.location.pathname.startsWith('/admin/') && 
+              window.location.pathname !== '/admin/login' && 
+              !isNavigatingToProduct) {
             logout()
           }
         }
@@ -249,7 +289,10 @@ export const AdminProvider = ({ children }) => {
   }
 
   const logout = () => {
-    console.log('🔄 Admin logout initiated')
+    console.log('🔄 Admin logout initiated from:', {
+      currentPath: window.location.pathname,
+      stackTrace: new Error().stack
+    })
     
     // Stop token refresh
     stopTokenRefresh()
@@ -263,6 +306,18 @@ export const AdminProvider = ({ children }) => {
     if (window.location.pathname.startsWith('/admin/') && window.location.pathname !== '/admin/login') {
       window.location.replace('/admin/login')
     }
+  }
+
+  const navigateToProduct = (productId, options = {}) => {
+    console.log('🔗 Admin navigating to product:', productId)
+    setIsNavigatingToProduct(true)
+    
+    // Clear the flag after a short delay to allow navigation to complete
+    setTimeout(() => {
+      setIsNavigatingToProduct(false)
+    }, 2000)
+    
+    return { productId, options }
   }
 
   const updateAdmin = (updatedData) => {
@@ -379,7 +434,9 @@ export const AdminProvider = ({ children }) => {
     logout,
     updateAdmin,
     checkTokenValidity,
-    clearProductCache
+    clearProductCache,
+    navigateToProduct,
+    isNavigatingToProduct
   }
 
   return (

@@ -54,6 +54,38 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       });
     });
 
+    // Count payment verifications
+    let paymentVerificationStats = {
+      total: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0
+    };
+
+    try {
+      const PaymentVerification = (await import('../models/PaymentVerification.js')).default;
+      const [
+        totalVerifications,
+        pendingVerifications,
+        approvedVerifications,
+        rejectedVerifications
+      ] = await Promise.all([
+        PaymentVerification.countDocuments(),
+        PaymentVerification.countDocuments({ status: 'pending' }),
+        PaymentVerification.countDocuments({ status: 'approved' }),
+        PaymentVerification.countDocuments({ status: 'rejected' })
+      ]);
+
+      paymentVerificationStats = {
+        total: totalVerifications,
+        pending: pendingVerifications,
+        approved: approvedVerifications,
+        rejected: rejectedVerifications
+      };
+    } catch (error) {
+      console.log('PaymentVerification model not available:', error.message);
+    }
+
     res.json({
       products: {
         total: totalProducts,
@@ -77,7 +109,8 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
         inactive: inactiveBuyers,
         suspended: suspendedBuyers
       },
-      pendingPayments: pendingPaymentsCount
+      pendingPayments: pendingPaymentsCount,
+      paymentVerifications: paymentVerificationStats
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

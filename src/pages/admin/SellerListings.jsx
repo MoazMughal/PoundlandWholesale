@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiUrl } from '../../utils/api';
+import { useAdmin } from '../../context/AdminContext';
 
 const AdminSellerListings = () => {
   const navigate = useNavigate();
+  const { navigateToProduct } = useAdmin();
   const [listings, setListings] = useState([]);
   const [filteredListings, setFilteredListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,8 +55,8 @@ const AdminSellerListings = () => {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
       
-      // Use the correct admin seller-products endpoint that populates seller info
-      const response = await fetch(getApiUrl('products/admin/seller-products?limit=1000&status=all'), {
+      // Use the new unified endpoint that gets all seller listings
+      const response = await fetch(getApiUrl('products/admin/all-seller-listings?limit=1000&status=all'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -62,19 +64,36 @@ const AdminSellerListings = () => {
 
       if (response.ok) {
         const data = await response.json();
-        const sellerListings = data.products || [];
-        setListings(sellerListings);
-        setFilteredListings(sellerListings);
+        let allListings = data.products || [];
+        
+        // Enrich seller data for listings that might be missing seller info
+        allListings = await enrichSellerData(allListings, token);
+        
+        console.log('📋 Loaded seller listings:', {
+          total: allListings.length,
+          sellerCreated: allListings.filter(l => l.listingType === 'seller_created').length,
+          adminProductListings: allListings.filter(l => l.listingType === 'admin_product_listing').length,
+          sampleSellers: allListings.slice(0, 3).map(l => ({
+            name: l.name,
+            sellerUsername: l.seller?.username,
+            sellerId: l.seller?._id,
+            listingType: l.listingType
+          }))
+        });
+        
+        setListings(allListings);
+        setFilteredListings(allListings);
         
         // Calculate stats
         const stats = {
-          total: sellerListings.length,
-          pending: sellerListings.filter(p => p.approvalStatus === 'pending').length,
-          approved: sellerListings.filter(p => p.approvalStatus === 'approved').length,
-          rejected: sellerListings.filter(p => p.approvalStatus === 'rejected').length
+          total: allListings.length,
+          pending: allListings.filter(p => p.approvalStatus === 'pending').length,
+          approved: allListings.filter(p => p.approvalStatus === 'approved').length,
+          rejected: allListings.filter(p => p.approvalStatus === 'rejected').length
         };
         setStats(stats);
       } else {
+        console.error('Failed to load seller listings:', response.status);
         alert('❌ Failed to load seller listings');
       }
     } catch (error) {
@@ -83,6 +102,62 @@ const AdminSellerListings = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Function to enrich seller data for listings that might be missing seller info
+  const enrichSellerData = async (listings, token) => {
+    const sellersToFetch = new Set();
+    
+    // Identify seller IDs that need to be fetched
+    listings.forEach(listing => {
+      if (listing.seller?._id && (!listing.seller.username || listing.seller.username === 'Unknown Seller')) {
+        sellersToFetch.add(listing.seller._id);
+      }
+    });
+    
+    if (sellersToFetch.size === 0) {
+      return listings; // No enrichment needed
+    }
+    
+    try {
+      // Fetch seller details
+      const sellerResponse = await fetch(getApiUrl('sellers'), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (sellerResponse.ok) {
+        const sellerData = await sellerResponse.json();
+        const sellersMap = new Map();
+        
+        (sellerData.sellers || []).forEach(seller => {
+          sellersMap.set(seller._id, seller);
+        });
+        
+        // Enrich listings with seller data
+        return listings.map(listing => {
+          if (listing.seller?._id && sellersMap.has(listing.seller._id)) {
+            const fullSellerData = sellersMap.get(listing.seller._id);
+            return {
+              ...listing,
+              seller: {
+                ...listing.seller,
+                username: fullSellerData.username,
+                email: fullSellerData.email,
+                whatsappNo: fullSellerData.whatsappNo,
+                city: fullSellerData.city,
+                country: fullSellerData.country,
+                verificationStatus: fullSellerData.verificationStatus
+              }
+            };
+          }
+          return listing;
+        });
+      }
+    } catch (error) {
+      console.error('Error enriching seller data:', error);
+    }
+    
+    return listings; // Return original if enrichment fails
   };
 
   const loadSellers = async () => {
@@ -324,11 +399,15 @@ const AdminSellerListings = () => {
                 {filteredListings.map((listing) => (
                   <tr key={listing._id} style={{fontSize: '0.8rem'}}>
                     <td>
-                      <a 
-                        href={`/product/${listing._id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ textDecoration: 'none' }}
+                      <div
+                        onClick={() => {
+                          navigateToProduct(listing.originalProductId || listing._id);
+                          window.open(`/product/${listing.originalProductId || listing._id}`, '_blank');
+                        }}
+                        style={{ 
+                          textDecoration: 'none',
+                          cursor: 'pointer'
+                        }}
                       >
                         <img 
                           src={listing.images?.[0] || 'https://via.placeholder.com/50x50?text=No+Image'} 
@@ -347,24 +426,26 @@ const AdminSellerListings = () => {
                           onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
                           onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
                         />
-                      </a>
+                      </div>
                     </td>
                     <td>
                       <div style={{maxWidth: '250px'}}>
-                        <a 
-                          href={`/product/${listing._id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <div
+                          onClick={() => {
+                            navigateToProduct(listing.originalProductId || listing._id);
+                            window.open(`/product/${listing.originalProductId || listing._id}`, '_blank');
+                          }}
                           style={{
                             textDecoration: 'none',
                             color: '#0066cc',
-                            fontWeight: 'bold'
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
                           }}
                           onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
                           onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
                         >
                           {listing.name}
-                        </a>
+                        </div>
                         <div className="text-muted" style={{fontSize: '0.7rem'}}>
                           {listing.marketplace && <span className="badge bg-info me-1">{listing.marketplace}</span>}
                           {listing.isAmazonsChoice && <span className="badge bg-warning">Amazon's Choice</span>}
@@ -373,15 +454,43 @@ const AdminSellerListings = () => {
                     </td>
                     <td>
                       <div>
-                        <strong>{listing.seller?.username || 'Unknown'}</strong>
+                        <strong>
+                          {listing.seller?.username || 
+                           listing.sellerName || 
+                           (listing.listingType === 'admin_product_listing' ? 'Admin Product Seller' : 'Unknown Seller')}
+                        </strong>
+                        {listing.seller?.verificationStatus === 'approved' && (
+                          <i className="fas fa-check-circle text-success ms-1" title="Verified Seller"></i>
+                        )}
                         <div className="text-muted" style={{fontSize: '0.7rem'}}>
-                          {listing.seller?.supplierId}
+                          ID: {listing.seller?.supplierId || listing.seller?._id || 'N/A'}
                         </div>
+                        {listing.listingType && (
+                          <div className="mt-1">
+                            <span className={`badge ${
+                              listing.listingType === 'seller_created' ? 'bg-primary' : 'bg-info'
+                            }`} style={{fontSize: '0.6rem'}}>
+                              {listing.listingType === 'seller_created' ? 'Own Product' : 'Listed Product'}
+                            </span>
+                          </div>
+                        )}
+                        {listing.seller?.city && listing.seller?.country && (
+                          <div className="text-muted" style={{fontSize: '0.6rem'}}>
+                            📍 {listing.seller.city}, {listing.seller.country}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td>
                       <strong>{listing.currency === 'PKR' ? 'Rs' : listing.currency === 'USD' ? '$' : listing.currency === 'AED' ? 'د.إ' : '£'}{listing.price}</strong>
-                      <div className="text-muted" style={{fontSize: '0.7rem'}}>Stock: {listing.stock}</div>
+                      <div className="text-muted" style={{fontSize: '0.7rem'}}>
+                        Stock: {listing.stock || 0}
+                      </div>
+                      {listing.listingType === 'admin_product_listing' && (
+                        <div className="text-muted" style={{fontSize: '0.6rem'}}>
+                          <i className="fas fa-tag me-1"></i>Seller Listing
+                        </div>
+                      )}
                     </td>
                     <td>
                       <span className="badge bg-secondary">{listing.category}</span>
@@ -396,30 +505,52 @@ const AdminSellerListings = () => {
                     </td>
                     <td>
                       <small>{new Date(listing.listedAt || listing.createdAt).toLocaleDateString()}</small>
+                      {listing.listingType === 'admin_product_listing' && (
+                        <div className="text-muted" style={{fontSize: '0.6rem'}}>
+                          Listed on Admin Product
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div className="btn-group" role="group">
-                        <a
-                          href={`/product/${listing._id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn btn-info btn-sm"
-                          title="View Product"
-                        >
-                          <i className="fas fa-eye"></i>
-                        </a>
+                        {/* View Product - Dropdown with options */}
+                        <div className="btn-group" role="group">
+                          <button
+                            onClick={() => {
+                              navigateToProduct(listing.originalProductId || listing._id);
+                              window.open(`/product/${listing.originalProductId || listing._id}`, '_blank');
+                            }}
+                            className="btn btn-info btn-sm"
+                            title="Open in New Tab"
+                          >
+                            <i className="fas fa-external-link-alt"></i>
+                          </button>
+                          <button
+                            onClick={() => {
+                              navigateToProduct(listing.originalProductId || listing._id);
+                              navigate(`/product/${listing.originalProductId || listing._id}`, {
+                                state: { returnTo: '/admin/seller-listings' }
+                              });
+                            }}
+                            className="btn btn-outline-info btn-sm"
+                            title="Open in Same Page"
+                          >
+                            <i className="fas fa-eye"></i>
+                          </button>
+                        </div>
+                        
                         {listing.approvalStatus === 'pending' && (
                           <>
                             <button
                               className="btn btn-success btn-sm"
-                              onClick={() => handleApprove(listing._id)}
+                              onClick={() => handleApprove(listing.originalProductId || listing._id)}
                               title="Approve"
                             >
                               <i className="fas fa-check"></i>
                             </button>
                             <button
                               className="btn btn-danger btn-sm"
-                              onClick={() => handleReject(listing._id)}
+                              onClick={() => handleReject(listing.originalProductId || listing._id)}
                               title="Reject"
                             >
                               <i className="fas fa-times"></i>
@@ -428,7 +559,7 @@ const AdminSellerListings = () => {
                         )}
                         <button
                           className="btn btn-outline-danger btn-sm"
-                          onClick={() => handleDelete(listing._id)}
+                          onClick={() => handleDelete(listing.originalProductId || listing._id)}
                           title="Delete"
                         >
                           <i className="fas fa-trash"></i>

@@ -9,6 +9,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import { CurrencyProvider } from './context/CurrencyContext'
 import { SellerProvider } from './context/SellerContext'
 import { AdminProvider } from './context/AdminContext'
+import { BuyerProvider } from './context/BuyerContext'
 import { BasketProvider } from './context/BasketContext'
 import './App.css'
 import './styles/mobile-responsive.css'
@@ -19,6 +20,8 @@ import './styles/typography.css'
 import './styles/accessibility.css'
 import './styles/login-animations.css'
 import './styles/mobile-improvements.css'
+import './styles/dashboard-responsive.css'
+import './styles/mobile-dashboard.css'
 import './styles/micro-interactions.css'
 import './styles/layout-fix.css'
 import './styles/image-optimization.css'
@@ -58,6 +61,7 @@ const ImageDebug = lazy(() => import('./pages/admin/ImageDebug'))
 const AdminBuyers = lazy(() => import('./pages/admin/Buyers'))
 const AdminPendingPayments = lazy(() => import('./pages/admin/PendingPayments'))
 const AdminSellerListings = lazy(() => import('./pages/admin/SellerListings'))
+const PaymentVerifications = lazy(() => import('./pages/admin/PaymentVerifications'))
 const BuyerDashboard = lazy(() => import('./pages/buyer/Dashboard'))
 const BuyerEditProfile = lazy(() => import('./pages/buyer/EditProfile'))
 const BuyerTestAuth = lazy(() => import('./pages/buyer/TestAuth'))
@@ -115,9 +119,10 @@ function App() {
   return (
     <CurrencyProvider>
       <BasketProvider>
-        <SellerProvider>
-          <AdminProvider>
-          <Router>
+        <BuyerProvider>
+          <SellerProvider>
+            <AdminProvider>
+            <Router>
         <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', margin: 0, padding: 0, overflowX: 'hidden' }}>
           <ScrollToTopOnRouteChange />
           <MobileHeader />
@@ -178,6 +183,7 @@ function App() {
           <Route path="/admin/buyers" element={<ProtectedRoute><AdminBuyers /></ProtectedRoute>} />
           <Route path="/admin/pending-payments" element={<ProtectedRoute><AdminPendingPayments /></ProtectedRoute>} />
           <Route path="/admin/seller-listings" element={<ProtectedRoute><AdminSellerListings /></ProtectedRoute>} />
+          <Route path="/admin/payment-verifications" element={<ProtectedRoute><PaymentVerifications /></ProtectedRoute>} />
           <Route path="/admin/excel-import" element={<ProtectedRoute><ExcelImport /></ProtectedRoute>} />
           <Route path="/admin/excel-manager" element={<ProtectedRoute><ExcelManager /></ProtectedRoute>} />
           <Route path="/admin/excel-products/:uploadId" element={<ProtectedRoute><AdminExcelProducts /></ProtectedRoute>} />
@@ -221,6 +227,7 @@ function App() {
         </Router>
         </AdminProvider>
         </SellerProvider>
+        </BuyerProvider>
       </BasketProvider>
     </CurrencyProvider>
   )

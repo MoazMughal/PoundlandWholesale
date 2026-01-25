@@ -1,8 +1,10 @@
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import LazyImage from './LazyImage'
 import { getImageUrl } from '../utils/imageImports'
 
 const ProductCard = ({ product }) => {
+  const navigate = useNavigate()
+  
   // Use the centralized image utility with Cloudinary optimization
   const getImageSrc = (imagePath) => {
     return getImageUrl(imagePath, { width: 300, height: 300, quality: 'auto' })
@@ -81,12 +83,28 @@ const ProductCard = ({ product }) => {
         )}
         
         <div className="product-actions">
-          <Link 
-            to={`/product/${product.id}`} 
+          <button 
             className="btn btn-primary btn-sm"
+            onClick={(e) => {
+              e.preventDefault()
+              if (e.ctrlKey || e.metaKey || e.button === 1) {
+                // Open in new tab while preserving auth
+                window.open(`/product/${product.id}`, '_blank')
+              } else {
+                // Navigate in current tab
+                navigate(`/product/${product.id}`)
+              }
+            }}
+            onMouseDown={(e) => {
+              // Handle middle mouse button click
+              if (e.button === 1) {
+                e.preventDefault()
+                window.open(`/product/${product.id}`, '_blank')
+              }
+            }}
           >
             View Details
-          </Link>
+          </button>
           <button className="btn btn-outline-primary btn-sm">
             <i className="fas fa-heart"></i>
           </button>

@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useBuyer } from '../../context/BuyerContext';
 import '../../styles/BuyerDashboard.css';
+import '../../styles/dashboard-responsive.css';
+import '../../styles/mobile-dashboard.css';
 
 const BuyerDashboard = () => {
-  const [buyerData, setBuyerData] = useState(null);
+  const { buyer, isLoggedIn, loading: authLoading, logout } = useBuyer();
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalFavorites: 0,
@@ -18,20 +21,22 @@ const BuyerDashboard = () => {
 
   useEffect(() => {
     const fetchBuyerData = async () => {
-      const token = localStorage.getItem('buyerToken');
-      const localBuyer = localStorage.getItem('buyerData');
+      // Wait for auth loading to complete
+      if (authLoading) return;
       
-      console.log('Dashboard: Token check:', token ? 'Token found' : 'No token found');
-      console.log('Dashboard: Local buyer data:', localBuyer ? 'Found' : 'Not found');
+      // Check if buyer is logged in
+      if (!isLoggedIn || !buyer) {
+        console.log('Dashboard: Not logged in, redirecting to login');
+        navigate('/login/buyer');
+        return;
+      }
+
+      const token = localStorage.getItem('buyerToken');
       
       if (!token) {
         console.log('Dashboard: No token, redirecting to login');
         navigate('/login/buyer');
         return;
-      }
-
-      if (localBuyer) {
-        setBuyerData(JSON.parse(localBuyer));
       }
 
       try {
@@ -47,7 +52,6 @@ const BuyerDashboard = () => {
 
         if (profileResponse.ok) {
           const profileData = await profileResponse.json();
-          setBuyerData(profileData.buyer);
           localStorage.setItem('buyerData', JSON.stringify(profileData.buyer));
         } else if (profileResponse.status === 401) {
           console.log('Dashboard: Unauthorized, clearing tokens and redirecting');
@@ -90,7 +94,8 @@ const BuyerDashboard = () => {
 
         if (paymentsResponse.ok) {
           const paymentsData = await paymentsResponse.json();
-          setPaymentHistory(paymentsData.paymentHistory || []);
+          // Use combined history if available, otherwise fall back to payment history
+          setPaymentHistory(paymentsData.combinedHistory || paymentsData.paymentHistory || []);
         }
       } catch (error) {
         console.error('Error fetching buyer data:', error);
@@ -100,12 +105,10 @@ const BuyerDashboard = () => {
     };
 
     fetchBuyerData();
-  }, [navigate]);
+  }, [authLoading, isLoggedIn, buyer, navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem('buyerToken');
-    localStorage.removeItem('buyerData');
-    navigate('/');
+    logout();
   };
 
   if (loading) {
@@ -120,9 +123,9 @@ const BuyerDashboard = () => {
   }
 
   return (
-    <div style={{padding: '20px', maxWidth: '1200px', margin: '0 auto'}}>
+    <div className="dashboard-container" style={{padding: '20px', maxWidth: '1200px', margin: '0 auto'}}>
       {/* Header */}
-      <header style={{
+      <header className="buyer-dashboard-header" style={{
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         padding: '20px',
         borderRadius: '12px',
@@ -130,12 +133,12 @@ const BuyerDashboard = () => {
         color: 'white',
         boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
       }}>
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px'}}>
+        <div className="dashboard-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px'}}>
           <div>
-            <h1 style={{fontSize: '1.8rem', margin: 0, marginBottom: '5px'}}>👋 Welcome, {buyerData?.name || 'Buyer'}!</h1>
-            <p style={{fontSize: '0.9rem', margin: 0, opacity: 0.9}}>{buyerData?.email}</p>
+            <h1 style={{fontSize: '1.8rem', margin: 0, marginBottom: '5px'}}>👋 Welcome, {buyer?.name || 'Buyer'}!</h1>
+            <p style={{fontSize: '0.9rem', margin: 0, opacity: 0.9}} className="text-break">{buyer?.email}</p>
           </div>
-          <div style={{display: 'flex', gap: '10px'}}>
+          <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
             <button 
               onClick={() => navigate('/')}
               style={{
@@ -149,7 +152,7 @@ const BuyerDashboard = () => {
                 cursor: 'pointer'
               }}
             >
-              🏠 Home
+              🏠 <span className="mobile-hide">Home</span>
             </button>
             <button 
               onClick={handleLogout}
@@ -164,65 +167,65 @@ const BuyerDashboard = () => {
                 cursor: 'pointer'
               }}
             >
-              Logout
+              <span className="mobile-hide">Logout</span><span className="mobile-show">Exit</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Stats Cards */}
-      <div style={{
+      <div className="buyer-stats-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
         gap: '20px',
         marginBottom: '30px'
       }}>
-        <div style={{
+        <div className="buyer-stat-card" style={{
           background: 'white',
           padding: '20px',
           borderRadius: '12px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
           border: '1px solid #e5e7eb'
         }}>
-          <div style={{fontSize: '2rem', marginBottom: '10px'}}>🛒</div>
+          <div className="stat-icon" style={{fontSize: '2rem', marginBottom: '10px'}}>🛒</div>
           <h3 style={{fontSize: '1rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>Total Orders</h3>
-          <p style={{fontSize: '2rem', fontWeight: '700', color: '#111827', margin: 0}}>{stats.totalOrders}</p>
+          <p className="stat-value" style={{fontSize: '2rem', fontWeight: '700', color: '#111827', margin: 0}}>{stats.totalOrders}</p>
         </div>
 
-        <div style={{
+        <div className="buyer-stat-card" style={{
           background: 'white',
           padding: '20px',
           borderRadius: '12px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
           border: '1px solid #e5e7eb'
         }}>
-          <div style={{fontSize: '2rem', marginBottom: '10px'}}>❤️</div>
+          <div className="stat-icon" style={{fontSize: '2rem', marginBottom: '10px'}}>❤️</div>
           <h3 style={{fontSize: '1rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>Favorites</h3>
-          <p style={{fontSize: '2rem', fontWeight: '700', color: '#111827', margin: 0}}>{stats.totalFavorites}</p>
+          <p className="stat-value" style={{fontSize: '2rem', fontWeight: '700', color: '#111827', margin: 0}}>{stats.totalFavorites}</p>
         </div>
 
-        <div style={{
+        <div className="buyer-stat-card" style={{
           background: 'white',
           padding: '20px',
           borderRadius: '12px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
           border: '1px solid #e5e7eb'
         }}>
-          <div style={{fontSize: '2rem', marginBottom: '10px'}}>🔓</div>
+          <div className="stat-icon" style={{fontSize: '2rem', marginBottom: '10px'}}>🔓</div>
           <h3 style={{fontSize: '1rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>Unlocked Suppliers</h3>
-          <p style={{fontSize: '2rem', fontWeight: '700', color: '#111827', margin: 0}}>{unlockedSuppliers.length}</p>
+          <p className="stat-value" style={{fontSize: '2rem', fontWeight: '700', color: '#111827', margin: 0}}>{unlockedSuppliers.length}</p>
         </div>
 
-        <div style={{
+        <div className="buyer-stat-card" style={{
           background: 'white',
           padding: '20px',
           borderRadius: '12px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
           border: '1px solid #e5e7eb'
         }}>
-          <div style={{fontSize: '2rem', marginBottom: '10px'}}>📊</div>
+          <div className="stat-icon" style={{fontSize: '2rem', marginBottom: '10px'}}>📊</div>
           <h3 style={{fontSize: '1rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>Account Status</h3>
-          <p style={{
+          <p className="stat-value" style={{
             fontSize: '1.2rem', 
             fontWeight: '700', 
             color: stats.status === 'active' ? '#059669' : '#dc2626', 
@@ -319,12 +322,12 @@ const BuyerDashboard = () => {
         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px'}}>
           <div>
             <p style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>Email</p>
-            <p style={{fontSize: '1rem', fontWeight: '600', color: '#111827', margin: 0}}>{buyerData?.email}</p>
+            <p style={{fontSize: '1rem', fontWeight: '600', color: '#111827', margin: 0}}>{buyer?.email}</p>
           </div>
           <div>
             <p style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>User Type</p>
             <p style={{fontSize: '1rem', fontWeight: '600', color: '#111827', margin: 0, textTransform: 'capitalize'}}>
-              {buyerData?.userType || 'Buyer'}
+              {buyer?.userType || 'Buyer'}
             </p>
           </div>
           <div>
@@ -413,44 +416,55 @@ const BuyerDashboard = () => {
             <p style={{fontSize: '0.9rem'}}>Your payment history will appear here</p>
           </div>
         ) : (
-          <div style={{overflowX: 'auto'}}>
-            <table style={{width: '100%', borderCollapse: 'collapse'}}>
+          <div className="table-responsive">
+            <table className="payment-history-table" style={{width: '100%', borderCollapse: 'collapse'}}>
               <thead>
                 <tr style={{borderBottom: '2px solid #e5e7eb'}}>
                   <th style={{padding: '12px', textAlign: 'left', fontSize: '0.85rem', color: '#6b7280'}}>Date</th>
                   <th style={{padding: '12px', textAlign: 'left', fontSize: '0.85rem', color: '#6b7280'}}>Description</th>
-                  <th style={{padding: '12px', textAlign: 'left', fontSize: '0.85rem', color: '#6b7280'}}>Method</th>
+                  <th style={{padding: '12px', textAlign: 'left', fontSize: '0.85rem', color: '#6b7280'}} className="mobile-hide">Method</th>
                   <th style={{padding: '12px', textAlign: 'left', fontSize: '0.85rem', color: '#6b7280'}}>Amount</th>
                   <th style={{padding: '12px', textAlign: 'left', fontSize: '0.85rem', color: '#6b7280'}}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {paymentHistory.map((payment, index) => (
+                {paymentHistory.map((item, index) => (
                   <tr key={index} style={{borderBottom: '1px solid #f3f4f6'}}>
                     <td style={{padding: '12px', fontSize: '0.9rem'}}>
-                      {new Date(payment.paymentDate).toLocaleDateString()}
+                      {new Date(item.date || item.paymentDate).toLocaleDateString()}
                     </td>
                     <td style={{padding: '12px', fontSize: '0.9rem'}}>
-                      {payment.description}
+                      <div className="text-truncate" style={{maxWidth: '200px'}}>
+                        {item.description || (item.type === 'verification' ? `Payment Verification - ${item.productName}` : 'Payment')}
+                      </div>
                     </td>
-                    <td style={{padding: '12px', fontSize: '0.9rem', textTransform: 'capitalize'}}>
-                      {payment.paymentMethod.replace('_', ' ')}
+                    <td style={{padding: '12px', fontSize: '0.9rem', textTransform: 'capitalize'}} className="mobile-hide">
+                      {item.type === 'verification' ? 'Verification' : (item.paymentMethod?.replace('_', ' ') || 'N/A')}
                     </td>
                     <td style={{padding: '12px', fontSize: '0.9rem', fontWeight: '600'}}>
-                      Rs {payment.amount}
+                      {item.type === 'verification' ? 'N/A' : `Rs ${item.amount}`}
                     </td>
                     <td style={{padding: '12px'}}>
                       <span style={{
                         padding: '4px 8px',
-                        background: payment.status === 'completed' ? '#d1fae5' : payment.status === 'pending' ? '#fef3c7' : '#fee2e2',
-                        color: payment.status === 'completed' ? '#065f46' : payment.status === 'pending' ? '#92400e' : '#991b1b',
+                        background: item.status === 'completed' || item.status === 'approved' ? '#d1fae5' : 
+                                   item.status === 'pending' ? '#fef3c7' : 
+                                   item.status === 'rejected' ? '#fee2e2' : '#f3f4f6',
+                        color: item.status === 'completed' || item.status === 'approved' ? '#065f46' : 
+                               item.status === 'pending' ? '#92400e' : 
+                               item.status === 'rejected' ? '#991b1b' : '#374151',
                         borderRadius: '4px',
                         fontSize: '0.75rem',
                         fontWeight: '600',
                         textTransform: 'capitalize'
                       }}>
-                        {payment.status}
+                        {item.status}
                       </span>
+                      {item.type === 'verification' && item.adminNotes && (
+                        <div style={{fontSize: '0.7rem', color: '#6b7280', marginTop: '4px'}} className="mobile-hide">
+                          {item.adminNotes}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

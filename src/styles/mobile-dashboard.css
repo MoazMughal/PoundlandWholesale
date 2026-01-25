@@ -1,0 +1,761 @@
+/* Mobile Dashboard Enhancements - All Dashboard Pages */
+
+/* Amazon's Choice Card Container */
+.amazon-choice-card {
+  border: 2px solid rgba(255, 153, 0, 0.2) !important;
+  border-radius: 15px !important;
+  background: linear-gradient(135deg, #fff 0%, #fefefe 100%) !important;
+  box-shadow: 0 4px 20px rgba(255, 153, 0, 0.1) !important;
+  transition: all 0.3s ease !important;
+}
+
+.amazon-choice-card:hover {
+  border-color: rgba(255, 153, 0, 0.4) !important;
+  box-shadow: 0 6px 25px rgba(255, 153, 0, 0.15) !important;
+  transform: translateY(-2px) !important;
+}
+
+.amazon-choice-card .card-header {
+  background: linear-gradient(135deg, #ff9900 0%, #ffc107 100%) !important;
+  color: #fff !important;
+  border-bottom: none !important;
+  border-radius: 13px 13px 0 0 !important;
+  padding: 15px 20px !important;
+}
+
+.amazon-choice-card .card-header h5 {
+  margin: 0 !important;
+  font-weight: 700 !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+}
+
+.amazon-choice-card .card-header small {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 500 !important;
+}
+
+.amazon-choice-card .card-body {
+  padding: 25px 20px !important;
+}
+
+@media (max-width: 768px) {
+  .amazon-choice-card {
+    border-radius: 12px !important;
+    margin: 0 5px !important;
+  }
+  
+  .amazon-choice-card .card-header {
+    padding: 12px 15px !important;
+    border-radius: 10px 10px 0 0 !important;
+  }
+  
+  .amazon-choice-card .card-header h5 {
+    font-size: 1rem !important;
+  }
+  
+  .amazon-choice-card .card-body {
+    padding: 20px 15px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .amazon-choice-card {
+    border-radius: 10px !important;
+    margin: 0 2px !important;
+  }
+  
+  .amazon-choice-card .card-header {
+    padding: 10px 12px !important;
+    border-radius: 8px 8px 0 0 !important;
+  }
+  
+  .amazon-choice-card .card-header h5 {
+    font-size: 0.9rem !important;
+  }
+  
+  .amazon-choice-card .card-body {
+    padding: 15px 12px !important;
+  }
+}
+.amazon-choice-btn {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  border: 2px solid #ff9900 !important;
+  border-radius: 12px !important;
+  padding: 16px 24px !important;
+  max-width: 320px !important;
+  margin: 0 auto !important;
+  background: linear-gradient(135deg, #ffc107 0%, #ff9900 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 15px rgba(255, 153, 0, 0.3) !important;
+  transition: all 0.3s ease !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.amazon-choice-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(255, 153, 0, 0.4) !important;
+  border-color: #e68900 !important;
+}
+
+.amazon-choice-btn:active {
+  transform: translateY(0) !important;
+}
+
+.amazon-choice-btn:disabled {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
+  border-color: #6c757d !important;
+  color: #fff !important;
+  opacity: 0.7 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: 0 2px 8px rgba(108, 117, 125, 0.2) !important;
+}
+
+.amazon-choice-btn i {
+  font-size: 1.1rem !important;
+  color: #fff !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+}
+
+.amazon-choice-btn small {
+  font-size: 0.8rem !important;
+  line-height: 1.3 !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 500 !important;
+  margin-top: 4px !important;
+}
+
+/* Tablet Styles */
+@media (max-width: 992px) {
+  .amazon-choice-btn {
+    max-width: 300px !important;
+    font-size: 0.95rem !important;
+    padding: 14px 20px !important;
+  }
+  
+  .amazon-choice-btn i {
+    font-size: 1rem !important;
+  }
+  
+  .amazon-choice-btn small {
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .amazon-choice-btn {
+    max-width: 100% !important;
+    font-size: 0.9rem !important;
+    padding: 12px 16px !important;
+    border-radius: 10px !important;
+    margin: 0 !important;
+  }
+  
+  .amazon-choice-btn i {
+    font-size: 0.95rem !important;
+  }
+  
+  .amazon-choice-btn small {
+    font-size: 0.7rem !important;
+    margin-top: 3px !important;
+  }
+}
+
+/* Small Mobile Styles */
+@media (max-width: 480px) {
+  .amazon-choice-btn {
+    font-size: 0.85rem !important;
+    padding: 10px 14px !important;
+    border-radius: 8px !important;
+  }
+  
+  .amazon-choice-btn i {
+    font-size: 0.9rem !important;
+  }
+  
+  .amazon-choice-btn small {
+    font-size: 0.65rem !important;
+    margin-top: 2px !important;
+  }
+}
+
+/* Amazon's Choice Button Loading State */
+.amazon-choice-btn.loading {
+  pointer-events: none !important;
+  opacity: 0.8 !important;
+}
+
+.amazon-choice-btn.loading::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 20px !important;
+  height: 20px !important;
+  margin: -10px 0 0 -10px !important;
+  border: 2px solid transparent !important;
+  border-top: 2px solid #fff !important;
+  border-radius: 50% !important;
+  animation: spin 1s linear infinite !important;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Button Focus States */
+.amazon-choice-btn:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.3) !important;
+}
+
+/* Button Ripple Effect */
+.amazon-choice-btn {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.amazon-choice-btn::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 0 !important;
+  height: 0 !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: translate(-50%, -50%) !important;
+  transition: width 0.6s, height 0.6s !important;
+}
+
+.amazon-choice-btn:active::before {
+  width: 300px !important;
+  height: 300px !important;
+}
+
+/* Extra Small Mobile */
+@media (max-width: 360px) {
+  .amazon-choice-btn {
+    font-size: 0.8rem !important;
+    padding: 8px 12px !important;
+  }
+  
+  .amazon-choice-btn i {
+    font-size: 0.85rem !important;
+  }
+  
+  .amazon-choice-btn small {
+    font-size: 0.6rem !important;
+  }
+}
+
+/* Global Mobile Fixes */
+@media (max-width: 768px) {
+  /* Prevent horizontal scroll */
+  body, html {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+
+  /* Container fixes */
+  .container,
+  .container-fluid {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    max-width: 100% !important;
+  }
+
+  /* Row fixes */
+  .row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Column fixes */
+  [class*="col-"] {
+    padding-left: 5px !important;
+    padding-right: 5px !important;
+  }
+
+  /* Dashboard specific containers */
+  .dashboard-container {
+    padding: 10px !important;
+    margin: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Header responsive */
+  .dashboard-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 15px !important;
+    text-align: center !important;
+  }
+
+  .dashboard-header h1,
+  .dashboard-header h2 {
+    font-size: 1.4rem !important;
+    margin-bottom: 5px !important;
+  }
+
+  .dashboard-header p {
+    font-size: 0.85rem !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Button groups in header */
+  .dashboard-header .d-flex,
+  .dashboard-header .btn-group {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .dashboard-header .btn {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 10px !important;
+    font-size: 0.9rem !important;
+  }
+
+  /* Stats cards responsive */
+  .stats-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .stats-card {
+    margin-bottom: 10px !important;
+  }
+
+  .stats-card .card-body {
+    padding: 10px !important;
+  }
+
+  .stats-card h6 {
+    font-size: 0.7rem !important;
+    margin-bottom: 3px !important;
+  }
+
+  .stats-card h4 {
+    font-size: 1rem !important;
+    margin: 0 !important;
+  }
+
+  .stats-card .fa-2x {
+    font-size: 1.2rem !important;
+  }
+
+  /* Buyer stats grid */
+  .buyer-stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  .buyer-stat-card {
+    padding: 12px !important;
+  }
+
+  .buyer-stat-card .stat-icon {
+    font-size: 1.3rem !important;
+    margin-bottom: 8px !important;
+  }
+
+  .buyer-stat-card h3 {
+    font-size: 0.8rem !important;
+    margin-bottom: 3px !important;
+  }
+
+  .buyer-stat-card .stat-value {
+    font-size: 1.3rem !important;
+  }
+
+  /* Card responsive */
+  .card {
+    margin-bottom: 15px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1) !important;
+  }
+
+  .card-header {
+    padding: 10px 12px !important;
+  }
+
+  .card-header h5 {
+    font-size: 0.9rem !important;
+    margin: 0 !important;
+  }
+
+  .card-body {
+    padding: 12px !important;
+  }
+
+  /* Table responsive */
+  .table-responsive {
+    font-size: 0.7rem !important;
+    border-radius: 6px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin-bottom: 0 !important;
+  }
+
+  .table {
+    margin-bottom: 0 !important;
+    font-size: 0.7rem !important;
+  }
+
+  .table th,
+  .table td {
+    padding: 6px 4px !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+  }
+
+  .table th {
+    font-size: 0.65rem !important;
+    font-weight: 600 !important;
+    background-color: #f8f9fa !important;
+  }
+
+  .table td {
+    font-size: 0.7rem !important;
+  }
+
+  /* Seller info table */
+  .seller-info-table td {
+    padding: 6px 4px !important;
+    font-size: 0.75rem !important;
+    white-space: normal !important;
+  }
+
+  .seller-info-table td:first-child {
+    font-weight: 600 !important;
+    width: 35% !important;
+  }
+
+  /* Payment history table */
+  .payment-history-table {
+    min-width: 400px !important;
+  }
+
+  /* Badge responsive */
+  .badge {
+    font-size: 0.6rem !important;
+    padding: 3px 6px !important;
+  }
+
+  /* Button responsive */
+  .btn {
+    font-size: 0.8rem !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+  }
+
+  .btn-sm {
+    font-size: 0.7rem !important;
+    padding: 6px 10px !important;
+  }
+
+  .btn-lg {
+    font-size: 0.9rem !important;
+    padding: 10px 16px !important;
+  }
+
+  /* Quick actions grid */
+  .quick-actions-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .quick-actions-grid .btn {
+    padding: 10px 6px !important;
+    font-size: 0.75rem !important;
+    text-align: center !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 60px !important;
+  }
+
+  .quick-actions-grid .btn i {
+    display: block !important;
+    margin-bottom: 4px !important;
+    font-size: 1.1rem !important;
+  }
+
+  /* Modal responsive */
+  .modal-dialog {
+    margin: 8px !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+
+  .modal-content {
+    border-radius: 8px !important;
+  }
+
+  .modal-header {
+    padding: 10px 12px !important;
+  }
+
+  .modal-title {
+    font-size: 1rem !important;
+  }
+
+  .modal-body {
+    padding: 12px !important;
+  }
+
+  .modal-footer {
+    padding: 10px 12px !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .modal-footer .btn {
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* Form responsive */
+  .form-control {
+    font-size: 0.85rem !important;
+    padding: 8px 10px !important;
+  }
+
+  .form-label {
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    margin-bottom: 4px !important;
+  }
+
+  .form-select {
+    font-size: 0.85rem !important;
+    padding: 8px 10px !important;
+  }
+
+  /* Alert responsive */
+  .alert {
+    padding: 10px !important;
+    font-size: 0.8rem !important;
+    border-radius: 6px !important;
+    margin-bottom: 15px !important;
+  }
+
+  .alert h5 {
+    font-size: 0.95rem !important;
+    margin-bottom: 5px !important;
+  }
+
+  .alert p {
+    margin-bottom: 8px !important;
+  }
+
+  /* Verification modal specific */
+  .verification-modal .img-thumbnail {
+    width: 120px !important;
+    height: 75px !important;
+    object-fit: cover !important;
+  }
+
+  /* Text utilities */
+  .text-break {
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+
+  /* Hide/show utilities */
+  .mobile-hide {
+    display: none !important;
+  }
+
+  .mobile-show {
+    display: inline !important;
+  }
+
+  /* Buyer dashboard header */
+  .buyer-dashboard-header {
+    padding: 12px !important;
+    border-radius: 8px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .buyer-dashboard-header h1 {
+    font-size: 1.3rem !important;
+    margin-bottom: 3px !important;
+  }
+
+  .buyer-dashboard-header p {
+    font-size: 0.8rem !important;
+  }
+
+  /* Loading states */
+  .dashboard-loading {
+    min-height: 40vh !important;
+    padding: 20px !important;
+  }
+
+  .dashboard-loading .spinner-border {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+
+  /* Error states */
+  .dashboard-error {
+    padding: 20px 15px !important;
+  }
+
+  .dashboard-error h5 {
+    font-size: 1rem !important;
+  }
+
+  .dashboard-error p {
+    font-size: 0.85rem !important;
+  }
+
+  /* Improve touch targets */
+  .btn,
+  .form-control,
+  .form-select {
+    min-height: 40px !important;
+  }
+
+  /* Better spacing */
+  .mb-4 {
+    margin-bottom: 1.5rem !important;
+  }
+
+  .mb-3 {
+    margin-bottom: 1rem !important;
+  }
+
+  .mb-2 {
+    margin-bottom: 0.75rem !important;
+  }
+
+  /* Scrollable content */
+  .table-responsive,
+  .modal-body {
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
+/* Extra small mobile (portrait phones) */
+@media (max-width: 480px) {
+  .stats-grid,
+  .buyer-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-header h1,
+  .dashboard-header h2 {
+    font-size: 1.2rem !important;
+  }
+
+  .card-header h5 {
+    font-size: 0.85rem !important;
+  }
+
+  .btn {
+    font-size: 0.75rem !important;
+  }
+
+  .stats-card h4 {
+    font-size: 0.9rem !important;
+  }
+
+  .buyer-stat-card .stat-value {
+    font-size: 1.1rem !important;
+  }
+}
+
+/* Tablet portrait */
+@media (min-width: 481px) and (max-width: 768px) {
+  .stats-grid,
+  .buyer-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .dashboard-header {
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+
+  .dashboard-header .d-flex {
+    flex-direction: row !important;
+    width: auto !important;
+  }
+}
+
+/* Desktop utilities */
+@media (min-width: 769px) {
+  .mobile-hide {
+    display: inline !important;
+  }
+
+  .mobile-show {
+    display: none !important;
+  }
+}
+
+/* Performance optimizations */
+@media (max-width: 768px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .card,
+  .btn,
+  .alert {
+    will-change: transform;
+  }
+
+  /* Reduce animations on mobile for better performance */
+  .card,
+  .btn {
+    transition: none !important;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast support */
+@media (prefers-contrast: high) {
+  .card {
+    border: 2px solid #000 !important;
+  }
+
+  .btn {
+    border: 2px solid #000 !important;
+  }
+
+  .table th,
+  .table td {
+    border: 1px solid #000 !important;
+  }
+}

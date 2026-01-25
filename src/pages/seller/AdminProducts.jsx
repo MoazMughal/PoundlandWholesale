@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
 import { getImageUrl } from '../../utils/imageImports'
+import '../../styles/dashboard-responsive.css'
 
 const AdminProducts = () => {
   const navigate = useNavigate()
@@ -40,10 +41,15 @@ const AdminProducts = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/products/public/categories?includeCounts=true')
+      const response = await fetch('http://localhost:5000/api/products/public/categories?includeCounts=true&includeEmpty=true&deduplicate=true')
       if (response.ok) {
         const data = await response.json()
-        setCategories(data.categories || [])
+        // Ensure we have the "All" category first
+        const allCategories = [
+          { value: 'all', label: 'All Categories', count: data.totalCount || 0 },
+          ...(data.categories || []).filter(cat => cat.value !== 'all')
+        ]
+        setCategories(allCategories)
       }
     } catch (error) {
       console.error('Error fetching categories:', error)
@@ -84,16 +90,21 @@ const AdminProducts = () => {
 
       if (response.ok) {
         const data = await response.json()
-        // Shuffle products to show random order
-        const shuffledProducts = data.products.sort(() => Math.random() - 0.5)
-        setProducts(shuffledProducts || [])
+        // Products are already randomized on server for "all" category
+        setProducts(data.products || [])
         setTotalPages(data.totalPages || 1)
         setTotalProducts(data.totalProducts || 0)
       } else {
         console.error('Failed to fetch admin products')
+        setProducts([])
+        setTotalPages(1)
+        setTotalProducts(0)
       }
     } catch (error) {
       console.error('Error fetching admin products:', error)
+      setProducts([])
+      setTotalPages(1)
+      setTotalProducts(0)
     } finally {
       setLoading(false)
     }

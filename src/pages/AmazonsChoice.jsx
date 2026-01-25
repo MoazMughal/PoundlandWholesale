@@ -73,23 +73,23 @@ const AmazonsChoice = () => {
           margin: 0 !important;
         }
         
-        /* Images */
+        /* Images - INCREASED SIZE */
         .product-image-container {
-          height: 90px !important;
-          min-height: 90px !important;
-          max-height: 90px !important;
+          height: 110px !important;
+          min-height: 110px !important;
+          max-height: 110px !important;
           width: 100% !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
           background: #fff !important;
-          margin-bottom: 6px !important;
+          margin-bottom: 4px !important;
           padding: 4px !important;
         }
         
         .product-image-container img {
-          max-width: 80px !important;
-          max-height: 80px !important;
+          max-width: 100px !important;
+          max-height: 100px !important;
           width: auto !important;
           height: auto !important;
           object-fit: contain !important;

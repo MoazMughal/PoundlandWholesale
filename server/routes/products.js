@@ -1702,6 +1702,11 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
     if (isBestSeller === 'true') query.isBestSeller = true;
     if (isLatestDeal === 'true') query.isLatestDeal = true;
     if (showOnHome === 'true') query.showOnHome = true;
+    
+    // Filter for products with seller listings (admin products where sellers have listed themselves)
+    if (req.query.hasSellerListings === 'true') {
+      query.sellers = { $exists: true, $ne: [], $not: { $size: 0 } };
+    }
 
     // Enhanced query execution with multiple fallback strategies
     let products;
@@ -1923,14 +1928,6 @@ router.get('/public/:id', async (req, res) => {
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    
-    // Debug variations
-    console.log('🎨 Product variations debug:', {
-      productId: id,
-      hasVariations: !!product.variations,
-      variationsLength: product.variations?.length || 0,
-      variations: product.variations
-    });
     
     // Only return if product is active
     if (product.status !== 'active') {
@@ -2511,8 +2508,6 @@ router.get('/variations/test/:id', authenticateAdmin, async (req, res) => {
 // Independent variations update endpoint (each product maintains its own variation settings)
 router.put('/variations/independent/:id', authenticateAdmin, async (req, res) => {
   try {
-    console.log('🎨 Updating independent variations for product:', req.params.id);
-    console.log('🎨 Request body:', JSON.stringify(req.body, null, 2));
     const { variations } = req.body;
     
     // Validate product ID format
@@ -2538,8 +2533,6 @@ router.put('/variations/independent/:id', authenticateAdmin, async (req, res) =>
       }))
       .filter(variation => variation.options.length > 0); // Only include variations with options
 
-    console.log('🎨 Cleaned variations data:', JSON.stringify(cleanedVariations, null, 2));
-
     // Update only the current product with its own variations
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
@@ -2551,13 +2544,10 @@ router.put('/variations/independent/:id', authenticateAdmin, async (req, res) =>
       return res.status(404).json({ message: 'Product not found' });
     }
     
-    console.log('✅ Product updated with independent variations:', updatedProduct.variations?.length || 0);
-
     // Clear cache
     fastProductsCache = null;
     cacheTimestamp = Date.now();
 
-    console.log('✅ Independent variations updated successfully');
     res.json({
       message: 'Independent variations updated successfully',
       product: updatedProduct,
@@ -2576,8 +2566,6 @@ router.put('/variations/independent/:id', authenticateAdmin, async (req, res) =>
 // Enhanced bidirectional variations update endpoint with individual product configurations
 router.put('/variations/enhanced/:id', authenticateAdmin, async (req, res) => {
   try {
-    console.log('🎨 Enhanced bidirectional variations update for product:', req.params.id);
-    console.log('🎨 Request body:', JSON.stringify(req.body, null, 2));
     const { variations, currentProduct } = req.body;
     
     // Validate product ID format
@@ -3771,17 +3759,42 @@ router.get('/admin/available', authenticateSeller, async (req, res) => {
     if (search) {
       query.$text = { $search: search };
     }
+    
     if (category && category !== 'all') {
       // Handle category filtering - support both exact match and case-insensitive
-      query.category = new RegExp(`^${category}$`, 'i');
+      // Also handle URL-encoded category names (e.g., "party-accessories" -> "Party Accessories")
+      const categoryName = category.replace(/-/g, ' '); // Convert dashes to spaces
+      query.category = new RegExp(`^${categoryName}$`, 'i'); // Exact match, case-insensitive
     }
 
-    const products = await Product.find(query)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit));
-
+    let products;
     const totalProducts = await Product.countDocuments(query);
+
+    if (!category || category === 'all') {
+      // For "all" category, use aggregation pipeline for random sampling
+      const pipeline = [
+        { $match: query },
+        { $sample: { size: Math.min(parseInt(limit), totalProducts) } }
+      ];
+      
+      // If we need pagination for "all" category, we'll use a different approach
+      if (parseInt(page) > 1) {
+        // For pagination with random results, we'll use a seed-based approach
+        // This is a simplified version - for true random pagination, you'd need more complex logic
+        products = await Product.find(query)
+          .sort({ _id: 1 }) // Consistent sorting
+          .limit(parseInt(limit))
+          .skip((parseInt(page) - 1) * parseInt(limit));
+      } else {
+        products = await Product.aggregate(pipeline);
+      }
+    } else {
+      // Use regular find for category-specific queries
+      products = await Product.find(query)
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit));
+    }
 
     res.json({
       products,
@@ -3791,6 +3804,7 @@ router.get('/admin/available', authenticateSeller, async (req, res) => {
       limit: parseInt(limit)
     });
   } catch (error) {
+    console.error('Error fetching admin products:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -3817,40 +3831,111 @@ router.get('/admin/seller/:sellerId', authenticateAdmin, async (req, res) => {
   }
 });
 
-// Get all seller products for admin review
-router.get('/admin/seller-products', authenticateAdmin, async (req, res) => {
+// Get all seller listings for admin (both seller-created products and seller listings on admin products)
+// Approve seller product
+router.get('/admin/all-seller-listings', authenticateAdmin, async (req, res) => {
   try {
-    const { page = 1, limit = 20, status = 'pending' } = req.query;
+    const { page = 1, limit = 1000, status = 'all' } = req.query;
     
-    let query = { 
+    let allListings = [];
+    
+    // 1. Get seller-created products (isAdminProduct: false)
+    let sellerProductsQuery = { 
       isAdminProduct: false
     };
-
-    // Only filter by status if it's not 'all'
+    
     if (status !== 'all') {
-      query.approvalStatus = status;
+      sellerProductsQuery.approvalStatus = status;
     }
-
-    const products = await Product.find(query)
+    
+    const sellerProducts = await Product.find(sellerProductsQuery)
       .populate('seller', 'username email supplierId whatsappNo city country verificationStatus')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit));
-
-    const count = await Product.countDocuments(query);
-
+      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images seller listedAt');
+    
+    // Add seller-created products to listings
+    sellerProducts.forEach(product => {
+      allListings.push({
+        ...product.toObject(),
+        listingType: 'seller_created',
+        sellerPrice: product.price,
+        sellerStock: product.stock
+      });
+    });
+    
+    // 2. Get admin products where sellers have listed themselves
+    const adminProductsWithSellers = await Product.find({
+      isAdminProduct: true,
+      sellers: { $exists: true, $ne: [], $not: { $size: 0 } }
+    })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images sellers');
+    
+    // Create separate entries for each seller listing on admin products
+    adminProductsWithSellers.forEach(product => {
+      if (product.sellers && product.sellers.length > 0) {
+        product.sellers.forEach(sellerEntry => {
+          allListings.push({
+            ...product.toObject(),
+            _id: `${product._id}_${sellerEntry.sellerId}`, // Unique ID for this seller listing
+            originalProductId: product._id, // Keep reference to original product
+            seller: {
+              _id: sellerEntry.sellerId,
+              username: sellerEntry.sellerName || 'Unknown Seller',
+              supplierId: sellerEntry.sellerId,
+              whatsappNo: sellerEntry.whatsappNo,
+              city: sellerEntry.city,
+              country: sellerEntry.country,
+              verificationStatus: 'approved' // Assume verified if they can list
+            },
+            listedAt: sellerEntry.listedAt,
+            approvalStatus: 'approved', // Admin products are pre-approved
+            listingType: 'admin_product_listing',
+            sellerPrice: sellerEntry.price, // Seller's price
+            sellerStock: sellerEntry.stock // Seller's stock
+          });
+        });
+      }
+    });
+    
+    // Sort all listings by creation/listing date
+    allListings.sort((a, b) => {
+      const dateA = new Date(a.listedAt || a.createdAt);
+      const dateB = new Date(b.listedAt || b.createdAt);
+      return dateB - dateA; // Newest first
+    });
+    
+    // Apply pagination
+    const startIndex = (parseInt(page) - 1) * parseInt(limit);
+    const paginatedListings = allListings.slice(startIndex, startIndex + parseInt(limit));
+    
+    console.log('📋 All seller listings response:', {
+      total: allListings.length,
+      sellerCreated: allListings.filter(l => l.listingType === 'seller_created').length,
+      adminProductListings: allListings.filter(l => l.listingType === 'admin_product_listing').length,
+      returned: paginatedListings.length,
+      sampleSellers: paginatedListings.slice(0, 3).map(l => ({
+        productName: l.name,
+        sellerUsername: l.seller?.username,
+        sellerId: l.seller?._id,
+        listingType: l.listingType
+      }))
+    });
+    
     res.json({
-      products,
-      totalPages: Math.ceil(count / parseInt(limit)),
+      products: paginatedListings,
+      totalPages: Math.ceil(allListings.length / parseInt(limit)),
       currentPage: parseInt(page),
-      total: count
+      total: allListings.length
     });
   } catch (error) {
+    console.error('❌ Error fetching all seller listings:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Approve seller product
 router.put('/admin/approve/:id', authenticateAdmin, async (req, res) => {
   try {
     const product = await Product.findByIdAndUpdate(
@@ -6507,8 +6592,6 @@ router.get('/public/debug/category/:categoryValue', async (req, res) => {
       approvalStatus: 'approved', // Only approved products
       ...categoryQuery
     };
-    
-    console.log('🔍 Debug query:', JSON.stringify(query, null, 2));
     
     const products = await Product.find(query).limit(10);
     const totalCount = await Product.countDocuments(query);

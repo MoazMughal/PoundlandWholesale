@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import ScrollToTop from '../components/ScrollToTop'
 
 // Import sample images
@@ -21,6 +21,7 @@ import carBulbImg from '../assets/main-pics/Car Bulbs.jpg'
 import sunglassesImg from '../assets/main-pics/Sunglasses.jpg'
 
 const LatestDeals = () => {
+  const navigate = useNavigate()
   const [selectedFilter, setSelectedFilter] = useState('all')
   const [currency, setCurrency] = useState('PKR')
   const [mainTimer, setMainTimer] = useState({ hours: 23, minutes: 45, seconds: 30 })
@@ -598,10 +599,29 @@ const LatestDeals = () => {
 
                     {/* Action Buttons */}
                     <div className="deal-actions">
-                      <Link to={`/product/${deal.id}`} className="btn btn-primary btn-sm">
+                      <button 
+                        className="btn btn-primary btn-sm"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          if (e.ctrlKey || e.metaKey || e.button === 1) {
+                            // Open in new tab while preserving auth
+                            window.open(`/product/${deal.id}`, '_blank')
+                          } else {
+                            // Navigate in current tab
+                            navigate(`/product/${deal.id}`)
+                          }
+                        }}
+                        onMouseDown={(e) => {
+                          // Handle middle mouse button click
+                          if (e.button === 1) {
+                            e.preventDefault()
+                            window.open(`/product/${deal.id}`, '_blank')
+                          }
+                        }}
+                      >
                         <i className="fas fa-shopping-cart me-1"></i>
                         Claim Deal
-                      </Link>
+                      </button>
                       <button className="btn btn-outline-primary btn-sm">
                         <i className="fas fa-heart"></i>
                       </button>

@@ -330,9 +330,25 @@ const ListedProducts = () => {
                   {products.map((product) => (
                     <tr key={product._id}>
                       <td>
-                        <a 
-                          href={`/product/${product._id}`}
-                          style={{ textDecoration: 'none' }}
+                        <div 
+                          onClick={(e) => {
+                            e.preventDefault()
+                            if (e.ctrlKey || e.metaKey || e.button === 1) {
+                              // Open in new tab while preserving auth
+                              window.open(`/product/${product._id}`, '_blank')
+                            } else {
+                              // Navigate in current tab
+                              navigate(`/product/${product._id}`)
+                            }
+                          }}
+                          onMouseDown={(e) => {
+                            // Handle middle mouse button click
+                            if (e.button === 1) {
+                              e.preventDefault()
+                              window.open(`/product/${product._id}`, '_blank')
+                            }
+                          }}
+                          style={{ cursor: 'pointer' }}
                         >
                           <img 
                             src={product.images?.[0] || 'https://via.placeholder.com/50x50?text=No+Image'} 
@@ -351,16 +367,33 @@ const ListedProducts = () => {
                             onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
                             onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
                           />
-                        </a>
+                        </div>
                       </td>
                       <td>
                         <div style={{ maxWidth: '200px' }}>
-                          <a 
-                            href={`/product/${product._id}`}
+                          <div 
+                            onClick={(e) => {
+                              e.preventDefault()
+                              if (e.ctrlKey || e.metaKey || e.button === 1) {
+                                // Open in new tab while preserving auth
+                                window.open(`/product/${product._id}`, '_blank')
+                              } else {
+                                // Navigate in current tab
+                                navigate(`/product/${product._id}`)
+                              }
+                            }}
+                            onMouseDown={(e) => {
+                              // Handle middle mouse button click
+                              if (e.button === 1) {
+                                e.preventDefault()
+                                window.open(`/product/${product._id}`, '_blank')
+                              }
+                            }}
                             style={{
                               textDecoration: 'none',
                               color: '#0066cc',
-                              fontWeight: 'bold'
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
                             }}
                             className="d-block text-truncate"
                             onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
@@ -368,7 +401,7 @@ const ListedProducts = () => {
                             title={product.name}
                           >
                             {product.name}
-                          </a>
+                          </div>
                           {product.asin && (
                             <small className="text-muted">ASIN: {product.asin}</small>
                           )}

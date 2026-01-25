@@ -7,6 +7,8 @@ import cacheManager from '../../utils/cacheManager';
 import '../../styles/AdminDashboard.css';
 import '../../styles/AdminDashboardEnhanced.css';
 import '../../styles/AdminLayout.css';
+import '../../styles/dashboard-responsive.css';
+import '../../styles/mobile-dashboard.css';
 
 // Force set currency to GBP for admin dashboard at module level
 localStorage.setItem('selectedCurrency', 'GBP');
@@ -820,6 +822,17 @@ const AdminDashboard = () => {
               <div className="stat-change-enhanced">Product Types</div>
             </div>
           </div>
+
+          <div className="stat-card-enhanced buyers" onClick={() => navigate('/admin/payment-verifications')}>
+            <div className="stat-icon-enhanced">💰</div>
+            <div className="stat-content-enhanced">
+              <div className="stat-label-enhanced">Payment Verifications</div>
+              <div className="stat-value-enhanced">{stats?.paymentVerifications?.pending || 0}</div>
+              <div className="stat-change-enhanced">
+                <span>⏳</span> Pending Review
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="counting-summary">
@@ -1093,6 +1106,9 @@ const AdminDashboard = () => {
         </button>
         <button onClick={() => navigate('/admin/pending-payments')} className="tool-btn warning">
           💳 Pending Payments ({stats?.pendingPayments || 0})
+        </button>
+        <button onClick={() => navigate('/admin/payment-verifications')} className="tool-btn info">
+          💰 Payment Verifications
         </button>
         <button onClick={bulkDeleteProducts} className="tool-btn danger">
           🗑️ Delete All

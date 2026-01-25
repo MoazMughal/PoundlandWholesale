@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getApiUrl } from '../../utils/api'
+import { useBuyer } from '../../context/BuyerContext'
 
 const BuyerLogin = () => {
   const navigate = useNavigate()
+  const { login } = useBuyer()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -40,9 +42,8 @@ const BuyerLogin = () => {
       const data = await response.json()
 
       if (response.ok) {
-        // Store buyer data
-        localStorage.setItem('buyerToken', data.token)
-        localStorage.setItem('buyerData', JSON.stringify(data.buyer))
+        // Use context login method instead of direct localStorage
+        login(data.buyer, data.token)
         
         // Show success message briefly then redirect
         setError('')

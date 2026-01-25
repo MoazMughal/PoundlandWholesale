@@ -29,11 +29,15 @@ const ProtectedRoute = ({ children }) => {
   const hasToken = authPersistence.hasToken();
   
   if (!isLoggedIn || !hasToken || !admin) {
-    // Clear any conflicting tokens
-    localStorage.removeItem('sellerToken');
-    localStorage.removeItem('sellerData');
-    localStorage.removeItem('buyerToken');
-    localStorage.removeItem('buyerData');
+    // Only clear conflicting tokens if we're actually on an admin route
+    // Don't clear tokens when admin is just viewing product pages
+    if (location.pathname.startsWith('/admin/')) {
+      // Clear any conflicting tokens only for admin routes
+      localStorage.removeItem('sellerToken');
+      localStorage.removeItem('sellerData');
+      localStorage.removeItem('buyerToken');
+      localStorage.removeItem('buyerData');
+    }
     
     // Store the attempted URL for redirect after login
     const redirectUrl = location.pathname + location.search;

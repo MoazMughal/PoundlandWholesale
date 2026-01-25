@@ -1,11 +1,55 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import Buyer from '../models/Buyer.js';
 import { authenticateBuyer } from '../middleware/auth.js';
 import { processCardPaymentWithPaymob } from '../services/paymob.js';
 import { sendWhatsAppOTP, generateOTP, validatePhoneNumber } from '../services/whatsapp.js';
 
 const router = express.Router();
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = 'uploads/payment-verifications';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.fieldname === 'paymentReceipt') {
+      // Allow images and PDFs for payment receipts
+      if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
+        cb(null, true);
+      } else {
+        cb(new Error('Payment receipt must be an image or PDF file'));
+      }
+    } else if (file.fieldname === 'idPicture') {
+      // Allow only images for ID pictures
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('ID picture must be an image file'));
+      }
+    } else {
+      cb(new Error('Unexpected field'));
+    }
+  }
+});
 
 // Register new buyer
 router.post('/register', async (req, res) => {
@@ -653,11 +697,44 @@ router.get('/payment-history', authenticateBuyer, async (req, res) => {
     const buyer = await Buyer.findById(req.buyer.id)
       .populate('paymentHistory.supplierId', 'businessName');
 
+    // Get payment verifications
+    let paymentVerifications = [];
+    try {
+      const PaymentVerification = (await import('../models/PaymentVerification.js')).default;
+      paymentVerifications = await PaymentVerification.find({
+        buyerId: req.buyer.id
+      }).sort({ submittedAt: -1 });
+    } catch (error) {
+      console.log('PaymentVerification model not available:', error.message);
+    }
+
+    // Combine payment history with payment verifications
+    const combinedHistory = [
+      ...buyer.paymentHistory.map(payment => ({
+        ...payment.toObject(),
+        type: 'payment',
+        date: payment.paymentDate
+      })),
+      ...paymentVerifications.map(verification => ({
+        _id: verification._id,
+        type: 'verification',
+        date: verification.submittedAt,
+        description: `Payment Verification - ${verification.productName}`,
+        status: verification.status,
+        productName: verification.productName,
+        productId: verification.productId,
+        adminNotes: verification.adminNotes,
+        reviewedAt: verification.reviewedAt
+      }))
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
     res.json({
       success: true,
       paymentHistory: buyer.paymentHistory.sort((a, b) => 
         new Date(b.paymentDate) - new Date(a.paymentDate)
-      )
+      ),
+      paymentVerifications,
+      combinedHistory
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -781,6 +858,149 @@ router.post('/reset-password', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Payment verification submission
+router.post('/payment-verification', authenticateBuyer, upload.fields([
+  { name: 'paymentReceipt', maxCount: 1 },
+  { name: 'idPicture', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const { productId, productName, buyerId, buyerName, buyerEmail } = req.body;
+    
+    if (!req.files || !req.files.paymentReceipt || !req.files.idPicture) {
+      return res.status(400).json({ 
+        message: 'Both payment receipt and ID picture are required' 
+      });
+    }
+
+    // Import PaymentVerification model
+    const PaymentVerification = (await import('../models/PaymentVerification.js')).default;
+
+    // Check if buyer already has a pending or approved verification
+    const existingVerification = await PaymentVerification.findOne({
+      buyerId: req.buyer.id,
+      status: { $in: ['pending', 'approved'] }
+    });
+
+    if (existingVerification) {
+      if (existingVerification.status === 'approved') {
+        return res.status(400).json({ 
+          message: 'You already have approved payment verification. You can now view seller information.' 
+        });
+      } else {
+        return res.status(400).json({ 
+          message: 'You already have a pending payment verification. Please wait for admin approval.' 
+        });
+      }
+    }
+
+    const paymentReceipt = req.files.paymentReceipt[0];
+    const idPicture = req.files.idPicture[0];
+
+    // Create payment verification record
+    const verification = new PaymentVerification({
+      buyerId: req.buyer.id,
+      buyerName: buyerName || req.buyer.name || `${req.buyer.firstName} ${req.buyer.lastName}`,
+      buyerEmail: buyerEmail || req.buyer.email,
+      productId,
+      productName,
+      paymentReceipt: {
+        filename: paymentReceipt.filename,
+        path: paymentReceipt.path,
+        mimetype: paymentReceipt.mimetype,
+        size: paymentReceipt.size
+      },
+      idPicture: {
+        filename: idPicture.filename,
+        path: idPicture.path,
+        mimetype: idPicture.mimetype,
+        size: idPicture.size
+      },
+      status: 'pending'
+    });
+
+    await verification.save();
+
+    res.json({
+      success: true,
+      message: 'Payment verification submitted successfully! Admin will review within 24 hours.',
+      verificationId: verification._id
+    });
+
+  } catch (error) {
+    console.error('Payment verification error:', error);
+    res.status(500).json({ 
+      message: 'Failed to submit payment verification', 
+      error: error.message 
+    });
+  }
+});
+
+// Serve uploaded payment verification files
+router.get('/payment-verification-file/:filename', authenticateBuyer, async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const filePath = path.join(process.cwd(), 'uploads', 'payment-verifications', filename);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    // Verify that the file belongs to the authenticated buyer
+    const PaymentVerification = (await import('../models/PaymentVerification.js')).default;
+    const verification = await PaymentVerification.findOne({
+      buyerId: req.buyer.id,
+      $or: [
+        { 'paymentReceipt.filename': filename },
+        { 'idPicture.filename': filename }
+      ]
+    });
+
+    if (!verification) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Serve the file
+    res.sendFile(filePath);
+  } catch (error) {
+    console.error('Error serving payment verification file:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Check payment verification status
+router.get('/payment-verification-status', authenticateBuyer, async (req, res) => {
+  try {
+    const PaymentVerification = (await import('../models/PaymentVerification.js')).default;
+    
+    const verification = await PaymentVerification.findOne({
+      buyerId: req.buyer.id
+    }).sort({ submittedAt: -1 });
+
+    if (!verification) {
+      return res.json({
+        hasVerification: false,
+        status: null
+      });
+    }
+
+    res.json({
+      hasVerification: true,
+      status: verification.status,
+      submittedAt: verification.submittedAt,
+      reviewedAt: verification.reviewedAt,
+      adminNotes: verification.adminNotes
+    });
+
+  } catch (error) {
+    console.error('Payment verification status error:', error);
+    res.status(500).json({ 
+      message: 'Failed to check payment verification status', 
+      error: error.message 
+    });
   }
 });
 
