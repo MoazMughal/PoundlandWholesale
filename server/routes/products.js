@@ -3207,10 +3207,6 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
   const tempFiles = [];
   
   try {
-    console.log('📝 Updating product:', req.params.id);
-    console.log('📝 Update data keys:', Object.keys(req.body));
-    console.log('📝 Image files:', req.files ? req.files.length : 0);
-    
     // Log ASIN updates specifically
     if (req.body.asin !== undefined) {
       console.log('🏷️ ASIN update:', {
@@ -3282,17 +3278,14 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
     // This prevents accidentally removing these flags when editing products
     if (updateData.approvalStatus === undefined && existingProduct.approvalStatus) {
       updateData.approvalStatus = existingProduct.approvalStatus;
-      console.log('🔒 Preserving existing approvalStatus:', existingProduct.approvalStatus);
     }
     
     if (updateData.isAmazonsChoice === undefined && existingProduct.isAmazonsChoice) {
       updateData.isAmazonsChoice = existingProduct.isAmazonsChoice;
-      console.log('🔒 Preserving existing isAmazonsChoice:', existingProduct.isAmazonsChoice);
     }
     
     if (updateData.status === undefined && existingProduct.status) {
       updateData.status = existingProduct.status;
-      console.log('🔒 Preserving existing status:', existingProduct.status);
     }
     
     // Handle images - prioritize images from request body (Cloudinary URLs from frontend)
@@ -3327,11 +3320,7 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
     // Clear cache when product is updated
     fastProductsCache = null;
     cacheTimestamp = Date.now();
-    console.log('🗑️ Cache cleared after product update, new timestamp:', cacheTimestamp);
 
-    console.log('✅ Product updated successfully:', product.name);
-    console.log('🖼️ Total images:', product.images?.length || 0);
-    console.log('☁️ Cloudinary images:', product.images?.filter(img => img.includes('cloudinary.com')).length || 0);
     
     res.json(product);
     

@@ -1,9 +1,16 @@
+import { getValidAdminToken, cleanupAuthTokens } from './authFix';
+
 // Admin API utility with improved error handling
 export const adminApiCall = async (url, options = {}) => {
-  const token = localStorage.getItem('adminToken');
+  // Clean up any invalid tokens first
+  cleanupAuthTokens();
+  
+  const token = getValidAdminToken();
   
   if (!token) {
-    throw new Error('No authentication token found');
+    // Redirect to login if no valid token
+    window.location.href = '/admin/login';
+    throw new Error('No valid authentication token found');
   }
 
   const defaultOptions = {
@@ -27,9 +34,11 @@ export const adminApiCall = async (url, options = {}) => {
     const response = await fetch(url, finalOptions);
     
     if (response.status === 401) {
-      // Token expired or invalid - let the context handle this
-      
-      throw new Error('Authentication failed. Please refresh the page.');
+      // Token expired or invalid - clean up and redirect
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminData');
+      window.location.href = '/admin/login';
+      throw new Error('Authentication failed. Please log in again.');
     }
     
     if (!response.ok) {

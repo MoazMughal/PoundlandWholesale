@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiUrl } from '../../utils/api';
+import { getValidAdminToken, cleanupAuthTokens } from '../../utils/authFix';
 import BulkConvertModal from '../../components/BulkConvertModal';
 import CategorySelectionModal from '../../components/CategorySelectionModal';
 import EnhancedImage from '../../components/EnhancedImage';
@@ -13,6 +14,18 @@ const ExcelProducts = () => {
   const [upload, setUpload] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState(new Set());
+  
+  // Helper function for authenticated API calls
+  const getAuthenticatedToken = () => {
+    cleanupAuthTokens();
+    const token = getValidAdminToken();
+    if (!token) {
+      alert('❌ Authentication token is invalid. Please log in again.');
+      navigate('/admin/login');
+      return null;
+    }
+    return token;
+  };
   
   // Initialize state from URL parameters if available
   const urlParams = new URLSearchParams(window.location.search);

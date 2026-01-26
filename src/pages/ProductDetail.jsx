@@ -6,7 +6,6 @@ import { getImageUrl } from '../utils/imageImports'
 import ScrollToTop from '../components/ScrollToTop'
 import PaymentModal from '../components/PaymentModal'
 import PaymentUploadModal from '../components/PaymentUploadModal'
-import ProductVariations from '../components/ProductVariations'
 import apiConfig from '../config/api.config'
 import { useCurrency } from '../context/CurrencyContext'
 import { useAdmin } from '../context/AdminContext'
@@ -63,7 +62,7 @@ const LinkedProductImage = ({ productId }) => {
   return (
     <img 
       src={imageUrl || '/placeholder-image.jpg'} 
-      alt="Variation"
+      alt="Product Image"
       style={{
         width: '40px',
         height: '40px',
@@ -95,8 +94,6 @@ const ProductDetail = () => {
   const [relatedProducts, setRelatedProducts] = useState([])
   const [topDealsFromDB, setTopDealsFromDB] = useState([])
   const [mostPopularFromDB, setMostPopularFromDB] = useState([])
-  const [selectedVariations, setSelectedVariations] = useState({})
-  const [productVariations, setProductVariations] = useState([])
   const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(false)
   const [isSupplierUnlocked, setIsSupplierUnlocked] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -108,19 +105,15 @@ const ProductDetail = () => {
   const [isSellerLoggedIn, setIsSellerLoggedIn] = useState(false)
   const [currentSeller, setCurrentSeller] = useState(null)
   const [savingUnits, setSavingUnits] = useState(false) // Loading state for saving units
-  const [quantity, setQuantity] = useState(200) // Will be updated to match dealUnits
+  const [quantity, setQuantity] = useState(200) // Independent quantity input
 
-  // Update quantity to match dealUnits when product loads
+  // Initialize quantity to dealUnits when product loads, but allow independent changes
   useEffect(() => {
-    if (product && product.dealUnits) {
+    if (product && product.dealUnits && quantity === 200) {
+      // Only set initial value if quantity hasn't been changed by user
       setQuantity(product.dealUnits);
     }
   }, [product?.dealUnits]);
-
-  // Variation change handlers
-  const handleVariationChange = (newSelections) => {
-    setSelectedVariations(newSelections);
-  };
 
   const handleProductChange = (productId) => {
     // Navigate to the linked product with cache busting
@@ -427,9 +420,6 @@ const ProductDetail = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       setLoading(true)
-      // Reset selected variations when switching to a new product
-      console.log('🔄 Resetting selected variations for new product:', id)
-      setSelectedVariations({})
       
       // Try to fetch from database first using the product ID
       try {
@@ -469,12 +459,6 @@ const ProductDetail = () => {
             parsedSave: parseFloat(dbProduct.savings) || 0
           });
           
-          console.log('🎨 VARIATIONS DEBUG:', {
-            hasVariations: !!dbProduct.variations,
-            variationsLength: dbProduct.variations?.length || 0,
-            variations: dbProduct.variations
-          });
-          
           const productData = {
             id: dbProduct._id,
             name: dbProduct.name,
@@ -494,7 +478,6 @@ const ProductDetail = () => {
             seller: dbProduct.seller,
             sellerInfo: dbProduct.sellerInfo,
             save: parseFloat(dbProduct.savings) || 0, // Add the single savings field
-            variations: dbProduct.variations || [], // Add variations from database
             showEvaluation: dbProduct.name.toLowerCase().includes('nose ring') ||
                            dbProduct.name.toLowerCase().includes('bulb') ||
                            dbProduct.name.toLowerCase().includes('fuse') ||
@@ -573,7 +556,7 @@ const ProductDetail = () => {
           
           // Add profit data from database
           
-          // Special debugging for the specific product (check multiple variations)
+          // Special debugging for the specific product
           const isTargetProduct = productData.name.toLowerCase().includes('professional smart remote') || 
                                   productData.name.toLowerCase().includes('smart remote') ||
                                   dbProduct._id === '691464c42da932427c2a4e6b';
@@ -1103,120 +1086,6 @@ const ProductDetail = () => {
             console.log('- Final productData.platforms:', productData.platforms)
             console.log('- Final productData.profitCalculations:', productData.profitCalculations)
             console.log('- Final productData.evaluation:', productData.evaluation)
-          }
-          
-          console.log('🎨 Final productData with variations:', {
-            hasVariations: !!productData.variations,
-            variationsLength: productData.variations?.length || 0,
-            variations: productData.variations,
-            productId: productData.id,
-            productName: productData.name
-          });
-          
-          // Debug: Log the complete variation structure
-          if (productData.variations && productData.variations.length > 0) {
-            productData.variations.forEach((variation, index) => {
-              console.log(`🎨 Variation ${index + 1}:`, {
-                type: variation.type,
-                name: variation.name,
-                options: variation.options.map(option => ({
-                  value: option.value,
-                  productId: option.productId,
-                  hasProductId: !!option.productId
-                }))
-              });
-            });
-          }
-          
-          // Determine current product's variation values from the variation data
-          if (productData.variations && productData.variations.length > 0) {
-            const currentVariations = {};
-            
-            productData.variations.forEach(variation => {
-              console.log(`🎨 Processing variation: ${variation.type} (${variation.name})`);
-              
-              // Method 1: Check if current product is explicitly linked as one of the variation options
-              const currentProductOption = variation.options.find(option => 
-                option.productId === productData.id
-              );
-              
-              if (currentProductOption) {
-                currentVariations[variation.type] = currentProductOption.value;
-                console.log(`🎨 Method 1 - Found explicit variation ${variation.type}: ${currentProductOption.value} for current product`);
-                return; // Move to next variation
-              }
-              
-              // Method 2: If current product is not linked, it might be the "base" product
-              // In this case, we need to determine what value this base product represents
-              
-              // Check if there's an option without productId (represents the current/base product)
-              const baseOption = variation.options.find(option => !option.productId);
-              if (baseOption) {
-                currentVariations[variation.type] = baseOption.value;
-                console.log(`🎨 Method 2 - Using base variation ${variation.type}: ${baseOption.value} for current product`);
-                return; // Move to next variation
-              }
-              
-              // Method 3: If no base option exists, try to determine from product name or other clues
-              // This is a fallback method when the variation setup isn't complete
-              const productNameLower = productData.name.toLowerCase();
-              let detectedValue = null;
-              
-              if (variation.type === 'color') {
-                // Enhanced color detection to match backend logic
-                if (productNameLower.includes('amber')) detectedValue = 'Orange'; // Amber bulbs are typically orange
-                else if (productNameLower.includes('orange')) detectedValue = 'Orange';
-                else if (productNameLower.includes('clear')) detectedValue = 'Clear';
-                else if (productNameLower.includes('red')) detectedValue = 'Red';
-                else if (productNameLower.includes('blue')) detectedValue = 'Blue';
-                else if (productNameLower.includes('green')) detectedValue = 'Green';
-                else if (productNameLower.includes('black')) detectedValue = 'Black';
-                else if (productNameLower.includes('white')) detectedValue = 'White';
-                else if (productNameLower.includes('yellow')) detectedValue = 'Yellow';
-                else if (productNameLower.includes('pink')) detectedValue = 'Pink';
-                else if (productNameLower.includes('purple')) detectedValue = 'Purple';
-                else if (productNameLower.includes('brown')) detectedValue = 'Brown';
-                else if (productNameLower.includes('grey') || productNameLower.includes('gray')) detectedValue = 'Grey';
-                else if (productNameLower.includes('silver')) detectedValue = 'Silver';
-                else if (productNameLower.includes('gold')) detectedValue = 'Gold';
-              } else if (variation.type === 'size') {
-                if (productNameLower.includes('small')) detectedValue = 'Small';
-                else if (productNameLower.includes('medium')) detectedValue = 'Medium';
-                else if (productNameLower.includes('large')) detectedValue = 'Large';
-                else if (productNameLower.includes('xl')) detectedValue = 'XL';
-                else if (productNameLower.includes('xxl')) detectedValue = 'XXL';
-              } else if (variation.type === 'style') {
-                if (productNameLower.includes('classic')) detectedValue = 'Classic';
-                else if (productNameLower.includes('modern')) detectedValue = 'Modern';
-                else if (productNameLower.includes('vintage')) detectedValue = 'Vintage';
-                else if (productNameLower.includes('premium')) detectedValue = 'Premium';
-                else if (productNameLower.includes('deluxe')) detectedValue = 'Deluxe';
-                else if (productNameLower.includes('basic')) detectedValue = 'Basic';
-              }
-              
-              // If we detected a value, check if it exists in the variation options
-              if (detectedValue) {
-                const matchingOption = variation.options.find(option => 
-                  option.value.toLowerCase() === detectedValue.toLowerCase()
-                );
-                if (matchingOption) {
-                  currentVariations[variation.type] = detectedValue;
-                  console.log(`🎨 Method 3 - Detected variation ${variation.type}: ${detectedValue} from product name`);
-                } else {
-                  console.log(`🎨 Detected value ${detectedValue} not found in options:`, variation.options.map(o => o.value));
-                }
-              } else {
-                console.log(`🎨 Could not detect variation value for ${variation.type} from product name: ${productData.name}`);
-              }
-            });
-            
-            // Set the determined variations as the initial selection
-            if (Object.keys(currentVariations).length > 0) {
-              console.log('🎨 Setting determined variations:', currentVariations);
-              setSelectedVariations(currentVariations);
-            } else {
-              console.log('🎨 No specific variations determined, will show variation names');
-            }
           }
           
           setProduct(productData)
@@ -2137,11 +2006,11 @@ const ProductDetail = () => {
     fetchProduct()
   }, [id, searchParams])
 
-  // Listen for variation updates from admin panel
+  // Listen for product updates from admin panel
   useEffect(() => {
-    const handleVariationUpdate = (event) => {
-      if (event.key === 'variationsUpdated' && event.newValue === id) {
-        console.log('🔄 Variations updated for current product, refreshing...');
+    const handleProductUpdate = (event) => {
+      if (event.key === 'productUpdated' && event.newValue === id) {
+        console.log('🔄 Product updated, refreshing...');
         // Force refresh the product data
         const fetchProduct = async () => {
           try {
@@ -2159,9 +2028,9 @@ const ProductDetail = () => {
             if (sellerToken) {
               apiEndpoint = `products/seller/detail/${id}?_=${cacheBuster}`;
               headers.Authorization = `Bearer ${sellerToken}`;
-              console.log('🔐 Using seller endpoint for variation refresh');
+              console.log('🔐 Using seller endpoint for product refresh');
             } else {
-              console.log('🌐 Using public endpoint for variation refresh');
+              console.log('🌐 Using public endpoint for product refresh');
             }
             
             const response = await fetch(apiConfig.getApiUrl(apiEndpoint), {
@@ -2171,28 +2040,28 @@ const ProductDetail = () => {
             
             if (response.ok) {
               const dbProduct = await response.json();
-              console.log('✅ Product refreshed after variation update:', dbProduct.variations);
+              console.log('✅ Product refreshed after update:', dbProduct);
               // Update the product state with fresh data
               setProduct(prevProduct => ({
                 ...prevProduct,
-                variations: dbProduct.variations
+                ...dbProduct
               }));
             }
           } catch (error) {
-            console.error('❌ Error refreshing product after variation update:', error);
+            console.error('❌ Error refreshing product after update:', error);
           }
         };
         
         fetchProduct();
         // Clear the flag
-        localStorage.removeItem('variationsUpdated');
+        localStorage.removeItem('productUpdated');
       }
     };
 
-    window.addEventListener('storage', handleVariationUpdate);
+    window.addEventListener('storage', handleProductUpdate);
     
     return () => {
-      window.removeEventListener('storage', handleVariationUpdate);
+      window.removeEventListener('storage', handleProductUpdate);
     };
   }, [id])
 
@@ -2877,7 +2746,7 @@ const ProductDetail = () => {
               </div>
             </div>
             
-            {/* Compact MIDDLE COLUMN - Title, Reviews, Price, Variations */}
+            {/* Compact MIDDLE COLUMN - Title, Reviews, Price */}
             <div className="col-12 col-lg-5 order-3 order-lg-2">
               <div className="product-middle-info" style={{
                 background: '#ffffff',
@@ -2911,7 +2780,7 @@ const ProductDetail = () => {
                   onMouseEnter={(e) => e.target.style.color = '#ff9900'}
                   onMouseLeave={(e) => e.target.style.color = '#0066c0'}
                   >
-                    {product.reviews} ratings
+                    {product.reviews} reviews
                   </Link>
                   {(() => {
                     // Use Amazon markup from Platform Comparison, fallback to product.markup
@@ -3174,33 +3043,24 @@ const ProductDetail = () => {
                           </span>
                         </div>
                         <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>📈 Profit/{quantity}:</span>
+                          <span style={{color: '#565959'}}>📈 Profit/{product.dealUnits || 200}:</span>
                           <span style={{color: '#059669', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
-                            £{(product.profitEvaluation?.netProfit ? (product.profitEvaluation.netProfit / (product.dealUnits || 1)) * quantity : (safeNumber(product.profitCalculations.profitPerUnit) * quantity)).toFixed(2)}
+                            £{(product.profitEvaluation?.netProfit ? product.profitEvaluation.netProfit : (safeNumber(product.profitCalculations.profitPerUnit) * (product.dealUnits || 200))).toFixed(2)}
                           </span>
                         </div>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>💰 Total cost/{quantity}:</span>
+                          <span style={{color: '#565959'}}>💰 Total cost/{product.dealUnits || 200}:</span>
                           <span style={{color: '#B12704', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>{(() => {
                             // Use profitEvaluation productCost if available, otherwise calculate from price
                             if (product.profitEvaluation?.productCost) {
-                              // Calculate proportional cost based on current quantity vs dealUnits
-                              const costPerUnit = product.profitEvaluation.productCost / (product.dealUnits || 1);
-                              return `£${(costPerUnit * quantity).toFixed(2)}`;
+                              // Use the fixed productCost from evaluation (already calculated for dealUnits)
+                              return `£${product.profitEvaluation.productCost.toFixed(2)}`;
                             }
                             
-                            // Fallback calculation: quantity × unit price
+                            // Fallback calculation: dealUnits × unit price
                             const priceString = product.price || '£0';
                             const unitPrice = parseFloat(priceString.replace(/[₨£$€]/g, '').trim()) || 0;
-                            const totalCost = unitPrice * quantity;
-                            
-                            console.log('💰 Cost Calculation:', {
-                              originalPrice: product.price,
-                              unitPrice: unitPrice,
-                              quantity: quantity,
-                              totalCost: totalCost,
-                              formula: `${quantity} × ${unitPrice} = ${totalCost}`
-                            });
+                            const totalCost = unitPrice * (product.dealUnits || 200);
                             
                             return `£${totalCost.toFixed(2)}`;
                           })()}</span>
@@ -3217,242 +3077,6 @@ const ProductDetail = () => {
                   background: 'linear-gradient(90deg, transparent 0%, #e1e5e9 50%, transparent 100%)',
                   margin: '8px 0'
                 }}></div>
-
-                {/* Compact Product Variations - Always Show */}
-                <div className="product-variations mb-2 pb-2" style={{
-                  borderBottom: '1px solid #e1e5e9',
-                  background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
-                  borderRadius: '6px',
-                  padding: '8px',
-                  border: '1px solid #e1e5e9'
-                }}>
-                  <h3 style={{
-                    fontSize: '0.8rem',
-                    fontWeight: '700',
-                    color: '#232f3e',
-                    marginBottom: '6px',
-                    letterSpacing: '0.2px'
-                  }}>Product Options</h3>
-                  
-                  {/* Enhanced Product Variations Component */}
-                  <ProductVariations
-                    product={product}
-                    selectedVariations={selectedVariations}
-                    onVariationChange={handleVariationChange}
-                    onProductChange={handleProductChange}
-                    showImages={true}
-                    compact={false}
-                  />
-
-                  {/* Fallback to old specifications-based variations for backward compatibility */}
-                  {(!product.variations || product.variations.length === 0) && product.specifications && product.specifications.Color && (
-                    <div className="mb-2">
-                      <div className="mb-1">
-                        <span className="fw-bold" style={{
-                          fontSize: '0.7rem',
-                          color: '#232f3e',
-                          letterSpacing: '0.2px'
-                        }}>Colour: </span>
-                        <span style={{
-                          fontSize: '0.7rem',
-                          color: '#565959',
-                          fontWeight: '500'
-                        }}>
-                          {selectedVariations.color || product.specifications.Color.split(',')[0].trim()}
-                        </span>
-                      </div>
-                      <div className="d-flex gap-1 flex-wrap">
-                        {product.specifications.Color.split(',').map((color, idx) => (
-                          <button 
-                            key={idx}
-                            onClick={() => setSelectedVariations({...selectedVariations, color: color.trim()})}
-                            style={{
-                              fontSize: '0.65rem', 
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              fontWeight: '600',
-                              border: selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0) ? 
-                                '1px solid #232f3e' : '1px solid #e1e5e9',
-                              background: selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0) ? 
-                                '#232f3e' : '#ffffff',
-                              color: selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0) ? 
-                                '#ffffff' : '#232f3e',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              boxShadow: selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0) ? 
-                                '0 2px 6px rgba(35, 47, 62, 0.2)' : '0 1px 3px rgba(0,0,0,0.06)'
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!(selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0))) {
-                                e.target.style.borderColor = '#232f3e';
-                                e.target.style.transform = 'translateY(-1px)';
-                                e.target.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.1)';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!(selectedVariations.color === color.trim() || (!selectedVariations.color && idx === 0))) {
-                                e.target.style.borderColor = '#e1e5e9';
-                                e.target.style.transform = 'translateY(0)';
-                                e.target.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
-                              }
-                            }}
-                          >
-                            {color.trim()}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Show message when no variations exist */}
-                  {(!product.variations || product.variations.length === 0) && (!product.specifications || (!product.specifications.Color && !product.specifications.Diameter)) && (
-                    <div style={{
-                      textAlign: 'center',
-                      padding: '12px',
-                      color: '#666',
-                      fontSize: '0.7rem',
-                      fontStyle: 'italic'
-                    }}>
-                      No product variations available
-                    </div>
-                  )}
-
-                  {/* Fallback to old specifications-based size variations for backward compatibility */}
-                  {(!product.variations || product.variations.length === 0) && product.specifications && product.specifications.Diameter && (
-                    <div className="mb-2">
-                      <div className="mb-1">
-                        <span className="fw-bold" style={{
-                          fontSize: '0.7rem',
-                          color: '#232f3e',
-                          letterSpacing: '0.2px'
-                        }}>Size: </span>
-                        <span style={{
-                          fontSize: '0.7rem',
-                          color: '#565959',
-                          fontWeight: '500'
-                        }}>
-                          {selectedVariations.size || product.specifications.Diameter.split(',')[0].trim()}
-                        </span>
-                      </div>
-                      <div className="d-flex gap-1 flex-wrap">
-                        {product.specifications.Diameter.split(',').map((size, idx) => (
-                          <button 
-                            key={idx}
-                            onClick={() => setSelectedVariations({...selectedVariations, size: size.trim()})}
-                            style={{
-                              fontSize: '0.65rem', 
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              fontWeight: '600',
-                              border: selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0) ? 
-                                '1px solid #232f3e' : '1px solid #e1e5e9',
-                              background: selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0) ? 
-                                '#232f3e' : '#ffffff',
-                              color: selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0) ? 
-                                '#ffffff' : '#232f3e',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              boxShadow: selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0) ? 
-                                '0 2px 6px rgba(35, 47, 62, 0.2)' : '0 1px 3px rgba(0,0,0,0.06)'
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!(selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0))) {
-                                e.target.style.borderColor = '#232f3e';
-                                e.target.style.transform = 'translateY(-1px)';
-                                e.target.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.1)';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!(selectedVariations.size === size.trim() || (!selectedVariations.size && idx === 0))) {
-                                e.target.style.borderColor = '#e1e5e9';
-                                e.target.style.transform = 'translateY(0)';
-                                e.target.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
-                              }
-                            }}
-                          >
-                            {size.trim()}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Packing Variations */}
-                  {product.specifications && product.specifications.Quantity && (
-                    <div className="mb-3">
-                      <div className="mb-2">
-                        <span className="fw-bold" style={{fontSize: '0.95rem'}}>Packing: </span>
-                        <span style={{fontSize: '0.95rem'}}>
-                          {selectedVariations.packing || product.specifications.Quantity}
-                        </span>
-                      </div>
-                      <div className="d-flex gap-2 flex-wrap">
-                        <button 
-                          onClick={() => setSelectedVariations({...selectedVariations, packing: product.specifications.Quantity})}
-                          className={`btn ${selectedVariations.packing === product.specifications.Quantity || !selectedVariations.packing ? 'btn-dark' : 'btn-outline-secondary'}`}
-                          style={{
-                            fontSize: '0.85rem', 
-                            padding: '10px 20px',
-                            borderRadius: '8px',
-                            fontWeight: '500',
-                            border: selectedVariations.packing === product.specifications.Quantity || !selectedVariations.packing ? '2px solid #232f3e' : '1px solid #ddd'
-                          }}
-                        >
-                          {product.specifications.Quantity}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Related Product Variations */}
-                  {productVariations.length > 0 && (
-                    <div className="mb-3">
-                      <div className="fw-bold mb-3" style={{fontSize: '0.95rem'}}>
-                        Other options:
-                      </div>
-                      <div className="row g-2">
-                        {productVariations.map((variation, idx) => (
-                          <div key={idx} className="col-6">
-                            <Link 
-                              to={`/product/${variation.id}`}
-                              className="card border text-decoration-none h-100"
-                              style={{
-                                transition: 'all 0.2s',
-                                cursor: 'pointer'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.borderColor = '#ff9900'}
-                              onMouseLeave={(e) => e.currentTarget.style.borderColor = '#ddd'}
-                            >
-                              <div className="card-body p-2">
-                                <div className="d-flex gap-2 align-items-center">
-                                  <img 
-                                    src={variation.image} 
-                                    alt={variation.name}
-                                    style={{
-                                      width: '60px',
-                                      height: '60px',
-                                      objectFit: 'contain',
-                                      borderRadius: '4px',
-                                      background: '#f8f9fa'
-                                    }}
-                                  />
-                                  <div className="flex-grow-1">
-                                    <div style={{fontSize: '0.8rem', color: '#2d3748', lineHeight: '1.3', marginBottom: '4px'}}>
-                                      {variation.name.substring(0, 35)}...
-                                    </div>
-                                    <div className="fw-bold" style={{fontSize: '0.85rem', color: '#B12704'}}>
-                                      {convertPrice(variation.price)}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </Link>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
 
                 {/* About this item / Description */}
                 {product.description && (
@@ -3556,7 +3180,7 @@ const ProductDetail = () => {
                     }}>Quantity:</label>
                     <div className="d-flex align-items-center gap-1 mb-1">
                       <button
-                        onClick={() => setQuantity(Math.max(product?.dealUnits || 200, quantity - 1))}
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
                         style={{
                           background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
                           border: '1px solid #e1e5e9',
@@ -3599,7 +3223,7 @@ const ProductDetail = () => {
                           fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                         }}
                         value={quantity}
-                        min={product?.dealUnits || 200}
+                        min="1"
                         step="1"
                         onChange={(e) => {
                           const value = e.target.value;
@@ -3611,11 +3235,10 @@ const ProductDetail = () => {
                           }
                         }}
                         onBlur={(e) => {
-                          // Ensure value is at least dealUnits when user leaves the field
-                          const minQuantity = product?.dealUnits || 200;
+                          // Ensure value is at least 1 when user leaves the field
                           const value = parseInt(e.target.value);
-                          if (isNaN(value) || value < minQuantity) {
-                            setQuantity(minQuantity);
+                          if (isNaN(value) || value < 1) {
+                            setQuantity(1);
                           }
                           // Reset styling
                           e.target.style.borderColor = '#e1e5e9';
@@ -3625,7 +3248,7 @@ const ProductDetail = () => {
                           e.target.style.borderColor = '#ff9900';
                           e.target.style.boxShadow = '0 0 0 2px rgba(255, 153, 0, 0.1)';
                         }}
-                        placeholder="200"
+                        placeholder="1"
                       />
                       <button
                         onClick={() => setQuantity(quantity + 1)}
@@ -4682,7 +4305,7 @@ const ProductDetail = () => {
                         <div className="card border-0 shadow-sm" style={{background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'}}>
                           <div className="card-body p-2">
                             <div className="fw-bold mb-2 text-white" style={{fontSize: '0.85rem'}}>
-                              <i className="fas fa-calculator me-2"></i>Profit Calculations
+                              <i className="fas fa-calculator me-2"></i>Profit Calculations based on Avg.Monthly Amazon/Ebay Sale
                             </div>
                             <div className="row g-1 mb-2">
                               <div className="col-md-4">
@@ -4785,7 +4408,7 @@ const ProductDetail = () => {
                   <div className="col-lg-6">
                     <div className="mb-3">
                       <div className="fw-bold mb-2" style={{fontSize: '0.9rem', color: '#2d3748'}}>
-                        <i className="fas fa-calculator me-2"></i>Amazon FBA Revenue Calculator
+                        <i className="fas fa-calculator me-2"></i>Amazon FBA Revenue Calculator /  Unit Sale
                       </div>
                       <div className="table-responsive">
                         <table className="table table-sm table-bordered shadow-sm mb-0" style={{fontSize: '0.75rem'}}>
@@ -4866,36 +4489,124 @@ const ProductDetail = () => {
                     <div className="col-md-8">
                       <div className="row g-2">
                         <div className="col-md-3 col-6">
-                          <a 
-                            href={`https://www.amazon.com/s?k=${encodeURIComponent(product.name)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-warning w-100"
-                            style={{fontSize: '0.85rem', padding: '10px', fontWeight: '600'}}
-                          >
-                            <i className="fab fa-amazon me-2"></i>Amazon
-                          </a>
+                          <div className="dropdown w-100">
+                            <button 
+                              className="btn btn-warning w-100 dropdown-toggle"
+                              type="button" 
+                              data-bs-toggle="dropdown" 
+                              aria-expanded="false"
+                              style={{fontSize: '0.85rem', padding: '10px', fontWeight: '600'}}
+                            >
+                              <i className="fab fa-amazon me-2"></i>Amazon
+                            </button>
+                            <ul className="dropdown-menu w-100">
+                              <li>
+                                <a 
+                                  className="dropdown-item" 
+                                  href={`https://www.amazon.com/s?k=${encodeURIComponent(product.name)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <i className="fas fa-flag-usa me-2"></i>Amazon USA (.com)
+                                </a>
+                              </li>
+                              <li>
+                                <a 
+                                  className="dropdown-item" 
+                                  href={`https://www.amazon.co.uk/s?k=${encodeURIComponent(product.name)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <i className="fas fa-flag me-2" style={{color: '#012169'}}></i>Amazon UK (.co.uk)
+                                </a>
+                              </li>
+                              <li>
+                                <a 
+                                  className="dropdown-item" 
+                                  href={`https://www.amazon.de/s?k=${encodeURIComponent(product.name)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <i className="fas fa-flag me-2" style={{color: '#000'}}></i>Amazon Germany (.de)
+                                </a>
+                              </li>
+                              <li>
+                                <a 
+                                  className="dropdown-item" 
+                                  href={`https://www.amazon.ae/s?k=${encodeURIComponent(product.name)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <i className="fas fa-flag me-2" style={{color: '#ce1126'}}></i>Amazon UAE (.ae)
+                                </a>
+                              </li>
+                            </ul>
+                          </div>
+                        </div>
+                        <div className="col-md-3 col-6">
+                          <div className="dropdown w-100">
+                            <button 
+                              className="btn btn-light w-100 dropdown-toggle"
+                              type="button" 
+                              data-bs-toggle="dropdown" 
+                              aria-expanded="false"
+                              style={{fontSize: '0.85rem', padding: '10px', fontWeight: '600', color: '#0064d2'}}
+                            >
+                              <i className="fab fa-ebay me-2"></i>eBay
+                            </button>
+                            <ul className="dropdown-menu w-100">
+                              <li>
+                                <a 
+                                  className="dropdown-item" 
+                                  href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(product.name)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <i className="fas fa-flag-usa me-2"></i>eBay USA (.com)
+                                </a>
+                              </li>
+                              <li>
+                                <a 
+                                  className="dropdown-item" 
+                                  href={`https://www.ebay.co.uk/sch/i.html?_nkw=${encodeURIComponent(product.name)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <i className="fas fa-flag me-2" style={{color: '#012169'}}></i>eBay UK (.co.uk)
+                                </a>
+                              </li>
+                              <li>
+                                <a 
+                                  className="dropdown-item" 
+                                  href={`https://www.ebay.de/sch/i.html?_nkw=${encodeURIComponent(product.name)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <i className="fas fa-flag me-2" style={{color: '#000'}}></i>eBay Germany (.de)
+                                </a>
+                              </li>
+                              <li>
+                                <a 
+                                  className="dropdown-item" 
+                                  href={`https://www.ebay.ae/sch/i.html?_nkw=${encodeURIComponent(product.name)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <i className="fas fa-flag me-2" style={{color: '#ce1126'}}></i>eBay UAE (.ae)
+                                </a>
+                              </li>
+                            </ul>
+                          </div>
                         </div>
                         <div className="col-md-3 col-6">
                           <a 
-                            href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(product.name)}`}
+                            href={`https://www.daraz.pk/catalog/?q=${encodeURIComponent(product.name)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn btn-light w-100"
-                            style={{fontSize: '0.85rem', padding: '10px', fontWeight: '600', color: '#0064d2'}}
+                            style={{fontSize: '0.85rem', padding: '10px', fontWeight: '600', color: '#f85606'}}
                           >
-                            <i className="fab fa-ebay me-2"></i>eBay
-                          </a>
-                        </div>
-                        <div className="col-md-3 col-6">
-                          <a 
-                            href={`https://www.alibaba.com/trade/search?SearchText=${encodeURIComponent(product.name)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-light w-100"
-                            style={{fontSize: '0.85rem', padding: '10px', fontWeight: '600', color: '#ff6a00'}}
-                          >
-                            <i className="fas fa-globe me-2"></i>Alibaba
+                            <i className="fas fa-shopping-cart me-2"></i>Daraz
                           </a>
                         </div>
                         <div className="col-md-3 col-6">

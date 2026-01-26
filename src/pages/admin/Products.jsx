@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAdmin } from '../../context/AdminContext';
 import cacheManager from '../../utils/cacheManager';
@@ -305,6 +305,10 @@ const AdminProducts = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { navigateToProduct } = useAdmin();
+  
+  // Add ref to track last fetch time and prevent rapid successive calls
+  const lastFetchTimeRef = useRef(0);
+  const FETCH_DEBOUNCE_MS = 1000; // 1 second debounce
 
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
@@ -1036,22 +1040,30 @@ const AdminProducts = () => {
     });
   }, [location.pathname, location.search, location.state?.category]);
 
-  useEffect(() => {
-    // Clear cache to ensure fresh data
-    cacheManager.clearAll();
-    setCurrentPage(1); // Reset to first page when filters change
-    fetchProducts(1);
-    fetchCategories();
-  }, [search, filters]);
-
   // Initial load on component mount
   useEffect(() => {
+    console.log('🚀 Component mounted, loading initial data...');
     fetchCategories();
+    fetchProducts(1); // Direct call to load products initially
   }, []);
 
-  // Handle page changes
+  // Handle search and filter changes
   useEffect(() => {
-    if (currentPage > 1) { // Only fetch if not initial load (page 1 is handled by filters useEffect)
+    // Only clear cache if search or category filters actually changed
+    const hasSearchChanged = search !== '';
+    const hasCategoryChanged = filters.category !== '';
+    
+    if (hasSearchChanged || hasCategoryChanged) {
+      cacheManager.clearAll();
+    }
+    
+    setCurrentPage(1); // Reset to first page when filters change
+    fetchProducts(1);
+  }, [search, filters]);
+
+  // Handle page changes - only fetch if page actually changed
+  useEffect(() => {
+    if (currentPage > 1 && !loading) { // Only fetch if not initial load and not already loading
       fetchProducts(currentPage);
     }
   }, [currentPage]);
@@ -1067,18 +1079,33 @@ const AdminProducts = () => {
   }, []);
 
   // Refresh products when page becomes visible (e.g., returning from edit page)
+  // Only refresh if data is stale (more than 5 minutes old)
   useEffect(() => {
+    let lastRefreshTime = 0;
+    const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // Page is now visible, refresh products to get latest data
-        fetchProducts(currentPage);
+        const now = Date.now();
+        if (now - lastRefreshTime > REFRESH_INTERVAL) {
+          console.log('🔄 Page visible after 5+ minutes, refreshing products...');
+          fetchProducts(currentPage);
+          lastRefreshTime = now;
+        }
       }
     };
 
     const handleFocus = () => {
-      // Window regained focus, refresh products
-      fetchProducts(currentPage);
+      const now = Date.now();
+      if (now - lastRefreshTime > REFRESH_INTERVAL) {
+        console.log('🔄 Window focused after 5+ minutes, refreshing products...');
+        fetchProducts(currentPage);
+        lastRefreshTime = now;
+      }
     };
+
+    // Set initial refresh time
+    lastRefreshTime = Date.now();
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
@@ -1087,7 +1114,7 @@ const AdminProducts = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [currentPage]);
+  }, []); // Remove currentPage dependency to prevent excessive re-renders
 
   const fetchCategories = async () => {
     try {
@@ -1166,6 +1193,7 @@ const AdminProducts = () => {
       if (!token) {
         alert('❌ Authentication token is invalid. Please log in again.');
         navigate('/admin/login');
+        setLoading(false);
         return;
       }
 
@@ -1177,15 +1205,6 @@ const AdminProducts = () => {
         excludeSellerCopies: 'true', // Re-enable with improved server-side filtering
         limit: productsPerPage.toString(), // Use productsPerPage instead of hardcoded 50
         page: page.toString() // Add pagination
-      });
-
-      console.log('🔍 Products fetch params:', {
-        search,
-        category: filters.category,
-        status: filters.status,
-        isAmazonsChoice: filters.isAmazonsChoice,
-        page,
-        limit: productsPerPage
       });
 
       const useFastEndpoint = !search && !filters.category && !filters.status && !filters.isAmazonsChoice;
@@ -1213,7 +1232,6 @@ const AdminProducts = () => {
       }
 
       const data = await response.json();
-      console.log('📊 Received products:', data.products.length, 'Total:', data.total);
       setProducts(data.products);
       setTotalProducts(data.total || data.products.length);
       setFilteredProducts(data.products);
@@ -1221,11 +1239,12 @@ const AdminProducts = () => {
       // Update pagination info
       const totalPagesCalc = Math.ceil((data.total || data.products.length) / productsPerPage);
       setTotalPages(totalPagesCalc);
-      console.log(`📊 Admin Products: Page ${page}/${totalPagesCalc}, showing ${data.products.length} of ${data.total || data.products.length} products`);
       
     } catch (error) {
       console.error('❌ Error fetching products:', error);
       alert('Failed to fetch products. Please check console for details.');
+      setProducts([]); // Reset products on error
+      setFilteredProducts([]); // Reset filtered products on error
     } finally {
       setLoading(false);
     }

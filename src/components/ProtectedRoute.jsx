@@ -1,50 +1,37 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAdmin } from '../context/AdminContext';
-import authPersistence from '../utils/authPersistence';
 
 const ProtectedRoute = ({ children }) => {
-  const { isLoggedIn, loading, admin } = useAdmin();
+  const { isLoggedIn, authResolved } = useAdmin();
   const location = useLocation();
   
-  // Show loading state while checking authentication
-  if (loading) {
+  // Show loader until auth is resolved
+  if (!authResolved) {
     return (
       <div style={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        minHeight: '60vh',
+        minHeight: '100vh',
         fontSize: '1.2rem',
-        color: '#666'
+        color: '#666',
+        background: '#f8f9fa'
       }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{fontSize: '2rem', marginBottom: '10px'}}>⏳</div>
-          <div>Verifying admin access...</div>
+          <div>Loading...</div>
         </div>
       </div>
     );
   }
   
-  // Check authentication
-  const hasToken = authPersistence.hasToken();
-  
-  if (!isLoggedIn || !hasToken || !admin) {
-    // Only clear conflicting tokens if we're actually on an admin route
-    // Don't clear tokens when admin is just viewing product pages
-    if (location.pathname.startsWith('/admin/')) {
-      // Clear any conflicting tokens only for admin routes
-      localStorage.removeItem('sellerToken');
-      localStorage.removeItem('sellerData');
-      localStorage.removeItem('buyerToken');
-      localStorage.removeItem('buyerData');
-    }
-    
-    // Store the attempted URL for redirect after login
+  // Redirect to login if not logged in
+  if (!isLoggedIn) {
     const redirectUrl = location.pathname + location.search;
-    
     return <Navigate to={`/admin/login?redirect=${encodeURIComponent(redirectUrl)}`} replace />;
   }
 
+  // Render children if authenticated
   return children;
 };
 
