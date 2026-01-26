@@ -3131,7 +3131,7 @@ const ProductDetail = () => {
                             color: '#232f3e',
                             letterSpacing: '0.2px'
                           }}>
-                            Amazon Deal Profit Calculation
+                            Amazon Average Monthly Sale Profit Calculation
                           </span>
                           <button
                             onClick={() => {
