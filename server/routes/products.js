@@ -2329,6 +2329,18 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
       currency: 'GBP'
     };
     
+    // Parse features from JSON string if provided
+    if (productData.features && typeof productData.features === 'string') {
+      try {
+        productData.features = JSON.parse(productData.features);
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse features JSON, using empty array:', parseError.message);
+        productData.features = [];
+      }
+    } else if (!productData.features) {
+      productData.features = [];
+    }
+    
     // Normalize category to prevent duplicates
     if (productData.category) {
       productData.category = normalizeCategoryName(productData.category);
@@ -2339,11 +2351,25 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
       asin: productData.asin,
       sku: productData.sku,
       approvalStatus: productData.approvalStatus,
-      imageFiles: req.files ? req.files.length : 0
+      imageFiles: req.files ? req.files.length : 0,
+      fetchedImages: productData.fetchedImages ? JSON.parse(productData.fetchedImages).length : 0
     });
     
     // Handle image uploads to Cloudinary
     const imageUrls = [];
+    
+    // First, add any fetched images (from ASIN lookup)
+    if (productData.fetchedImages) {
+      try {
+        const fetchedImageUrls = JSON.parse(productData.fetchedImages);
+        imageUrls.push(...fetchedImageUrls);
+        console.log(`📷 Added ${fetchedImageUrls.length} fetched images from ASIN lookup`);
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse fetched images:', parseError.message);
+      }
+    }
+    
+    // Then, upload new files to Cloudinary
     if (req.files && req.files.length > 0 && isCloudinaryConfigured()) {
       console.log(`📤 Uploading ${req.files.length} images to Cloudinary...`);
       
@@ -2365,10 +2391,18 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
       }
     }
     
-    // Add Cloudinary URLs to product data
+    // Add all image URLs to product data
     if (imageUrls.length > 0) {
       productData.images = imageUrls;
       productData.image = imageUrls[0]; // Set first image as main image
+    }
+    
+    // Clean up fetchedImages from productData as it's not needed in the database
+    delete productData.fetchedImages;
+    
+    // Clean up empty string values that should be null for ObjectId fields
+    if (productData.seller === '' || productData.seller === 'null' || productData.seller === 'undefined') {
+      delete productData.seller;
     }
     
     const product = new Product(productData);
@@ -2381,7 +2415,8 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
       sku: product.sku,
       approvalStatus: product.approvalStatus,
       images: product.images?.length || 0,
-      cloudinaryImages: product.images?.filter(img => img.includes('cloudinary.com')).length || 0
+      cloudinaryImages: product.images?.filter(img => img.includes('cloudinary.com')).length || 0,
+      fetchedImages: product.images?.filter(img => !img.includes('cloudinary.com')).length || 0
     });
     
     // Clear cache when new product is created
@@ -3274,6 +3309,28 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       ...(cleanedVariations && { variations: cleanedVariations })
     };
     
+    // Parse features from JSON string if provided
+    if (updateData.features && typeof updateData.features === 'string') {
+      try {
+        updateData.features = JSON.parse(updateData.features);
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse features JSON, keeping original:', parseError.message);
+        // Keep existing features if parsing fails
+        delete updateData.features;
+      }
+    }
+    
+    // Parse profitEvaluation from JSON string if provided
+    if (updateData.profitEvaluation && typeof updateData.profitEvaluation === 'string') {
+      try {
+        updateData.profitEvaluation = JSON.parse(updateData.profitEvaluation);
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse profitEvaluation JSON, keeping original:', parseError.message);
+        // Keep existing profitEvaluation if parsing fails
+        delete updateData.profitEvaluation;
+      }
+    }
+    
     // CRITICAL: Preserve approval status and Amazon's Choice flag if not explicitly provided
     // This prevents accidentally removing these flags when editing products
     if (updateData.approvalStatus === undefined && existingProduct.approvalStatus) {
@@ -3288,21 +3345,43 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       updateData.status = existingProduct.status;
     }
     
-    // Handle images - prioritize images from request body (Cloudinary URLs from frontend)
-    if (req.body.images && Array.isArray(req.body.images)) {
-      // Frontend sent Cloudinary URLs directly (from Edit Product page)
+    // Handle images - combine existing images with new uploads
+    let finalImageUrls = [];
+    
+    // First, add any existing images that should be preserved
+    if (req.body.existingImages) {
+      try {
+        const existingImageUrls = JSON.parse(req.body.existingImages);
+        finalImageUrls.push(...existingImageUrls);
+        console.log(`📷 Preserved ${existingImageUrls.length} existing images`);
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse existing images JSON:', parseError.message);
+      }
+    }
+    
+    // Then, add any new images uploaded to Cloudinary
+    if (newImageUrls.length > 0) {
+      finalImageUrls.push(...newImageUrls);
+      console.log(`📤 Added ${newImageUrls.length} new Cloudinary images`);
+    }
+    
+    // Handle images - prioritize combined approach for FormData, fallback to direct array for JSON
+    if (req.body.existingImages || newImageUrls.length > 0) {
+      // FormData approach with file uploads
+      updateData.images = finalImageUrls.filter(url => url && typeof url === 'string' && url.trim() !== '');
+      if (updateData.images.length > 0) {
+        updateData.image = updateData.images[0]; // Set first image as main image
+        console.log(`✅ Updated images via FormData. Total images: ${updateData.images.length}`);
+        console.log(`📸 Final image URLs:`, updateData.images);
+      }
+    } else if (req.body.images && Array.isArray(req.body.images)) {
+      // JSON approach - Frontend sent Cloudinary URLs directly (from Edit Product page without new uploads)
       updateData.images = req.body.images.filter(url => url && typeof url === 'string' && url.trim() !== '');
       if (updateData.images.length > 0) {
         updateData.image = updateData.images[0]; // Set first image as main image
         console.log(`✅ Updated images from request body. Total images: ${updateData.images.length}`);
         console.log(`📸 Image URLs:`, updateData.images);
       }
-    } else if (newImageUrls.length > 0) {
-      // New files were uploaded via multipart/form-data
-      const existingImages = existingProduct.images || [];
-      updateData.images = [...existingImages, ...newImageUrls];
-      updateData.image = updateData.images[0]; // Set first image as main image
-      console.log(`✅ Added ${newImageUrls.length} new images. Total images: ${updateData.images.length}`);
     }
     
     // Normalize category to prevent duplicates

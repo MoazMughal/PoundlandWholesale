@@ -192,9 +192,13 @@ const PendingPayments = () => {
                             style={{
                               width: '50px',
                               height: '50px',
-                              objectFit: 'cover',
+                              objectFit: 'contain',
+                              objectPosition: 'center',
                               borderRadius: '4px',
-                              marginRight: '10px'
+                              marginRight: '10px',
+                              padding: '2px',
+                              backgroundColor: '#f8f9fa',
+                              border: '1px solid #e5e7eb'
                             }}
                           />
                         )}

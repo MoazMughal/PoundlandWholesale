@@ -313,7 +313,16 @@ const SellerManagement = () => {
                                 <img 
                                   src={product.images?.[0] || 'https://via.placeholder.com/50x50?text=No+Image'} 
                                   alt={product.name}
-                                  style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }}
+                                  style={{ 
+                                    width: '50px', 
+                                    height: '50px', 
+                                    objectFit: 'contain', 
+                                    objectPosition: 'center',
+                                    borderRadius: '4px',
+                                    padding: '2px',
+                                    backgroundColor: '#f8f9fa',
+                                    border: '1px solid #e5e7eb'
+                                  }}
                                   onError={(e) => {
                                     e.target.src = 'https://via.placeholder.com/50x50?text=No+Image';
                                   }}

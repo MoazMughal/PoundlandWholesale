@@ -296,6 +296,48 @@ app.get('/api/test-db', async (req, res) => {
   }
 });
 
+// Serve sitemap.xml with proper headers (BEFORE static files and SPA fallback)
+app.get('/sitemap.xml', (req, res) => {
+  res.setHeader('Content-Type', 'application/xml');
+  res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+  res.sendFile(path.join(__dirname, '..', 'dist', 'sitemap.xml'), (err) => {
+    if (err) {
+      console.error('Error serving sitemap.xml:', err);
+      res.status(404).send('Sitemap not found');
+    }
+  });
+});
+
+// Serve robots.txt with proper headers
+app.get('/robots.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+  res.sendFile(path.join(__dirname, '..', 'dist', 'robots.txt'), (err) => {
+    if (err) {
+      console.error('Error serving robots.txt:', err);
+      res.status(404).send('Robots.txt not found');
+    }
+  });
+});
+
+// Serve static files from the built React app (dist folder)
+app.use(express.static(path.join(__dirname, '..', 'dist')));
+
+// SPA fallback - MUST be the last route (catch-all for client-side routing)
+app.get('*', (req, res) => {
+  // Don't serve index.html for API routes or static assets
+  if (req.path.startsWith('/api/') || req.path.includes('.')) {
+    return res.status(404).send('Not found');
+  }
+  
+  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'), (err) => {
+    if (err) {
+      console.error('Error serving index.html:', err);
+      res.status(500).send('Server error');
+    }
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

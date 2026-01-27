@@ -2671,12 +2671,16 @@ const ProductDetail = () => {
                     alt={product.name} 
                     className="img-fluid"
                     style={{
-                      width: '100%', 
-                      height: window.innerWidth < 768 ? '220px' : '280px', // Increased height
+                      width: 'auto', // Allow natural width
+                      maxWidth: '100%', // Prevent overflow but allow natural size
+                      height: 'auto', // Allow natural height
                       objectFit: 'contain',
+                      objectPosition: 'center',
                       borderRadius: '4px',
-                      transform: 'scale(1.08)', // Added zoom effect
-                      padding: '8px' // Added padding to prevent clipping
+                      padding: '40px', // Padding for zoom out effect
+                      backgroundColor: '#ffffff', // White background for better visibility
+                      display: 'block',
+                      margin: '0 auto' // Center the image
                     }}
                   />
                   {/* Compact Badge */}
@@ -2768,9 +2772,10 @@ const ProductDetail = () => {
                           width: '100%', 
                           height: '100%', 
                           objectFit: 'contain',
+                          objectPosition: 'center',
                           borderRadius: '6px',
-                          transform: 'scale(1.1)', // Added zoom for thumbnails
-                          padding: '2px' // Added padding to prevent clipping
+                          padding: '6px', // Increased padding for more zoom out effect
+                          backgroundColor: '#ffffff'
                         }}
                       />
                     </div>
@@ -5080,7 +5085,7 @@ const ProductDetail = () => {
                     <div className="related-card-badge" style={{position: 'absolute', top: '10px', left: '10px', background: 'var(--bs-primary)', color: 'white', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '600', zIndex: 2}}>
                       Amazon's Choice
                     </div>
-                    <img src={relatedProduct.image} alt={relatedProduct.name} style={{width: '100%', height: '160px', objectFit: 'contain', background: '#f8f9fa', padding: '15px'}} />
+                    <img src={relatedProduct.image} alt={relatedProduct.name} style={{width: '100%', maxHeight: '180px', height: 'auto', objectFit: 'contain', background: '#ffffff', padding: '30px'}} />
                     <div style={{padding: '15px'}}>
                       <h5 style={{fontSize: '0.9rem', fontWeight: '600', marginBottom: '8px', color: '#2d3748', lineHeight: '1.4', height: '40px', overflow: 'hidden'}}>{relatedProduct.name}</h5>
                       <div style={{color: '#ffc107', fontSize: '0.75rem', marginBottom: '8px'}}>
@@ -5114,7 +5119,7 @@ const ProductDetail = () => {
                       <span className="badge bg-danger position-absolute top-0 end-0 m-2" style={{fontSize: '0.65rem', zIndex: 2}}>
                         {deal.markup}
                       </span>
-                      <img src={deal.image} alt={deal.name} className="card-img-top" style={{height: '120px', objectFit: 'contain', padding: '10px', background: '#f8f9fa'}} />
+                      <img src={deal.image} alt={deal.name} className="card-img-top" style={{maxHeight: '140px', height: 'auto', objectFit: 'contain', padding: '25px', background: '#ffffff'}} />
                     </div>
                     <div className="card-body p-2">
                       <h6 className="card-title" style={{fontSize: '0.75rem', fontWeight: '600', color: '#2d3748', height: '32px', overflow: 'hidden', lineHeight: '1.3', marginBottom: '4px'}}>{deal.name}</h6>
@@ -5153,7 +5158,7 @@ const ProductDetail = () => {
                       <span className="badge bg-success position-absolute top-0 end-0 m-2" style={{fontSize: '0.65rem', zIndex: 2}}>
                         <i className="fas fa-fire me-1"></i>Popular
                       </span>
-                      <img src={popular.image} alt={popular.name} className="card-img-top" style={{height: '120px', objectFit: 'contain', padding: '10px', background: '#f8f9fa'}} />
+                      <img src={popular.image} alt={popular.name} className="card-img-top" style={{maxHeight: '140px', height: 'auto', objectFit: 'contain', padding: '25px', background: '#ffffff'}} />
                     </div>
                     <div className="card-body p-2">
                       <h6 className="card-title" style={{fontSize: '0.75rem', fontWeight: '600', color: '#2d3748', height: '32px', overflow: 'hidden', lineHeight: '1.3', marginBottom: '4px'}}>{popular.name}</h6>

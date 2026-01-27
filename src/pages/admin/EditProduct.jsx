@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { adminGet, adminPut, adminDelete } from '../../utils/adminApi';
-import { uploadMultipleImages, validateImageFile } from '../../utils/imageUpload';
 import cacheManager from '../../utils/cacheManager';
 import ImageSelector from '../../components/ImageSelector';
 import '../../styles/AdminProductForm.css';
@@ -75,6 +74,28 @@ const EditProduct = () => {
   // Drag and drop state
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+
+  // Image validation function
+  const validateImageFile = (file) => {
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    
+    if (!validTypes.includes(file.type)) {
+      return {
+        valid: false,
+        error: 'Invalid file type. Please select JPEG, PNG, GIF, or WebP images.'
+      };
+    }
+    
+    if (file.size > maxSize) {
+      return {
+        valid: false,
+        error: 'File too large. Please select images smaller than 5MB.'
+      };
+    }
+    
+    return { valid: true };
+  };
 
   // Dynamic categories loaded from API
   const [categories, setCategories] = useState([]);
@@ -739,87 +760,151 @@ const EditProduct = () => {
         return;
       }
       
-      // Process images - maintain order and handle uploads
-      let finalImageUrls = [];
-      
-      // Check if we have any new files to upload
+      // Check if we have any new files to upload to Cloudinary
       const validFiles = imageFiles.filter(file => file && file instanceof File);
-      let newImageUrls = [];
       
       if (validFiles.length > 0) {
-        newImageUrls = await uploadImages();
-      }
-      
-      // Build final image array - only include images that are actually present
-      let uploadIndex = 0;
-      
-      for (let i = 0; i < 5; i++) {
-        const currentUrl = imageUrls[i];
-        const currentFile = imageFiles[i];
-        const wasExplicitlyRemoved = removedImages.has(i);
+        // Use FormData approach like AddProduct for Cloudinary upload
+        const formDataToSend = new FormData();
         
-        let imageToAdd = null;
+        // Add all form fields
+        formDataToSend.append('name', formData.name.trim());
+        formDataToSend.append('description', formData.description || '');
         
-        if (currentFile && currentFile instanceof File) {
-          // New file uploaded for this position
-          if (uploadIndex < newImageUrls.length) {
-            imageToAdd = newImageUrls[uploadIndex];
-            uploadIndex++;
-          }
-        } else if (currentUrl && !currentUrl.startsWith('data:') && !wasExplicitlyRemoved) {
-          // Existing image URL (not a preview) and not explicitly removed
-          imageToAdd = currentUrl;
+        // Handle features array properly - only send if not empty
+        const featuresArray = formData.features || [];
+        if (featuresArray.length > 0) {
+          formDataToSend.append('features', JSON.stringify(featuresArray));
         }
         
-        // Only add valid images to the final array (this creates a compact array)
-        if (imageToAdd && typeof imageToAdd === 'string' && imageToAdd.trim() !== '') {
-          finalImageUrls.push(imageToAdd);
+        formDataToSend.append('price', parseFloat(formData.price) || 0);
+        formDataToSend.append('currency', 'GBP');
+        formDataToSend.append('category', formData.category);
+        formDataToSend.append('brand', formData.brand || '');
+        formDataToSend.append('asin', formData.asin.trim() || '');
+        formDataToSend.append('sku', formData.sku.trim() || '');
+        formDataToSend.append('rating', Math.min(Math.max(parseFloat(formData.rating) || 4.5, 0), 5));
+        formDataToSend.append('reviews', parseInt(formData.reviews) || 0);
+        formDataToSend.append('stock', parseInt(formData.stock) || 0);
+        formDataToSend.append('dealUnits', Math.floor((formData.platformUnits || 2400) / 12));
+        formDataToSend.append('isAmazonsChoice', formData.isAmazonsChoice || false);
+        formDataToSend.append('status', formData.status || 'active');
+        formDataToSend.append('platformUnits', formData.platformUnits || 2400);
+        
+        // Only include seller if it's not empty
+        if (formData.seller && formData.seller.trim()) {
+          formDataToSend.append('seller', formData.seller);
         }
-      }
-      
-      console.log('🖼️ Final image processing:', {
-        originalImageUrls: imageUrls,
-        removedImages: Array.from(removedImages),
-        finalImageUrls: finalImageUrls,
-        uploadedNewImages: newImageUrls.length
-      });
-
-      // Save price in GBP
-      const currentPrice = isNaN(parseFloat(formData.price)) ? 0 : parseFloat(formData.price);
-
-      productData = {
-        name: formData.name.trim(),
-        price: currentPrice, // Save price as entered in GBP
-        currency: 'GBP', // Always save as GBP
-        category: formData.category,
-        brand: formData.brand || '',
-        asin: formData.asin.trim() || '',
-        sku: formData.sku.trim() || '',
-        rating: Math.min(Math.max(parseFloat(formData.rating) || 4.5, 0), 5), // Clamp between 0-5
-        reviews: parseInt(formData.reviews) || 0,
-        stock: parseInt(formData.stock) || 0,
-        dealUnits: Math.floor((formData.platformUnits || 2400) / 12), // Auto-calculate as platformUnits / 12
-        images: finalImageUrls,
-        isAmazonsChoice: formData.isAmazonsChoice || false,
-        status: formData.status || 'active',
-        description: formData.description || '',
-        features: Array.isArray(formData.features) ? formData.features : [],
-        // Include profit evaluation data
-        profitEvaluation: {
+        
+        // Add profit evaluation data
+        formDataToSend.append('profitEvaluation', JSON.stringify({
           ...formData.profitEvaluation,
-          // Ensure yearly profit is calculated with the formula: platformUnits × netProfit
           yearlyProfit: (formData.platformUnits || 2400) * (formData.profitEvaluation.netProfit || 0)
-        },
-        // Include platformUnits for yearly profit calculation
-        platformUnits: formData.platformUnits || 2400
-      };
-      
-      // Only include seller if it's not empty
-      if (formData.seller && formData.seller.trim()) {
-        productData.seller = formData.seller;
-      }
+        }));
+        
+        // Add new image files for Cloudinary upload
+        setUploadingImages(true);
+        console.log(`📤 Adding ${validFiles.length} image files to form data for Cloudinary upload...`);
+        
+        validFiles.forEach((file, index) => {
+          formDataToSend.append('images', file);
+        });
+        
+        // Add existing image URLs that should be preserved
+        const existingImageUrls = [];
+        imageUrls.forEach((url, index) => {
+          if (url && url.trim() !== '' && !url.startsWith('data:') && !imageFiles[index] && !removedImages.has(index)) {
+            // Only include existing URLs where there's no new file and it wasn't removed
+            existingImageUrls.push(url);
+          }
+        });
+        
+        if (existingImageUrls.length > 0) {
+          formDataToSend.append('existingImages', JSON.stringify(existingImageUrls));
+          console.log('📷 Adding existing image URLs to preserve:', existingImageUrls);
+        }
+        
+        console.log('📦 Sending product update with files to server for Cloudinary upload...');
+        
+        // Send to server with files - server will handle Cloudinary upload
+        const token = localStorage.getItem('adminToken');
+        const response = await fetch(`http://localhost:5000/api/products/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+            // Don't set Content-Type - let browser set it for FormData
+          },
+          body: formDataToSend
+        });
+        
+        if (response.ok) {
+          const updatedProduct = await response.json();
+          console.log('✅ Product updated successfully with Cloudinary images:', {
+            id: updatedProduct._id,
+            name: updatedProduct.name,
+            images: updatedProduct.images?.length || 0,
+            cloudinaryImages: updatedProduct.images?.filter(img => img.includes('cloudinary.com')).length || 0
+          });
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to update product');
+        }
+      } else {
+        // No new files, use regular JSON approach
+        // Process images - maintain order and handle removals
+        let finalImageUrls = [];
+        
+        // Build final image array - only include images that are actually present
+        for (let i = 0; i < 5; i++) {
+          const currentUrl = imageUrls[i];
+          const wasExplicitlyRemoved = removedImages.has(i);
+          
+          if (currentUrl && !currentUrl.startsWith('data:') && !wasExplicitlyRemoved) {
+            // Existing image URL (not a preview) and not explicitly removed
+            finalImageUrls.push(currentUrl);
+          }
+        }
+        
+        console.log('🖼️ Final image processing (no new uploads):', {
+          originalImageUrls: imageUrls,
+          removedImages: Array.from(removedImages),
+          finalImageUrls: finalImageUrls
+        });
 
-      const response = await adminPut(`http://localhost:5000/api/products/${id}`, productData);
+        // Save price in GBP
+        const currentPrice = isNaN(parseFloat(formData.price)) ? 0 : parseFloat(formData.price);
+
+        productData = {
+          name: formData.name.trim(),
+          price: currentPrice,
+          currency: 'GBP',
+          category: formData.category,
+          brand: formData.brand || '',
+          asin: formData.asin.trim() || '',
+          sku: formData.sku.trim() || '',
+          rating: Math.min(Math.max(parseFloat(formData.rating) || 4.5, 0), 5),
+          reviews: parseInt(formData.reviews) || 0,
+          stock: parseInt(formData.stock) || 0,
+          dealUnits: Math.floor((formData.platformUnits || 2400) / 12),
+          images: finalImageUrls,
+          isAmazonsChoice: formData.isAmazonsChoice || false,
+          status: formData.status || 'active',
+          description: formData.description || '',
+          features: Array.isArray(formData.features) ? formData.features : [],
+          profitEvaluation: {
+            ...formData.profitEvaluation,
+            yearlyProfit: (formData.platformUnits || 2400) * (formData.profitEvaluation.netProfit || 0)
+          },
+          platformUnits: formData.platformUnits || 2400
+        };
+        
+        // Only include seller if it's not empty
+        if (formData.seller && formData.seller.trim()) {
+          productData.seller = formData.seller;
+        }
+
+        const response = await adminPut(`http://localhost:5000/api/products/${id}`, productData);
+      }
 
       // Clear cache to ensure updated product appears immediately in Amazon's Choice
       cacheManager.remove('amazons_choice_products');
@@ -1406,7 +1491,10 @@ const EditProduct = () => {
                   style={{
                     width: '100%',
                     height: '200px',
-                    objectFit: 'cover'
+                    objectFit: 'contain',
+                    objectPosition: 'center',
+                    padding: '8px',
+                    backgroundColor: '#f8f9fa'
                   }}
                   onError={(e) => {
                     e.target.style.display = 'none';
@@ -1543,7 +1631,10 @@ const EditProduct = () => {
                         style={{
                           width: '100%',
                           height: '120px',
-                          objectFit: 'cover'
+                          objectFit: 'contain',
+                          objectPosition: 'center',
+                          padding: '4px',
+                          backgroundColor: '#f8f9fa'
                         }}
                         onError={(e) => {
                           e.target.style.display = 'none';

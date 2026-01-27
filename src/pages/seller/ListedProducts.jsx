@@ -356,9 +356,13 @@ const ListedProducts = () => {
                             style={{ 
                               width: '40px', 
                               height: '40px', 
-                              objectFit: 'cover', 
+                              objectFit: 'contain', 
+                              objectPosition: 'center',
                               borderRadius: '4px',
                               cursor: 'pointer',
+                              padding: '2px',
+                              backgroundColor: '#f8f9fa',
+                              border: '1px solid #e5e7eb',
                               transition: 'transform 0.2s ease'
                             }}
                             onError={(e) => {

@@ -235,11 +235,15 @@ const SmartProductImage = ({ product, onClick }) => {
           style={{
             width: '50px',
             height: '50px',
-            objectFit: 'cover',
+            objectFit: 'contain',
+            objectPosition: 'center',
             borderRadius: '4px',
             border: '1px solid #e5e7eb',
             cursor: 'pointer',
-            display: 'block'
+            display: 'block',
+            padding: '4px',
+            backgroundColor: '#ffffff',
+            boxSizing: 'border-box'
           }}
           onClick={onClick}
           onError={(e) => {
@@ -1052,6 +1056,17 @@ const AdminProducts = () => {
     // Only clear cache if search or category filters actually changed
     const hasSearchChanged = search !== '';
     const hasCategoryChanged = filters.category !== '';
+    
+    // Debug logging for search
+    if (search) {
+      console.log('🔍 Search query:', {
+        query: search,
+        length: search.length,
+        isASIN: /^[A-Z0-9]{10}$/.test(search.toUpperCase()),
+        isSKU: /^[A-Z0-9-]{3,}$/.test(search.toUpperCase()) && !/^[A-Z0-9]{10}$/.test(search.toUpperCase()),
+        isID: /^[a-fA-F0-9]+$/.test(search)
+      });
+    }
     
     if (hasSearchChanged || hasCategoryChanged) {
       cacheManager.clearAll();
@@ -2739,7 +2754,7 @@ const AdminProducts = () => {
         }
       `}</style>
       
-      <div className="admin-products" style={{ fontSize: '0.85rem', width: '100%', margin: 0, padding: 0, overflowX: 'hidden' }}>
+      <div className="admin-products admin-products-page" style={{ fontSize: '0.85rem', width: '100%', margin: 0, padding: 0, overflowX: 'hidden' }}>
       
       {/* Header Section */}
       <div style={{
@@ -2966,7 +2981,7 @@ const AdminProducts = () => {
         <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
           <input
             type="text"
-            placeholder="🔍 Search by name, ID, category, brand, ASIN..."
+            placeholder="🔍 Search by name, ID, category, brand, ASIN, SKU..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="search-input"
@@ -2981,6 +2996,25 @@ const AdminProducts = () => {
             onFocus={(e) => e.target.style.borderColor = '#667eea'}
             onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
           />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              style={{
+                padding: '6px 8px',
+                fontSize: '0.7rem',
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                whiteSpace: 'nowrap'
+              }}
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
           {search && search.length >= 3 && /^[a-fA-F0-9]+$/.test(search) && (
             <small style={{
               fontSize: '0.65rem',
@@ -2999,6 +3033,16 @@ const AdminProducts = () => {
               whiteSpace: 'nowrap'
             }}>
               🏷️ ASIN Search
+            </small>
+          )}
+          {search && search.length >= 3 && /^[A-Z0-9-]{3,}$/.test(search.toUpperCase()) && !/^[A-Z0-9]{10}$/.test(search.toUpperCase()) && (
+            <small style={{
+              fontSize: '0.65rem',
+              color: '#10b981',
+              fontWeight: '500',
+              whiteSpace: 'nowrap'
+            }}>
+              📦 SKU Search
             </small>
           )}
           <CategoryVisibilityToggle compact={true} />

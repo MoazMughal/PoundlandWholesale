@@ -314,7 +314,16 @@ const SellerAmazonsChoiceProducts = () => {
                       <img 
                         src={product.images && product.images.length > 0 ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/40x40?text=No+Image'} 
                         alt={product.name}
-                        style={{width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px'}}
+                        style={{
+                          width: '40px', 
+                          height: '40px', 
+                          objectFit: 'contain', 
+                          objectPosition: 'center',
+                          borderRadius: '4px',
+                          padding: '2px',
+                          backgroundColor: '#f8f9fa',
+                          border: '1px solid #e5e7eb'
+                        }}
                         onError={(e) => {
                           e.target.src = 'https://via.placeholder.com/40x40?text=No+Image';
                         }}

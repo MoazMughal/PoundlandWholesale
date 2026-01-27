@@ -14,6 +14,7 @@ const Approval = () => {
   const [processing, setProcessing] = useState(null);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -148,17 +149,19 @@ const Approval = () => {
       });
       
       if (response.ok) {
-        // Remove from pending list
-        setPendingProducts(prev => prev.filter(p => p._id !== productId));
-        
         // Clear cache
         cacheManager.clearAll();
         
         // Show success message
         const actionText = action === 'approve' ? 'approved' : 'disapproved';
-        setSuccessMessage(`Product ${actionText} successfully!`);
+        setSuccessMessage(`✅ Product ${actionText} successfully! Page will refresh in 1.5 seconds...`);
         setShowSuccessToast(true);
-        setTimeout(() => setShowSuccessToast(false), 3000);
+        setIsRefreshing(true);
+        
+        // Refresh the page to load fresh data
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
       } else {
         const errorData = await response.json();
         alert(`❌ Error: ${errorData.message || 'Failed to process approval'}`);
@@ -402,16 +405,6 @@ const Approval = () => {
       const failedUpdates = results.filter(result => !result.ok);
       
       if (successfulUpdates.length > 0) {
-        // Remove successfully processed products from pending list
-        const processedIds = new Set();
-        results.forEach((result, index) => {
-          if (result.ok) {
-            processedIds.add(productIds[index]);
-          }
-        });
-        
-        setPendingProducts(prev => prev.filter(p => !processedIds.has(p._id)));
-        
         // Clear cache and selection
         cacheManager.clearAll();
         clearSelection();
@@ -423,9 +416,16 @@ const Approval = () => {
           message += ` (${failedUpdates.length} failed)`;
         }
         
+        message += ' Page will refresh in 2 seconds...';
+        
         setSuccessMessage(message);
         setShowSuccessToast(true);
-        setTimeout(() => setShowSuccessToast(false), 3000);
+        setIsRefreshing(true);
+        
+        // Refresh the page to load fresh data
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
       }
       
       if (failedUpdates.length > 0 && successfulUpdates.length === 0) {
@@ -802,7 +802,31 @@ const Approval = () => {
   }
 
   return (
-    <div className="admin-product-form">
+    <div className="admin-product-form" style={{ position: 'relative' }}>
+      {/* Refresh Overlay */}
+      {isRefreshing && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          color: 'white',
+          fontSize: '1.2rem',
+          fontWeight: '600'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔄</div>
+            <div>Refreshing page...</div>
+          </div>
+        </div>
+      )}
+      
       <header className="form-header">
         <h1>✅ Product Approval ({totalProducts} total products)</h1>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -1467,9 +1491,12 @@ const Approval = () => {
                       style={{
                         width: '100%',
                         height: '100px',
-                        objectFit: 'cover',
+                        objectFit: 'contain',
+                        objectPosition: 'center',
                         borderRadius: '4px',
-                        border: '1px solid #ddd'
+                        border: '1px solid #ddd',
+                        padding: '4px',
+                        backgroundColor: '#f8f9fa'
                       }}
                       onLoad={() => {
                         console.log('✅ Image loaded successfully:', product.images[0]);

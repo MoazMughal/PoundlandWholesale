@@ -22,6 +22,7 @@ const replaceLocalhostPlugin = () => ({
 export default defineConfig({
   plugins: [react(), replaceLocalhostPlugin()],
   assetsInclude: ['**/*.jpg', '**/*.jpeg', '**/*.png', '**/*.gif', '**/*.svg', '**/*.webp'],
+  publicDir: 'public', // Ensure public files are copied to dist
   build: {
     assetsInlineLimit: 4096, // Inline small assets (4kb)
     // Optimize build

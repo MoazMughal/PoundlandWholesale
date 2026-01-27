@@ -423,7 +423,9 @@ const BulkConvertModal = ({
                       style={{
                         width: '100%',
                         height: '100%',
-                        objectFit: 'cover'
+                        objectFit: 'contain',
+                        objectPosition: 'center',
+                        padding: '2px'
                       }}
                       onError={(e) => {
                         e.target.style.display = 'none';

@@ -43,6 +43,11 @@ const ExcelProducts = () => {
   const [showBulkConvertModal, setShowBulkConvertModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryModalData, setCategoryModalData] = useState({ categories: [] });
+  
+  // Direct image upload state
+  const [showDirectImageUpload, setShowDirectImageUpload] = useState(false);
+  const [selectedDirectImages, setSelectedDirectImages] = useState([]);
+  const [directImageUploading, setDirectImageUploading] = useState(false);
 
   // Function to update URL with current state
   const updateUrlWithState = (newState = {}) => {
@@ -344,6 +349,147 @@ const ExcelProducts = () => {
     } catch (error) {
       console.error('Error migrating images:', error);
       alert('❌ Failed to migrate images');
+    }
+  };
+
+  // Direct image upload handlers
+  const handleDirectImageSelect = (event) => {
+    const files = Array.from(event.target.files);
+    console.log('📁 Selected files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+    
+    // Validate file types and sizes
+    const validFiles = [];
+    const errors = [];
+    
+    files.forEach(file => {
+      console.log(`🔍 Checking file: ${file.name}, type: ${file.type}, size: ${file.size}`);
+      
+      // Check file type - be more flexible with image detection
+      const fileName = file.name.toLowerCase();
+      const isImageByExtension = fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || 
+                                fileName.endsWith('.png') || fileName.endsWith('.webp') || 
+                                fileName.endsWith('.gif');
+      const isImageByMimeType = file.type.startsWith('image/');
+      
+      if (!isImageByMimeType && !isImageByExtension) {
+        errors.push(`${file.name}: Not an image file (type: ${file.type})`);
+        return;
+      }
+      
+      // Check file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        errors.push(`${file.name}: File too large (${(file.size / 1024 / 1024).toFixed(1)}MB, max 10MB)`);
+        return;
+      }
+      
+      console.log(`✅ File ${file.name} passed validation`);
+      validFiles.push(file);
+    });
+    
+    console.log(`📊 Validation results: ${validFiles.length} valid, ${errors.length} errors`);
+    
+    if (errors.length > 0) {
+      alert(`❌ Some files were rejected:\n${errors.join('\n')}\n\nOnly valid files will be selected.`);
+    }
+    
+    setSelectedDirectImages(validFiles);
+    console.log('💾 Set selectedDirectImages to:', validFiles.length, 'files');
+  };
+
+  const handleDirectImageUpload = async () => {
+    if (selectedDirectImages.length === 0) {
+      alert('Please select images to upload');
+      return;
+    }
+
+    // Validate that all files have valid ASIN names
+    const invalidFiles = selectedDirectImages.filter(file => {
+      const fileName = file.name;
+      const fileExt = fileName.split('.').pop().toLowerCase();
+      const baseName = fileName.replace(`.${fileExt}`, '');
+      
+      // Check for numbered images like "B08KR3G8VP 2"
+      const numberedMatch = baseName.match(/^([A-Z0-9]{10})\s+(\d+)$/i);
+      const asin = numberedMatch ? numberedMatch[1].toUpperCase() : baseName.toUpperCase();
+      
+      return !/^[A-Z0-9]{10}$/.test(asin);
+    });
+
+    if (invalidFiles.length > 0) {
+      alert(`❌ Invalid ASIN format in files:\n${invalidFiles.map(f => f.name).join('\n')}\n\nPlease ensure all files are named with valid ASINs (10 alphanumeric characters).`);
+      return;
+    }
+
+    if (!confirm(`📤 Upload ${selectedDirectImages.length} images to Cloudinary?\n\nThis will:\n✅ Upload images to Cloudinary\n🔄 Update matching products automatically\n📋 Show detailed results\n\nContinue?`)) {
+      return;
+    }
+
+    setDirectImageUploading(true);
+
+    try {
+      const token = getAuthenticatedToken();
+      if (!token) return;
+
+      const formData = new FormData();
+      selectedDirectImages.forEach(file => {
+        formData.append('images', file);
+      });
+
+      const response = await fetch(getApiUrl('admin-excel/upload-direct-images'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        let message = `✅ Direct image upload completed!\n\n`;
+        message += `📊 Summary:\n`;
+        message += `• Total images: ${result.summary.totalImages}\n`;
+        message += `• Valid images: ${result.summary.validImages}\n`;
+        message += `• Matched ASINs: ${result.summary.matchedAsins}\n`;
+        message += `• Uploaded to Cloudinary: ${result.summary.uploadedToCloudinary}\n`;
+        
+        if (result.summary.replacedImages > 0) {
+          message += `• Replaced existing: ${result.summary.replacedImages}\n`;
+        }
+        
+        if (result.summary.skippedInUse > 0) {
+          message += `• Skipped (in use): ${result.summary.skippedInUse}\n`;
+        }
+        
+        if (result.summary.errors > 0) {
+          message += `• Errors: ${result.summary.errors}\n`;
+        }
+
+        message += `\n☁️ Your images are now in Cloudinary! Go to Excel Manager → "☁️ Cloudinary Images" to view them.`;
+
+        if (result.errorDetails && result.errorDetails.length > 0) {
+          message += `\n\n❌ Errors:\n`;
+          result.errorDetails.forEach(error => {
+            message += `• ${error.fileName}: ${error.error}\n`;
+          });
+        }
+
+        alert(message);
+        
+        // Clear selection and close upload section
+        setSelectedDirectImages([]);
+        setShowDirectImageUpload(false);
+        
+        // Refresh products to show updated images
+        fetchProducts();
+      } else {
+        alert(`❌ Failed to upload images: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error uploading direct images:', error);
+      alert('❌ Failed to upload images');
+    } finally {
+      setDirectImageUploading(false);
     }
   };
 
@@ -1091,7 +1237,7 @@ const ExcelProducts = () => {
           <div className="filters-row" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <input
               type="text"
-              placeholder="🔍 Search products..."
+              placeholder="🔍 Search by name, ASIN, SKU, category..."
               value={searchQuery}
               onChange={(e) => {
                 console.log('Search query changed to:', e.target.value);
@@ -1231,9 +1377,201 @@ const ExcelProducts = () => {
               >
                 🖼️ Fix Images
               </button>
+
+              <button
+                onClick={() => setShowDirectImageUpload(!showDirectImageUpload)}
+                style={{
+                  padding: '6px 12px',
+                  background: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+                title="Upload images directly with ASIN names"
+              >
+                📤 Direct Upload
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Direct Image Upload Section */}
+        {showDirectImageUpload && (
+          <div style={{
+            background: 'white',
+            padding: '16px',
+            borderRadius: '8px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            marginBottom: '16px',
+            border: '2px solid #f59e0b'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '12px'
+            }}>
+              <h3 style={{ margin: 0, color: '#f59e0b', fontSize: '1.1rem', fontWeight: '600' }}>
+                📤 Direct Image Upload
+              </h3>
+              <button
+                onClick={() => setShowDirectImageUpload(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.2rem',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div style={{ marginBottom: '12px', fontSize: '0.85rem', color: '#666' }}>
+              <p style={{ margin: '0 0 8px 0' }}>
+                📋 <strong>Instructions:</strong> Upload 1 or more images directly to Cloudinary with ASIN names
+              </p>
+              <ul style={{ margin: '0 0 8px 20px', paddingLeft: '0' }}>
+                <li>Name your images with the ASIN (e.g., "B08KR3G8VP.jpg")</li>
+                <li>For multiple images per ASIN, add a number (e.g., "B08KR3G8VP 2.jpg", "B08KR3G8VP 3.jpg")</li>
+                <li>Supported formats: JPG, JPEG, PNG, WEBP, GIF</li>
+                <li>Upload 1-10 images at once - even a single image is fine!</li>
+                <li>Images will automatically match with products that have the same ASIN</li>
+                <li>✅ Green border = ASIN matches a product in this Excel file</li>
+                <li>⚠️ Yellow border = Valid ASIN but no match in current Excel (will still upload)</li>
+                <li>❌ Red border = Invalid ASIN format</li>
+              </ul>
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <input
+                type="file"
+                multiple
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                onChange={handleDirectImageSelect}
+                style={{
+                  padding: '8px',
+                  border: '2px dashed #f59e0b',
+                  borderRadius: '6px',
+                  width: '100%',
+                  fontSize: '0.85rem'
+                }}
+              />
+              <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '4px' }}>
+                Select 1-10 image files (JPG, PNG, WEBP, GIF) - Max 10MB each
+              </div>
+            </div>
+
+            {selectedDirectImages.length > 0 && (
+              <div style={{ marginBottom: '12px' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: '#333' }}>
+                  Selected Images ({selectedDirectImages.length}):
+                </h4>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                  gap: '8px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '4px',
+                  padding: '8px'
+                }}>
+                  {selectedDirectImages.map((file, index) => {
+                    const fileName = file.name;
+                    const fileExt = fileName.split('.').pop().toLowerCase();
+                    const baseName = fileName.replace(`.${fileExt}`, '');
+                    
+                    // Extract ASIN and image number
+                    let asin, imageNumber = 1;
+                    const numberedMatch = baseName.match(/^([A-Z0-9]{10})\s+(\d+)$/i);
+                    
+                    if (numberedMatch) {
+                      asin = numberedMatch[1].toUpperCase();
+                      imageNumber = parseInt(numberedMatch[2]);
+                    } else {
+                      asin = baseName.toUpperCase();
+                      imageNumber = 1;
+                    }
+                    
+                    const isValidAsin = /^[A-Z0-9]{10}$/.test(asin);
+                    
+                    // Check if this ASIN exists in current products
+                    const matchingProduct = products.find(p => p.asin === asin);
+                    
+                    return (
+                      <div key={index} style={{
+                        padding: '6px',
+                        border: `1px solid ${isValidAsin ? (matchingProduct ? '#10b981' : '#f59e0b') : '#ef4444'}`,
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        background: isValidAsin ? (matchingProduct ? '#f0fdf4' : '#fffbeb') : '#fef2f2'
+                      }}>
+                        <div style={{ fontWeight: '600', marginBottom: '2px' }}>
+                          {fileName}
+                        </div>
+                        <div style={{ color: isValidAsin ? (matchingProduct ? '#059669' : '#d97706') : '#dc2626' }}>
+                          {isValidAsin ? (
+                            matchingProduct ? (
+                              <>✅ ASIN: {asin} (Image {imageNumber}) - Matches: {matchingProduct.name}</>
+                            ) : (
+                              <>⚠️ ASIN: {asin} (Image {imageNumber}) - No match in current Excel</>
+                            )
+                          ) : (
+                            <>❌ Invalid ASIN format</>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                onClick={handleDirectImageUpload}
+                disabled={selectedDirectImages.length === 0 || directImageUploading}
+                style={{
+                  padding: '8px 16px',
+                  background: selectedDirectImages.length === 0 || directImageUploading ? '#9ca3af' : '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.85rem',
+                  cursor: selectedDirectImages.length === 0 || directImageUploading ? 'not-allowed' : 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                {directImageUploading ? '⏳ Uploading...' : 
+                 selectedDirectImages.length === 1 ? '📤 Upload 1 Image' : 
+                 `📤 Upload ${selectedDirectImages.length} Images`}
+              </button>
+              
+              {selectedDirectImages.length > 0 && (
+                <button
+                  onClick={() => setSelectedDirectImages([])}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    fontWeight: '600'
+                  }}
+                >
+                  🗑️ Clear
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
 
         {/* Products Table - Main Focus */}
@@ -1411,7 +1749,9 @@ const ExcelProducts = () => {
                               style={{
                                 width: '100%',
                                 height: '100%',
-                                objectFit: 'cover'
+                                objectFit: 'contain',
+                                objectPosition: 'center',
+                                padding: '2px'
                               }}
                             />
                           </div>
@@ -1647,7 +1987,9 @@ const ExcelProducts = () => {
                           style={{
                             width: '100%',
                             height: '100%',
-                            objectFit: 'cover'
+                            objectFit: 'contain',
+                            objectPosition: 'center',
+                            padding: '2px'
                           }}
                         />
                       </div>

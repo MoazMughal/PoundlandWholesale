@@ -1,6 +1,145 @@
 /* Import Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap');
 
+/* Global Product Image Styling - Amazon-like Full Image Display with Maximum Zoom Out */
+img[alt*="product" i],
+img[alt*="Product" i],
+.product-image,
+.product-img,
+.card-img-top,
+.img-thumbnail,
+.product-card img,
+.admin-product-image,
+.seller-product-image {
+  object-fit: contain !important;
+  object-position: center !important;
+  padding: 8px !important;
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 4px !important;
+}
+
+/* Maximum zoom out for product detail page main images - Natural Dimensions */
+.product-detail-page .position-relative img,
+.product-detail-section .position-relative img,
+.product-detail-page img.img-fluid,
+.product-detail-section img.img-fluid,
+.product-detail-page .img-fluid {
+  padding: 40px !important;
+  background-color: #ffffff !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  box-sizing: border-box !important;
+  width: auto !important;
+  max-width: 100% !important;
+  height: auto !important;
+  border-radius: 4px !important;
+  display: block !important;
+  margin: 0 auto !important;
+}
+
+/* Specific rules for admin products table images */
+.admin-products table img,
+.admin-products tbody img,
+.admin-products td img,
+.admin-products-page img,
+.admin-products-page table img,
+.admin-products-page tbody img,
+.admin-products-page td img,
+table.table img,
+tbody img,
+td img {
+  object-fit: contain !important;
+  object-position: center !important;
+  padding: 4px !important;
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 4px !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure all product images in admin and seller sections display fully */
+.admin-products img,
+.seller-products img,
+.product-management img,
+.product-list img {
+  object-fit: contain !important;
+  object-position: center !important;
+  padding: 4px !important;
+  background-color: #ffffff !important;
+}
+
+/* Force image display rules with maximum specificity */
+div.admin-products-page table tbody tr td img,
+div.product-detail-page div img.img-fluid,
+.admin-products-page img,
+.product-detail-page img {
+  object-fit: contain !important;
+  object-position: center !important;
+  background-color: #ffffff !important;
+  padding: 4px !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 4px !important;
+  box-sizing: border-box !important;
+}
+
+/* Override for main product images in detail page - Natural Dimensions */
+div.product-detail-page div.position-relative img.img-fluid {
+  padding: 40px !important;
+  width: auto !important;
+  max-width: 100% !important;
+  height: auto !important;
+  display: block !important;
+  margin: 0 auto !important;
+}
+
+/* Ensure image containers don't constrain natural dimensions */
+.product-detail-page .position-relative,
+.product-detail-section .position-relative {
+  height: auto !important;
+  min-height: auto !important;
+  max-height: none !important;
+}
+
+/* Remove any Bootstrap img-fluid constraints for product detail */
+.product-detail-page .img-fluid {
+  max-width: 100% !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+/* Responsive handling for very large images */
+@media (max-width: 768px) {
+  .product-detail-page .position-relative img.img-fluid {
+    max-width: calc(100% - 20px) !important;
+    padding: 20px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .product-detail-page .position-relative img.img-fluid {
+    max-width: calc(100% - 80px) !important;
+    padding: 40px !important;
+  }
+}
+
+/* Override any Bootstrap or framework styles */
+.table img,
+.img-fluid,
+.img-thumbnail {
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
+/* Specific override for product images */
+img[src*="cloudinary"],
+img[src*="products"],
+img[src*="images"] {
+  object-fit: contain !important;
+  object-position: center !important;
+  background-color: #ffffff !important;
+}
+
 /* Global Reset to prevent extra spacing and fix layout issues */
 * {
   margin: 0;

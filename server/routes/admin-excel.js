@@ -2043,6 +2043,23 @@ const imageUpload = multer({
   }
 });
 
+// Separate multer configuration for direct image uploads
+const directImageUpload = multer({
+  storage: imageStorage,
+  fileFilter: (req, file, cb) => {
+    // Accept image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  },
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit per image
+    files: 10 // Maximum 10 files
+  }
+});
+
 // POST /api/admin-excel/upload-images - Upload ZIP file containing images (CLOUDINARY VERSION)
 router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'), async (req, res) => {
   const tempFiles = [];
@@ -2439,6 +2456,348 @@ router.post('/upload-images', authenticateAdmin, imageUpload.single('imageZip'),
     res.status(500).json({ 
       success: false,
       message: 'Failed to process image upload',
+      error: error.message 
+    });
+  }
+});
+
+// POST /api/admin-excel/upload-direct-images - Upload individual images directly with ASIN names
+router.post('/upload-direct-images', authenticateAdmin, directImageUpload.array('images', 10), async (req, res) => {
+  const tempFiles = [];
+  
+  try {
+    // Check if Cloudinary is configured
+    if (!isCloudinaryConfigured()) {
+      return res.status(500).json({
+        success: false,
+        message: 'Cloudinary is not properly configured. Please check environment variables.'
+      });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'No images uploaded' 
+      });
+    }
+
+    // For direct uploads, we skip creating ImageUpload records
+    // Images go directly to Cloudinary and can be viewed there
+
+    let totalImages = req.files.length;
+    let validImages = 0;
+    let matchedAsins = 0;
+    let uploadedToCloudinary = 0;
+    let replacedImages = 0;
+    let skippedInUse = 0;
+    let errors = 0;
+    const processedImages = [];
+    const replacementDetails = [];
+    const errorDetails = [];
+
+    for (const file of req.files) {
+      tempFiles.push(file.path);
+      
+      try {
+        // Extract ASIN from filename (remove extension)
+        const fileName = file.originalname;
+        const fileExt = path.extname(fileName).toLowerCase();
+        const baseName = path.basename(fileName, fileExt);
+        
+        // Handle numbered images like "B08KR3G8VP 2", "B08KR3G8VP 3", etc.
+        let asin, imageNumber = 1;
+        const numberedMatch = baseName.match(/^([A-Z0-9]{10})\s+(\d+)$/i);
+        
+        if (numberedMatch) {
+          // This is a numbered image like "B08KR3G8VP 2"
+          asin = numberedMatch[1].toUpperCase();
+          imageNumber = parseInt(numberedMatch[2]);
+          console.log('🔢 Found numbered image:', { asin, imageNumber, originalName: baseName });
+        } else {
+          // Regular ASIN without number (image 1)
+          asin = baseName.toUpperCase();
+          imageNumber = 1;
+          console.log('🔍 Found regular ASIN:', { asin, imageNumber: 1, originalName: baseName });
+        }
+
+        // Validate ASIN format (10 characters, alphanumeric)
+        if (!/^[A-Z0-9]{10}$/.test(asin)) {
+          console.log('❌ Invalid ASIN format:', asin, 'from file:', fileName);
+          errorDetails.push({
+            fileName: fileName,
+            error: `Invalid ASIN format: ${asin}. ASIN must be exactly 10 alphanumeric characters.`
+          });
+          errors++;
+          continue;
+        }
+
+        // Check for existing images and handle replacement logic
+        let shouldReplaceExisting = false;
+        let existingImageUrl = null;
+        
+        // Check if this ASIN + imageNumber combination already exists in any ImageUpload
+        const existingImageUpload = await ImageUpload.findOne({
+          'images.asin': asin,
+          'images.imageNumber': imageNumber,
+          status: 'completed'
+        });
+        
+        if (existingImageUpload) {
+          const existingImage = existingImageUpload.images.find(
+            img => img.asin === asin && img.imageNumber === imageNumber
+          );
+          
+          if (existingImage) {
+            // Check if this image is currently used in any saved product
+            const isInMainProduct = await Product.findOne({ 
+              asin: asin,
+              images: { $in: [existingImage.cloudinaryUrl] }
+            });
+            
+            const isInExcelProduct = await ExcelProduct.findOne({ 
+              asin: asin,
+              images: { $in: [existingImage.cloudinaryUrl] }
+            });
+            
+            if (isInMainProduct || isInExcelProduct) {
+              // Image is in use by saved product, don't replace
+              console.log(`🔒 Skipping replacement of ${asin} image ${imageNumber} - in use by saved product`);
+              cloudinaryUrl = existingImage.cloudinaryUrl;
+              uploadedToCloudinary++; // Count as processed
+              skippedInUse++;
+            } else {
+              // Image exists but not in use, safe to replace
+              shouldReplaceExisting = true;
+              existingImageUrl = existingImage.cloudinaryUrl;
+              console.log(`🔄 Will replace existing ${asin} image ${imageNumber} - not in use by saved products`);
+            }
+          }
+        }
+
+        // Upload to Cloudinary with unique identifier for numbered images
+        let cloudinaryUrl = null;
+        if (!shouldReplaceExisting && existingImageUrl) {
+          // Use existing image URL (image is in use, so we skipped replacement)
+          cloudinaryUrl = existingImageUrl;
+        } else {
+          try {
+            // Create unique public_id for numbered images: "B08KR3G8VP_2", "B08KR3G8VP_3", etc.
+            const publicId = imageNumber === 1 ? asin : `${asin}_${imageNumber}`;
+            
+            if (shouldReplaceExisting) {
+              console.log(`🔄 Replacing ${asin} (image ${imageNumber}) in Cloudinary with public_id: ${publicId}...`);
+            } else {
+              console.log(`📤 Uploading ${asin} (image ${imageNumber}) to Cloudinary with public_id: ${publicId}...`);
+            }
+            
+            const cloudinaryResult = await uploadToCloudinary(file.path, publicId, 'products');
+            cloudinaryUrl = cloudinaryResult.secure_url;
+            uploadedToCloudinary++;
+            
+            if (shouldReplaceExisting) {
+              replacedImages++;
+              replacementDetails.push({
+                asin: asin,
+                imageNumber: imageNumber,
+                fileName: fileName,
+                oldUrl: existingImageUrl,
+                newUrl: cloudinaryUrl
+              });
+              console.log(`✅ Replaced in Cloudinary: ${cloudinaryUrl}`);
+            } else {
+              console.log(`✅ Uploaded to Cloudinary: ${cloudinaryUrl}`);
+            }
+          } catch (uploadError) {
+            console.error(`❌ Failed to upload ${asin} (image ${imageNumber}) to Cloudinary:`, uploadError.message);
+            errorDetails.push({
+              fileName: fileName,
+              asin: asin,
+              error: `Cloudinary upload failed: ${uploadError.message}`
+            });
+            errors++;
+            continue;
+          }
+        }
+
+        // Check if product exists with this ASIN and update it
+        const product = await Product.findOne({ asin: asin });
+        const excelProduct = await ExcelProduct.findOne({ asin: asin });
+        
+        // Update products with Cloudinary URL - handle multiple images properly
+        if (product) {
+          // Initialize images array if it doesn't exist
+          if (!product.images) {
+            product.images = [];
+          }
+          
+          // For image 1, replace the first image or add if none exist
+          if (imageNumber === 1) {
+            if (product.images.length === 0) {
+              product.images.push(cloudinaryUrl);
+            } else {
+              product.images[0] = cloudinaryUrl; // Replace first image
+            }
+            product.image = cloudinaryUrl; // Set as main image
+          } else {
+            // For images 2, 3, 4, 5 - add to specific positions
+            const targetIndex = imageNumber - 1;
+            
+            // Extend array if needed
+            while (product.images.length <= targetIndex) {
+              product.images.push('');
+            }
+            
+            product.images[targetIndex] = cloudinaryUrl;
+          }
+          
+          // Remove empty strings from the end of the array
+          while (product.images.length > 0 && product.images[product.images.length - 1] === '') {
+            product.images.pop();
+          }
+          
+          await product.save();
+          console.log(`🎯 Updated Product "${product.name}" with image ${imageNumber}:`, cloudinaryUrl);
+        }
+        
+        if (excelProduct) {
+          // Initialize images array if it doesn't exist
+          if (!excelProduct.images) {
+            excelProduct.images = [];
+          }
+          
+          // For image 1, replace the first image or add if none exist
+          if (imageNumber === 1) {
+            if (excelProduct.images.length === 0) {
+              excelProduct.images.push(cloudinaryUrl);
+            } else {
+              excelProduct.images[0] = cloudinaryUrl; // Replace first image
+            }
+            excelProduct.image = cloudinaryUrl; // Set as main image
+          } else {
+            // For images 2, 3, 4, 5 - add to specific positions
+            const targetIndex = imageNumber - 1;
+            
+            // Extend array if needed
+            while (excelProduct.images.length <= targetIndex) {
+              excelProduct.images.push('');
+            }
+            
+            excelProduct.images[targetIndex] = cloudinaryUrl;
+          }
+          
+          // Remove empty strings from the end of the array
+          while (excelProduct.images.length > 0 && excelProduct.images[excelProduct.images.length - 1] === '') {
+            excelProduct.images.pop();
+          }
+          
+          await excelProduct.save();
+          console.log(`🎯 Updated ExcelProduct "${excelProduct.name}" with image ${imageNumber}:`, cloudinaryUrl);
+        }
+
+        const imageData = {
+          fileName: fileName,
+          asin: asin,
+          imageNumber: imageNumber,
+          filePath: cloudinaryUrl, // Store Cloudinary URL instead of local path
+          cloudinaryUrl: cloudinaryUrl,
+          fileSize: file.size,
+          matched: !!(product || excelProduct),
+          productId: product?._id || excelProduct?._id
+        };
+
+        processedImages.push(imageData);
+        validImages++;
+        
+        // If we replaced an existing image, remove the old record from the database
+        if (shouldReplaceExisting && existingImageUpload) {
+          try {
+            await ImageUpload.updateOne(
+              { _id: existingImageUpload._id },
+              { 
+                $pull: { 
+                  images: { 
+                    asin: asin, 
+                    imageNumber: imageNumber 
+                  } 
+                } 
+              }
+            );
+            console.log(`🧹 Removed old image record for ${asin} image ${imageNumber} from previous upload`);
+          } catch (dbError) {
+            console.error(`⚠️ Failed to remove old image record:`, dbError.message);
+          }
+        }
+        
+        if (product || excelProduct) {
+          matchedAsins++;
+          console.log(`🎯 Matched ASIN: ${asin} (image ${imageNumber}) with product: ${(product || excelProduct).name}`);
+        } else {
+          console.log(`❓ No product found for ASIN: ${asin} (image ${imageNumber}) - Image uploaded to Cloudinary anyway`);
+        }
+
+      } catch (error) {
+        console.error('Error processing image:', file.originalname, error);
+        errorDetails.push({
+          fileName: file.originalname,
+          error: error.message
+        });
+        errors++;
+      }
+    }
+
+    // For direct uploads, we don't create ImageUpload records
+    // Images go directly to Cloudinary and can be viewed there
+
+    // Clean up temporary files
+    try {
+      tempFiles.forEach(filePath => {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      });
+      console.log('🧹 Cleaned up temporary files');
+    } catch (cleanupError) {
+      console.warn('⚠️ Failed to cleanup some temporary files:', cleanupError.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Direct images uploaded to Cloudinary successfully! View them in the Cloudinary Images section.',
+      summary: {
+        totalImages,
+        validImages,
+        matchedAsins,
+        uploadedToCloudinary,
+        replacedImages,
+        skippedInUse,
+        errors
+      },
+      replacementDetails,
+      errorDetails,
+      cloudinaryInfo: {
+        folder: 'products',
+        totalUploaded: uploadedToCloudinary,
+        cdnUrl: 'https://res.cloudinary.com/dtuq3tvjx/'
+      }
+    });
+
+  } catch (error) {
+    console.error('Direct image upload error:', error);
+    
+    // Clean up temporary files on error
+    tempFiles.forEach(filePath => {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup:', filePath, cleanupError.message);
+      }
+    });
+    
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to process direct image upload',
       error: error.message 
     });
   }

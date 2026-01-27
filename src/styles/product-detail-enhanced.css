@@ -1,5 +1,36 @@
 /* Enhanced Product Detail Page Styles */
 
+/* Ensure product detail images are never cropped */
+.product-detail-section img,
+.product-detail-page img {
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
+/* Additional rules to ensure full image visibility with maximum zoom out */
+.product-detail-page .img-fluid {
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
+/* Ensure main product images have maximum padding for zoom out effect */
+.product-detail-page .position-relative img {
+  padding: 40px !important;
+  box-sizing: border-box !important;
+  background-color: #ffffff !important;
+}
+
+/* Force maximum zoom out for all product detail images */
+.product-detail-page img[alt*="product" i],
+.product-detail-page img[alt*="Product" i] {
+  padding: 30px !important;
+  background-color: #ffffff !important;
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
 /* Advanced Typography */
 .product-detail-page {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { adminPost } from '../../utils/adminApi';
-import { uploadMultipleImages, validateImageFile } from '../../utils/imageUpload';
 import cacheManager from '../../utils/cacheManager';
 import '../../styles/AdminProductForm.css';
 
@@ -48,6 +47,28 @@ const AddProduct = () => {
   const [skuError, setSkuError] = useState('');
   const fileInputRef = useRef(null);
   const additionalFileInputRefs = useRef([null, null, null, null]); // Refs for 4 additional image inputs
+
+  // Image validation function
+  const validateImageFile = (file) => {
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    
+    if (!validTypes.includes(file.type)) {
+      return {
+        valid: false,
+        error: 'Invalid file type. Please select JPEG, PNG, GIF, or WebP images.'
+      };
+    }
+    
+    if (file.size > maxSize) {
+      return {
+        valid: false,
+        error: 'File too large. Please select images smaller than 5MB.'
+      };
+    }
+    
+    return { valid: true };
+  };
 
   // No currency conversion needed - all prices in GBP
 
@@ -615,90 +636,87 @@ const AddProduct = () => {
     setSaving(true);
 
     try {
-      let finalImageUrls = [];
+      // Create FormData to send files to server
+      const formDataToSend = new FormData();
+      
+      // Add all form fields
+      formDataToSend.append('name', formData.name.trim());
+      formDataToSend.append('description', formData.description || '');
+      
+      // Handle features array properly - only send if not empty
+      const featuresArray = formData.features || [];
+      if (featuresArray.length > 0) {
+        formDataToSend.append('features', JSON.stringify(featuresArray));
+      }
+      formDataToSend.append('price', parseFloat(formData.price) || 0);
+      formDataToSend.append('currency', 'GBP');
+      formDataToSend.append('category', formData.category);
+      formDataToSend.append('brand', formData.brand || '');
+      formDataToSend.append('asin', formData.asin.trim() || '');
+      formDataToSend.append('sku', formData.sku.trim() || '');
+      formDataToSend.append('rating', parseFloat(formData.rating) || 4.5);
+      formDataToSend.append('reviews', parseInt(formData.reviews) || 0);
+      formDataToSend.append('stock', parseInt(formData.stock) || 0);
+      formDataToSend.append('dealUnits', Math.floor((formData.platformUnits || 2400) / 12));
+      if (formData.seller && formData.seller.trim() !== '') {
+        formDataToSend.append('seller', formData.seller);
+      }
+      formDataToSend.append('isAmazonsChoice', formData.isAmazonsChoice || false);
+      formDataToSend.append('isBestSeller', false);
+      formDataToSend.append('isLatestDeal', false);
+      formDataToSend.append('showOnHome', false);
+      formDataToSend.append('status', formData.status || 'active');
+      formDataToSend.append('approvalStatus', 'pending');
+      formDataToSend.append('isAdminProduct', true);
+      formDataToSend.append('listedBy', 'admin');
 
-      // Upload new images if any
+      // Add image files (these will be uploaded to Cloudinary by the server)
       const filesToUpload = imageFiles.filter(file => file !== null);
-
       if (filesToUpload.length > 0) {
         setUploadingImages(true);
-        try {
-          
-          const uploadResult = await uploadMultipleImages(filesToUpload);
-
-          if (!uploadResult.success) {
-            throw new Error(uploadResult.error);
-          }
-          
-          const uploadedUrls = uploadResult.urls;
-          
-          // Map uploaded URLs to correct positions
-          let uploadIndex = 0;
-          for (let i = 0; i < imageFiles.length; i++) {
-            if (imageFiles[i] !== null) {
-              finalImageUrls[i] = uploadedUrls[uploadIndex];
-              uploadIndex++;
-            }
-          }
-        } catch (uploadError) {
-          console.error('Image upload error:', uploadError);
-          alert(`❌ Failed to upload images: ${uploadError.message}`);
-          return;
-        } finally {
-          setUploadingImages(false);
-        }
+        console.log(`📤 Adding ${filesToUpload.length} image files to form data for Cloudinary upload...`);
+        
+        filesToUpload.forEach((file, index) => {
+          formDataToSend.append('images', file);
+        });
       }
 
       // Add any image URLs that were fetched from ASIN (not uploaded files)
+      const fetchedImageUrls = [];
       imageUrls.forEach((url, index) => {
-        if (url && url.trim() !== '') {
-          // If there's no uploaded file at this position, use the fetched URL
-          if (!finalImageUrls[index]) {
-            finalImageUrls[index] = url;
-          }
+        if (url && url.trim() !== '' && !imageFiles[index]) {
+          // Only include URLs where there's no corresponding file
+          fetchedImageUrls.push(url);
         }
       });
       
-      // Remove empty slots and flatten
-      finalImageUrls = finalImageUrls.filter(url => url && url.trim() !== '');
-      
-      console.log('📷 Final images to save:', finalImageUrls);
+      if (fetchedImageUrls.length > 0) {
+        formDataToSend.append('fetchedImages', JSON.stringify(fetchedImageUrls));
+        console.log('📷 Adding fetched image URLs:', fetchedImageUrls);
+      }
 
-      // Save price in GBP - no conversion needed
-      const priceInGBP = parseFloat(formData.price) || 0;
+      console.log('📦 Sending product data with files to server for Cloudinary upload...');
 
-      const productData = {
-        name: formData.name.trim(),
-        description: formData.description || '',
-        features: formData.features || [],
-        price: priceInGBP,
-        currency: 'GBP',
-        category: formData.category,
-        brand: formData.brand || '',
-        asin: formData.asin.trim() || '',
-        sku: formData.sku.trim() || '',
-        rating: parseFloat(formData.rating) || 4.5,
-        reviews: parseInt(formData.reviews) || 0,
-        stock: parseInt(formData.stock) || 0,
-        dealUnits: Math.floor((formData.platformUnits || 2400) / 12), // Auto-calculate as platformUnits / 12
-        seller: formData.seller || null,
-        isAmazonsChoice: formData.isAmazonsChoice || false,
-        isBestSeller: false,
-        isLatestDeal: false,
-        showOnHome: false,
-        status: formData.status || 'active',
-        approvalStatus: 'pending', // Changed to pending for approval workflow
-        isAdminProduct: true,
-        listedBy: 'admin',
-        images: finalImageUrls
-      };
-
-      console.log('📦 Product data being sent:', productData);
-
-      const response = await adminPost('http://localhost:5000/api/products', productData);
+      // Send to server with files - server will handle Cloudinary upload
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch('http://localhost:5000/api/products', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+          // Don't set Content-Type - let browser set it for FormData
+        },
+        body: formDataToSend
+      });
       
       if (response.ok) {
         const createdProduct = await response.json();
+        
+        console.log('✅ Product created successfully with Cloudinary images:', {
+          id: createdProduct._id,
+          name: createdProduct.name,
+          images: createdProduct.images?.length || 0,
+          cloudinaryImages: createdProduct.images?.filter(img => img.includes('cloudinary.com')).length || 0
+        });
         
         // Show modern success toast for pending approval
         setCreatedProductName(createdProduct.name || formData.name);
@@ -733,6 +751,7 @@ const AddProduct = () => {
       alert('❌ Failed to create product. Please try again.');
     } finally {
       setSaving(false);
+      setUploadingImages(false);
     }
   };
 
@@ -1331,9 +1350,12 @@ const AddProduct = () => {
                     style={{
                       width: '100%',
                       height: '200px',
-                      objectFit: 'cover',
+                      objectFit: 'contain',
+                      objectPosition: 'center',
                       borderRadius: '6px',
-                      border: '1px solid #ddd'
+                      border: '1px solid #ddd',
+                      padding: '8px',
+                      backgroundColor: '#f8f9fa'
                     }}
                   />
                   <button 
@@ -1416,9 +1438,12 @@ const AddProduct = () => {
                         style={{
                           width: '100%',
                           height: '100%',
-                          objectFit: 'cover',
+                          objectFit: 'contain',
+                          objectPosition: 'center',
                           borderRadius: '6px',
-                          border: '1px solid #ddd'
+                          border: '1px solid #ddd',
+                          padding: '4px',
+                          backgroundColor: '#f8f9fa'
                         }}
                       />
                       <button 
