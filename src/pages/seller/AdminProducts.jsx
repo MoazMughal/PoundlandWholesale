@@ -112,6 +112,69 @@ const AdminProducts = () => {
 
   const handleListProduct = async (product) => {
     try {
+      // Check if there are existing sellers and show confirmation
+      let sellerPrice = null;
+      
+      if (product.sellers && product.sellers.length > 0) {
+        const existingSellers = product.sellers
+          .sort((a, b) => {
+            const priceA = parseFloat(a.sellerPrice) || parseFloat(product.price) || 0;
+            const priceB = parseFloat(b.sellerPrice) || parseFloat(product.price) || 0;
+            return priceA - priceB;
+          })
+          .map((s, index) => {
+            const price = parseFloat(s.sellerPrice) || parseFloat(product.price) || 0;
+            return `${index + 1}. ${s.username} - £${price.toFixed(2)}${index === 0 ? ' (Lowest)' : ''}`;
+          })
+          .join('\n');
+        
+        const lowestPrice = Math.min(
+          ...product.sellers.map(s => parseFloat(s.sellerPrice) || parseFloat(product.price) || 0)
+        );
+        
+        const confirmMessage = `This product is already listed by ${product.sellers.length} seller${product.sellers.length > 1 ? 's' : ''}:\n\n${existingSellers}\n\nCurrent lowest price: £${lowestPrice.toFixed(2)}\n\nDo you want to add your listing to compete with existing sellers?\n\nTip: Set a lower price to appear first and cross out higher prices.`;
+        
+        if (!window.confirm(confirmMessage)) {
+          return; // User cancelled
+        }
+        
+        // Ask for seller's competitive price
+        const priceInput = window.prompt(
+          `Set your competitive price for "${product.name}":\n\nCurrent lowest price: £${lowestPrice.toFixed(2)}\nAdmin price: £${parseFloat(product.price).toFixed(2)}\n\nEnter your price (in GBP, without £ symbol):`,
+          Math.max(0.01, lowestPrice - 0.01).toFixed(2)
+        );
+        
+        if (priceInput === null) {
+          return; // User cancelled
+        }
+        
+        const parsedPrice = parseFloat(priceInput);
+        if (isNaN(parsedPrice) || parsedPrice <= 0) {
+          alert('❌ Invalid price. Please enter a valid positive number.');
+          return;
+        }
+        
+        sellerPrice = parsedPrice;
+      } else {
+        // First seller - ask for their price
+        const priceInput = window.prompt(
+          `Set your price for "${product.name}":\n\nAdmin price: £${parseFloat(product.price).toFixed(2)}\n\nEnter your price (in GBP, without £ symbol):`,
+          parseFloat(product.price).toFixed(2)
+        );
+        
+        if (priceInput === null) {
+          return; // User cancelled
+        }
+        
+        const parsedPrice = parseFloat(priceInput);
+        if (isNaN(parsedPrice) || parsedPrice <= 0) {
+          alert('❌ Invalid price. Please enter a valid positive number.');
+          return;
+        }
+        
+        sellerPrice = parsedPrice;
+      }
+      
       const token = localStorage.getItem('sellerToken')
       
       const response = await fetch('http://localhost:5000/api/sellers/list-admin-product', {
@@ -124,6 +187,7 @@ const AdminProducts = () => {
           adminProductId: product._id,
           productName: product.name,
           productPrice: product.price,
+          sellerPrice: sellerPrice, // Add seller's custom price
           paymentMethod: 'Direct Listing',
           transactionId: `LIST_${Date.now()}`,
           notes: 'Seller listed admin product from Amazon\'s Choice',
@@ -143,10 +207,16 @@ const AdminProducts = () => {
       const data = await response.json()
 
       if (response.ok) {
-        alert('✅ Product listed successfully! Seller information has been saved.')
+        const sellersCount = data.totalSellers || 1;
+        alert(`✅ Product listed successfully at £${sellerPrice.toFixed(2)}! You are now seller #${sellersCount} for this product. ${sellersCount > 1 ? 'Your price will be compared with other sellers!' : ''}`)
         fetchAdminProducts()
       } else {
-        alert('❌ ' + data.message)
+        // Enhanced error handling
+        if (data.error === 'ALREADY_LISTED' || data.error === 'DUPLICATE_PREVENTED') {
+          alert('⚠️ Already Listed: You have already listed this product. Each seller can only list a product once.')
+        } else {
+          alert('❌ Error: ' + (data.message || 'Failed to list product'))
+        }
       }
     } catch (error) {
       console.error('List product error:', error)
@@ -163,6 +233,12 @@ const AdminProducts = () => {
         isSellerEdit: true
       }
     })
+  }
+
+  // Check if current seller has already listed this product
+  const isAlreadyListed = (product) => {
+    if (!seller || !product.sellers) return false
+    return product.sellers.some(s => s.sellerId?.toString() === seller._id?.toString())
   }
 
   const handleSearch = (e) => {
@@ -747,6 +823,28 @@ const AdminProducts = () => {
                     <i className="fas fa-star" style={{ marginRight: '4px' }}></i>
                     Amazon's Choice
                   </div>
+                  
+                  {/* Already listed indicator */}
+                  {isAlreadyListed(product) && (
+                    <div 
+                      className="already-listed-badge"
+                      style={{
+                        position: 'absolute',
+                        top: '8px',
+                        left: '8px',
+                        backgroundColor: '#28a745',
+                        color: 'white',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        zIndex: 2
+                      }}
+                    >
+                      <i className="fas fa-check" style={{ marginRight: '2px' }}></i>
+                      LISTED
+                    </div>
+                  )}
                 </div>
                 
                 <div className="product-info">
@@ -773,16 +871,86 @@ const AdminProducts = () => {
                     {product.rating || 4.5} ({product.reviews || 0} reviews)
                   </div>
                   
+                  {/* Existing sellers information */}
+                  {product.sellers && product.sellers.length > 0 && (
+                    <div style={{ 
+                      fontSize: windowWidth < 768 ? '7px' : '8px',
+                      color: '#6c757d',
+                      marginBottom: '4px',
+                      padding: '2px 4px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '3px',
+                      border: '1px solid #e9ecef'
+                    }}>
+                      <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
+                        <i className="fas fa-users" style={{ marginRight: '2px', fontSize: '6px' }}></i>
+                        {product.sellers.length} Seller{product.sellers.length > 1 ? 's' : ''}:
+                      </div>
+                      {product.sellers.slice(0, 2).map((sellerEntry, index) => {
+                        const sellerPrice = sellerEntry.sellerPrice ? parseFloat(sellerEntry.sellerPrice) : parseFloat(product.price);
+                        return (
+                          <div key={`seller-${index}`} style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: index < product.sellers.length - 1 ? '1px' : '0'
+                          }}>
+                            <span style={{ 
+                              color: index === 0 ? '#28a745' : '#6c757d',
+                              fontWeight: index === 0 ? 'bold' : 'normal'
+                            }}>
+                              {sellerEntry.username}
+                              {index === 0 && ' (Lowest)'}
+                            </span>
+                            <span style={{ 
+                              color: index === 0 ? '#28a745' : '#6c757d',
+                              fontWeight: 'bold'
+                            }}>
+                              £{sellerPrice.toFixed(2)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {product.sellers.length > 2 && (
+                        <div style={{ 
+                          fontSize: windowWidth < 768 ? '6px' : '7px',
+                          color: '#999',
+                          textAlign: 'center',
+                          marginTop: '2px'
+                        }}>
+                          +{product.sellers.length - 2} more seller{product.sellers.length - 2 > 1 ? 's' : ''}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   {/* Action buttons container */}
                   <div className="action-buttons">
-                    <button 
-                      className="list-btn"
-                      onClick={() => handleListProduct(product)}
-                      title="Add this product to your store inventory"
-                    >
-                      <i className="fas fa-plus" style={{ fontSize: '8px' }}></i>
-                      {windowWidth < 768 ? 'ADD TO STORE' : 'ADD TO MY STORE'}
-                    </button>
+                    {isAlreadyListed(product) ? (
+                      <button 
+                        className="list-btn already-listed"
+                        disabled
+                        title="You have already listed this product"
+                        style={{
+                          backgroundColor: '#28a745',
+                          color: 'white',
+                          cursor: 'not-allowed',
+                          opacity: 0.8
+                        }}
+                      >
+                        <i className="fas fa-check" style={{ fontSize: '8px' }}></i>
+                        {windowWidth < 768 ? 'ALREADY LISTED' : 'ALREADY IN MY STORE'}
+                      </button>
+                    ) : (
+                      <button 
+                        className="list-btn"
+                        onClick={() => handleListProduct(product)}
+                        title="Add this product to your store inventory"
+                      >
+                        <i className="fas fa-plus" style={{ fontSize: '8px' }}></i>
+                        {windowWidth < 768 ? 'ADD TO STORE' : 'ADD TO MY STORE'}
+                      </button>
+                    )}
                     
                     <button 
                       className="edit-btn"

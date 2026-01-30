@@ -1,0 +1,359 @@
+/* Seller Dashboard UI Improvements */
+
+/* Enhanced Stats Cards */
+.stats-card {
+  transition: all 0.3s ease;
+  border: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.stats-card .card-body {
+  padding: 1.5rem;
+}
+
+.stats-card h6 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.9;
+  margin-bottom: 0.5rem;
+}
+
+.stats-card h4 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.stats-card .fa-2x {
+  opacity: 0.7;
+}
+
+/* Enhanced Card Headers */
+.card-header.bg-light {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.card-header h5 {
+  font-weight: 600;
+  color: #495057;
+}
+
+/* Improved Seller Info Layout */
+.seller-info-row {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f1f3f4;
+  transition: background-color 0.2s ease;
+}
+
+.seller-info-row:hover {
+  background-color: #f8f9fa;
+}
+
+.seller-info-row:last-child {
+  border-bottom: none;
+}
+
+/* Enhanced Quick Actions */
+.quick-action-btn {
+  min-height: 120px;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.quick-action-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  border-color: rgba(255,255,255,0.3);
+}
+
+.quick-action-btn i {
+  transition: transform 0.3s ease;
+}
+
+.quick-action-btn:hover i {
+  transform: scale(1.1);
+}
+
+.quick-action-btn .fw-bold {
+  font-size: 0.95rem;
+}
+
+.quick-action-btn small {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* Enhanced Amazon Choice Card */
+.amazon-choice-card {
+  border: 2px solid rgba(255, 193, 7, 0.3);
+  background: linear-gradient(135deg, #fff 0%, #fffbf0 100%);
+  box-shadow: 0 4px 15px rgba(255, 193, 7, 0.1);
+}
+
+.amazon-choice-card .card-header {
+  background: linear-gradient(135deg, #ffc107 0%, #ff9900 100%);
+  color: white;
+  border-bottom: none;
+}
+
+.amazon-choice-btn {
+  background: linear-gradient(135deg, #ffc107 0%, #ff9900 100%);
+  border: none;
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+  transition: all 0.3s ease;
+  min-width: 250px;
+}
+
+.amazon-choice-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(255, 193, 7, 0.4);
+  background: linear-gradient(135deg, #ff9900 0%, #e68900 100%);
+  color: white;
+}
+
+.amazon-choice-btn:disabled {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+  opacity: 0.7;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(108, 117, 125, 0.2);
+}
+
+/* Enhanced Alerts */
+.alert {
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.alert-warning {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  color: #856404;
+}
+
+.alert-success {
+  background: linear-gradient(135deg, #d1edff 0%, #a7f3d0 100%);
+  color: #155724;
+}
+
+.alert-info {
+  background: linear-gradient(135deg, #cce7ff 0%, #b3e5fc 100%);
+  color: #0c5460;
+}
+
+.alert-danger {
+  background: linear-gradient(135deg, #f8d7da 0%, #ffcccb 100%);
+  color: #721c24;
+}
+
+/* Enhanced List Groups */
+.list-group-item {
+  border: none;
+  border-bottom: 1px solid #f1f3f4;
+  transition: background-color 0.2s ease;
+}
+
+.list-group-item:hover {
+  background-color: #f8f9fa;
+}
+
+.list-group-item:last-child {
+  border-bottom: none;
+}
+
+/* Enhanced Tables */
+.table-hover tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.table thead th {
+  border-bottom: 2px solid #dee2e6;
+  font-weight: 600;
+  color: #495057;
+  font-size: 0.85rem;
+}
+
+/* Enhanced Badges */
+.badge {
+  font-size: 0.7rem;
+  padding: 0.4em 0.8em;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+/* Empty State Improvements */
+.empty-state {
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.empty-state i {
+  opacity: 0.5;
+  margin-bottom: 1rem;
+}
+
+.empty-state p {
+  color: #6c757d;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state small {
+  color: #adb5bd;
+}
+
+/* Mobile Responsive Improvements */
+@media (max-width: 768px) {
+  .stats-card .card-body {
+    padding: 1rem;
+  }
+  
+  .stats-card h4 {
+    font-size: 1.2rem;
+  }
+  
+  .stats-card h6 {
+    font-size: 0.7rem;
+  }
+  
+  .quick-action-btn {
+    min-height: 100px;
+    padding: 0.75rem;
+  }
+  
+  .quick-action-btn .fa-2x {
+    font-size: 1.5rem;
+  }
+  
+  .quick-action-btn .fw-bold {
+    font-size: 0.85rem;
+  }
+  
+  .quick-action-btn small {
+    font-size: 0.7rem;
+  }
+  
+  .amazon-choice-btn {
+    min-width: 100%;
+    padding: 0.75rem 1rem;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+  
+  .card-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .empty-state {
+    padding: 2rem 1rem;
+  }
+  
+  .empty-state .fa-3x {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-card h4 {
+    font-size: 1rem;
+  }
+  
+  .quick-action-btn {
+    min-height: 80px;
+  }
+  
+  .quick-action-btn .fa-2x {
+    font-size: 1.2rem;
+  }
+  
+  .dashboard-header h2 {
+    font-size: 1.3rem;
+  }
+  
+  .card-header h5 {
+    font-size: 0.9rem;
+  }
+}
+
+/* Loading States */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Focus States for Accessibility */
+.btn:focus,
+.card:focus {
+  outline: 2px solid #0d6efd;
+  outline-offset: 2px;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .card {
+    border: 2px solid #000;
+  }
+  
+  .btn {
+    border: 2px solid #000;
+  }
+  
+  .alert {
+    border: 2px solid #000;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .stats-card,
+  .quick-action-btn,
+  .amazon-choice-btn {
+    transition: none;
+  }
+  
+  .stats-card:hover,
+  .quick-action-btn:hover,
+  .amazon-choice-btn:hover {
+    transform: none;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .btn,
+  .alert-dismissible .btn-close {
+    display: none;
+  }
+  
+  .card {
+    border: 1px solid #000;
+    box-shadow: none;
+  }
+  
+  .stats-card {
+    background: white !important;
+    color: black !important;
+  }
+}

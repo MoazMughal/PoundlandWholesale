@@ -4,7 +4,7 @@ import { useSeller } from '../../context/SellerContext'
 
 const SellerProfile = () => {
   const navigate = useNavigate()
-  const { seller, isLoggedIn, loading: contextLoading, updateSeller } = useSeller()
+  const { seller, isLoggedIn, loading: contextLoading, authResolved, updateSeller } = useSeller()
   const [formData, setFormData] = useState({
     contactNo: '',
     country: '',
@@ -15,8 +15,8 @@ const SellerProfile = () => {
   const [updating, setUpdating] = useState(false)
 
   useEffect(() => {
-    // Wait for context to finish loading
-    if (contextLoading) return
+    // Wait for auth to be resolved
+    if (!authResolved) return
     
     // If not logged in, redirect to login
     if (!isLoggedIn || !seller) {
@@ -31,7 +31,7 @@ const SellerProfile = () => {
       city: seller.city || '',
       productCategory: seller.productCategory || ''
     })
-  }, [navigate, isLoggedIn, seller, contextLoading])
+  }, [navigate, isLoggedIn, seller, authResolved])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -72,7 +72,7 @@ const SellerProfile = () => {
     }
   }
 
-  if (contextLoading || loading) {
+  if (!authResolved || loading) {
     return (
       <div className="container mt-5">
         <div className="text-center">
@@ -84,7 +84,7 @@ const SellerProfile = () => {
     )
   }
 
-  if (!contextLoading && !seller) {
+  if (!authResolved && !seller) {
     return (
       <div className="container mt-5">
         <div className="alert alert-danger">

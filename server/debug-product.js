@@ -32,6 +32,9 @@ const debugProduct = async () => {
       console.log('- Approval Status:', product.approvalStatus);
       console.log('- Created At:', product.createdAt);
       console.log('- Listed At:', product.listedAt);
+      console.log('- Has sellers array:', !!product.sellers);
+      console.log('- Sellers array length:', product.sellers?.length || 0);
+      console.log('- Sellers array details:', product.sellers);
       
       // Check if there's a seller with this ID
       if (product.seller) {
@@ -57,6 +60,28 @@ const debugProduct = async () => {
         console.log('❌ No seller ID assigned to this product');
       }
       
+      // Also search for products with Qasim Shahzad
+      console.log('\n🔍 Searching for products with Qasim Shahzad...');
+      const qasimProducts = await Product.find({ 
+        $or: [
+          { 'sellerInfo.username': { $regex: 'Qasim', $options: 'i' } },
+          { 'sellers.username': { $regex: 'Qasim', $options: 'i' } }
+        ]
+      }).limit(10);
+      
+      console.log(`Found ${qasimProducts.length} products with Qasim:`);
+      qasimProducts.forEach((p, index) => {
+        console.log(`${index + 1}. ${p.name.substring(0, 80)}...`);
+        console.log(`   - Seller: ${p.seller || 'None'}`);
+        console.log(`   - SellerInfo username: ${p.sellerInfo?.username || 'None'}`);
+        console.log(`   - Sellers array length: ${p.sellers?.length || 0}`);
+        if (p.sellers && p.sellers.length > 0) {
+          p.sellers.forEach((seller, idx) => {
+            console.log(`     Seller ${idx + 1}: ${seller.username}`);
+          });
+        }
+      });
+      
     } else {
       console.log('❌ Product not found');
       
@@ -71,6 +96,30 @@ const debugProduct = async () => {
         console.log(`${index + 1}. ${p.name}`);
         console.log(`   - Seller: ${p.seller || 'None'}`);
         console.log(`   - Has sellerInfo: ${!!p.sellerInfo}`);
+        console.log(`   - SellerInfo username: ${p.sellerInfo?.username || 'None'}`);
+        console.log(`   - Sellers array length: ${p.sellers?.length || 0}`);
+      });
+      
+      // Also search for products with Qasim Shahzad
+      console.log('\n🔍 Searching for products with Qasim Shahzad...');
+      const qasimProducts = await Product.find({ 
+        $or: [
+          { 'sellerInfo.username': { $regex: 'Qasim', $options: 'i' } },
+          { 'sellers.username': { $regex: 'Qasim', $options: 'i' } }
+        ]
+      }).limit(10);
+      
+      console.log(`Found ${qasimProducts.length} products with Qasim:`);
+      qasimProducts.forEach((p, index) => {
+        console.log(`${index + 1}. ${p.name.substring(0, 80)}...`);
+        console.log(`   - Seller: ${p.seller || 'None'}`);
+        console.log(`   - SellerInfo username: ${p.sellerInfo?.username || 'None'}`);
+        console.log(`   - Sellers array length: ${p.sellers?.length || 0}`);
+        if (p.sellers && p.sellers.length > 0) {
+          p.sellers.forEach((seller, idx) => {
+            console.log(`     Seller ${idx + 1}: ${seller.username}`);
+          });
+        }
       });
     }
 

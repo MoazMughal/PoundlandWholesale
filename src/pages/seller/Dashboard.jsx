@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
 import '../../styles/dashboard-responsive.css'
 import '../../styles/mobile-dashboard.css'
+import '../../styles/seller-dashboard-improvements.css'
 
 const SellerDashboard = () => {
   const navigate = useNavigate()
-  const { seller, isLoggedIn, loading: contextLoading, logout, updateSeller } = useSeller()
+  const { seller, isLoggedIn, loading: contextLoading, authResolved, logout, updateSeller } = useSeller()
   const [dashboardAccess, setDashboardAccess] = useState(null)
   const [stats, setStats] = useState({
     totalProducts: 0,
@@ -26,14 +27,28 @@ const SellerDashboard = () => {
   })
 
   useEffect(() => {
-    // Wait for context to finish loading
-    if (contextLoading) return
+    console.log('🏠 Dashboard useEffect triggered:', {
+      authResolved,
+      isLoggedIn,
+      hasSeller: !!seller,
+      sellerUsername: seller?.username,
+      currentPath: window.location.pathname
+    })
+    
+    // Wait for auth to be resolved
+    if (!authResolved) {
+      console.log('🏠 Dashboard waiting for auth resolution...')
+      return
+    }
     
     // If not logged in, redirect to login
     if (!isLoggedIn || !seller) {
+      console.log('🏠 Dashboard redirecting to login - not authenticated')
       navigate('/login/supplier')
       return
     }
+
+    console.log('🏠 Dashboard authenticated, fetching data...')
 
     // Fetch additional dashboard data
     const token = localStorage.getItem('sellerToken')
@@ -50,7 +65,7 @@ const SellerDashboard = () => {
     }, 10000) // 10 second timeout
     
     return () => clearTimeout(timeout)
-  }, [navigate, isLoggedIn, seller, contextLoading])
+  }, [navigate, isLoggedIn, seller, authResolved])
 
   const fetchDashboardData = async (token) => {
     try {
@@ -220,7 +235,7 @@ const SellerDashboard = () => {
     }
   }
 
-  if (contextLoading || loading) {
+  if (!authResolved || loading) {
     return (
       <div className="container mt-5">
         <div className="text-center">
@@ -376,7 +391,7 @@ const SellerDashboard = () => {
     )
   }
 
-  if (!contextLoading && !seller) {
+  if (!authResolved && !seller) {
     return (
       <div className="container mt-5">
         <div className="alert alert-danger">
@@ -413,7 +428,7 @@ const SellerDashboard = () => {
         <div className="col-12">
           <div className="dashboard-header d-flex justify-content-between align-items-center flex-wrap">
             <div>
-              <h2>Seller Dashboard</h2>
+              <h2 className="mb-1">Seller Dashboard</h2>
               <p className="text-muted mb-0">Manage your products and track your business</p>
             </div>
             <div className="d-flex gap-2 flex-wrap">
@@ -428,297 +443,303 @@ const SellerDashboard = () => {
         </div>
       </div>
 
-      {/* Status Alerts */}
+      {/* Status Alerts - Improved */}
       {dashboardAccess && dashboardAccess.daysRemaining > 0 && dashboardAccess.daysRemaining <= 5 && (
-        <div className="alert alert-warning">
-          <i className="fas fa-exclamation-triangle"></i> 
+        <div className="alert alert-warning alert-dismissible fade show" role="alert">
+          <i className="fas fa-exclamation-triangle me-2"></i> 
           <strong>Verification Required Soon!</strong> You have {dashboardAccess.daysRemaining} days remaining 
           in your trial period. Please prepare your verification documents to avoid dashboard access interruption.
+          <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
         </div>
       )}
 
       {seller.verificationStatus === 'pending' && (
-        <div className="alert alert-info">
-          <i className="fas fa-clock"></i> Your verification documents are under review. 
+        <div className="alert alert-info alert-dismissible fade show" role="alert">
+          <i className="fas fa-clock me-2"></i> Your verification documents are under review. 
           You will receive an email once approved.
+          <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
         </div>
       )}
 
       {seller.verificationStatus === 'approved' && (
-        <div className="alert alert-success">
-          <i className="fas fa-check-circle"></i> Your account is fully verified! You have unlimited dashboard access.
+        <div className="alert alert-success alert-dismissible fade show" role="alert">
+          <i className="fas fa-check-circle me-2"></i> Your account is fully verified! You have unlimited dashboard access.
+          <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
         </div>
       )}
 
       {seller.verificationStatus === 'required' && (
-        <div className="alert alert-warning">
-          <i className="fas fa-id-card"></i> Profile verification pending - Please submit your CNIC documents.
-          <button 
-            className="btn btn-warning btn-sm ms-2" 
-            onClick={() => setShowVerificationModal(true)}
-          >
-            Submit Documents
-          </button>
+        <div className="alert alert-warning" role="alert">
+          <div className="d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+              <i className="fas fa-id-card me-2"></i> Profile verification pending - Please submit your CNIC documents.
+            </div>
+            <button 
+              className="btn btn-warning btn-sm mt-2 mt-md-0" 
+              onClick={() => setShowVerificationModal(true)}
+            >
+              <i className="fas fa-upload me-1"></i>Submit Documents
+            </button>
+          </div>
         </div>
       )}
 
       {seller.verificationStatus === 'rejected' && (
-        <div className="alert alert-danger">
-          <i className="fas fa-times-circle"></i> Your verification was rejected. Please resubmit your documents.
-          <button 
-            className="btn btn-danger btn-sm ms-2" 
-            onClick={() => setShowVerificationModal(true)}
-          >
-            Resubmit Documents
-          </button>
+        <div className="alert alert-danger" role="alert">
+          <div className="d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+              <i className="fas fa-times-circle me-2"></i> Your verification was rejected. Please resubmit your documents.
+            </div>
+            <button 
+              className="btn btn-danger btn-sm mt-2 mt-md-0" 
+              onClick={() => setShowVerificationModal(true)}
+            >
+              <i className="fas fa-redo me-1"></i>Resubmit Documents
+            </button>
+          </div>
         </div>
       )}
 
       {seller.canListProducts && (
-        <div className="alert alert-success">
-          <i className="fas fa-check-circle"></i> You can now list products! Start adding your inventory.
+        <div className="alert alert-success alert-dismissible fade show" role="alert">
+          <i className="fas fa-check-circle me-2"></i> You can now list products! Start adding your inventory.
+          <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
         </div>
       )}
 
-      {/* Stats Cards */}
-      <div className="stats-grid row mb-4">
-        <div className="col-lg-3 col-md-6 col-sm-6 mb-3">
-          <div className="card bg-primary text-white stats-card">
-            <div className="card-body">
-              <div className="d-flex justify-content-between">
-                <div>
-                  <h6 className="card-title">Supplier ID</h6>
-                  <h4>{seller.supplierId}</h4>
-                </div>
-                <div className="align-self-center">
-                  <i className="fas fa-id-card fa-2x"></i>
-                </div>
+      {/* Stats Cards - Improved Grid */}
+      <div className="row g-3 mb-4">
+        <div className="col-lg-3 col-md-6 col-sm-6">
+          <div className="card bg-primary text-white stats-card h-100">
+            <div className="card-body d-flex justify-content-between align-items-center">
+              <div>
+                <h6 className="card-title mb-1">Supplier ID</h6>
+                <h4 className="mb-0">{seller.supplierId}</h4>
+              </div>
+              <div>
+                <i className="fas fa-id-card fa-2x opacity-75"></i>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="col-lg-3 col-md-6 col-sm-6 mb-3">
-          <div className="card bg-success text-white stats-card">
-            <div className="card-body">
-              <div className="d-flex justify-content-between">
-                <div>
-                  <h6 className="card-title">Status</h6>
-                  <h4 className="text-capitalize">{seller.status}</h4>
-                </div>
-                <div className="align-self-center">
-                  <i className="fas fa-check-circle fa-2x"></i>
-                </div>
+        <div className="col-lg-3 col-md-6 col-sm-6">
+          <div className="card bg-success text-white stats-card h-100">
+            <div className="card-body d-flex justify-content-between align-items-center">
+              <div>
+                <h6 className="card-title mb-1">Status</h6>
+                <h4 className="mb-0 text-capitalize">{seller.status}</h4>
+              </div>
+              <div>
+                <i className="fas fa-check-circle fa-2x opacity-75"></i>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="col-lg-3 col-md-6 col-sm-6 mb-3">
-          <div className="card bg-info text-white stats-card">
-            <div className="card-body">
-              <div className="d-flex justify-content-between">
-                <div>
-                  <h6 className="card-title">Total Products</h6>
-                  <h4>{stats.totalProducts}</h4>
-                </div>
-                <div className="align-self-center">
-                  <i className="fas fa-box fa-2x"></i>
-                </div>
+        <div className="col-lg-3 col-md-6 col-sm-6">
+          <div className="card bg-info text-white stats-card h-100">
+            <div className="card-body d-flex justify-content-between align-items-center">
+              <div>
+                <h6 className="card-title mb-1">Total Products</h6>
+                <h4 className="mb-0">{stats.totalProducts}</h4>
+              </div>
+              <div>
+                <i className="fas fa-box fa-2x opacity-75"></i>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="col-lg-3 col-md-6 col-sm-6 mb-3">
-          <div className="card bg-warning text-white stats-card">
-            <div className="card-body">
-              <div className="d-flex justify-content-between">
-                <div>
-                  <h6 className="card-title">Listing Requests</h6>
-                  <h4>{listingRequests.length}</h4>
-                </div>
-                <div className="align-self-center">
-                  <i className="fas fa-list-alt fa-2x"></i>
-                </div>
+        <div className="col-lg-3 col-md-6 col-sm-6">
+          <div className="card bg-warning text-white stats-card h-100">
+            <div className="card-body d-flex justify-content-between align-items-center">
+              <div>
+                <h6 className="card-title mb-1">Listing Requests</h6>
+                <h4 className="mb-0">{listingRequests.length}</h4>
+              </div>
+              <div>
+                <i className="fas fa-list-alt fa-2x opacity-75"></i>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="row">
-        {/* Seller Info */}
-        <div className="col-lg-6 mb-4">
-          <div className="card">
-            <div className="card-header">
-              <h5><i className="fas fa-user"></i> Seller Information</h5>
+      {/* Main Content - Improved Layout */}
+      <div className="row g-4">
+        {/* Seller Info - Improved Table */}
+        <div className="col-lg-6">
+          <div className="card h-100">
+            <div className="card-header bg-light">
+              <h5 className="mb-0"><i className="fas fa-user me-2"></i>Seller Information</h5>
             </div>
             <div className="card-body">
-              <table className="table table-borderless seller-info-table">
-                <tbody>
-                  <tr>
-                    <td><strong>Username:</strong></td>
-                    <td>{seller?.username || 'Loading...'}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Email:</strong></td>
-                    <td className="text-break">{seller?.email || 'Loading...'}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>WhatsApp:</strong></td>
-                    <td>
+              <div className="row g-3">
+                <div className="col-12">
+                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <strong className="text-muted">Username:</strong>
+                    <span>{seller?.username || 'Loading...'}</span>
+                  </div>
+                </div>
+                <div className="col-12">
+                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <strong className="text-muted">Email:</strong>
+                    <span className="text-break text-end">{seller?.email || 'Loading...'}</span>
+                  </div>
+                </div>
+                <div className="col-12">
+                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <strong className="text-muted">WhatsApp:</strong>
+                    <div>
                       {seller?.whatsappNo ? (
                         <a 
                           href={`https://wa.me/${seller.whatsappNo.replace(/[^0-9]/g, '')}`} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          style={{
-                            color: '#25D366',
-                            textDecoration: 'none',
-                            fontWeight: '600'
-                          }}
+                          className="btn btn-success btn-sm"
                         >
                           <i className="fab fa-whatsapp me-1"></i>
                           <span className="mobile-hide">{seller.whatsappNo}</span>
-                          <span className="mobile-show">WhatsApp</span>
+                          <span className="mobile-show">Contact</span>
                         </a>
                       ) : (
-                        'Not provided'
+                        <span className="text-muted">Not provided</span>
                       )}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td><strong>Location:</strong></td>
-                    <td>{seller?.city && seller?.country ? `${seller.city}, ${seller.country}` : 'Not provided'}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Product Category:</strong></td>
-                    <td>{seller?.productCategory || 'Not specified'}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Supplier ID:</strong></td>
-                    <td><span className="badge bg-primary">{seller?.supplierId || 'Loading...'}</span></td>
-                  </tr>
-                  <tr>
-                    <td><strong>Account Status:</strong></td>
-                    <td>
-                      <span className={`badge bg-${seller?.status === 'active' ? 'success' : 'warning'}`}>
-                        {seller?.status?.toUpperCase() || 'ACTIVE'}
-                      </span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td><strong>Verification Status:</strong></td>
-                    <td>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-12">
+                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <strong className="text-muted">Location:</strong>
+                    <span>{seller?.city && seller?.country ? `${seller.city}, ${seller.country}` : 'Not provided'}</span>
+                  </div>
+                </div>
+                <div className="col-12">
+                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <strong className="text-muted">Category:</strong>
+                    <span>{seller?.productCategory || 'Not specified'}</span>
+                  </div>
+                </div>
+                <div className="col-12">
+                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <strong className="text-muted">Account Status:</strong>
+                    <span className={`badge bg-${seller?.status === 'active' ? 'success' : 'warning'}`}>
+                      {seller?.status?.toUpperCase() || 'ACTIVE'}
+                    </span>
+                  </div>
+                </div>
+                <div className="col-12">
+                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <strong className="text-muted">Verification:</strong>
+                    <div className="d-flex align-items-center gap-2">
                       <span className={`badge bg-${
                         seller?.verificationStatus === 'approved' ? 'success' : 
                         seller?.verificationStatus === 'pending' ? 'warning' : 
                         seller?.verificationStatus === 'rejected' ? 'danger' : 'warning'
                       }`}>
-                        {seller?.verificationStatus === 'required' || seller?.verificationStatus === 'not_required' ? 'PENDING VERIFICATION' : 
+                        {seller?.verificationStatus === 'required' || seller?.verificationStatus === 'not_required' ? 'PENDING' : 
                          seller?.verificationStatus === 'approved' ? 'VERIFIED' :
                          seller?.verificationStatus === 'pending' ? 'UNDER REVIEW' :
-                         seller?.verificationStatus === 'rejected' ? 'REJECTED' : 'PENDING VERIFICATION'}
+                         seller?.verificationStatus === 'rejected' ? 'REJECTED' : 'PENDING'}
                       </span>
                       {(seller?.verificationStatus === 'required' || seller?.verificationStatus === 'not_required' || seller?.verificationStatus === 'rejected') && (
                         <button 
-                          className="btn btn-sm btn-warning ms-2"
+                          className="btn btn-warning btn-sm"
                           onClick={() => setShowVerificationModal(true)}
                         >
-                          <i className="fas fa-id-card"></i> Submit Documents
+                          <i className="fas fa-id-card"></i>
                         </button>
                       )}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td><strong>Can List Products:</strong></td>
-                    <td>
-                      <span className={`badge bg-${(seller?.canListProducts || seller?.verificationStatus === 'approved') ? 'success' : 'danger'}`}>
-                        {(seller?.canListProducts || seller?.verificationStatus === 'approved') ? 'YES' : 'NO'}
+                    </div>
+                  </div>
+                </div>
+                <div className="col-12">
+                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <strong className="text-muted">Can List Products:</strong>
+                    <span className={`badge bg-${(seller?.canListProducts || seller?.verificationStatus === 'approved') ? 'success' : 'danger'}`}>
+                      {(seller?.canListProducts || seller?.verificationStatus === 'approved') ? 'YES' : 'NO'}
+                    </span>
+                  </div>
+                </div>
+                <div className="col-12">
+                  <div className="d-flex justify-content-between align-items-center py-2">
+                    <strong className="text-muted">Joined:</strong>
+                    <span>{seller?.createdAt ? new Date(seller.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                  </div>
+                </div>
+                {dashboardAccess && dashboardAccess.daysRemaining > 0 && seller.verificationStatus === 'not_required' && (
+                  <div className="col-12">
+                    <div className="d-flex justify-content-between align-items-center py-2">
+                      <strong className="text-muted">Trial Days:</strong>
+                      <span className={`badge bg-${dashboardAccess.daysRemaining <= 5 ? 'warning' : 'info'}`}>
+                        {dashboardAccess.daysRemaining} days
                       </span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td><strong>Joined:</strong></td>
-                    <td>{seller?.createdAt ? new Date(seller.createdAt).toLocaleDateString() : 'Unknown'}</td>
-                  </tr>
-                  {dashboardAccess && dashboardAccess.daysRemaining > 0 && seller.verificationStatus === 'not_required' && (
-                    <tr>
-                      <td><strong>Trial Days Remaining:</strong></td>
-                      <td>
-                        <span className={`badge bg-${dashboardAccess.daysRemaining <= 5 ? 'warning' : 'info'}`}>
-                          {dashboardAccess.daysRemaining} days
-                        </span>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Product Listing Requests */}
-        <div className="col-lg-6 mb-4">
-          <div className="card">
-            <div className="card-header">
-              <h5><i className="fas fa-list-alt"></i> Product Listing Requests</h5>
+        {/* Product Listing Requests - Improved */}
+        <div className="col-lg-6">
+          <div className="card h-100">
+            <div className="card-header bg-light">
+              <h5 className="mb-0"><i className="fas fa-list-alt me-2"></i>Recent Listing Requests</h5>
             </div>
             <div className="card-body">
               {listingRequests.length === 0 ? (
-                <p className="text-muted">No product listing requests yet.</p>
+                <div className="text-center py-4">
+                  <i className="fas fa-inbox fa-3x text-muted mb-3"></i>
+                  <p className="text-muted mb-0">No product listing requests yet.</p>
+                  <small className="text-muted">Start listing products to see your requests here.</small>
+                </div>
               ) : (
-                <div className="table-responsive">
-                  <table className="table table-sm">
-                    <thead>
-                      <tr>
-                        <th>Product</th>
-                        <th>Price</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {listingRequests.slice(-5).map((request, index) => (
-                        <tr key={index}>
-                          <td>
-                            <small className="text-muted">{request.productName}</small>
-                          </td>
-                          <td>£{request.productPrice}</td>
-                          <td>
-                            <span className={`badge bg-${
-                              request.status === 'approved' ? 'success' : 
-                              request.status === 'rejected' ? 'danger' : 'warning'
-                            }`}>
-                              {request.status.replace('_', ' ').toUpperCase()}
-                            </span>
-                          </td>
-                          <td>{new Date(request.submittedAt).toLocaleDateString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="list-group list-group-flush">
+                  {listingRequests.slice(-5).map((request, index) => (
+                    <div key={index} className="list-group-item px-0 py-3">
+                      <div className="d-flex justify-content-between align-items-start">
+                        <div className="flex-grow-1">
+                          <h6 className="mb-1 text-truncate">{request.productName}</h6>
+                          <p className="mb-1 text-muted">£{request.productPrice}</p>
+                          <small className="text-muted">{new Date(request.submittedAt).toLocaleDateString()}</small>
+                        </div>
+                        <span className={`badge bg-${
+                          request.status === 'approved' ? 'success' : 
+                          request.status === 'rejected' ? 'danger' : 'warning'
+                        }`}>
+                          {request.status.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Payment History */}
-        <div className="col-lg-6 mb-4">
+      {/* Payment History - Improved */}
+      <div className="row g-4 mb-4">
+        <div className="col-12">
           <div className="card">
-            <div className="card-header">
-              <h5><i className="fas fa-history"></i> Payment History</h5>
+            <div className="card-header bg-light">
+              <h5 className="mb-0"><i className="fas fa-history me-2"></i>Payment History</h5>
             </div>
             <div className="card-body">
               {paymentHistory.length === 0 ? (
-                <p className="text-muted">No payment history available.</p>
+                <div className="text-center py-4">
+                  <i className="fas fa-credit-card fa-3x text-muted mb-3"></i>
+                  <p className="text-muted mb-0">No payment history available.</p>
+                  <small className="text-muted">Your payment transactions will appear here.</small>
+                </div>
               ) : (
                 <div className="table-responsive">
-                  <table className="table table-sm">
-                    <thead>
+                  <table className="table table-hover">
+                    <thead className="table-light">
                       <tr>
                         <th>Date</th>
                         <th>Amount</th>
@@ -731,8 +752,12 @@ const SellerDashboard = () => {
                       {paymentHistory.map((payment, index) => (
                         <tr key={index}>
                           <td>{new Date(payment.paymentDate).toLocaleDateString()}</td>
-                          <td>£{payment.amount}</td>
-                          <td className="text-capitalize">{payment.purpose.replace('_', ' ')}</td>
+                          <td className="fw-bold">£{payment.amount}</td>
+                          <td>
+                            <span className="badge bg-light text-dark">
+                              {payment.purpose.replace('_', ' ').toUpperCase()}
+                            </span>
+                          </td>
                           <td>
                             {payment.purpose === 'product_listing' && payment.productName ? (
                               <small className="text-muted">{payment.productName}</small>
@@ -742,7 +767,7 @@ const SellerDashboard = () => {
                           </td>
                           <td>
                             <span className={`badge bg-${payment.status === 'completed' ? 'success' : 'warning'}`}>
-                              {payment.status}
+                              {payment.status.toUpperCase()}
                             </span>
                           </td>
                         </tr>
@@ -756,36 +781,34 @@ const SellerDashboard = () => {
         </div>
       </div>
 
-      {/* Product Listing Section */}
+      {/* Product Listing Section - Improved */}
       <div className="row mb-4">
         <div className="col-12">
           <div className="card amazon-choice-card">
             <div className="card-header">
-              <h5><i className="fas fa-shopping-cart me-2"></i> List Products to Amazon's Choice</h5>
-              <small className="text-muted">Browse and list products from our catalog</small>
+              <h5 className="mb-1"><i className="fas fa-shopping-cart me-2"></i>List Products to Amazon's Choice</h5>
+              <small className="opacity-75">Browse and list products from our catalog</small>
             </div>
-            <div className="card-body">
-              <div className="row g-3 justify-content-center">
-                <div className="col-lg-8 col-md-10 col-sm-12">
-                  <div className="d-flex justify-content-center">
-                    <button 
-                      className="btn btn-warning amazon-choice-btn"
-                      disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
-                      onClick={() => navigate('/seller/admin-products')}
-                    >
-                      <div className="d-flex flex-column align-items-center">
-                        <div className="d-flex align-items-center mb-1">
-                          <i className="fas fa-trophy me-2"></i>
-                          <span>Amazon's Choice</span>
-                        </div>
-                        <small className="text-center">
-                          List admin products
-                        </small>
-                      </div>
-                    </button>
-                  </div>
-                </div>
+            <div className="card-body text-center py-4">
+              <div className="mb-3">
+                <i className="fas fa-trophy fa-3x text-warning mb-3"></i>
+                <h6 className="mb-2">Start Listing Products</h6>
+                <p className="text-muted mb-4">Choose from our curated Amazon's Choice products and start earning</p>
               </div>
+              
+              <button 
+                className="btn amazon-choice-btn"
+                disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
+                onClick={() => navigate('/seller/admin-products')}
+              >
+                <div className="d-flex flex-column align-items-center">
+                  <div className="d-flex align-items-center mb-1">
+                    <i className="fas fa-trophy me-2"></i>
+                    <span>Browse Amazon's Choice</span>
+                  </div>
+                  <small>List admin products</small>
+                </div>
+              </button>
               
               {!(seller?.canListProducts || seller?.verificationStatus === 'approved') && (
                 <div className="alert alert-warning mt-4 mb-0">
@@ -798,46 +821,54 @@ const SellerDashboard = () => {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions - Improved Grid */}
       <div className="row">
         <div className="col-12">
           <div className="card">
-            <div className="card-header">
-              <h5><i className="fas fa-bolt"></i> Quick Actions</h5>
+            <div className="card-header bg-light">
+              <h5 className="mb-0"><i className="fas fa-bolt me-2"></i>Quick Actions</h5>
             </div>
             <div className="card-body">
-              <div className="quick-actions-grid row">
-                <div className="col-md-3 col-sm-6 mb-2">
+              <div className="row g-3">
+                <div className="col-lg-3 col-md-6 col-sm-6">
                   <button 
-                    className="btn btn-primary w-100"
+                    className="btn btn-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
                     onClick={() => navigate('/seller/add-products')}
                   >
-                    <i className="fas fa-plus"></i> <span className="mobile-hide">Add Custom Products</span><span className="mobile-show">Add Products</span>
+                    <i className="fas fa-plus fa-2x mb-2"></i>
+                    <span className="fw-bold">Add Products</span>
+                    <small className="opacity-75">Create custom listings</small>
                   </button>
                 </div>
-                <div className="col-md-3 col-sm-6 mb-2">
+                <div className="col-lg-3 col-md-6 col-sm-6">
                   <button 
-                    className="btn btn-info w-100"
+                    className="btn btn-info w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
                     onClick={() => navigate('/seller/listed-products')}
                   >
-                    <i className="fas fa-list"></i> <span className="mobile-hide">My Listed Products</span><span className="mobile-show">My Products</span>
+                    <i className="fas fa-list fa-2x mb-2"></i>
+                    <span className="fw-bold">My Products</span>
+                    <small className="opacity-75">View your listings</small>
                   </button>
                 </div>
-                <div className="col-md-3 col-sm-6 mb-2">
+                <div className="col-lg-3 col-md-6 col-sm-6">
                   <button 
-                    className="btn btn-success w-100"
+                    className="btn btn-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
                     disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
                     onClick={() => navigate('/seller/admin-products')}
                   >
-                    <i className="fas fa-shopping-cart"></i> <span className="mobile-hide">Admin Products</span><span className="mobile-show">Admin</span>
+                    <i className="fas fa-shopping-cart fa-2x mb-2"></i>
+                    <span className="fw-bold">Admin Products</span>
+                    <small className="opacity-75">Browse catalog</small>
                   </button>
                 </div>
-                <div className="col-md-3 col-sm-6 mb-2">
+                <div className="col-lg-3 col-md-6 col-sm-6">
                   <button 
-                    className="btn btn-warning w-100"
+                    className="btn btn-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
                     onClick={() => navigate('/seller/profile/edit')}
                   >
-                    <i className="fas fa-edit"></i> <span className="mobile-hide">Edit Profile</span><span className="mobile-show">Profile</span>
+                    <i className="fas fa-edit fa-2x mb-2"></i>
+                    <span className="fw-bold">Edit Profile</span>
+                    <small className="opacity-75">Update information</small>
                   </button>
                 </div>
               </div>

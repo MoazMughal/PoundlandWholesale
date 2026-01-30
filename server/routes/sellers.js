@@ -869,6 +869,7 @@ router.post('/list-admin-product', authenticateSeller, async (req, res) => {
       adminProductId,
       productName,
       productPrice,
+      sellerPrice, // Add seller's custom price
       paymentMethod = 'Direct Listing',
       transactionId,
       notes = 'Seller listed admin product',
@@ -901,14 +902,25 @@ router.post('/list-admin-product', authenticateSeller, async (req, res) => {
       isAdminProduct: adminProduct.isAdminProduct
     });
 
-    // Check if seller already listed this product
+    // Check if seller already listed this product (more robust check)
     const alreadyListed = adminProduct.sellers?.some(
       sellerEntry => sellerEntry.sellerId.toString() === req.seller._id.toString()
-    );
+    ) || (adminProduct.seller && adminProduct.seller.toString() === req.seller._id.toString());
 
     if (alreadyListed) {
-      console.log('❌ Seller already listed this product');
-      return res.status(400).json({ message: 'You have already listed this product' });
+      console.log('❌ Seller already listed this product:', {
+        sellerId: req.seller._id,
+        sellerUsername: req.seller.username,
+        productId: adminProduct._id,
+        productName: adminProduct.name,
+        existingSellers: adminProduct.sellers?.map(s => ({ id: s.sellerId, username: s.username })),
+        primarySeller: adminProduct.seller
+      });
+      return res.status(400).json({ 
+        success: false,
+        message: 'You have already listed this product. Each seller can only list a product once.',
+        error: 'ALREADY_LISTED'
+      });
     }
 
     // Get seller for caching info
@@ -937,6 +949,7 @@ router.post('/list-admin-product', authenticateSeller, async (req, res) => {
       city: seller.city,
       country: seller.country,
       verificationStatus: seller.verificationStatus,
+      sellerPrice: sellerPrice ? parseFloat(sellerPrice) : (productPrice ? parseFloat(productPrice) : null), // Use seller's custom price or fallback to product price
       listedAt: new Date(),
       transactionId: transactionId || `LIST_${Date.now()}`,
       paymentMethod,
@@ -945,15 +958,89 @@ router.post('/list-admin-product', authenticateSeller, async (req, res) => {
 
     console.log('📋 Enhanced seller info to be added:', enhancedSellerInfo);
 
+    // MIGRATION STEP: If there's an existing seller in the old format but not in sellers array, migrate them first
+    if (adminProduct.seller && (!adminProduct.sellers || adminProduct.sellers.length === 0)) {
+      console.log('🔄 MIGRATION: Found product with old single-seller format, migrating to sellers array...');
+      
+      // Get the existing seller info
+      const existingSellerId = adminProduct.seller;
+      const existingSellerInfo = adminProduct.sellerInfo;
+      
+      // Only migrate if it's not the same seller trying to list again
+      if (existingSellerId.toString() !== seller._id.toString()) {
+        console.log('🔄 Migrating existing seller to sellers array:', {
+          existingSellerId,
+          existingSellerUsername: existingSellerInfo?.username,
+          newSellerId: seller._id,
+          newSellerUsername: seller.username
+        });
+        
+        // Create sellers array if it doesn't exist
+        if (!adminProduct.sellers) {
+          adminProduct.sellers = [];
+        }
+        
+        // Add the existing seller to the sellers array first
+        const existingSellerEntry = {
+          sellerId: existingSellerId,
+          username: existingSellerInfo?.username || 'Unknown',
+          email: existingSellerInfo?.email || '',
+          whatsappNo: existingSellerInfo?.whatsappNo || '',
+          city: existingSellerInfo?.city || '',
+          country: existingSellerInfo?.country || '',
+          verificationStatus: existingSellerInfo?.verificationStatus || 'unknown',
+          sellerPrice: sellerPrice ? parseFloat(sellerPrice) : (productPrice ? parseFloat(productPrice) : null), // Use seller's custom price or fallback to product price
+          listedAt: adminProduct.createdAt || new Date(),
+          transactionId: `MIGRATED_${Date.now()}`,
+          paymentMethod: 'Legacy Migration',
+          notes: 'Migrated from old single-seller format'
+        };
+        
+        adminProduct.sellers.push(existingSellerEntry);
+        console.log('✅ Existing seller migrated to sellers array');
+      } else {
+        console.log('ℹ️ Same seller trying to list again - no migration needed');
+        // Initialize empty sellers array for this seller
+        if (!adminProduct.sellers) {
+          adminProduct.sellers = [];
+        }
+      }
+    }
+
     // Add seller info to the existing admin product instead of creating new product
     if (!adminProduct.sellers) {
       adminProduct.sellers = [];
     }
     
+    console.log('🔍 Current sellers before adding:', {
+      sellersCount: adminProduct.sellers.length,
+      existingSellers: adminProduct.sellers.map(s => ({ id: s.sellerId, username: s.username }))
+    });
+    
+    // Double-check for duplicates before adding (safety measure)
+    const isDuplicate = adminProduct.sellers.some(
+      existing => existing.sellerId.toString() === seller._id.toString()
+    );
+    
+    if (isDuplicate) {
+      console.log('❌ Duplicate seller detected during addition, aborting');
+      return res.status(400).json({ 
+        success: false,
+        message: 'You have already listed this product. Duplicate entry prevented.',
+        error: 'DUPLICATE_PREVENTED'
+      });
+    }
+    
     adminProduct.sellers.push(enhancedSellerInfo);
     
+    console.log('✅ Seller added to sellers array:', {
+      sellersCount: adminProduct.sellers.length,
+      allSellers: adminProduct.sellers.map(s => ({ id: s.sellerId, username: s.username }))
+    });
+    
     // Also update the main sellerInfo field for backward compatibility (use the first/primary seller)
-    if (!adminProduct.sellerInfo || adminProduct.sellers.length === 1) {
+    // Only update sellerInfo if this is the FIRST seller being added (empty sellers array before adding)
+    if (adminProduct.sellers.length === 1 && !adminProduct.seller) {
       adminProduct.sellerInfo = {
         username: seller.username,
         email: seller.email,
@@ -961,9 +1048,13 @@ router.post('/list-admin-product', authenticateSeller, async (req, res) => {
         city: seller.city,
         country: seller.country,
         verificationStatus: seller.verificationStatus,
+        sellerPrice: sellerPrice ? parseFloat(sellerPrice) : (productPrice ? parseFloat(productPrice) : null), // Use seller's custom price or fallback to product price
         _id: seller._id
       };
       adminProduct.seller = seller._id; // Set primary seller
+      console.log('✅ Updated sellerInfo for primary seller (backward compatibility)');
+    } else {
+      console.log('ℹ️ Skipping sellerInfo update - not the primary seller or primary seller already exists');
     }
 
     await adminProduct.save();
@@ -1031,6 +1122,46 @@ router.post('/list-admin-product', authenticateSeller, async (req, res) => {
   }
 });
 
+// Cleanup duplicate sellers in products (admin utility)
+router.post('/cleanup-duplicate-sellers', authenticateAdmin, async (req, res) => {
+  try {
+    const Product = (await import('../models/Product.js')).default;
+    
+    const products = await Product.find({ sellers: { $exists: true, $ne: [] } });
+    let cleanedCount = 0;
+    
+    for (const product of products) {
+      const uniqueSellers = [];
+      const seenSellerIds = new Set();
+      
+      for (const seller of product.sellers) {
+        const sellerId = seller.sellerId.toString();
+        if (!seenSellerIds.has(sellerId)) {
+          seenSellerIds.add(sellerId);
+          uniqueSellers.push(seller);
+        }
+      }
+      
+      if (uniqueSellers.length !== product.sellers.length) {
+        product.sellers = uniqueSellers;
+        await product.save();
+        cleanedCount++;
+        console.log(`🧹 Cleaned duplicates from product: ${product.name} (${product._id})`);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Cleanup completed. ${cleanedCount} products had duplicate sellers removed.`,
+      cleanedProducts: cleanedCount
+    });
+    
+  } catch (error) {
+    console.error('Cleanup error:', error);
+    res.status(500).json({ message: 'Cleanup failed', error: error.message });
+  }
+});
+
 // Update seller's inventory for a listed product
 router.put('/update-inventory/:productId', authenticateSeller, async (req, res) => {
   try {
@@ -1046,43 +1177,74 @@ router.put('/update-inventory/:productId', authenticateSeller, async (req, res) 
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Check if seller has listed this product
-    const sellerListed = product.sellers?.some(
+    // Find the seller's entry in the sellers array
+    const sellerIndex = product.sellers?.findIndex(
       s => s.sellerId.toString() === req.seller._id.toString()
     );
 
-    if (!sellerListed) {
+    if (sellerIndex === -1) {
       return res.status(403).json({ message: 'You have not listed this product' });
     }
 
-    // Update the product price and stock
+    console.log('🔄 Updating seller-specific inventory:', {
+      productId: product._id,
+      sellerId: req.seller._id,
+      sellerUsername: req.seller.username,
+      sellerIndex,
+      currentSellerPrice: product.sellers[sellerIndex].sellerPrice,
+      newPrice: price,
+      newStock: stock
+    });
+
+    // Update the seller's specific price in the sellers array
     if (price !== undefined) {
-      product.price = parseFloat(price);
+      product.sellers[sellerIndex].sellerPrice = parseFloat(price);
+      console.log('✅ Updated seller price in sellers array:', {
+        sellerUsername: product.sellers[sellerIndex].username,
+        oldPrice: product.sellers[sellerIndex].sellerPrice,
+        newPrice: parseFloat(price)
+      });
     }
+
+    // Update stock (this affects the whole product, not individual sellers)
     if (stock !== undefined) {
       product.stock = parseInt(stock);
     }
 
+    // Also update the primary sellerInfo if this seller is the primary seller
+    if (product.seller && product.seller.toString() === req.seller._id.toString() && product.sellerInfo) {
+      if (price !== undefined) {
+        product.sellerInfo.sellerPrice = parseFloat(price);
+        console.log('✅ Updated primary sellerInfo price for consistency');
+      }
+    }
+
     await product.save();
 
-    console.log('✅ Seller updated inventory:', {
+    console.log('✅ Seller updated inventory successfully:', {
       productId: product._id,
       sellerId: req.seller._id,
-      newPrice: product.price,
-      newStock: product.stock
+      sellerUsername: req.seller.username,
+      newSellerPrice: product.sellers[sellerIndex].sellerPrice,
+      newStock: product.stock,
+      totalSellers: product.sellers.length
     });
 
     res.json({
       success: true,
-      message: 'Inventory updated successfully',
+      message: 'Your price updated successfully',
       product: {
         _id: product._id,
-        price: product.price,
+        sellerPrice: product.sellers[sellerIndex].sellerPrice,
         stock: product.stock
+      },
+      sellerInfo: {
+        username: product.sellers[sellerIndex].username,
+        sellerPrice: product.sellers[sellerIndex].sellerPrice
       }
     });
   } catch (error) {
-    console.error('Error updating inventory:', error);
+    console.error('Error updating seller inventory:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -1160,7 +1322,14 @@ router.get('/my-listed-products', authenticateSeller, async (req, res) => {
         sellerListedAt: sellerEntry?.listedAt,
         sellerTransactionId: sellerEntry?.transactionId,
         sellerPaymentMethod: sellerEntry?.paymentMethod,
-        sellerNotes: sellerEntry?.notes
+        sellerNotes: sellerEntry?.notes,
+        // Add seller's individual price if they have one
+        ...(sellerEntry?.sellerPrice && {
+          sellerInfo: {
+            ...productObj.sellerInfo,
+            sellerPrice: sellerEntry.sellerPrice
+          }
+        })
       };
     });
 

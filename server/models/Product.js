@@ -48,6 +48,10 @@ const productSchema = new mongoose.Schema({
     city: String,
     country: String,
     verificationStatus: String,
+    sellerPrice: {
+      type: Number,
+      default: null // Seller's custom price, if null uses product.price
+    },
     _id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Seller'
@@ -66,6 +70,10 @@ const productSchema = new mongoose.Schema({
     city: String,
     country: String,
     verificationStatus: String,
+    sellerPrice: {
+      type: Number,
+      default: null // Seller's custom price, if null uses product.price
+    },
     listedAt: {
       type: Date,
       default: Date.now

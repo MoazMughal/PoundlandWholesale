@@ -1847,6 +1847,15 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
 
     // Process products to include seller info only for verified sellers
     const processedProducts = products.map(product => {
+      // Handle sellers array (multiple sellers who listed this admin product)
+      if (product.sellers && product.sellers.length > 0) {
+        // For public access, show all sellers but hide sensitive info like emails
+        product.sellers = product.sellers.map(seller => {
+          const { email, transactionId, paymentMethod, notes, ...publicSellerInfo } = seller;
+          return publicSellerInfo;
+        });
+      }
+      
       // Use cached sellerInfo if available, otherwise populate from seller object
       if (!product.sellerInfo && product.seller && product.seller.verificationStatus === 'approved' && !product.isAdminProduct) {
         product.sellerInfo = {
@@ -1936,6 +1945,25 @@ router.get('/public/:id', async (req, res) => {
 
     // Include seller info - always populate for seller object, cache for performance
     let productData = product.toObject();
+    
+    console.log('🔍 Public product endpoint - seller data debug:', {
+      productId: id,
+      productName: product.name,
+      hasLegacySeller: !!product.seller,
+      hasSellersArray: !!(product.sellers && product.sellers.length > 0),
+      sellersCount: product.sellers?.length || 0,
+      sellersData: product.sellers?.map(s => ({ id: s.sellerId, username: s.username })) || []
+    });
+    
+    // Handle sellers array (multiple sellers who listed this admin product)
+    if (productData.sellers && productData.sellers.length > 0) {
+      // For public access, show all sellers but hide sensitive info like emails
+      productData.sellers = productData.sellers.map(seller => {
+        const { email, transactionId, paymentMethod, notes, ...publicSellerInfo } = seller;
+        return publicSellerInfo;
+      });
+      console.log(`✅ Public endpoint: Showing ${productData.sellers.length} sellers`);
+    }
     
     // Always populate seller info if seller exists (for admin and seller access)
     if (!productData.sellerInfo && product.seller) {
@@ -4138,34 +4166,88 @@ router.post('/seller/bulk-list', authenticateSeller, async (req, res) => {
 // Update seller product stock and price
 router.put('/seller/update-inventory/:id', authenticateSeller, async (req, res) => {
   try {
-    const { price, stock } = req.body;
-    
-    const product = await Product.findOne({
-      _id: req.params.id,
-      seller: req.seller._id
+    const { price, stock, sellerPrice } = req.body;
+    const productId = req.params.id;
+
+    console.log('🔄 Seller updating inventory:', {
+      productId,
+      sellerId: req.seller._id,
+      price,
+      stock,
+      sellerPrice
     });
 
+    // Find the product
+    const product = await Product.findById(productId);
     if (!product) {
-      return res.status(404).json({ message: 'Product not found or you do not have permission to edit this product' });
+      return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Update only price and stock
-    if (price !== undefined) product.price = parseFloat(price);
-    if (stock !== undefined) product.stock = parseInt(stock);
-    
-    await product.save();
+    // Check if seller has listed this product
+    const query = {
+      _id: productId,
+      $or: [
+        { seller: req.seller._id }, // Primary seller (backward compatibility)
+        { 'sellers.sellerId': req.seller._id } // Seller in sellers array
+      ]
+    };
 
-    res.json({ 
-      message: 'Product inventory updated successfully', 
+    const productWithSeller = await Product.findOne(query);
+    if (!productWithSeller) {
+      return res.status(403).json({ message: 'You can only update products you have listed' });
+    }
+
+    // Update the product
+    const updateData = {};
+    
+    // Update stock if provided
+    if (stock !== undefined) {
+      updateData.stock = parseInt(stock);
+    }
+
+    // Update main price if provided (for primary seller)
+    if (price !== undefined && product.seller && product.seller.toString() === req.seller._id.toString()) {
+      updateData.price = parseFloat(price);
+    }
+
+    // Update seller price in sellers array if seller is in the array
+    const sellerIndex = product.sellers?.findIndex(s => s.sellerId.toString() === req.seller._id.toString());
+    if (sellerIndex !== -1 && sellerPrice !== undefined) {
+      updateData[`sellers.${sellerIndex}.sellerPrice`] = parseFloat(sellerPrice) || null;
+    }
+
+    // Update seller price in sellerInfo if this is the primary seller
+    if (product.seller && product.seller.toString() === req.seller._id.toString() && sellerPrice !== undefined) {
+      updateData['sellerInfo.sellerPrice'] = parseFloat(sellerPrice) || null;
+    }
+
+    // Apply updates
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      { $set: updateData },
+      { new: true }
+    );
+
+    console.log('✅ Product inventory updated:', {
+      productId,
+      sellerId: req.seller._id,
+      updatedFields: updateData
+    });
+
+    res.json({
+      message: 'Product inventory updated successfully',
       product: {
-        _id: product._id,
-        name: product.name,
-        price: product.price,
-        stock: product.stock
+        _id: updatedProduct._id,
+        name: updatedProduct.name,
+        price: updatedProduct.price,
+        stock: updatedProduct.stock,
+        sellerPrice: sellerPrice
       }
     });
+
   } catch (error) {
-    res.status(400).json({ message: 'Error updating product inventory', error: error.message });
+    console.error('❌ Error updating product inventory:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
@@ -6957,10 +7039,20 @@ router.get('/public/:id', async (req, res) => {
       productId: id,
       hasSeller: !!product.seller,
       hasSellerInfo: !!product.sellerInfo,
+      sellersCount: product.sellers?.length || 0,
       sellerVerificationStatus: product.seller?.verificationStatus
     });
 
-    // For public access, only show seller info for verified sellers and admin products
+    // For public access, show all verified sellers in the sellers array
+    if (product.sellers && product.sellers.length > 0) {
+      // Filter to show only verified sellers for public access
+      product.sellers = product.sellers.filter(seller => 
+        seller.verificationStatus === 'approved'
+      );
+      console.log(`✅ Showing ${product.sellers.length} verified sellers (public access)`);
+    }
+
+    // For backward compatibility, handle legacy seller field
     if (product.seller && (product.seller.verificationStatus === 'approved' || product.isAdminProduct)) {
       // Use cached sellerInfo if available, otherwise populate from seller object
       if (!product.sellerInfo) {
@@ -6972,13 +7064,13 @@ router.get('/public/:id', async (req, res) => {
           verificationStatus: product.seller.verificationStatus,
           _id: product.seller._id
         };
-        console.log('✅ Added seller info for verified seller (public access)');
+        console.log('✅ Added legacy seller info for verified seller (public access)');
       }
     } else {
       // Remove seller info for unverified sellers in public access
       delete product.sellerInfo;
       delete product.seller;
-      console.log('❌ Seller info hidden for unverified seller (public access)');
+      console.log('❌ Legacy seller info hidden for unverified seller (public access)');
     }
 
     res.json({
@@ -7026,10 +7118,27 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
       productSellerId: product.seller?._id?.toString(),
       isOwnProduct: product.seller?._id?.toString() === req.seller._id.toString(),
       hasSeller: !!product.seller,
-      hasSellerInfo: !!product.sellerInfo
+      hasSellerInfo: !!product.sellerInfo,
+      sellersCount: product.sellers?.length || 0
     });
 
-    // Check if this seller owns the product
+    // Show all sellers in the sellers array (sellers can see all sellers)
+    if (product.sellers && product.sellers.length > 0) {
+      // For seller access, show all sellers but hide emails for others
+      product.sellers = product.sellers.map(seller => {
+        if (seller.sellerId?.toString() === req.seller._id.toString()) {
+          // Current seller can see their own full info
+          return seller;
+        } else {
+          // Hide email for other sellers
+          const { email, ...sellerWithoutEmail } = seller;
+          return sellerWithoutEmail;
+        }
+      });
+      console.log(`✅ Showing ${product.sellers.length} sellers (seller access)`);
+    }
+
+    // Check if this seller owns the product (legacy field)
     const isOwnProduct = product.seller && product.seller._id.toString() === req.seller._id.toString();
     
     if (isOwnProduct) {

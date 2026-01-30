@@ -3504,7 +3504,7 @@ const AdminProducts = () => {
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Price</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Stock</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Status</th>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Seller</th>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Sellers</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Actions</th>
                 </tr>
               </thead>
@@ -3880,7 +3880,52 @@ const AdminProducts = () => {
                       })()}
                     </td>
                     <td className="seller-info" style={{ padding: '4px 8px', fontSize: '0.7rem' }}>
-                      {product.seller?.businessName || 'Direct'}
+                      {(() => {
+                        const sellersCount = product.sellers?.length || 0;
+                        const hasLegacySeller = product.seller?.businessName;
+                        
+                        if (sellersCount > 0) {
+                          // Show seller count and price range
+                          const prices = product.sellers
+                            .map(s => parseFloat(s.sellerPrice) || parseFloat(product.price) || 0)
+                            .filter(p => p > 0)
+                            .sort((a, b) => a - b);
+                          
+                          const minPrice = prices.length > 0 ? prices[0] : parseFloat(product.price) || 0;
+                          const maxPrice = prices.length > 0 ? prices[prices.length - 1] : parseFloat(product.price) || 0;
+                          
+                          return (
+                            <div>
+                              <div style={{ fontWeight: '600', color: '#059669' }}>
+                                {sellersCount} Seller{sellersCount > 1 ? 's' : ''}
+                              </div>
+                              <div style={{ fontSize: '0.65rem', color: '#6b7280' }}>
+                                {minPrice === maxPrice 
+                                  ? `£${minPrice.toFixed(2)}`
+                                  : `£${minPrice.toFixed(2)} - £${maxPrice.toFixed(2)}`
+                                }
+                              </div>
+                            </div>
+                          );
+                        } else if (hasLegacySeller) {
+                          return (
+                            <div>
+                              <div style={{ fontWeight: '600', color: '#6b7280' }}>
+                                {product.seller.businessName}
+                              </div>
+                              <div style={{ fontSize: '0.65rem', color: '#6b7280' }}>
+                                Legacy
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div style={{ color: '#9ca3af', fontStyle: 'italic' }}>
+                              No sellers
+                            </div>
+                          );
+                        }
+                      })()}
                     </td>
                     <td className="actions" style={{ padding: '4px 8px' }}>
                       <button
@@ -3986,6 +4031,23 @@ const AdminProducts = () => {
                   <div>
                     <div style={{ color: '#666', fontSize: '0.65rem' }}>SKU</div>
                     <div style={{ fontSize: '0.7rem', fontFamily: 'monospace' }}>{product.sku || '-'}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#666', fontSize: '0.65rem' }}>Sellers</div>
+                    <div style={{ fontSize: '0.7rem' }}>
+                      {(() => {
+                        const sellersCount = product.sellers?.length || 0;
+                        if (sellersCount > 0) {
+                          return (
+                            <span style={{ fontWeight: 'bold', color: '#059669' }}>
+                              {sellersCount} Seller{sellersCount > 1 ? 's' : ''}
+                            </span>
+                          );
+                        } else {
+                          return <span style={{ color: '#9ca3af' }}>None</span>;
+                        }
+                      })()}
+                    </div>
                   </div>
                 </div>
                 

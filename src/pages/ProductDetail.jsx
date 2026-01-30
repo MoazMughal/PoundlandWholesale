@@ -6,6 +6,7 @@ import { getImageUrl } from '../utils/imageImports'
 import ScrollToTop from '../components/ScrollToTop'
 import PaymentModal from '../components/PaymentModal'
 import PaymentUploadModal from '../components/PaymentUploadModal'
+import SellerInformation from '../components/SellerInformation'
 import apiConfig from '../config/api.config'
 import { useCurrency } from '../context/CurrencyContext'
 import { useAdmin } from '../context/AdminContext'
@@ -172,6 +173,111 @@ const ProductDetail = () => {
     return '0%';
   };
 
+  // Function to get the lowest price from all sellers
+  const getLowestPrice = () => {
+    if (!product) return 0;
+    
+    // Parse the main product price, handling currency symbols
+    const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+    
+    if (!product.sellers || product.sellers.length === 0) {
+      return mainPrice;
+    }
+    
+    const sellerPrices = product.sellers
+      .map(seller => {
+        const price = parseFloat(seller.sellerPrice);
+        return isNaN(price) ? mainPrice : price;
+      })
+      .filter(price => price > 0);
+    
+    const allPrices = [mainPrice, ...sellerPrices];
+    const result = Math.min(...allPrices);
+    
+    // Final safety check to ensure we never return NaN
+    return isNaN(result) ? mainPrice : result;
+  };
+
+  // Function to check if there's a lower seller price than the main product price
+  const hasLowerSellerPrice = () => {
+    if (!product || !product.sellers || product.sellers.length === 0) return false;
+    
+    const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+    const lowestPrice = getLowestPrice();
+    
+    return lowestPrice < mainPrice;
+  };
+
+  // Function to refresh product data (for seller price updates)
+  const refreshProductData = async () => {
+    try {
+      const cacheBuster = new Date().getTime();
+      const sellerToken = localStorage.getItem('sellerToken');
+      let apiEndpoint = `products/public/${id}?_=${cacheBuster}`;
+      let headers = {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      };
+      
+      if (sellerToken) {
+        apiEndpoint = `products/seller/detail/${id}?_=${cacheBuster}`;
+        headers.Authorization = `Bearer ${sellerToken}`;
+      }
+      
+      const response = await fetch(apiConfig.getApiUrl(apiEndpoint), {
+        cache: 'no-cache',
+        headers
+      });
+
+      if (response.ok) {
+        const dbProduct = await response.json();
+        
+        // Update the product state with fresh data, preserving existing structure
+        setProduct(prevProduct => ({
+          ...prevProduct,
+          sellers: dbProduct.sellers || [],
+          sellerInfo: dbProduct.sellerInfo,
+          seller: dbProduct.seller
+        }));
+        
+        console.log('✅ Product data refreshed successfully');
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing product data:', error);
+    }
+  };
+
+  // Function to handle seller price updates
+  const handleUpdateSellerPrice = async (newPrice) => {
+    try {
+      const token = localStorage.getItem('sellerToken');
+      const response = await fetch(apiConfig.getApiUrl(`sellers/update-inventory/${product.id}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          price: parseFloat(newPrice)
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('✅ Seller price updated successfully');
+        // Refresh product data to show updated prices
+        await refreshProductData();
+        return true;
+      } else {
+        throw new Error(data.message || 'Failed to update price');
+      }
+    } catch (error) {
+      console.error('❌ Error updating seller price:', error);
+      throw error;
+    }
+  };
+
   const convertPrice = (priceStr) => {
     // Extract the price number and detect original currency
     const price = parseFloat(String(priceStr).replace(/[₨£$€Rs]/g, '').trim())
@@ -182,7 +288,7 @@ const ProductDetail = () => {
     const isGBP = String(priceStr).includes('£')
     
     // Detect if price is in PKR (has ₨ or Rs symbol or is a plain number from database)
-    const isPKR = String(priceStr).includes('?') || String(priceStr).includes('Rs') || (!isGBP && !String(priceStr).includes('$'))
+    const isPKR = String(priceStr).includes('₨') || String(priceStr).includes('Rs') || (!isGBP && !String(priceStr).includes('$') && !String(priceStr).includes('€'))
     
     // Since all products are stored in GBP, show them as GBP by default
     if (currency === 'GBP') {
@@ -477,6 +583,7 @@ const ProductDetail = () => {
             dealUnits: Math.floor((dbProduct.platformUnits || 200) / 12), // Calculate as platformUnits / 12
             seller: dbProduct.seller,
             sellerInfo: dbProduct.sellerInfo,
+            sellers: dbProduct.sellers || [], // Add sellers array for multiple sellers support
             save: parseFloat(dbProduct.savings) || 0, // Add the single savings field
             showEvaluation: dbProduct.name.toLowerCase().includes('nose ring') ||
                            dbProduct.name.toLowerCase().includes('bulb') ||
@@ -1528,6 +1635,7 @@ const ProductDetail = () => {
               dealUnits: Math.floor((foundProduct.platformUnits || 200) / 12), // Calculate as platformUnits / 12
               seller: foundProduct.seller,
               sellerInfo: foundProduct.sellerInfo,
+              sellers: foundProduct.sellers || [], // Add sellers array for multiple sellers support
               reviews: foundProduct.reviews || 100,
               image: productImage,
               images: foundProduct.images ? foundProduct.images.map(img => getImageUrl(img)) : [productImage, productImage, productImage, productImage],
@@ -1885,6 +1993,7 @@ const ProductDetail = () => {
                 dealUnits: Math.floor((foundProduct.platformUnits || 200) / 12), // Calculate as platformUnits / 12
                 seller: foundProduct.seller,
                 sellerInfo: foundProduct.sellerInfo,
+                sellers: foundProduct.sellers || [], // Add sellers array for multiple sellers support
                 reviews: foundProduct.reviews || 100,
                 image: productImage,
                 images: foundProduct.images ? foundProduct.images.map(img => getImageUrl(img)) : [productImage],
@@ -2119,7 +2228,7 @@ const ProductDetail = () => {
   const handlePaymentSuccess = () => {
     setIsSupplierUnlocked(true)
     setShowPaymentModal(false)
-    alert('? Supplier unlocked! You can now contact them.')
+    alert('✅ Supplier unlocked! You can now contact them.')
   }
   
   // Use database products if available, fallback to hardcoded for backward compatibility
@@ -2845,8 +2954,19 @@ const ProductDetail = () => {
                           letterSpacing: '-0.5px',
                           fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                         }}>
-                          {convertPrice(product.price)}
+                          {convertPrice(`£${getLowestPrice()}`)}
                         </span>
+                        {hasLowerSellerPrice() && (
+                          <span style={{
+                            fontSize: '0.9rem',
+                            color: '#999',
+                            textDecoration: 'line-through',
+                            marginLeft: '8px',
+                            fontWeight: '500'
+                          }}>
+                            {convertPrice(product.price)}
+                          </span>
+                        )}
                         <span className="text-muted" style={{
                           fontSize: '0.75rem',
                           fontWeight: '500'
@@ -3155,8 +3275,19 @@ const ProductDetail = () => {
                         fontWeight: '700',
                         letterSpacing: '-0.3px'
                       }}>
-                        {convertPrice(product.price)}
+                        {convertPrice(`£${getLowestPrice()}`)}
                       </span>
+                      {hasLowerSellerPrice() && (
+                        <span style={{
+                          fontSize: '0.7rem',
+                          color: '#999',
+                          textDecoration: 'line-through',
+                          marginLeft: '4px',
+                          fontWeight: '400'
+                        }}>
+                          {convertPrice(product.price)}
+                        </span>
+                      )}
                       <span style={{fontSize: '0.6rem', color: '#565959', fontWeight: '500'}}>/Unit</span>
                     </div>
                     <small style={{fontSize: '0.6rem', color: '#565959', fontWeight: '500'}}>
@@ -3381,695 +3512,27 @@ const ProductDetail = () => {
 
                   <hr />
 
-                  {/* Supplier Details */}
-                  <div className="mb-2">
-                    <h3 className="fw-bold mb-2" style={{fontSize: '0.85rem', color: '#1f2937'}}>Seller Information</h3>
-                    
+                  {/* Seller Information is now handled by the SellerInformation component below */}
 
-                    
-                    {/* Debug Information - Shows current state */}
-                    {console.log('🔍 Seller Debug - Detailed:', {
-                      isSellerLoggedIn,
-                      currentSeller: currentSeller,
-                      currentSellerId: currentSeller?._id,
-                      currentSellerIdString: currentSeller?._id?.toString(),
-                      productSellerInfo: product.sellerInfo,
-                      productSeller: product.seller,
-                      productSellerString: product.seller?.toString(),
-                      productSellerIdString: product.seller?._id?.toString(),
-                      // Detailed sellerInfo checks
-                      sellerInfoSellerId: product.sellerInfo?.sellerId,
-                      sellerInfoSellerIdString: product.sellerInfo?.sellerId?.toString(),
-                      sellerInfoId: product.sellerInfo?._id,
-                      sellerInfoIdString: product.sellerInfo?._id?.toString(),
-                      // Ownership checks
-                      ownershipViaSellerInfo1: product.sellerInfo?.sellerId?.toString() === currentSeller?._id?.toString(),
-                      ownershipViaSellerInfo2: product.sellerInfo?._id?.toString() === currentSeller?._id?.toString(),
-                      ownershipViaProductSeller1: product.seller === currentSeller?._id,
-                      ownershipViaProductSeller2: product.seller?.toString() === currentSeller?._id?.toString(),
-                      ownershipViaProductSeller3: product.seller?._id?.toString() === currentSeller?._id?.toString()
-                    })}
+                    {/* All duplicate seller information sections have been removed */}
+                    {/* Seller information is now handled by the SellerInformation component below */}
 
-                    {/* Supplier Information for Admin and Seller */}
-                    {/* Show for Admin if any seller data exists */}
-                    {isAdmin && (product.sellerInfo || product.sellerData || product.seller || (product.sellers && product.sellers.length > 0)) && (
-                      <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9'}}>
-                        <div className="mb-2">
-                          <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-check-circle text-success me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-success" style={{fontSize: '0.75rem'}}>
-                              Seller Information (Admin View)
-                            </span>
-                          </div>
-                        </div>
-                        
-                        {/* Show all sellers if multiple sellers exist */}
-                        {product.sellers && product.sellers.length > 0 ? (
-                          <div>
-                            <div style={{fontSize: '0.7rem', marginBottom: '8px'}}>
-                              <strong>Total Sellers:</strong> {product.sellers.length}
-                            </div>
-                            {product.sellers.map((sellerEntry, index) => (
-                              <div key={index} className="border rounded p-2 mb-2" style={{background: '#f8f9fa'}}>
-                                <div style={{fontSize: '0.7rem'}}>
-                                  <strong>Seller {index + 1}:</strong> {sellerEntry.username}
-                                </div>
-                                <div style={{fontSize: '0.7rem'}}>
-                                  <strong>Email:</strong> {sellerEntry.email}
-                                </div>
-                                <div style={{fontSize: '0.7rem'}}>
-                                  <strong>Location:</strong> 📍 {sellerEntry.city}, {sellerEntry.country}
-                                </div>
-                                <div style={{fontSize: '0.7rem'}}>
-                                  <strong>WhatsApp:</strong> 
-                                  <a 
-                                    href={`https://wa.me/${sellerEntry.whatsappNo?.replace(/[^0-9]/g, '')}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-success ms-1"
-                                  >
-                                    <i className="fab fa-whatsapp me-1"></i>
-                                    {sellerEntry.whatsappNo}
-                                  </a>
-                                </div>
-                                <div style={{fontSize: '0.7rem'}}>
-                                  <strong>Status:</strong> 
-                                  <span className="badge bg-success ms-1" style={{fontSize: '0.65rem'}}>
-                                    {sellerEntry.verificationStatus}
-                                  </span>
-                                </div>
-                                <div style={{fontSize: '0.7rem'}}>
-                                  <strong>Listed:</strong> {new Date(sellerEntry.listedAt).toLocaleDateString()}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          // Fallback to single seller info
-                          (() => {
-                            const sellerData = product.sellerData || product.sellerInfo || (product.seller && typeof product.seller === 'object' ? product.seller : null);
-                            if (!sellerData) {
-                              return (
-                                <div style={{fontSize: '0.7rem'}}>
-                                  <strong>Seller ID:</strong> {product.seller}<br/>
-                                  <small className="text-muted">Loading seller information...</small>
-                                </div>
-                              );
-                            }
-                            
-                            return (
-                              <>
-                                <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                                  <strong>Seller:</strong> {sellerData.username}
-                                </div>
-                                {sellerData.supplierId && (
-                                  <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                                    <strong>Supplier ID:</strong> {sellerData.supplierId}
-                                  </div>
-                                )}
-                                {sellerData.email && (
-                                  <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                                    <strong>Email:</strong> {sellerData.email}
-                                  </div>
-                                )}
-                                <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                                  <strong>Location:</strong> 📍 {sellerData.city}, {sellerData.country}
-                                </div>
-                                <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                                  <strong>WhatsApp:</strong> 
-                                  <a 
-                                    href={`https://wa.me/${sellerData.whatsappNo?.replace(/[^0-9]/g, '')}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-success ms-1"
-                                  >
-                                    <i className="fab fa-whatsapp me-1"></i>
-                                    {sellerData.whatsappNo}
-                                  </a>
-                                </div>
-                                <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                                  <strong>Status:</strong> 
-                                  <span className="badge bg-success ms-1" style={{fontSize: '0.65rem'}}>
-                                    {sellerData.verificationStatus}
-                                  </span>
-                                </div>
-                              </>
-                            );
-                          })()
-                        )}
-                      </div>
-                    )}
+                  <hr />
 
-                    {/* TEST: Show seller info if ANY ownership condition is met */}
-                    {isSellerLoggedIn && currentSeller && (
-                      (product.sellerInfo && (
-                        product.sellerInfo.sellerId?.toString() === currentSeller._id?.toString() ||
-                        product.sellerInfo._id?.toString() === currentSeller._id?.toString()
-                      )) ||
-                      (product.seller && (
-                        product.seller === currentSeller._id ||
-                        product.seller?.toString() === currentSeller._id?.toString() ||
-                        product.seller?._id?.toString() === currentSeller._id?.toString()
-                      )) ||
-                      (product.sellers && product.sellers.some(s => s.sellerId?.toString() === currentSeller._id?.toString()))
-                    ) && !isAdmin && (
-                      <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9'}}>
-                        <div className="mb-2">
-                          <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-check-circle text-success me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-success" style={{fontSize: '0.75rem'}}>
-                              ✅ TEST: Your Product (Ownership Detected)
-                            </span>
-                          </div>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Current Seller ID:</strong> {currentSeller._id?.toString()}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Product Seller:</strong> {product.seller?.toString() || 'N/A'}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Product Seller ID:</strong> {product.seller?._id?.toString() || 'N/A'}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>SellerInfo Seller ID:</strong> {product.sellerInfo?.sellerId?.toString() || 'N/A'}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>SellerInfo ID:</strong> {product.sellerInfo?._id?.toString() || 'N/A'}
-                        </div>
-                        <div className="alert alert-success border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
-                          <i className="fas fa-info-circle me-1"></i>
-                          TEST: This should show if you own this product
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Show for Seller viewing their own product (via sellerInfo) */}
-                    {isSellerLoggedIn && currentSeller && (
-                      (product.sellerInfo && (
-                        product.sellerInfo.sellerId?.toString() === currentSeller._id?.toString() ||
-                        product.sellerInfo._id?.toString() === currentSeller._id?.toString()
-                      )) ||
-                      (product.sellerData && product.sellerData._id?.toString() === currentSeller._id?.toString())
-                    ) && !isAdmin && (
-                      <div className="border rounded p-2 mb-2" style={{background: '#f0f9ff'}}>
-                        <div className="mb-2">
-                          <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-user text-primary me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-primary" style={{fontSize: '0.75rem'}}>Your Listed Product</span>
-                          </div>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Seller:</strong> {product.sellerInfo.username || currentSeller.username}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Supplier ID:</strong> {currentSeller.supplierId}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Email:</strong> {product.sellerInfo.email || currentSeller.email}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Location:</strong> 📍 {product.sellerInfo.city || currentSeller.city}, {product.sellerInfo.country || currentSeller.country}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>WhatsApp:</strong> 
-                          <a 
-                            href={`https://wa.me/${(product.sellerInfo.whatsappNo || currentSeller.whatsappNo)?.replace(/[^0-9]/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary ms-1"
-                          >
-                            <i className="fab fa-whatsapp me-1"></i>
-                            {product.sellerInfo.whatsappNo || currentSeller.whatsappNo}
-                          </a>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Status:</strong> 
-                          <span className={`badge ms-1 ${(product.sellerInfo.verificationStatus || currentSeller.verificationStatus) === 'approved' ? 'bg-success' : 'bg-warning'}`} style={{fontSize: '0.65rem'}}>
-                            {product.sellerInfo.verificationStatus || currentSeller.verificationStatus}
-                          </span>
-                        </div>
-                        <div className="alert alert-info border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
-                          <i className="fas fa-info-circle me-1"></i>
-                          You have listed this product - you can see your seller information
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Show for Seller viewing their own product */}
-                    {isSellerLoggedIn && currentSeller && product.sellers && 
-                     product.sellers.some(s => s.sellerId.toString() === currentSeller._id.toString()) && 
-                     !isAdmin && (
-                      <div className="border rounded p-2 mb-2" style={{background: '#f0f9ff'}}>
-                        <div className="mb-2">
-                          <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-user text-primary me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-primary" style={{fontSize: '0.75rem'}}>Your Listed Product</span>
-                          </div>
-                        </div>
-                        {(() => {
-                          const mySellerEntry = product.sellers.find(s => s.sellerId.toString() === currentSeller._id.toString());
-                          return (
-                            <>
-                              <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                                <strong>Your Username:</strong> {mySellerEntry?.username || currentSeller.username}
-                              </div>
-                              <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                                <strong>Email:</strong> {mySellerEntry?.email || currentSeller.email}
-                              </div>
-                              <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                                <strong>Location:</strong> 📍 {mySellerEntry?.city || currentSeller.city}, {mySellerEntry?.country || currentSeller.country}
-                              </div>
-                              <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                                <strong>WhatsApp:</strong> 
-                                <a 
-                                  href={`https://wa.me/${(mySellerEntry?.whatsappNo || currentSeller.whatsappNo)?.replace(/[^0-9]/g, '')}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-primary ms-1"
-                                >
-                                  <i className="fab fa-whatsapp me-1"></i>
-                                  {mySellerEntry?.whatsappNo || currentSeller.whatsappNo}
-                                </a>
-                              </div>
-                              <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                                <strong>Status:</strong> 
-                                <span className={`badge ms-1 ${(mySellerEntry?.verificationStatus || currentSeller.verificationStatus) === 'approved' ? 'bg-success' : 'bg-warning'}`} style={{fontSize: '0.65rem'}}>
-                                  {mySellerEntry?.verificationStatus || currentSeller.verificationStatus}
-                                </span>
-                              </div>
-                              <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                                <strong>Listed On:</strong> {new Date(mySellerEntry?.listedAt).toLocaleDateString()}
-                              </div>
-                              <div className="alert alert-info border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
-                                <i className="fas fa-info-circle me-1"></i>
-                                You have listed this product
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    )}
-                    
-                    {/* Show for Seller viewing their own product (via product.seller) */}
-                    {isSellerLoggedIn && currentSeller && (
-                      (product.seller && (
-                        product.seller === currentSeller._id || 
-                        product.seller?.toString() === currentSeller._id?.toString() ||
-                        product.seller._id?.toString() === currentSeller._id?.toString()
-                      )) ||
-                      (product.sellerData && product.sellerData._id?.toString() === currentSeller._id?.toString())
-                    ) && (
-                      <div className="border rounded p-2 mb-2" style={{background: '#f0f9ff'}}>
-                        <div className="mb-2">
-                          <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-user text-primary me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-primary" style={{fontSize: '0.75rem'}}>Your Product</span>
-                          </div>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Seller:</strong> {product.sellerInfo?.username || currentSeller.username}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Supplier ID:</strong> {currentSeller.supplierId}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Email:</strong> {product.sellerInfo?.email || currentSeller.email}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Location:</strong> 📍 {product.sellerInfo?.city || currentSeller.city}, {product.sellerInfo?.country || currentSeller.country}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>WhatsApp:</strong> 
-                          <a 
-                            href={`https://wa.me/${(product.sellerInfo?.whatsappNo || currentSeller.whatsappNo)?.replace(/[^0-9]/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary ms-1"
-                          >
-                            <i className="fab fa-whatsapp me-1"></i>
-                            {product.sellerInfo?.whatsappNo || currentSeller.whatsappNo}
-                          </a>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Status:</strong> 
-                          <span className={`badge ms-1 ${(product.sellerInfo?.verificationStatus || currentSeller.verificationStatus) === 'approved' ? 'bg-success' : 'bg-warning'}`} style={{fontSize: '0.65rem'}}>
-                            {product.sellerInfo?.verificationStatus || currentSeller.verificationStatus}
-                          </span>
-                        </div>
-                        <div className="alert alert-info border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
-                          <i className="fas fa-info-circle me-1"></i>
-                          This is your product - you can see your full seller information
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Case 3: Admin loading seller info */}
-                    {isAdmin && product.seller && !sellerInfo && !product.sellerInfo && 
-                     !(isSellerLoggedIn && currentSeller && product.seller && 
-                       (product.seller === currentSeller._id || product.seller?.toString() === currentSeller._id?.toString())) && (
-                      <div className="alert alert-info border-0 p-2 mb-2" style={{fontSize: '0.7rem'}}>
-                        <i className="fas fa-spinner fa-spin me-1"></i>
-                        Loading seller information...
-                      </div>
-                    )}
-                    
-                  
-                    
-                    {/* Case 5: Verified seller info for buyers (unlocked) */}
-                    {!isAdmin && !isSellerLoggedIn && product.sellerInfo && product.sellerInfo.verificationStatus === 'approved' && isSupplierUnlocked && (
-                      <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9'}}>
-                        <div className="mb-2">
-                          <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-check-circle text-success me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-success" style={{fontSize: '0.75rem'}}>Verified Seller</span>
-                          </div>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Location:</strong> 📍 {product.sellerInfo.city}, {product.sellerInfo.country}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>WhatsApp:</strong> 
-                          <a 
-                            href={`https://wa.me/${product.sellerInfo.whatsappNo?.replace(/[^0-9]/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-success ms-1"
-                          >
-                            <i className="fab fa-whatsapp me-1"></i>
-                            {product.sellerInfo.whatsappNo}
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                      </div>
-                    
-
-                    
-                    {/* PRIORITY: Show seller info for ANY logged-in seller on ANY product with seller data */}
-                    {isSellerLoggedIn && currentSeller && (product.seller || product.sellerInfo || product.sellerData) && 
-                     !isAdmin && (
-                      <div className="border rounded p-2 mb-2" style={{background: '#fff3cd'}}>
-                        <div className="mb-2">
-                          <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-user text-warning me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-warning" style={{fontSize: '0.75rem'}}>
-                              Seller Information (Debug Mode)
-                            </span>
-                          </div>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Your ID:</strong> {currentSeller._id}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Product Seller ID:</strong> {product.seller?.toString() || 'N/A'}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Product SellerInfo:</strong> {JSON.stringify(product.sellerInfo) || 'N/A'}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Product SellerData:</strong> {JSON.stringify(product.sellerData) || 'N/A'}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Match Check:</strong> {product.seller?.toString() === currentSeller._id?.toString() ? '✅ MATCH' : '❌ NO MATCH'}
-                        </div>
-                        {(product.seller?.toString() === currentSeller._id?.toString()) && (
-                          <div>
-                            <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                              <strong>Seller:</strong> {currentSeller.username}
-                            </div>
-                            <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                              <strong>Email:</strong> {currentSeller.email}
-                            </div>
-                            <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                              <strong>WhatsApp:</strong> {currentSeller.whatsappNo}
-                            </div>
-                            <div className="alert alert-success border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
-                              <i className="fas fa-check-circle me-1"></i>
-                              This is your product!
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* DEBUG: Log ownership check details */}
-                    {isSellerLoggedIn && currentSeller && console.log('🔍 Seller Ownership Debug:', {
-                      currentSellerId: currentSeller._id,
-                      currentSellerIdString: currentSeller._id?.toString(),
-                      productSeller: product.seller,
-                      productSellerString: product.seller?.toString(),
-                      productSellerInfo: product.sellerInfo,
-                      productSellerInfoSellerId: product.sellerInfo?.sellerId,
-                      productSellerInfoSellerIdString: product.sellerInfo?.sellerId?.toString(),
-                      productSellerInfoId: product.sellerInfo?._id,
-                      productSellerInfoIdString: product.sellerInfo?._id?.toString(),
-                      productSellerData: product.sellerData,
-                      productSellerDataId: product.sellerData?._id,
-                      // Main ownership checks
-                      ownershipCheck1: product.seller === currentSeller._id,
-                      ownershipCheck2: product.seller?.toString() === currentSeller._id?.toString(),
-                      ownershipCheck3: product.seller?._id?.toString() === currentSeller._id?.toString(),
-                      ownershipCheck4: product.sellerInfo?.sellerId?.toString() === currentSeller._id?.toString(),
-                      ownershipCheck5: product.sellerInfo?._id?.toString() === currentSeller._id?.toString(),
-                      ownershipCheck6: product.sellerData?._id?.toString() === currentSeller._id?.toString(),
-                      finalOwnership: (
-                        (product.seller && (
-                          product.seller === currentSeller._id || 
-                          product.seller?.toString() === currentSeller._id?.toString() || 
-                          product.seller._id?.toString() === currentSeller._id?.toString()
-                        )) ||
-                        (product.sellers && product.sellers.some(s => s.sellerId?.toString() === currentSeller._id?.toString())) ||
-                        (product.sellerInfo && (
-                          product.sellerInfo.sellerId?.toString() === currentSeller._id?.toString() || 
-                          product.sellerInfo._id?.toString() === currentSeller._id?.toString()
-                        )) ||
-                        (product.sellerData && product.sellerData._id?.toString() === currentSeller._id?.toString())
-                      )
-                    })}
-
-                    {/* Locked state for users who don't have access (including sellers who don't own this product) */}
-                    {!isAdmin && 
-                     !isSellerLoggedIn && // Only show for non-sellers (buyers and guests)
-                     !(product.sellerInfo && product.sellerInfo.verificationStatus === 'approved' && isSupplierUnlocked) && 
-                     (product.seller || product.sellerInfo) && ( // Only show if there is a seller
-                      <div className="border rounded p-2 mb-2" style={{background: '#f8f9fa'}}>
-                        <div className="mb-2">
-                          <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-lock text-warning me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-warning" style={{fontSize: '0.75rem'}}>Seller Information - Locked</span>
-                          </div>
-                        </div>
-                        <div className="mb-2" style={{fontSize: '0.7rem', color: '#6c757d'}}>
-                          <i className="fas fa-eye-slash me-1"></i>
-                          Seller details are protected
-                        </div>
-                        {!isSellerLoggedIn && !isBuyerLoggedIn ? (
-                          <button 
-                            className="btn btn-primary btn-sm w-100"
-                            style={{fontSize: '0.7rem'}}
-                            onClick={() => setShowLoginModal(true)}
-                          >
-                            <i className="fas fa-sign-in-alt me-1"></i>
-                            Join Now to View Seller
-                          </button>
-                        ) : isSellerLoggedIn ? (
-                          <button 
-                            className="btn btn-warning btn-sm w-100"
-                            style={{fontSize: '0.7rem'}}
-                            onClick={() => {
-                              alert('Payment required to unlock seller details. Contact admin for pricing.');
-                            }}
-                          >
-                            <i className="fas fa-unlock me-1"></i>
-                            Pay to Unlock Seller Details
-                          </button>
-                        ) : (
-                          <button 
-                            className="btn btn-success btn-sm w-100"
-                            style={{fontSize: '0.7rem'}}
-                            onClick={() => {
-                              setShowPaymentUploadModal(true);
-                            }}
-                          >
-                            <i className="fas fa-crown me-1"></i>
-                            Upgrade to View Seller
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Show seller info when seller is logged in and viewing their own product */}
-                    {isSellerLoggedIn && currentSeller && product.sellerInfo && (
-                      <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9'}}>
-                        <div className="mb-2">
-                          <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-check-circle text-success me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-success" style={{fontSize: '0.75rem'}}>
-                              Your Product - Seller Information
-                            </span>
-                          </div>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Seller:</strong> {product.sellerInfo.username || currentSeller.username}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Email:</strong> {product.sellerInfo.email || currentSeller.email}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Location:</strong> 📍 {product.sellerInfo.city || currentSeller.city}, {product.sellerInfo.country || currentSeller.country}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>WhatsApp:</strong> 
-                          <a 
-                            href={`https://wa.me/${(product.sellerInfo.whatsappNo || currentSeller.whatsappNo)?.replace(/[^0-9]/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-success ms-1"
-                          >
-                            <i className="fab fa-whatsapp me-1"></i>
-                            {product.sellerInfo.whatsappNo || currentSeller.whatsappNo}
-                          </a>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Verification:</strong> 
-                          <span className={`ms-1 ${product.sellerInfo.verificationStatus === 'approved' ? 'text-success' : 'text-warning'}`}>
-                            <i className={`fas ${product.sellerInfo.verificationStatus === 'approved' ? 'fa-check-circle' : 'fa-clock'} me-1`}></i>
-                            {product.sellerInfo.verificationStatus === 'approved' ? 'Verified' : 'Pending'}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* COMPREHENSIVE: Show seller info for product owner */}
-                    {isSellerLoggedIn && currentSeller && (product.seller || product.sellerInfo || product.sellerData) && 
-                     !isAdmin && 
-                     (
-                       // Direct seller ID match
-                       (product.seller === currentSeller._id) ||
-                       (product.seller?.toString() === currentSeller._id?.toString()) ||
-                       // SellerInfo matches
-                       (product.sellerInfo?.sellerId?.toString() === currentSeller._id?.toString()) ||
-                       (product.sellerInfo?._id?.toString() === currentSeller._id?.toString()) ||
-                       // SellerData matches
-                       (product.sellerData?._id?.toString() === currentSeller._id?.toString())
-                     ) && (
-                      <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9'}}>
-                        <div className="mb-2">
-                          <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-check-circle text-success me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-success" style={{fontSize: '0.75rem'}}>
-                              Your Product - Seller Information
-                            </span>
-                          </div>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Seller:</strong> {product.sellerData?.username || product.sellerInfo?.username || currentSeller.username}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Seller ID:</strong> {currentSeller._id}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Email:</strong> {product.sellerData?.email || product.sellerInfo?.email || currentSeller.email}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Location:</strong> 📍 {product.sellerData?.city || product.sellerInfo?.city || currentSeller.city}, {product.sellerData?.country || product.sellerInfo?.country || currentSeller.country}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>WhatsApp:</strong> 
-                          <a 
-                            href={`https://wa.me/${(product.sellerData?.whatsappNo || product.sellerInfo?.whatsappNo || currentSeller.whatsappNo)?.replace(/[^0-9]/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-success ms-1"
-                          >
-                            <i className="fab fa-whatsapp me-1"></i>
-                            {product.sellerData?.whatsappNo || product.sellerInfo?.whatsappNo || currentSeller.whatsappNo}
-                          </a>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Status:</strong> 
-                          <span className={`badge ms-1 ${(product.sellerData?.verificationStatus || product.sellerInfo?.verificationStatus || currentSeller.verificationStatus) === 'approved' ? 'bg-success' : 'bg-warning'}`} style={{fontSize: '0.65rem'}}>
-                            {product.sellerData?.verificationStatus || product.sellerInfo?.verificationStatus || currentSeller.verificationStatus}
-                          </span>
-                        </div>
-                        <div className="alert alert-success border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
-                          <i className="fas fa-info-circle me-1"></i>
-                          This is your product - you can always see your seller information
-                        </div>
-                      </div>
-                    )}
-
-                    {/* FALLBACK: Ensure sellers always see their own information if not shown above */}
-                    {isSellerLoggedIn && currentSeller && (product.seller || product.sellerInfo) && 
-                     !isAdmin && 
-                     // Check if this seller owns the product but wasn't shown above
-                     (
-                       (product.seller && (
-                         product.seller === currentSeller._id || 
-                         product.seller?.toString() === currentSeller._id?.toString() || 
-                         product.seller._id?.toString() === currentSeller._id?.toString()
-                       )) ||
-                       (product.sellers && product.sellers.some(s => s.sellerId?.toString() === currentSeller._id?.toString())) ||
-                       (product.sellerInfo && (
-                         product.sellerInfo.sellerId?.toString() === currentSeller._id?.toString() || 
-                         product.sellerInfo._id?.toString() === currentSeller._id?.toString()
-                       )) ||
-                       (product.sellerData && product.sellerData._id?.toString() === currentSeller._id?.toString())
-                     ) && (
-                      <div className="border rounded p-2 mb-2" style={{background: '#f0f9ff'}}>
-                        <div className="mb-2">
-                          <div className="d-flex align-items-center mb-1">
-                            <i className="fas fa-user text-primary me-1" style={{fontSize: '0.75rem'}}></i>
-                            <span className="fw-semibold text-primary" style={{fontSize: '0.75rem'}}>Your Product (Fallback)</span>
-                          </div>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Seller:</strong> {currentSeller.username}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Email:</strong> {currentSeller.email}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Location:</strong> 📍 {currentSeller.city}, {currentSeller.country}
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>WhatsApp:</strong> 
-                          <a 
-                            href={`https://wa.me/${currentSeller.whatsappNo?.replace(/[^0-9]/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary ms-1"
-                          >
-                            <i className="fab fa-whatsapp me-1"></i>
-                            {currentSeller.whatsappNo}
-                          </a>
-                        </div>
-                        <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                          <strong>Status:</strong> 
-                          <span className={`badge ms-1 ${currentSeller.verificationStatus === 'approved' ? 'bg-success' : 'bg-warning'}`} style={{fontSize: '0.65rem'}}>
-                            {currentSeller.verificationStatus}
-                          </span>
-                        </div>
-                        <div className="alert alert-success border-0 mt-2 mb-0" style={{fontSize: '0.65rem', padding: '4px 8px'}}>
-                          <i className="fas fa-check-circle me-1"></i>
-                          This is your product - you can always see your seller information
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Case 4: No seller information available */}
-                    {!product.seller && (
-                      <div className="alert alert-info border-0 p-2 mb-2" style={{fontSize: '0.7rem'}}>
-                        <i className="fas fa-info-circle me-1"></i>
-                        No seller information available for this product
-                      </div>
-                    )}
-                  </div>
+                                    {/* New Seller Information Component - Open to All Users */}
+                  <SellerInformation 
+                    product={product}
+                    isSellerLoggedIn={isSellerLoggedIn}
+                    currentSeller={currentSeller}
+                    isAdmin={isAdmin}
+                    onUpdatePrice={handleUpdateSellerPrice}
+                    onRefreshProduct={refreshProductData}
+                  />
 
                   <hr />
 
                   {/* Total Sales */}
+                </div>
                   <div className="text-center">
                     <div className="fw-bold mb-1" style={{fontSize: '0.8rem', color: '#1f2937'}}>Total Sales</div>
                     <div className="fw-bold" style={{fontSize: '1.1rem', color: '#2563eb'}}>
@@ -4088,7 +3551,18 @@ const ProductDetail = () => {
                   <div className="border rounded p-3 mb-3" style={{background: '#ffffff', border: '2px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', color: '#1f2937'}}>
                     <div className="text-center">
                       <div className="fw-bold mb-2" style={{fontSize: '1.2rem', color: '#dc2626'}}>
-                        {convertPrice(product.price)}
+                        {convertPrice(`£${getLowestPrice()}`)}
+                        {hasLowerSellerPrice() && (
+                          <div style={{
+                            fontSize: '0.8rem',
+                            color: '#999',
+                            textDecoration: 'line-through',
+                            fontWeight: '400',
+                            marginTop: '2px'
+                          }}>
+                            {convertPrice(product.price)}
+                          </div>
+                        )}
                       </div>
                       <small className="d-block mb-3" style={{color: '#6b7280'}}>ex. VAT</small>
                       <div className="d-grid">
@@ -4119,8 +3593,18 @@ const ProductDetail = () => {
                       <div className="row align-items-center">
                         <div className="col-6">
                           <div className="fw-bold text-danger" style={{fontSize: '1.1rem'}}>
-                            {convertPrice(product.price)}
+                            {convertPrice(`£${getLowestPrice()}`)}
                           </div>
+                          {hasLowerSellerPrice() && (
+                            <div style={{
+                              fontSize: '0.7rem',
+                              color: '#999',
+                              textDecoration: 'line-through',
+                              fontWeight: '400'
+                            }}>
+                              {convertPrice(product.price)}
+                            </div>
+                          )}
                           <small className="text-muted">ex. VAT</small>
                         </div>
                         <div className="col-6">

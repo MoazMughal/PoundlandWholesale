@@ -546,7 +546,25 @@ const MyListedProducts = () => {
                   </div>
                   
                   <div className="product-price">
-                    £{parseFloat(product.price).toFixed(2)}
+                    {product.sellerInfo && product.sellerInfo.sellerPrice ? (
+                      <>
+                        <span style={{ color: '#28a745', fontWeight: 'bold' }}>
+                          £{parseFloat(product.sellerInfo.sellerPrice).toFixed(2)}
+                        </span>
+                        {parseFloat(product.sellerInfo.sellerPrice) < parseFloat(product.price) && (
+                          <span style={{ 
+                            fontSize: '0.8rem', 
+                            color: '#999', 
+                            textDecoration: 'line-through', 
+                            marginLeft: '8px' 
+                          }}>
+                            £{parseFloat(product.price).toFixed(2)}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span>£{parseFloat(product.price).toFixed(2)}</span>
+                    )}
                   </div>
                   
                   <div className="listing-info">

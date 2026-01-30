@@ -14,210 +14,147 @@ export const SellerProvider = ({ children }) => {
   const [seller, setSeller] = useState(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [authResolved, setAuthResolved] = useState(false)
 
-  useEffect(() => {
-    const initializeAuth = async () => {
-      // Don't initialize seller auth on admin routes
-      if (window.location.pathname.startsWith('/admin')) {
-        setLoading(false)
-        return
-      }
-      
-      // Check for server restart first
-      try {
-        const storedServerStart = localStorage.getItem('sellerServerStartTime')
-        const response = await fetch('/api/health', {
-          method: 'GET',
-          signal: AbortSignal.timeout(5000)
-        })
-        
-        if (response.ok) {
-          const healthData = await response.json()
-          const currentServerStart = healthData.serverStartTime
-          
-          // Check if we have seller auth data
-          const hasSellerAuth = localStorage.getItem('sellerToken') && localStorage.getItem('sellerData')
-          
-          // If we have auth data but no stored server start time, this means server restarted
-          if (hasSellerAuth && !storedServerStart && currentServerStart) {
-            console.log('🔄 Server restart detected for seller (no stored server start time), clearing auth data')
-            localStorage.removeItem('sellerToken')
-            localStorage.removeItem('sellerData')
-            localStorage.setItem('sellerServerStartTime', currentServerStart.toString())
-            sessionStorage.removeItem('sellerBrowserSession')
-            sessionStorage.removeItem('seller_logged_out')
-            setSeller(null)
-            setIsLoggedIn(false)
-            setLoading(false)
-            return
-          }
-          
-          // If we have a stored server start time and it's different, server restarted
-          if (currentServerStart && storedServerStart && storedServerStart !== currentServerStart.toString()) {
-            console.log('🔄 Server restart detected for seller (different server start time), clearing auth data')
-            localStorage.removeItem('sellerToken')
-            localStorage.removeItem('sellerData')
-            localStorage.setItem('sellerServerStartTime', currentServerStart.toString())
-            sessionStorage.removeItem('sellerBrowserSession')
-            sessionStorage.removeItem('seller_logged_out')
-            setSeller(null)
-            setIsLoggedIn(false)
-            setLoading(false)
-            return
-          }
-          
-          // Update stored server start time if not set
-          if (currentServerStart && !storedServerStart) {
-            localStorage.setItem('sellerServerStartTime', currentServerStart.toString())
-          }
-        }
-      } catch (error) {
-        console.log('🔍 Could not check server restart status for seller:', error.message)
-      }
-      
-      // Check if this is a fresh browser session (new browser window/tab from scratch)
-      const browserSessionId = sessionStorage.getItem('sellerBrowserSession')
-      if (!browserSessionId) {
-        // Only clear auth on fresh session if we're on seller-specific pages
-        // For product pages and other non-seller pages, preserve auth state for cross-tab compatibility
-        if (window.location.pathname.startsWith('/seller/') || 
-            window.location.pathname.startsWith('/login/supplier') ||
-            window.location.pathname.startsWith('/register/supplier')) {
-          console.log('🔑 Fresh browser session detected for seller on seller page, clearing any existing auth')
-          localStorage.removeItem('sellerToken')
-          localStorage.removeItem('sellerData')
-          sessionStorage.removeItem('seller_logged_out')
-          setSeller(null)
-          setIsLoggedIn(false)
-          setLoading(false)
-          return
-        } else {
-          // On non-seller pages (like product pages), preserve auth but initialize session
-          console.log('🔑 Fresh browser session on non-seller page, preserving auth state for cross-tab compatibility')
-          sessionStorage.setItem('sellerBrowserSession', Date.now().toString())
-        }
-      }
-      
-      // Check for logout flag (set when user logs out)
-      const logoutFlag = sessionStorage.getItem('seller_logged_out')
-      if (logoutFlag) {
-        // User has logged out, clear everything
-        localStorage.removeItem('sellerToken')
-        localStorage.removeItem('sellerData')
-        setSeller(null)
-        setIsLoggedIn(false)
-        setLoading(false)
-        return
-      }
-      
-      const token = localStorage.getItem('sellerToken')
-      const sellerData = localStorage.getItem('sellerData')
-      
-      if (token && sellerData) {
-        try {
-          const parsedSeller = JSON.parse(sellerData)
-          
-          // Basic JWT validation for seller token
-          const isValidJWT = (token) => {
-            try {
-              const parts = token.split('.')
-              if (parts.length !== 3) return false
-              
-              const payload = JSON.parse(atob(parts[1]))
-              const now = Date.now() / 1000
-              
-              // Check if token is expired (with 5 minute buffer)
-              if (payload.exp && payload.exp < (now - 300)) {
-                return false
-              }
-              
-              return true
-            } catch (error) {
-              return false
-            }
-          }
-
-          if (!isValidJWT(token)) {
-            console.log('🔑 Seller token is invalid or expired, clearing auth data')
-            localStorage.removeItem('sellerToken')
-            localStorage.removeItem('sellerData')
-            setSeller(null)
-            setIsLoggedIn(false)
-            setLoading(false)
-            return
-          }
-          
-          // Set seller data from localStorage first (optimistic)
-          setSeller(parsedSeller)
-          setIsLoggedIn(true)
-          
-          // Then validate with server in background (only for seller pages)
-          if (window.location.pathname.startsWith('/seller/') || 
-              window.location.pathname.startsWith('/login/supplier') ||
-              window.location.pathname.startsWith('/register/supplier')) {
-            try {
-              const response = await fetch('http://localhost:5000/api/sellers/profile', {
-                headers: {
-                  'Authorization': `Bearer ${token}`
-                },
-                signal: AbortSignal.timeout(8000)
-              })
-              
-              if (response.ok) {
-                const freshSellerData = await response.json()
-                setSeller(freshSellerData)
-                localStorage.setItem('sellerData', JSON.stringify(freshSellerData))
-              } else if (response.status === 401) {
-                // Only clear on 401 (unauthorized) - token is definitely invalid
-                console.log('🔑 Seller token validation failed - unauthorized')
-                localStorage.removeItem('sellerToken')
-                localStorage.removeItem('sellerData')
-                setSeller(null)
-                setIsLoggedIn(false)
-              }
-              // For other errors (500, network issues), keep existing auth state
-            } catch (networkError) {
-              // Keep the seller logged in if it's just a network issue
-              console.log('🔑 Seller token validation network error - keeping auth state')
-            }
-          }
-        } catch (parseError) {
-          console.error('Error parsing seller data:', parseError)
-          localStorage.removeItem('sellerToken')
-          localStorage.removeItem('sellerData')
-          setSeller(null)
-          setIsLoggedIn(false)
-        }
-      }
-      setLoading(false)
-    }
+  // Simple JWT validation - decode and check expiry locally
+  const isTokenValid = (token) => {
+    if (!token) return false
     
-    initializeAuth()
-  }, [])
-
-  const login = (sellerData, token) => {
-    setSeller(sellerData)
-    setIsLoggedIn(true)
-    localStorage.setItem('sellerToken', token)
-    localStorage.setItem('sellerData', JSON.stringify(sellerData))
-    // Clear logout flag on successful login
-    sessionStorage.removeItem('seller_logged_out')
-    // Initialize browser session if not exists
-    if (!sessionStorage.getItem('sellerBrowserSession')) {
-      sessionStorage.setItem('sellerBrowserSession', Date.now().toString())
+    try {
+      const parts = token.split('.')
+      if (parts.length !== 3) return false
+      
+      const payload = JSON.parse(atob(parts[1]))
+      const now = Date.now() / 1000
+      
+      // Token is valid if not expired
+      return payload.exp && payload.exp > now
+    } catch (error) {
+      return false
     }
   }
 
+  // Initialize authentication - EXACTLY like admin
+  useEffect(() => {
+    const initializeAuth = () => {
+      console.log('🔑 Initializing seller auth from localStorage...')
+      console.log('🔑 Current path:', window.location.pathname)
+      
+      // Skip auto-login on seller login page
+      if (window.location.pathname === '/login/supplier') {
+        console.log('🔑 On seller login page, skipping auto-login')
+        setLoading(false)
+        setAuthResolved(true)
+        return
+      }
+
+      const token = localStorage.getItem('sellerToken')
+      const sellerData = localStorage.getItem('sellerData')
+
+      console.log('🔑 Auth data check:', {
+        hasToken: !!token,
+        hasSellerData: !!sellerData,
+        tokenLength: token ? token.length : 0
+      })
+
+      if (!token || !sellerData) {
+        console.log('🔑 No seller auth data found')
+        setLoading(false)
+        setAuthResolved(true)
+        return
+      }
+
+      // Validate token locally
+      if (!isTokenValid(token)) {
+        console.log('🔑 Seller token expired, clearing auth data')
+        localStorage.removeItem('sellerToken')
+        localStorage.removeItem('sellerData')
+        setLoading(false)
+        setAuthResolved(true)
+        return
+      }
+
+      try {
+        const parsedSeller = JSON.parse(sellerData)
+        console.log('✅ Valid seller auth found, setting logged in state')
+        console.log('🔑 Seller info:', {
+          id: parsedSeller._id,
+          username: parsedSeller.username,
+          email: parsedSeller.email
+        })
+        setSeller(parsedSeller)
+        setIsLoggedIn(true)
+      } catch (error) {
+        console.error('❌ Error parsing seller data:', error)
+        localStorage.removeItem('sellerToken')
+        localStorage.removeItem('sellerData')
+      }
+
+      setLoading(false)
+      setAuthResolved(true)
+    }
+
+    initializeAuth()
+  }, [])
+
+  // Cross-tab synchronization - simple storage events only
+  useEffect(() => {
+    const handleStorageChange = (event) => {
+      if (event.key === 'sellerToken') {
+        if (!event.newValue && event.oldValue) {
+          // Token removed in another tab - logout
+          console.log('🔄 Seller token removed in another tab, logging out')
+          setSeller(null)
+          setIsLoggedIn(false)
+        } else if (event.newValue && !event.oldValue) {
+          // Token added in another tab - sync login
+          console.log('🔄 Seller token added in another tab, syncing login')
+          const sellerData = localStorage.getItem('sellerData')
+          if (sellerData && isTokenValid(event.newValue)) {
+            try {
+              const parsedSeller = JSON.parse(sellerData)
+              setSeller(parsedSeller)
+              setIsLoggedIn(true)
+            } catch (error) {
+              console.error('Error parsing seller data:', error)
+            }
+          }
+        }
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
+
+  const login = (sellerData, token) => {
+    console.log('🔑 Seller login initiated')
+    
+    // Save auth data
+    localStorage.setItem('sellerToken', token)
+    localStorage.setItem('sellerData', JSON.stringify(sellerData))
+    
+    // Update state
+    setSeller(sellerData)
+    setIsLoggedIn(true)
+
+    console.log('✅ Seller login successful')
+  }
+
   const logout = () => {
-    setSeller(null)
-    setIsLoggedIn(false)
+    console.log('🔄 Seller logout initiated')
+    
+    // Clear auth data
     localStorage.removeItem('sellerToken')
     localStorage.removeItem('sellerData')
-    sessionStorage.removeItem('sellerBrowserSession')
-    // Set logout flag to prevent back button access
-    sessionStorage.setItem('seller_logged_out', 'true')
-    // Force page reload to clear all state and redirect to supplier login
-    window.location.href = '/login/supplier'
+    setSeller(null)
+    setIsLoggedIn(false)
+    
+    // Redirect to seller login if on seller page
+    if (window.location.pathname.startsWith('/seller/') || 
+        window.location.pathname.startsWith('/login/supplier')) {
+      window.location.replace('/login/supplier')
+    }
   }
 
   const updateSeller = (updatedData) => {
@@ -232,7 +169,7 @@ export const SellerProvider = ({ children }) => {
     }
     
     const token = localStorage.getItem('sellerToken')
-    if (token) {
+    if (token && isTokenValid(token)) {
       try {
         const response = await fetch('http://localhost:5000/api/sellers/profile', {
           headers: {
@@ -242,21 +179,55 @@ export const SellerProvider = ({ children }) => {
         if (response.ok) {
           const data = await response.json()
           updateSeller(data)
+        } else if (response.status === 401) {
+          // Token is invalid, logout
+          logout()
         }
       } catch (error) {
-        // Silent error handling
+        // Silent error handling for network issues
+        console.log('🔍 Seller refresh network error:', error.message)
       }
     }
+  }
+
+  // Helper for authenticated API calls
+  const makeAuthenticatedRequest = async (url, options = {}) => {
+    const token = localStorage.getItem('sellerToken')
+    
+    if (!token || !isTokenValid(token)) {
+      throw new Error('Authentication required')
+    }
+
+    const defaultHeaders = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...options.headers
+    }
+
+    const requestOptions = {
+      ...options,
+      headers: defaultHeaders
+    }
+
+    const response = await fetch(url, requestOptions)
+    
+    if (response.status === 401) {
+      throw new Error('Authentication expired')
+    }
+    
+    return response
   }
 
   const value = {
     seller,
     isLoggedIn,
     loading,
+    authResolved,
     login,
     logout,
     updateSeller,
-    refreshSeller
+    refreshSeller,
+    makeAuthenticatedRequest
   }
 
   return (
