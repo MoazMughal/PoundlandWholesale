@@ -69,38 +69,39 @@ const EditProduct = () => {
       setSaving(true)
       const token = localStorage.getItem('sellerToken')
       
-      const response = await fetch(`http://localhost:5000/api/products/seller-update/${id}`, {
-        method: 'PUT',
+      // Use the request system instead of direct update
+      const response = await fetch('http://localhost:5000/api/sellers/request-admin-product-listing', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          price: parseFloat(formData.price),
-          seller: seller._id,
-          sellerInfo: {
-            username: seller.username,
-            email: seller.email,
-            whatsappNo: seller.whatsappNo,
-            city: seller.city,
-            country: seller.country,
-            verificationStatus: seller.verificationStatus,
-            _id: seller._id
-          }
+          adminProductId: product._id,
+          productName: product.name,
+          productPrice: product.price,
+          sellerPrice: parseFloat(formData.price),
+          notes: `Seller requested to list "${product.name}" at £${parseFloat(formData.price).toFixed(2)} via edit form`
         })
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        alert('✅ Product updated successfully! Seller information has been saved.')
+        alert(`✅ Listing request submitted successfully!\n\nProduct: ${product.name}\nYour Price: £${parseFloat(formData.price).toFixed(2)}\nStatus: Pending Admin Approval\n\nYou will be notified once the admin reviews your request.`)
         navigate(location.state?.returnTo || '/seller/admin-products')
       } else {
-        alert('❌ ' + (data.message || 'Failed to update product'))
+        if (data.error === 'REQUEST_EXISTS') {
+          alert('⚠️ Request Already Exists: You already have a pending or approved request for this product.')
+        } else if (data.error === 'ALREADY_LISTED') {
+          alert('⚠️ Already Listed: You have already listed this product.')
+        } else {
+          alert('❌ Error: ' + (data.message || 'Failed to submit listing request'))
+        }
       }
     } catch (error) {
-      console.error('Error updating product:', error)
-      alert('❌ Failed to update product')
+      console.error('Error submitting request:', error)
+      alert('❌ Failed to submit listing request')
     } finally {
       setSaving(false)
     }
@@ -191,11 +192,11 @@ const EditProduct = () => {
           textAlign: 'center'
         }}>
           <h2 style={{ margin: '0 0 5px 0', fontSize: '22px', fontWeight: '700' }}>
-            <i className="fas fa-edit" style={{ marginRight: '8px' }}></i>
-            Edit Product
+            <i className="fas fa-paper-plane" style={{ marginRight: '8px' }}></i>
+            Request Product Listing
           </h2>
           <p style={{ margin: 0, opacity: 0.95, fontSize: '14px' }}>
-            Update product price and assign to your account
+            Submit a request to list this product with your price (requires admin approval)
           </p>
         </div>
 
@@ -285,7 +286,7 @@ const EditProduct = () => {
               }}
             />
             <small style={{ color: '#6c757d', fontSize: '12px' }}>
-              This product will be assigned to your seller account
+              A listing request will be submitted for admin approval
             </small>
           </div>
 
@@ -353,8 +354,8 @@ const EditProduct = () => {
                 </>
               ) : (
                 <>
-                  <i className="fas fa-save"></i>
-                  Save Changes
+                  <i className="fas fa-paper-plane"></i>
+                  Submit Request
                 </>
               )}
             </button>

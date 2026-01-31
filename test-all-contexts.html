@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Contexts Test - Admin, Seller, Buyer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { background: #d4edda; color: #155724; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .info { background: #d1ecf1; color: #0c5460; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .warning { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .admin-btn { background: #dc3545; }
+        .admin-btn:hover { background: #c82333; }
+        .seller-btn { background: #28a745; }
+        .seller-btn:hover { background: #218838; }
+        .buyer-btn { background: #17a2b8; }
+        .buyer-btn:hover { background: #138496; }
+        .clear-btn { background: #6c757d; }
+        .clear-btn:hover { background: #5a6268; }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 All Contexts Test - Admin, Seller, Buyer</h1>
+    <p>Testing that all three user types work consistently with localStorage persistence.</p>
+
+    <div class="test-section">
+        <h2>Current Auth State</h2>
+        <div id="authState"></div>
+        <button onclick="checkAuthState()">Check State</button>
+        <button onclick="clearAll()" class="clear-btn">Clear All</button>
+    </div>
+
+    <div class="grid">
+        <div class="test-section">
+            <h2>Admin Tests</h2>
+            <button onclick="testAdminLogin()" class="admin-btn">Admin Login</button>
+            <button onclick="testAdminPersistence()" class="admin-btn">Test Persistence</button>
+            <div id="adminResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Seller Tests</h2>
+            <button onclick="testSellerLogin()" class="seller-btn">Seller Login</button>
+            <button onclick="testSellerPersistence()" class="seller-btn">Test Persistence</button>
+            <div id="sellerResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Buyer Tests</h2>
+            <button onclick="testBuyerLogin()" class="buyer-btn">Buyer Login</button>
+            <button onclick="testBuyerPersistence()" class="buyer-btn">Test Persistence</button>
+            <div id="buyerResults"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Cross-User Tests</h2>
+        <button onclick="testUserSwitching()">Test User Switching</button>
+        <button onclick="testRefreshPersistence()">Test Refresh Persistence</button>
+        <div id="crossUserResults"></div>
+    </div>
+
+    <script>
+        // Mock the enhanced session auth manager
+        class EnhancedSessionAuthManager {
+            constructor() {
+                this.SESSION_TIMEOUT = 8 * 60 * 60 * 1000;
+            }
+
+            decodeToken(token) {
+                if (!token) return null;
+                try {
+                    const parts = token.split('.');
+                    if (parts.length !== 3) return null;
+                    const payload = JSON.parse(atob(parts[1]));
+                    return payload;
+                } catch (error) {
+                    return null;
+                }
+            }
+
+            isTokenValid(token) {
+                if (!token) return false;
+                try {
+                    const payload = this.decodeToken(token);
+                    if (!payload) return false;
+                    const now = Date.now() / 1000;
+                    return payload.exp && payload.exp > now;
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            getCurrentActiveUser() {
+                const userTypes = ['admin', 'seller', 'buyer'];
+                
+                for (const userType of userTypes) {
+                    const token = localStorage.getItem(`${userType}Token`);
+                    if (token && this.isTokenValid(token)) {
+                        const userData = localStorage.getItem(`${userType}Data`);
+                        const decodedToken = this.decodeToken(token);
+                        
+                        if (userData && decodedToken) {
+                            return {
+                                userType,
+                                user: JSON.parse(userData),
+                                token,
+                                role: decodedToken.role,
+                                tokenPayload: decodedToken
+                            };
+                        }
+                    }
+                }
+                
+                return null;
+            }
+
+            saveAuth(userType, userData, token) {
+                try {
+                    console.log(`🔑 Saving ${userType} auth, clearing other user types`);
+                    
+                    if (!this.isTokenValid(token)) {
+                        throw new Error('Invalid or expired token');
+                    }
+
+                    const tokenPayload = this.decodeToken(token);
+                    
+                    // Clear ALL other user types
+                    const allUserTypes = ['admin', 'seller', 'buyer'];
+                    allUserTypes.forEach(type => {
+                        if (type !== userType) {
+                            this.clearAuth(type);
+                        }
+                    });
+                    
+                    const authData = {
+                        user: userData,
+                        token: token,
+                        role: tokenPayload.role,
+                        loginTime: Date.now(),
+                        lastActivity: Date.now(),
+                        tokenExpiry: tokenPayload.exp * 1000
+                    };
+                    
+                    localStorage.setItem(`${userType}Auth`, JSON.stringify(authData));
+                    localStorage.setItem(`${userType}Token`, token);
+                    localStorage.setItem(`${userType}Data`, JSON.stringify(userData));
+                    localStorage.setItem('activeUserType', userType);
+                    localStorage.setItem('currentAuthToken', token);
+                    
+                    console.log(`✅ ${userType} auth saved to localStorage`);
+                    return true;
+                } catch (error) {
+                    console.error(`❌ Failed to save ${userType} auth:`, error);
+                    return false;
+                }
+            }
+
+            loadAuth(userType) {
+                try {
+                    const token = localStorage.getItem(`${userType}Token`);
+                    const userData = localStorage.getItem(`${userType}Data`);
+                    
+                    if (!token || !userData) {
+                        return null;
+                    }
+
+                    if (!this.isTokenValid(token)) {
+                        this.clearAuth(userType);
+                        return null;
+                    }
+
+                    const activeUserType = localStorage.getItem('activeUserType');
+                    if (activeUserType && activeUserType !== userType) {
+                        return null;
+                    }
+
+                    const tokenPayload = this.decodeToken(token);
+                    return {
+                        user: JSON.parse(userData),
+                        token: token,
+                        role: tokenPayload?.role,
+                        tokenPayload
+                    };
+                } catch (error) {
+                    this.clearAuth(userType);
+                    return null;
+                }
+            }
+
+            clearAuth(userType) {
+                localStorage.removeItem(`${userType}Auth`);
+                localStorage.removeItem(`${userType}Token`);
+                localStorage.removeItem(`${userType}Data`);
+                
+                const activeUserType = localStorage.getItem('activeUserType');
+                if (activeUserType === userType) {
+                    localStorage.removeItem('activeUserType');
+                    localStorage.removeItem('currentAuthToken');
+                }
+            }
+
+            clearAllAuth() {
+                const userTypes = ['admin', 'seller', 'buyer'];
+                userTypes.forEach(userType => {
+                    this.clearAuth(userType);
+                });
+                localStorage.removeItem('activeUserType');
+                localStorage.removeItem('currentAuthToken');
+            }
+
+            getCurrentUserType() {
+                const activeUserType = localStorage.getItem('activeUserType');
+                if (activeUserType && this.isAuthenticated(activeUserType)) {
+                    return activeUserType;
+                }
+                
+                const activeUser = this.getCurrentActiveUser();
+                if (activeUser) {
+                    localStorage.setItem('activeUserType', activeUser.userType);
+                    return activeUser.userType;
+                }
+                
+                return null;
+            }
+
+            isAuthenticated(userType) {
+                const authData = this.loadAuth(userType);
+                return !!authData;
+            }
+
+            initializeFromStorage() {
+                const activeUser = this.getCurrentActiveUser();
+                if (activeUser) {
+                    return {
+                        userType: activeUser.userType,
+                        user: activeUser.user,
+                        token: activeUser.token,
+                        role: activeUser.role
+                    };
+                }
+                return null;
+            }
+        }
+
+        const sessionAuth = new EnhancedSessionAuthManager();
+
+        function createMockToken(userType, userId = 1) {
+            const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+            const payload = btoa(JSON.stringify({
+                id: userId,
+                role: userType,
+                exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
+                iat: Math.floor(Date.now() / 1000)
+            }));
+            const signature = 'mock-signature';
+            return `${header}.${payload}.${signature}`;
+        }
+
+        function checkAuthState() {
+            const stateDiv = document.getElementById('authState');
+            let html = '<h3>Authentication State:</h3>';
+            
+            const userTypes = ['admin', 'seller', 'buyer'];
+            let activeUsers = [];
+            
+            userTypes.forEach(userType => {
+                const authData = sessionAuth.loadAuth(userType);
+                if (authData) {
+                    html += `<div class="success">${userType}: ${authData.user.username || authData.user.email} (Role: ${authData.role})</div>`;
+                    activeUsers.push(userType);
+                } else {
+                    html += `<div class="info">${userType}: Not logged in</div>`;
+                }
+            });
+            
+            const currentUserType = sessionAuth.getCurrentUserType();
+            const activeUserTypeFlag = localStorage.getItem('activeUserType');
+            
+            if (currentUserType) {
+                html += `<div class="success">Current Active User: ${currentUserType}</div>`;
+            } else {
+                html += `<div class="info">No active user</div>`;
+            }
+            
+            if (activeUserTypeFlag) {
+                html += `<div class="info">Active User Type Flag: ${activeUserTypeFlag}</div>`;
+            }
+            
+            // Check for issues
+            if (activeUsers.length > 1) {
+                html += `<div class="error">⚠️ Multiple users logged in: ${activeUsers.join(', ')}</div>`;
+            } else if (activeUsers.length === 1) {
+                html += `<div class="success">✅ Single user logged in: ${activeUsers[0]}</div>`;
+            }
+            
+            stateDiv.innerHTML = html;
+        }
+
+        function clearAll() {
+            sessionAuth.clearAllAuth();
+            localStorage.clear();
+            checkAuthState();
+        }
+
+        function testAdminLogin() {
+            const resultsDiv = document.getElementById('adminResults');
+            resultsDiv.innerHTML = '<div class="info">Testing admin login...</div>';
+            
+            const adminData = { id: 1, username: 'admin', email: 'admin@test.com' };
+            const token = createMockToken('admin');
+            
+            const success = sessionAuth.saveAuth('admin', adminData, token);
+            
+            setTimeout(() => {
+                const authData = sessionAuth.loadAuth('admin');
+                const activeUserType = sessionAuth.getCurrentUserType();
+                
+                if (authData && success && activeUserType === 'admin') {
+                    resultsDiv.innerHTML = '<div class="success">✅ Admin login successful</div>';
+                } else {
+                    resultsDiv.innerHTML = '<div class="error">❌ Admin login failed</div>';
+                }
+                checkAuthState();
+            }, 100);
+        }
+
+        function testSellerLogin() {
+            const resultsDiv = document.getElementById('sellerResults');
+            resultsDiv.innerHTML = '<div class="info">Testing seller login...</div>';
+            
+            const sellerData = { id: 1, username: 'seller1', email: 'seller@test.com' };
+            const token = createMockToken('seller');
+            
+            const success = sessionAuth.saveAuth('seller', sellerData, token);
+            
+            setTimeout(() => {
+                const authData = sessionAuth.loadAuth('seller');
+                const activeUserType = sessionAuth.getCurrentUserType();
+                
+                if (authData && success && activeUserType === 'seller') {
+                    resultsDiv.innerHTML = '<div class="success">✅ Seller login successful</div>';
+                } else {
+                    resultsDiv.innerHTML = '<div class="error">❌ Seller login failed</div>';
+                }
+                checkAuthState();
+            }, 100);
+        }
+
+        function testBuyerLogin() {
+            const resultsDiv = document.getElementById('buyerResults');
+            resultsDiv.innerHTML = '<div class="info">Testing buyer login...</div>';
+            
+            const buyerData = { id: 1, email: 'buyer@test.com', name: 'Test Buyer' };
+            const token = createMockToken('buyer');
+            
+            const success = sessionAuth.saveAuth('buyer', buyerData, token);
+            
+            setTimeout(() => {
+                const authData = sessionAuth.loadAuth('buyer');
+                const activeUserType = sessionAuth.getCurrentUserType();
+                
+                if (authData && success && activeUserType === 'buyer') {
+                    resultsDiv.innerHTML = '<div class="success">✅ Buyer login successful</div>';
+                } else {
+                    resultsDiv.innerHTML = '<div class="error">❌ Buyer login failed</div>';
+                }
+                checkAuthState();
+            }, 100);
+        }
+
+        function testAdminPersistence() {
+            testPersistence('admin', 'adminResults');
+        }
+
+        function testSellerPersistence() {
+            testPersistence('seller', 'sellerResults');
+        }
+
+        function testBuyerPersistence() {
+            testPersistence('buyer', 'buyerResults');
+        }
+
+        function testPersistence(userType, resultsDivId) {
+            const resultsDiv = document.getElementById(resultsDivId);
+            resultsDiv.innerHTML = `<div class="info">Testing ${userType} persistence...</div>`;
+            
+            const userData = { id: 1, username: userType, email: `${userType}@test.com` };
+            const token = createMockToken(userType);
+            
+            sessionAuth.saveAuth(userType, userData, token);
+            
+            setTimeout(() => {
+                const authData = sessionAuth.loadAuth(userType);
+                const activeUserType = sessionAuth.getCurrentUserType();
+                
+                if (authData && activeUserType === userType) {
+                    resultsDiv.innerHTML = `<div class="success">✅ ${userType} persistence test passed</div>`;
+                } else {
+                    resultsDiv.innerHTML = `<div class="error">❌ ${userType} persistence test failed</div>`;
+                }
+                checkAuthState();
+            }, 1000);
+        }
+
+        function testUserSwitching() {
+            const resultsDiv = document.getElementById('crossUserResults');
+            let results = '<h3>User Switching Test:</h3>';
+            
+            // Login as admin
+            const adminData = { id: 1, username: 'admin', email: 'admin@test.com' };
+            const adminToken = createMockToken('admin');
+            sessionAuth.saveAuth('admin', adminData, adminToken);
+            results += '<div class="info">Step 1: Logged in as admin</div>';
+            
+            // Check admin is active
+            let activeType = sessionAuth.getCurrentUserType();
+            if (activeType === 'admin') {
+                results += '<div class="success">Step 2: Admin is active</div>';
+            } else {
+                results += '<div class="error">Step 2: Admin not active</div>';
+            }
+            
+            // Login as seller (should clear admin)
+            const sellerData = { id: 2, username: 'seller', email: 'seller@test.com' };
+            const sellerToken = createMockToken('seller');
+            sessionAuth.saveAuth('seller', sellerData, sellerToken);
+            results += '<div class="info">Step 3: Logged in as seller</div>';
+            
+            // Check switching worked
+            const adminAuth = sessionAuth.loadAuth('admin');
+            const sellerAuth = sessionAuth.loadAuth('seller');
+            activeType = sessionAuth.getCurrentUserType();
+            
+            if (!adminAuth && sellerAuth && activeType === 'seller') {
+                results += '<div class="success">✅ User switching works: Admin cleared, Seller active</div>';
+            } else {
+                results += '<div class="error">❌ User switching failed</div>';
+            }
+            
+            resultsDiv.innerHTML = results;
+            checkAuthState();
+        }
+
+        function testRefreshPersistence() {
+            const resultsDiv = document.getElementById('crossUserResults');
+            resultsDiv.innerHTML = '<div class="info">Testing refresh persistence...</div>';
+            
+            // Login as seller
+            const sellerData = { id: 1, username: 'seller', email: 'seller@test.com' };
+            const sellerToken = createMockToken('seller');
+            sessionAuth.saveAuth('seller', sellerData, sellerToken);
+            
+            // Simulate page refresh by reinitializing
+            setTimeout(() => {
+                const storedAuth = sessionAuth.initializeFromStorage();
+                
+                if (storedAuth && storedAuth.userType === 'seller') {
+                    resultsDiv.innerHTML = '<div class="success">✅ Refresh persistence works: Seller data restored</div>';
+                } else {
+                    resultsDiv.innerHTML = '<div class="error">❌ Refresh persistence failed</div>';
+                }
+                checkAuthState();
+            }, 100);
+        }
+
+        // Initialize
+        checkAuthState();
+    </script>
+</body>
+</html>

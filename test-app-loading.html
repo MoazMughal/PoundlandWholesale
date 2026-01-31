@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Loading Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>App Loading Test</h1>
+    
+    <div class="test-section info">
+        <h3>Test Instructions:</h3>
+        <ol>
+            <li>Make sure both frontend (npm run dev) and backend (npm start) are running</li>
+            <li>Click "Test Frontend Loading" to check if the React app loads</li>
+            <li>Click "Test Backend API" to check if the server is responding</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Controls:</h3>
+        <button onclick="testFrontendLoading()">Test Frontend Loading</button>
+        <button onclick="testBackendAPI()">Test Backend API</button>
+        <button onclick="testServerSession()">Test Server Session Endpoint</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Results:</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function logResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            results.appendChild(div);
+            console.log(message);
+        }
+
+        async function testFrontendLoading() {
+            try {
+                logResult('Testing frontend loading at http://localhost:3000/', 'info');
+                
+                const response = await fetch('http://localhost:3000/', {
+                    method: 'GET',
+                    mode: 'no-cors' // Avoid CORS issues for this test
+                });
+                
+                logResult('✅ Frontend is responding (server is running)', 'success');
+                logResult('ℹ️ If the page is blank, check browser console for JavaScript errors', 'info');
+                
+            } catch (error) {
+                logResult(`❌ Frontend test failed: ${error.message}`, 'error');
+                logResult('Make sure to run: npm run dev', 'error');
+            }
+        }
+
+        async function testBackendAPI() {
+            try {
+                logResult('Testing backend API at http://localhost:5000/', 'info');
+                
+                const response = await fetch('http://localhost:5000/api/auth/server-session');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    logResult(`✅ Backend API is working: ${JSON.stringify(data)}`, 'success');
+                } else {
+                    logResult(`❌ Backend API error: ${response.status} ${response.statusText}`, 'error');
+                }
+                
+            } catch (error) {
+                logResult(`❌ Backend test failed: ${error.message}`, 'error');
+                logResult('Make sure to run: npm start (in server directory)', 'error');
+            }
+        }
+
+        async function testServerSession() {
+            try {
+                logResult('Testing server session endpoint...', 'info');
+                
+                const response = await fetch('/api/auth/server-session');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    logResult(`✅ Server session endpoint working: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    logResult(`❌ Server session endpoint error: ${response.status} ${response.statusText}`, 'error');
+                }
+                
+            } catch (error) {
+                logResult(`❌ Server session test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            logResult('Test page loaded. Click buttons to run tests.', 'info');
+        });
+    </script>
+</body>
+</html>

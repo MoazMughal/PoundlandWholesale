@@ -862,29 +862,22 @@ router.get('/debug/seller-info', authenticateSeller, async (req, res) => {
   }
 });
 
-// List admin product to seller's inventory
-router.post('/list-admin-product', authenticateSeller, async (req, res) => {
+// Request to list admin product (requires admin approval)
+router.post('/request-admin-product-listing', authenticateSeller, async (req, res) => {
   try {
     const {
       adminProductId,
       productName,
       productPrice,
-      sellerPrice, // Add seller's custom price
-      paymentMethod = 'Direct Listing',
-      transactionId,
-      notes = 'Seller listed admin product',
-      sellerId,
-      sellerInfo: frontendSellerInfo
+      sellerPrice,
+      notes = 'Seller requested to list admin product'
     } = req.body;
 
-    console.log('🔄 Processing list-admin-product request:', {
+    console.log('🔄 Processing admin product listing request:', {
       adminProductId,
       sellerId: req.seller._id,
       sellerUsername: req.seller.username,
-      sellerVerificationStatus: req.seller.verificationStatus,
-      frontendSellerId: sellerId,
-      frontendSellerInfo: frontendSellerInfo,
-      requestBodyKeys: Object.keys(req.body)
+      sellerPrice
     });
 
     // Import Product model
@@ -896,52 +889,198 @@ router.post('/list-admin-product', authenticateSeller, async (req, res) => {
       return res.status(404).json({ message: 'Admin product not found' });
     }
 
-    console.log('🔍 Admin product found:', {
-      adminProductId: adminProduct._id,
-      adminProductName: adminProduct.name,
-      isAdminProduct: adminProduct.isAdminProduct
-    });
+    // Check if seller already has a pending or approved request for this product
+    const seller = await Seller.findById(req.seller._id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
 
-    // Check if seller already listed this product (more robust check)
-    const alreadyListed = adminProduct.sellers?.some(
-      sellerEntry => sellerEntry.sellerId.toString() === req.seller._id.toString()
-    ) || (adminProduct.seller && adminProduct.seller.toString() === req.seller._id.toString());
+    // Check for existing requests
+    const existingRequest = seller.productListingRequests?.find(
+      request => request.productId.toString() === adminProductId && 
+                 (request.status === 'pending_approval' || request.status === 'approved')
+    );
 
-    if (alreadyListed) {
-      console.log('❌ Seller already listed this product:', {
-        sellerId: req.seller._id,
-        sellerUsername: req.seller.username,
-        productId: adminProduct._id,
-        productName: adminProduct.name,
-        existingSellers: adminProduct.sellers?.map(s => ({ id: s.sellerId, username: s.username })),
-        primarySeller: adminProduct.seller
-      });
+    if (existingRequest) {
       return res.status(400).json({ 
         success: false,
-        message: 'You have already listed this product. Each seller can only list a product once.',
+        message: `You already have a ${existingRequest.status === 'pending_approval' ? 'pending' : existingRequest.status} request for this product.`,
+        error: 'REQUEST_EXISTS'
+      });
+    }
+
+    // Check if seller is already listed on the product
+    const alreadyListed = adminProduct.sellers?.some(
+      sellerEntry => sellerEntry.sellerId.toString() === req.seller._id.toString()
+    );
+
+    if (alreadyListed) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'You have already listed this product.',
         error: 'ALREADY_LISTED'
       });
     }
 
-    // Get seller for caching info
-    const seller = await Seller.findById(req.seller._id);
+    // Create listing request
+    if (!seller.productListingRequests) {
+      seller.productListingRequests = [];
+    }
     
+    const listingRequest = {
+      productId: adminProduct._id,
+      productName: adminProduct.name,
+      productPrice: adminProduct.price,
+      sellerPrice: sellerPrice ? parseFloat(sellerPrice) : parseFloat(adminProduct.price),
+      transactionId: `REQ_${Date.now()}`,
+      paymentMethod: 'Pending Admin Approval',
+      notes,
+      status: 'pending_approval',
+      submittedAt: new Date(),
+      requestType: 'admin_product_listing'
+    };
+    
+    seller.productListingRequests.push(listingRequest);
+    await seller.save();
+
+    console.log('✅ Product listing request created:', {
+      sellerId: seller._id,
+      productId: adminProduct._id,
+      requestId: listingRequest._id,
+      status: 'pending'
+    });
+
+    // TODO: Send notification to admin about new listing request
+    try {
+      console.log(`📧 Admin notification: New listing request from ${seller.username} for ${adminProduct.name}`);
+    } catch (notificationError) {
+      console.error('Failed to send admin notification:', notificationError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Product listing request submitted successfully! Admin will review your request.',
+      requestId: listingRequest._id,
+      status: 'pending_approval',
+      productName: adminProduct.name,
+      sellerPrice: listingRequest.sellerPrice
+    });
+  } catch (error) {
+    console.error('Request admin product listing error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// DEPRECATED: Direct listing route - now requires admin approval
+// Use /request-admin-product-listing instead
+router.post('/list-admin-product', authenticateSeller, async (req, res) => {
+  try {
+    console.log('⚠️ DEPRECATED: Direct listing attempt blocked - admin approval required');
+    
+    return res.status(403).json({
+      success: false,
+      message: 'Direct product listing is no longer allowed. Please use the request system instead.',
+      error: 'DIRECT_LISTING_DISABLED',
+      redirectTo: '/request-admin-product-listing',
+      instructions: 'All product listings now require admin approval. Please submit a request instead.'
+    });
+  } catch (error) {
+    console.error('Deprecated list admin product error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin routes for product listing requests
+router.get('/admin/listing-requests', authenticateAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status = 'pending_approval' } = req.query;
+    
+    // Find all sellers with listing requests
+    const sellers = await Seller.find({
+      'productListingRequests.status': status
+    }).populate('productListingRequests.productId');
+    
+    // Extract and flatten all requests
+    const allRequests = [];
+    sellers.forEach(seller => {
+      seller.productListingRequests
+        .filter(request => request.status === status)
+        .forEach(request => {
+          allRequests.push({
+            ...request.toObject(),
+            sellerId: seller._id,
+            sellerUsername: seller.username,
+            sellerEmail: seller.email,
+            sellerVerificationStatus: seller.verificationStatus
+          });
+        });
+    });
+    
+    // Sort by submission date (newest first)
+    allRequests.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+    
+    // Paginate
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + parseInt(limit);
+    const paginatedRequests = allRequests.slice(startIndex, endIndex);
+    
+    res.json({
+      success: true,
+      requests: paginatedRequests,
+      totalRequests: allRequests.length,
+      totalPages: Math.ceil(allRequests.length / limit),
+      currentPage: parseInt(page)
+    });
+  } catch (error) {
+    console.error('Get listing requests error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Approve product listing request
+router.put('/admin/listing-requests/:sellerId/:requestId/approve', authenticateAdmin, async (req, res) => {
+  try {
+    const { sellerId, requestId } = req.params;
+    
+    // Find seller and request
+    const seller = await Seller.findById(sellerId);
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
     
-    console.log('🔍 Seller data retrieved:', {
-      sellerId: seller._id,
-      username: seller.username,
-      email: seller.email,
-      verificationStatus: seller.verificationStatus,
-      whatsappNo: seller.whatsappNo,
-      city: seller.city,
-      country: seller.country
-    });
+    const request = seller.productListingRequests.id(requestId);
+    if (!request) {
+      return res.status(404).json({ message: 'Listing request not found' });
+    }
     
-    // Enhanced seller info for caching
-    const enhancedSellerInfo = {
+    if (request.status !== 'pending_approval') {
+      return res.status(400).json({ message: 'Request is not pending approval' });
+    }
+    
+    // Import Product model
+    const Product = (await import('../models/Product.js')).default;
+    
+    // Get the admin product
+    const adminProduct = await Product.findById(request.productId);
+    if (!adminProduct) {
+      return res.status(404).json({ message: 'Admin product not found' });
+    }
+    
+    // Check if seller is already listed (safety check)
+    const alreadyListed = adminProduct.sellers?.some(
+      sellerEntry => sellerEntry.sellerId.toString() === sellerId
+    );
+    
+    if (alreadyListed) {
+      return res.status(400).json({ message: 'Seller is already listed on this product' });
+    }
+    
+    // Add seller to product
+    if (!adminProduct.sellers) {
+      adminProduct.sellers = [];
+    }
+    
+    const sellerInfo = {
       sellerId: seller._id,
       username: seller.username,
       email: seller.email,
@@ -949,97 +1088,16 @@ router.post('/list-admin-product', authenticateSeller, async (req, res) => {
       city: seller.city,
       country: seller.country,
       verificationStatus: seller.verificationStatus,
-      sellerPrice: sellerPrice ? parseFloat(sellerPrice) : (productPrice ? parseFloat(productPrice) : null), // Use seller's custom price or fallback to product price
+      sellerPrice: request.sellerPrice,
       listedAt: new Date(),
-      transactionId: transactionId || `LIST_${Date.now()}`,
-      paymentMethod,
-      notes
+      transactionId: request.transactionId,
+      paymentMethod: 'Admin Approved',
+      notes: request.notes
     };
-
-    console.log('📋 Enhanced seller info to be added:', enhancedSellerInfo);
-
-    // MIGRATION STEP: If there's an existing seller in the old format but not in sellers array, migrate them first
-    if (adminProduct.seller && (!adminProduct.sellers || adminProduct.sellers.length === 0)) {
-      console.log('🔄 MIGRATION: Found product with old single-seller format, migrating to sellers array...');
-      
-      // Get the existing seller info
-      const existingSellerId = adminProduct.seller;
-      const existingSellerInfo = adminProduct.sellerInfo;
-      
-      // Only migrate if it's not the same seller trying to list again
-      if (existingSellerId.toString() !== seller._id.toString()) {
-        console.log('🔄 Migrating existing seller to sellers array:', {
-          existingSellerId,
-          existingSellerUsername: existingSellerInfo?.username,
-          newSellerId: seller._id,
-          newSellerUsername: seller.username
-        });
-        
-        // Create sellers array if it doesn't exist
-        if (!adminProduct.sellers) {
-          adminProduct.sellers = [];
-        }
-        
-        // Add the existing seller to the sellers array first
-        const existingSellerEntry = {
-          sellerId: existingSellerId,
-          username: existingSellerInfo?.username || 'Unknown',
-          email: existingSellerInfo?.email || '',
-          whatsappNo: existingSellerInfo?.whatsappNo || '',
-          city: existingSellerInfo?.city || '',
-          country: existingSellerInfo?.country || '',
-          verificationStatus: existingSellerInfo?.verificationStatus || 'unknown',
-          sellerPrice: sellerPrice ? parseFloat(sellerPrice) : (productPrice ? parseFloat(productPrice) : null), // Use seller's custom price or fallback to product price
-          listedAt: adminProduct.createdAt || new Date(),
-          transactionId: `MIGRATED_${Date.now()}`,
-          paymentMethod: 'Legacy Migration',
-          notes: 'Migrated from old single-seller format'
-        };
-        
-        adminProduct.sellers.push(existingSellerEntry);
-        console.log('✅ Existing seller migrated to sellers array');
-      } else {
-        console.log('ℹ️ Same seller trying to list again - no migration needed');
-        // Initialize empty sellers array for this seller
-        if (!adminProduct.sellers) {
-          adminProduct.sellers = [];
-        }
-      }
-    }
-
-    // Add seller info to the existing admin product instead of creating new product
-    if (!adminProduct.sellers) {
-      adminProduct.sellers = [];
-    }
     
-    console.log('🔍 Current sellers before adding:', {
-      sellersCount: adminProduct.sellers.length,
-      existingSellers: adminProduct.sellers.map(s => ({ id: s.sellerId, username: s.username }))
-    });
+    adminProduct.sellers.push(sellerInfo);
     
-    // Double-check for duplicates before adding (safety measure)
-    const isDuplicate = adminProduct.sellers.some(
-      existing => existing.sellerId.toString() === seller._id.toString()
-    );
-    
-    if (isDuplicate) {
-      console.log('❌ Duplicate seller detected during addition, aborting');
-      return res.status(400).json({ 
-        success: false,
-        message: 'You have already listed this product. Duplicate entry prevented.',
-        error: 'DUPLICATE_PREVENTED'
-      });
-    }
-    
-    adminProduct.sellers.push(enhancedSellerInfo);
-    
-    console.log('✅ Seller added to sellers array:', {
-      sellersCount: adminProduct.sellers.length,
-      allSellers: adminProduct.sellers.map(s => ({ id: s.sellerId, username: s.username }))
-    });
-    
-    // Also update the main sellerInfo field for backward compatibility (use the first/primary seller)
-    // Only update sellerInfo if this is the FIRST seller being added (empty sellers array before adding)
+    // Update main sellerInfo if this is the first seller
     if (adminProduct.sellers.length === 1 && !adminProduct.seller) {
       adminProduct.sellerInfo = {
         username: seller.username,
@@ -1048,76 +1106,84 @@ router.post('/list-admin-product', authenticateSeller, async (req, res) => {
         city: seller.city,
         country: seller.country,
         verificationStatus: seller.verificationStatus,
-        sellerPrice: sellerPrice ? parseFloat(sellerPrice) : (productPrice ? parseFloat(productPrice) : null), // Use seller's custom price or fallback to product price
+        sellerPrice: request.sellerPrice,
         _id: seller._id
       };
-      adminProduct.seller = seller._id; // Set primary seller
-      console.log('✅ Updated sellerInfo for primary seller (backward compatibility)');
-    } else {
-      console.log('ℹ️ Skipping sellerInfo update - not the primary seller or primary seller already exists');
+      adminProduct.seller = seller._id;
     }
-
+    
     await adminProduct.save();
-
-    console.log('✅ Seller info added to admin product:', {
-      productId: adminProduct._id,
-      productName: adminProduct.name,
-      totalSellers: adminProduct.sellers.length,
-      primarySeller: adminProduct.seller,
-      hasSellerInfo: !!adminProduct.sellerInfo
-    });
-
-    // Verify the product was updated correctly by fetching it back
-    const savedProduct = await Product.findById(adminProduct._id).lean();
-    console.log('🔍 DETAILED VERIFICATION - Product updated in database:', {
-      productId: savedProduct._id,
-      productName: savedProduct.name,
-      hasSeller: !!savedProduct.seller,
-      sellerValue: savedProduct.seller,
-      hasSellerInfo: !!savedProduct.sellerInfo,
-      sellersCount: savedProduct.sellers?.length || 0,
-      sellersData: savedProduct.sellers
-    });
-
-    // Add to seller's listing requests for tracking
-    if (!seller.productListingRequests) {
-      seller.productListingRequests = [];
-    }
     
-    const listingRequest = {
-      productId: adminProduct._id, // Use admin product ID since we're not creating new product
-      productName: adminProduct.name,
-      productPrice: adminProduct.price,
-      transactionId: transactionId || `LIST_${Date.now()}`,
-      paymentMethod,
-      notes,
-      status: 'approved', // Auto-approved
-      submittedAt: new Date(),
-      approvedAt: new Date()
-    };
+    // Update request status
+    request.status = 'approved';
+    request.approvedAt = new Date();
+    request.approvedBy = req.admin._id;
     
-    seller.productListingRequests.push(listingRequest);
     await seller.save();
-
-    // Create notification for admin
-    try {
-      console.log(`📧 Admin notification: Seller ${seller.username} listed product ${adminProduct.name}`);
-    } catch (notificationError) {
-      console.error('Failed to send admin notification:', notificationError);
-    }
-
+    
+    console.log('✅ Product listing request approved:', {
+      sellerId,
+      requestId,
+      productId: request.productId,
+      adminId: req.admin._id
+    });
+    
     res.json({
       success: true,
-      message: 'Product listed successfully! Your seller information has been added to this product.',
-      productId: adminProduct._id, // Return admin product ID since we're not creating new product
-      requestId: seller.productListingRequests[seller.productListingRequests.length - 1]._id,
-      status: 'active',
-      sellerAssigned: true,
-      sellerInfo: enhancedSellerInfo,
-      totalSellers: adminProduct.sellers.length
+      message: 'Product listing request approved successfully',
+      request: request,
+      productName: adminProduct.name
     });
   } catch (error) {
-    console.error('List admin product error:', error);
+    console.error('Approve listing request error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Reject product listing request
+router.put('/admin/listing-requests/:sellerId/:requestId/reject', authenticateAdmin, async (req, res) => {
+  try {
+    const { sellerId, requestId } = req.params;
+    const { reason = 'Request rejected by admin' } = req.body;
+    
+    // Find seller and request
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+    
+    const request = seller.productListingRequests.id(requestId);
+    if (!request) {
+      return res.status(404).json({ message: 'Listing request not found' });
+    }
+    
+    if (request.status !== 'pending_approval') {
+      return res.status(400).json({ message: 'Request is not pending approval' });
+    }
+    
+    // Update request status
+    request.status = 'rejected';
+    request.rejectedAt = new Date();
+    request.rejectedBy = req.admin._id;
+    request.rejectionReason = reason;
+    
+    await seller.save();
+    
+    console.log('❌ Product listing request rejected:', {
+      sellerId,
+      requestId,
+      reason,
+      adminId: req.admin._id
+    });
+    
+    res.json({
+      success: true,
+      message: 'Product listing request rejected',
+      request: request,
+      reason: reason
+    });
+  } catch (error) {
+    console.error('Reject listing request error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -1259,7 +1325,11 @@ router.get('/my-listed-products', authenticateSeller, async (req, res) => {
     
     // Find products where this seller has added their info
     const query = {
-      'sellers.sellerId': req.seller._id
+      'sellers.sellerId': req.seller._id,
+      $or: [
+        { status: 'active' },
+        { status: { $exists: false } } // Include products without status field for backward compatibility
+      ]
     };
     
     if (status) query.approvalStatus = status;
@@ -1548,7 +1618,11 @@ router.get('/debug/recent-products', authenticateSeller, async (req, res) => {
     
     // Get recent products created by this seller
     const recentProducts = await Product.find({
-      seller: req.seller._id
+      seller: req.seller._id,
+      $or: [
+        { status: 'active' },
+        { status: { $exists: false } } // Include products without status field for backward compatibility
+      ]
     })
     .sort({ createdAt: -1 })
     .limit(5)

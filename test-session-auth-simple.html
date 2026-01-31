@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Auth Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { background: #d4edda; color: #155724; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .info { background: #d1ecf1; color: #0c5460; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .clear-btn { background: #dc3545; }
+        .clear-btn:hover { background: #c82333; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 Simple Session Auth Test</h1>
+    <p>Testing the session-based authentication system.</p>
+
+    <div class="test-section">
+        <h2>Current Session State</h2>
+        <div id="sessionState"></div>
+        <button onclick="checkSession()">Check Session</button>
+        <button onclick="clearAll()" class="clear-btn">Clear All</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Login</h2>
+        <button onclick="testAdminLogin()">Test Admin Login</button>
+        <button onclick="testSellerLogin()">Test Seller Login</button>
+        <button onclick="testBuyerLogin()">Test Buyer Login</button>
+        <div id="loginResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Instructions</h2>
+        <div class="info">
+            <strong>How to test:</strong>
+            <ol>
+                <li>Click "Test Admin/Seller/Buyer Login" to simulate login</li>
+                <li>Check that data is stored in sessionStorage</li>
+                <li>Close this browser tab and reopen it</li>
+                <li>Verify that all authentication data is cleared</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Mock session auth manager
+        class SimpleSessionAuth {
+            saveAuth(userType, userData, token) {
+                try {
+                    const authData = {
+                        user: userData,
+                        token: token,
+                        loginTime: Date.now(),
+                        lastActivity: Date.now()
+                    };
+                    
+                    sessionStorage.setItem(`${userType}Auth`, JSON.stringify(authData));
+                    sessionStorage.setItem(`${userType}Token`, token);
+                    sessionStorage.setItem(`${userType}Data`, JSON.stringify(userData));
+                    
+                    console.log(`✅ ${userType} auth saved to session`);
+                    return true;
+                } catch (error) {
+                    console.error(`❌ Failed to save ${userType} auth:`, error);
+                    return false;
+                }
+            }
+
+            loadAuth(userType) {
+                try {
+                    const authData = sessionStorage.getItem(`${userType}Auth`);
+                    const token = sessionStorage.getItem(`${userType}Token`);
+                    const userData = sessionStorage.getItem(`${userType}Data`);
+                    
+                    if (!authData || !token || !userData) {
+                        return null;
+                    }
+
+                    return {
+                        user: JSON.parse(userData),
+                        token: token
+                    };
+                } catch (error) {
+                    console.error(`❌ Failed to load ${userType} auth:`, error);
+                    return null;
+                }
+            }
+
+            clearAuth(userType) {
+                sessionStorage.removeItem(`${userType}Auth`);
+                sessionStorage.removeItem(`${userType}Token`);
+                sessionStorage.removeItem(`${userType}Data`);
+                console.log(`🔄 ${userType} auth cleared`);
+            }
+
+            clearAllAuth() {
+                const userTypes = ['admin', 'seller', 'buyer'];
+                userTypes.forEach(userType => {
+                    this.clearAuth(userType);
+                });
+                console.log('🔄 All auth data cleared');
+            }
+        }
+
+        const sessionAuth = new SimpleSessionAuth();
+
+        function checkSession() {
+            const stateDiv = document.getElementById('sessionState');
+            let html = '<h3>SessionStorage Contents:</h3><pre>';
+            
+            if (sessionStorage.length === 0) {
+                html += 'No items in sessionStorage\n';
+            } else {
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    const value = sessionStorage.getItem(key);
+                    html += `${key}: ${value.length > 100 ? value.substring(0, 100) + '...' : value}\n`;
+                }
+            }
+            
+            html += '</pre>';
+            
+            // Check auth status
+            const userTypes = ['admin', 'seller', 'buyer'];
+            html += '<h3>Auth Status:</h3>';
+            userTypes.forEach(userType => {
+                const authData = sessionAuth.loadAuth(userType);
+                if (authData) {
+                    html += `<div class="success">${userType}: Logged in as ${authData.user.username || authData.user.email}</div>`;
+                } else {
+                    html += `<div class="info">${userType}: Not logged in</div>`;
+                }
+            });
+            
+            stateDiv.innerHTML = html;
+        }
+
+        function clearAll() {
+            sessionAuth.clearAllAuth();
+            sessionStorage.clear();
+            localStorage.clear();
+            checkSession();
+        }
+
+        function testAdminLogin() {
+            const resultsDiv = document.getElementById('loginResults');
+            
+            const adminData = {
+                id: 1,
+                username: 'admin',
+                email: 'admin@test.com',
+                role: 'admin'
+            };
+            const token = 'mock-admin-jwt-token-' + Date.now();
+            
+            const success = sessionAuth.saveAuth('admin', adminData, token);
+            
+            if (success) {
+                resultsDiv.innerHTML = '<div class="success">✅ Admin login successful!</div>';
+            } else {
+                resultsDiv.innerHTML = '<div class="error">❌ Admin login failed!</div>';
+            }
+            
+            checkSession();
+        }
+
+        function testSellerLogin() {
+            const resultsDiv = document.getElementById('loginResults');
+            
+            const sellerData = {
+                id: 1,
+                username: 'seller1',
+                email: 'seller@test.com',
+                businessName: 'Test Business'
+            };
+            const token = 'mock-seller-jwt-token-' + Date.now();
+            
+            const success = sessionAuth.saveAuth('seller', sellerData, token);
+            
+            if (success) {
+                resultsDiv.innerHTML = '<div class="success">✅ Seller login successful!</div>';
+            } else {
+                resultsDiv.innerHTML = '<div class="error">❌ Seller login failed!</div>';
+            }
+            
+            checkSession();
+        }
+
+        function testBuyerLogin() {
+            const resultsDiv = document.getElementById('loginResults');
+            
+            const buyerData = {
+                id: 1,
+                email: 'buyer@test.com',
+                name: 'Test Buyer'
+            };
+            const token = 'mock-buyer-jwt-token-' + Date.now();
+            
+            const success = sessionAuth.saveAuth('buyer', buyerData, token);
+            
+            if (success) {
+                resultsDiv.innerHTML = '<div class="success">✅ Buyer login successful!</div>';
+            } else {
+                resultsDiv.innerHTML = '<div class="error">❌ Buyer login failed!</div>';
+            }
+            
+            checkSession();
+        }
+
+        // Initialize
+        checkSession();
+        
+        // Show warning about browser close behavior
+        window.addEventListener('beforeunload', function() {
+            console.log('Browser is closing - session data will be cleared');
+        });
+    </script>
+</body>
+</html>

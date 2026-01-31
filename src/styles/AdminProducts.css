@@ -1,3 +1,23 @@
+/* Global image optimization for admin products */
+.admin-products img,
+.products-table img {
+  object-fit: contain !important;
+  object-position: center !important;
+  padding: 2px !important; /* Minimal padding to show more image */
+  background-color: #ffffff !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure all product images display fully without cropping */
+img[src*="cloudinary"],
+img[src*="products"],
+img[alt*="product" i],
+img[alt*="Product" i] {
+  object-fit: contain !important;
+  object-position: center !important;
+  background-color: #ffffff !important;
+}
+
 .admin-products {
   padding: 8px;
   max-width: 1600px;

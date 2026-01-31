@@ -132,7 +132,7 @@ const AdminProducts = () => {
           ...product.sellers.map(s => parseFloat(s.sellerPrice) || parseFloat(product.price) || 0)
         );
         
-        const confirmMessage = `This product is already listed by ${product.sellers.length} seller${product.sellers.length > 1 ? 's' : ''}:\n\n${existingSellers}\n\nCurrent lowest price: £${lowestPrice.toFixed(2)}\n\nDo you want to add your listing to compete with existing sellers?\n\nTip: Set a lower price to appear first and cross out higher prices.`;
+        const confirmMessage = `This product is already listed by ${product.sellers.length} seller${product.sellers.length > 1 ? 's' : ''}:\n\n${existingSellers}\n\nCurrent lowest price: £${lowestPrice.toFixed(2)}\n\nDo you want to request to list this product to compete with existing sellers?\n\nNote: Your request will be sent to admin for approval.`;
         
         if (!window.confirm(confirmMessage)) {
           return; // User cancelled
@@ -177,7 +177,8 @@ const AdminProducts = () => {
       
       const token = localStorage.getItem('sellerToken')
       
-      const response = await fetch('http://localhost:5000/api/sellers/list-admin-product', {
+      // Use the new request system instead of direct listing
+      const response = await fetch('http://localhost:5000/api/sellers/request-admin-product-listing', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,40 +188,29 @@ const AdminProducts = () => {
           adminProductId: product._id,
           productName: product.name,
           productPrice: product.price,
-          sellerPrice: sellerPrice, // Add seller's custom price
-          paymentMethod: 'Direct Listing',
-          transactionId: `LIST_${Date.now()}`,
-          notes: 'Seller listed admin product from Amazon\'s Choice',
-          // Ensure seller information is properly assigned
-          sellerId: seller._id,
-          sellerInfo: {
-            username: seller.username,
-            email: seller.email,
-            whatsappNo: seller.whatsappNo,
-            city: seller.city,
-            country: seller.country,
-            verificationStatus: seller.verificationStatus
-          }
+          sellerPrice: sellerPrice,
+          notes: `Seller requested to list "${product.name}" at £${sellerPrice.toFixed(2)}`
         })
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        const sellersCount = data.totalSellers || 1;
-        alert(`✅ Product listed successfully at £${sellerPrice.toFixed(2)}! You are now seller #${sellersCount} for this product. ${sellersCount > 1 ? 'Your price will be compared with other sellers!' : ''}`)
-        fetchAdminProducts()
+        alert(`✅ Listing request submitted successfully!\n\nProduct: ${product.name}\nYour Price: £${sellerPrice.toFixed(2)}\nStatus: Pending Admin Approval\n\nYou will be notified once the admin reviews your request.`)
+        fetchAdminProducts() // Refresh to show updated status
       } else {
         // Enhanced error handling
-        if (data.error === 'ALREADY_LISTED' || data.error === 'DUPLICATE_PREVENTED') {
-          alert('⚠️ Already Listed: You have already listed this product. Each seller can only list a product once.')
+        if (data.error === 'REQUEST_EXISTS') {
+          alert('⚠️ Request Already Exists: You already have a pending or approved request for this product.')
+        } else if (data.error === 'ALREADY_LISTED') {
+          alert('⚠️ Already Listed: You have already listed this product.')
         } else {
-          alert('❌ Error: ' + (data.message || 'Failed to list product'))
+          alert('❌ Error: ' + (data.message || 'Failed to submit listing request'))
         }
       }
     } catch (error) {
-      console.error('List product error:', error)
-      alert('❌ Failed to list product')
+      console.error('List product request error:', error)
+      alert('❌ Failed to submit listing request')
     }
   }
 
@@ -796,28 +786,39 @@ const AdminProducts = () => {
             {products.map(product => (
               <div key={product._id} className="product-card">
                 <div style={{ position: 'relative' }}>
-                  {product.images && product.images.length > 0 ? (
-                    <img 
-                      src={getImageUrl(product.images[0])}
-                      className="product-image"
-                      alt={product.name}
-                      onError={(e) => {
-                        e.target.style.display = 'none'
-                      }}
-                    />
-                  ) : (
-                    <div 
-                      className="product-image"
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        background: '#f8f9fa'
-                      }}
-                    >
-                      <i className="fas fa-image" style={{ fontSize: '24px', color: '#dee2e6' }}></i>
-                    </div>
-                  )}
+                  <a 
+                    href={`/product/${product._id}`}
+                    style={{ 
+                      display: 'block',
+                      textDecoration: 'none',
+                      color: 'inherit'
+                    }}
+                  >
+                    {product.images && product.images.length > 0 ? (
+                      <img 
+                        src={getImageUrl(product.images[0])}
+                        className="product-image"
+                        alt={product.name}
+                        onError={(e) => {
+                          e.target.style.display = 'none'
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    ) : (
+                      <div 
+                        className="product-image"
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          background: '#f8f9fa',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <i className="fas fa-image" style={{ fontSize: '24px', color: '#dee2e6' }}></i>
+                      </div>
+                    )}
+                  </a>
                   
                   <div className="product-badge">
                     <i className="fas fa-star" style={{ marginRight: '4px' }}></i>
@@ -848,7 +849,17 @@ const AdminProducts = () => {
                 </div>
                 
                 <div className="product-info">
-                  <div className="product-title">{product.name}</div>
+                  <a 
+                    href={`/product/${product._id}`}
+                    style={{ 
+                      textDecoration: 'none',
+                      color: 'inherit'
+                    }}
+                    onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                    onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                  >
+                    <div className="product-title" style={{ cursor: 'pointer' }}>{product.name}</div>
+                  </a>
                   
                   <div className="product-category">{product.category}</div>
                   
@@ -945,21 +956,30 @@ const AdminProducts = () => {
                       <button 
                         className="list-btn"
                         onClick={() => handleListProduct(product)}
-                        title="Add this product to your store inventory"
+                        title="Request to add this product to your store (requires admin approval)"
                       >
-                        <i className="fas fa-plus" style={{ fontSize: '8px' }}></i>
-                        {windowWidth < 768 ? 'ADD TO STORE' : 'ADD TO MY STORE'}
+                        <i className="fas fa-paper-plane" style={{ fontSize: '8px' }}></i>
+                        {windowWidth < 768 ? 'REQUEST TO LIST' : 'REQUEST TO LIST'}
                       </button>
                     )}
                     
-                    <button 
+                    <a
+                      href={`/product/${product._id}`}
                       className="edit-btn"
-                      onClick={() => handleEditProduct(product)}
-                      title="Edit product price and assign to your account"
+                      title="View Product Details"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textDecoration: 'none',
+                        color: 'white',
+                        minWidth: windowWidth < 768 ? '45px' : '50px',
+                        minHeight: '28px'
+                      }}
                     >
-                      <i className="fas fa-edit" style={{ fontSize: '8px' }}></i>
-                      EDIT
-                    </button>
+                      <i className="fas fa-eye" style={{ fontSize: '8px' }}></i>
+                      {windowWidth >= 768 && <span style={{ marginLeft: '4px' }}>VIEW</span>}
+                    </a>
                   </div>
                 </div>
               </div>

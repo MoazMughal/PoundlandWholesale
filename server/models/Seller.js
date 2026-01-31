@@ -112,6 +112,7 @@ const sellerSchema = new mongoose.Schema({
     productId: String,
     productName: String,
     productPrice: Number,
+    sellerPrice: Number, // Add seller's custom price
     transactionId: String,
     paymentMethod: String,
     notes: String,
@@ -123,11 +124,22 @@ const sellerSchema = new mongoose.Schema({
     },
     submittedAt: Date,
     reviewedAt: Date,
+    approvedAt: Date, // Add approved date
+    rejectedAt: Date, // Add rejected date
+    approvedBy: { // Add approved by admin
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin'
+    },
+    rejectedBy: { // Add rejected by admin
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin'
+    },
     reviewedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin'
     },
-    rejectionReason: String
+    rejectionReason: String,
+    requestType: String // Add request type field
   }],
   // Password reset fields (OTP-based)
   passwordResetOTP: String,

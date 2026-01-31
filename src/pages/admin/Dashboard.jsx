@@ -19,6 +19,7 @@ const AdminDashboard = () => {
   const [allProducts, setAllProducts] = useState([]);
   const [amazonsChoice, setAmazonsChoice] = useState([]);
   const [pendingApprovals, setPendingApprovals] = useState(0);
+  const [pendingListingRequests, setPendingListingRequests] = useState(0);
 
   const [categories, setCategories] = useState({});
   const [sellers, setSellers] = useState([]);
@@ -48,6 +49,7 @@ const AdminDashboard = () => {
     fetchAmazonsChoice();
     fetchSellers();
     fetchPendingApprovals();
+    fetchPendingListingRequests();
   }, []);
 
   // Set currency to GBP for admin dashboard (only once on mount)
@@ -141,6 +143,17 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error fetching pending approvals:', error);
       setPendingApprovals(0);
+    }
+  };
+
+  const fetchPendingListingRequests = async () => {
+    try {
+      const response = await adminGet('http://localhost:5000/api/sellers/admin/listing-requests?status=pending_approval&limit=1000');
+      const data = await response.json();
+      setPendingListingRequests(data.requests?.length || 0);
+    } catch (error) {
+      console.error('Error fetching pending listing requests:', error);
+      setPendingListingRequests(0);
     }
   };
 
@@ -1100,6 +1113,9 @@ const AdminDashboard = () => {
         </button>
         <button onClick={() => navigate('/admin/seller-verifications')} className="tool-btn info">
           🆔 Seller Verifications ({stats?.verifications?.pending || 0} pending)
+        </button>
+        <button onClick={() => navigate('/admin/listing-requests')} className="tool-btn warning">
+          📋 Listing Requests ({pendingListingRequests} pending)
         </button>
         <button onClick={() => navigate('/admin/seller-listings')} className="tool-btn success" style={{color: 'black'}}>
           📋 Seller Listings ({stats?.sellerListings?.total || 0} total)

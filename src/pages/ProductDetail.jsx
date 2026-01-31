@@ -106,15 +106,15 @@ const ProductDetail = () => {
   const [isSellerLoggedIn, setIsSellerLoggedIn] = useState(false)
   const [currentSeller, setCurrentSeller] = useState(null)
   const [savingUnits, setSavingUnits] = useState(false) // Loading state for saving units
-  const [quantity, setQuantity] = useState(200) // Independent quantity input
+  const [quantity, setQuantity] = useState(1) // Set MOQ to 1
 
-  // Initialize quantity to dealUnits when product loads, but allow independent changes
+  // Initialize quantity to 1 (MOQ) when product loads, but allow independent changes
   useEffect(() => {
-    if (product && product.dealUnits && quantity === 200) {
-      // Only set initial value if quantity hasn't been changed by user
-      setQuantity(product.dealUnits);
+    if (product && quantity === 1) {
+      // Keep quantity at 1 as MOQ, but allow user to change it
+      setQuantity(1);
     }
-  }, [product?.dealUnits]);
+  }, [product]);
 
   const handleProductChange = (productId) => {
     // Navigate to the linked product with cache busting
@@ -2438,8 +2438,8 @@ const ProductDetail = () => {
       }
       // Use stored platform data with formula: (Platform Price - Product Cost) × Unit Sales/Year = Gross Profit
       return product.platforms.map(platform => {
-        const perUnitPrice = platform.perUnitPrice || parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) / (platform.units || 200);
-        const platformUnits = platform.units || quantity || 200; // Use platform-specific units or current quantity
+        const perUnitPrice = platform.perUnitPrice || parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) / (platform.units || 1);
+        const platformUnits = platform.units || quantity || 1; // Use platform-specific units or current quantity
         
         // Formula: (Platform Price - Product Cost) × Unit Sales/Year = Gross Profit
         const grossProfitPerUnit = perUnitPrice - productCostGBP;
@@ -2489,7 +2489,7 @@ const ProductDetail = () => {
     const amazonGrossProfitPerUnit = amazonPrice - productCostGBP;
     const ebayGrossProfitPerUnit = ebayPrice - productCostGBP;
     
-    const selectedUnits = quantity || 200; // Use current quantity selection
+    const selectedUnits = quantity || 1; // Use current quantity selection
     const rrpTotalGrossProfit = rrpGrossProfitPerUnit * selectedUnits;
     const amazonTotalGrossProfit = amazonGrossProfitPerUnit * selectedUnits;
     const ebayTotalGrossProfit = ebayGrossProfitPerUnit * selectedUnits;
@@ -2720,11 +2720,16 @@ const ProductDetail = () => {
                 {/* Compact Main Image Container */}
                 <div className="position-relative mb-2" style={{
                   background: '#ffffff', 
-                  border: '1px solid #e1e5e9', 
+                  border: 'none', // Remove border to eliminate inner border effect
                   borderRadius: '8px', 
-                  padding: '10px', 
+                  padding: '25px', // Add more padding for better spacing around smaller image
                   boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                  transition: 'box-shadow 0.3s ease'
+                  transition: 'box-shadow 0.3s ease',
+                  minHeight: 'auto', // Let image determine height naturally
+                  maxHeight: 'none', // Remove height restrictions
+                  display: 'flex', // Use flex to center the smaller image
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'}
                 onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)'}
@@ -2734,16 +2739,15 @@ const ProductDetail = () => {
                     alt={product.name} 
                     className="img-fluid"
                     style={{
-                      width: 'auto', // Allow natural width
-                      maxWidth: '100%', // Prevent overflow but allow natural size
-                      height: 'auto', // Allow natural height
-                      objectFit: 'contain',
+                      width: '50%', // Further reduce width to show full image without cropping
+                      maxWidth: '50%', // Prevent overflow
+                      height: 'auto', // Maintain aspect ratio
+                      maxHeight: 'none', // Remove height restrictions completely
+                      objectFit: 'contain', // Ensure full image is visible without cropping
                       objectPosition: 'center',
-                      borderRadius: '4px',
-                      padding: '40px', // Padding for zoom out effect
+                      borderRadius: '8px', // Match container border radius
                       backgroundColor: '#ffffff', // White background for better visibility
-                      display: 'block',
-                      margin: '0 auto' // Center the image
+                      display: 'block'
                     }}
                     onLoad={(e) => {
                       console.log('🖼️ Image loaded:', {
@@ -2850,7 +2854,7 @@ const ProductDetail = () => {
                           objectFit: 'contain',
                           objectPosition: 'center',
                           borderRadius: '6px',
-                          padding: '6px', // Increased padding for more zoom out effect
+                          padding: '1px', // Minimal padding for better visibility
                           backgroundColor: '#ffffff'
                         }}
                       />
@@ -3366,7 +3370,7 @@ const ProductDetail = () => {
                           border: '1px solid #e1e5e9',
                           borderRadius: '4px',
                           fontWeight: '700',
-                          maxWidth: '60px',
+                          maxWidth: '80px', // Increased width from 60px to 80px
                           padding: '4px',
                           height: '24px',
                           fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
@@ -3434,7 +3438,7 @@ const ProductDetail = () => {
                       fontWeight: '500'
                     }}>
                       <i className="fas fa-info-circle me-1"></i>
-                      Min: {product?.dealUnits || 200} units • Changes affect Platform Comparison gross profit
+                      MOQ: 1 unit • Changes affect Platform Comparison gross profit
                     </small>
                   </div>
 
@@ -3473,7 +3477,7 @@ const ProductDetail = () => {
                         e.target.style.boxShadow = '0 2px 6px rgba(255, 153, 0, 0.25)';
                       }}
                     >
-                      <i className="fas fa-bolt me-1"></i>Buy Now - <span style={{fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>{quantity || 200}</span> Units
+                      <i className="fas fa-bolt me-1"></i>Buy Now - <span style={{fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>{quantity || 1}</span> Units
                     </button>
                     
                     <button 
@@ -3724,7 +3728,7 @@ const ProductDetail = () => {
                                 if (platform.name === 'Amazon') {
                                   console.log(`🔍 AMAZON MARKUP DETAILED DEBUG:`, {
                                     platformMarkup: platform.markup,
-                                    rrpPerUnit: platform.perUnitPrice || parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) / (platform.units || 200),
+                                    rrpPerUnit: platform.perUnitPrice || parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) / (platform.units || 1),
                                     productCost: parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0),
                                     productPrice: product?.price,
                                     calculationFormula: `((${platform.perUnitPrice || 'RRP'} - ${parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0)}) / ${parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0)}) × 100`,
@@ -3733,8 +3737,8 @@ const ProductDetail = () => {
                                 }
                                 
                                 // Calculate per unit price and total profit correctly
-                                const perUnitPrice = platform.perUnitPrice || parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) / (platform.units || 200);
-                                const platformUnits = platform.units || quantity || 200;
+                                const perUnitPrice = platform.perUnitPrice || parseFloat(String(platform.price).replace(/[£₨$€]/g, '')) / (platform.units || 1);
+                                const platformUnits = platform.units || quantity || 1;
                                 
                                 // Formula: (Platform Price - Product Cost) × Unit Sales/Year = Gross Profit
                                 const grossProfitPerUnit = perUnitPrice - productCostGBP;
@@ -3854,7 +3858,7 @@ const ProductDetail = () => {
                                       // If we have platform data with units, use it for calculation
                                       if (platformData && platformData.length > 0) {
                                         // Use the first platform's units (they should all be the same due to auto-sync)
-                                        const units = platformData[0].units || quantity || 200;
+                                        const units = platformData[0].units || quantity || 1;
                                         
                                         if (profitPerUnit > 0 && units > 0) {
                                           const yearlyProfit = profitPerUnit * units;

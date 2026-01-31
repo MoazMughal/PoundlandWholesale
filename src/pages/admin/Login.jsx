@@ -15,10 +15,15 @@ const AdminLogin = () => {
   // Get redirect URL from query params
   const redirectUrl = searchParams.get('redirect') || '/admin/dashboard';
 
-  // Redirect if already logged in
+  // Redirect if already logged in - with debugging
   useEffect(() => {
+    console.log('🔍 AdminLogin useEffect - isLoggedIn:', isLoggedIn)
     if (isLoggedIn) {
-      navigate(redirectUrl, { replace: true });
+      console.log('🔄 Admin already logged in, redirecting to:', redirectUrl)
+      // Add a small delay to ensure the context is fully updated
+      setTimeout(() => {
+        navigate(redirectUrl, { replace: true });
+      }, 100);
     }
   }, [isLoggedIn, navigate, redirectUrl]);
 
@@ -28,15 +33,15 @@ const AdminLogin = () => {
     setLoading(true);
 
     try {
-      // Clear any existing tokens first
+      console.log('🔑 Admin login form submitted')
+      
+      // Clear any existing auth data from localStorage only
       localStorage.removeItem('sellerToken');
       localStorage.removeItem('sellerData');
       localStorage.removeItem('buyerToken');
       localStorage.removeItem('buyerData');
-      
-      // Clear admin tokens using the persistence utility
-      const { default: authPersistence } = await import('../../utils/authPersistence');
-      authPersistence.clearAuth();
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminData');
 
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
@@ -50,13 +55,18 @@ const AdminLogin = () => {
         throw new Error(data.message || 'Login failed');
       }
 
+      console.log('🔑 Server login successful, calling context login...')
+
       // Use the AdminContext login function
       await login(data.admin, data.token);
       
-      // Navigate to redirect URL or dashboard
-      navigate(redirectUrl, { replace: true });
+      console.log('🔑 Context login completed, preparing to navigate...')
+      
+      // Don't navigate immediately - let the useEffect handle it
+      // The useEffect will trigger when isLoggedIn becomes true
       
     } catch (err) {
+      console.error('❌ Login error:', err)
       setError(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);

@@ -20,6 +20,24 @@ import { sendPasswordResetEmail, sendEmailOTP } from '../services/email.js';
 
 const router = express.Router();
 
+// Server session ID for tracking server restarts
+let serverSessionId = crypto.randomUUID();
+const serverStartTime = Date.now();
+
+// GET /auth/server-session - Get server session ID to detect restarts
+router.get('/server-session', (req, res) => {
+  try {
+    res.json({
+      serverSessionId,
+      serverStartTime,
+      timestamp: Date.now()
+    });
+  } catch (error) {
+    console.error('Error getting server session:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // POST /auth/login - Admin login with username/email and password
 router.post('/login', async (req, res) => {
   try {

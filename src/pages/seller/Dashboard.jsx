@@ -17,7 +17,7 @@ const SellerDashboard = () => {
   })
   const [paymentHistory, setPaymentHistory] = useState([])
   const [listingRequests, setListingRequests] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [dashboardLoading, setDashboardLoading] = useState(false)
   const [showVerificationModal, setShowVerificationModal] = useState(false)
   const [verificationDocs, setVerificationDocs] = useState({
     cnicNumber: '',
@@ -26,13 +26,13 @@ const SellerDashboard = () => {
     idCardWithFace: ''
   })
 
+  // Main useEffect - only depends on authResolved, isLoggedIn, and seller
   useEffect(() => {
     console.log('🏠 Dashboard useEffect triggered:', {
       authResolved,
       isLoggedIn,
       hasSeller: !!seller,
-      sellerUsername: seller?.username,
-      currentPath: window.location.pathname
+      sellerUsername: seller?.username
     })
     
     // Wait for auth to be resolved
@@ -49,25 +49,17 @@ const SellerDashboard = () => {
     }
 
     console.log('🏠 Dashboard authenticated, fetching data...')
-
-    // Fetch additional dashboard data
+    
+    // Fetch dashboard data only once when authenticated
     const token = localStorage.getItem('sellerToken')
     if (token) {
       fetchDashboardData(token)
     }
-    
-    // Set a timeout to prevent infinite loading
-    const timeout = setTimeout(() => {
-      if (loading) {
-        setLoading(false)
-        console.error('Dashboard data fetch timeout')
-      }
-    }, 10000) // 10 second timeout
-    
-    return () => clearTimeout(timeout)
-  }, [navigate, isLoggedIn, seller, authResolved])
+  }, [authResolved, isLoggedIn, seller, navigate]) // Minimal dependencies
 
   const fetchDashboardData = async (token) => {
+    setDashboardLoading(true)
+    
     try {
       // Check dashboard access
       try {
@@ -123,7 +115,7 @@ const SellerDashboard = () => {
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
     } finally {
-      setLoading(false)
+      setDashboardLoading(false)
     }
   }
 
@@ -153,42 +145,6 @@ const SellerDashboard = () => {
     } catch (error) {
       console.error('Refresh error:', error)
       alert('❌ Error refreshing profile')
-    }
-  }
-
-  const handlePayment = async () => {
-    const amount = prompt('Enter payment amount:')
-    const transactionId = prompt('Enter transaction ID:')
-    
-    if (!amount || !transactionId) return
-
-    try {
-      const token = localStorage.getItem('sellerToken')
-      const response = await fetch('http://localhost:5000/api/sellers/payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          amount: parseFloat(amount),
-          paymentMethod: 'Bank Transfer',
-          transactionId,
-          purpose: 'registration'
-        })
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        alert('✅ Payment recorded successfully!')
-        fetchDashboardData(token)
-      } else {
-        alert('❌ ' + data.message)
-      }
-    } catch (error) {
-      console.error('Payment error:', error)
-      alert('❌ Failed to record payment')
     }
   }
 
@@ -235,13 +191,15 @@ const SellerDashboard = () => {
     }
   }
 
-  if (!authResolved || loading) {
+  // Show loading spinner while context is loading OR dashboard is loading
+  if (contextLoading || (!authResolved)) {
     return (
       <div className="container mt-5">
         <div className="text-center">
           <div className="spinner-border" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
+          <p className="mt-2 text-muted">Loading seller dashboard...</p>
         </div>
       </div>
     )
@@ -422,6 +380,80 @@ const SellerDashboard = () => {
 
   return (
     <div className="container-fluid dashboard-container">
+      {/* Dashboard Loading Overlay */}
+      {dashboardLoading && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
+             style={{backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 9999}}>
+          <div className="text-center">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+            <p className="mt-2 text-muted">Loading dashboard data...</p>
+          </div>
+        </div>
+      )}
+
+      {/* PROMINENT RED WARNING FOR UNVERIFIED ACCOUNTS */}
+      {seller && (seller.verificationStatus === 'required' || seller.verificationStatus === 'not_required' || seller.verificationStatus === 'rejected' || !seller.verificationStatus) && (
+        <div className="alert alert-danger alert-dismissible fade show mb-4" role="alert" style={{
+          background: 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)',
+          border: '2px solid #dc3545',
+          borderRadius: '10px',
+          boxShadow: '0 4px 15px rgba(220, 53, 69, 0.3)',
+          animation: 'pulse 2s infinite'
+        }}>
+          <div className="d-flex align-items-center">
+            <div className="me-3">
+              <i className="fas fa-exclamation-triangle fa-2x text-white"></i>
+            </div>
+            <div className="flex-grow-1">
+              <h5 className="alert-heading text-white mb-2">
+                <i className="fas fa-shield-alt me-2"></i>
+                Account Verification Required
+              </h5>
+              <p className="mb-2 text-white">
+                <strong>Your seller account is not verified!</strong> You have limited access to platform features.
+              </p>
+              <div className="mb-3">
+                <small className="text-white opacity-75">
+                  <i className="fas fa-clock me-1"></i>
+                  Verification Status: <span className="badge bg-light text-dark ms-1">
+                    {seller.verificationStatus === 'rejected' ? 'REJECTED - Resubmit Required' : 
+                     seller.verificationStatus === 'pending' ? 'UNDER REVIEW' : 'PENDING SUBMISSION'}
+                  </span>
+                </small>
+              </div>
+              <div className="d-flex gap-2 flex-wrap">
+                <button 
+                  className="btn btn-light btn-sm"
+                  onClick={() => setShowVerificationModal(true)}
+                >
+                  <i className="fas fa-upload me-1"></i>
+                  {seller.verificationStatus === 'rejected' ? 'Resubmit Documents' : 'Submit Verification'}
+                </button>
+                <button 
+                  className="btn btn-outline-light btn-sm"
+                  onClick={() => navigate('/seller/profile')}
+                >
+                  <i className="fas fa-user me-1"></i>
+                  View Profile
+                </button>
+              </div>
+            </div>
+          </div>
+          <button type="button" className="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+          
+          <style>
+            {`
+              @keyframes pulse {
+                0% { box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3); }
+                50% { box-shadow: 0 6px 20px rgba(220, 53, 69, 0.5); }
+                100% { box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3); }
+              }
+            `}
+          </style>
+        </div>
+      )}
 
       {/* Header */}
       <div className="row mb-4">
@@ -694,7 +726,7 @@ const SellerDashboard = () => {
                 <div className="text-center py-4">
                   <i className="fas fa-inbox fa-3x text-muted mb-3"></i>
                   <p className="text-muted mb-0">No product listing requests yet.</p>
-                  <small className="text-muted">Start listing products to see your requests here.</small>
+                  <small className="text-muted">Start requesting products to see your requests here.</small>
                 </div>
               ) : (
                 <div className="list-group list-group-flush">
@@ -703,15 +735,32 @@ const SellerDashboard = () => {
                       <div className="d-flex justify-content-between align-items-start">
                         <div className="flex-grow-1">
                           <h6 className="mb-1 text-truncate">{request.productName}</h6>
-                          <p className="mb-1 text-muted">£{request.productPrice}</p>
-                          <small className="text-muted">{new Date(request.submittedAt).toLocaleDateString()}</small>
+                          <p className="mb-1 text-muted">
+                            Your Price: £{request.sellerPrice ? parseFloat(request.sellerPrice).toFixed(2) : 'N/A'}
+                          </p>
+                          <small className="text-muted">
+                            {request.submittedAt ? new Date(request.submittedAt).toLocaleDateString() : 
+                             new Date(request.submittedAt || Date.now()).toLocaleDateString()}
+                          </small>
                         </div>
-                        <span className={`badge bg-${
-                          request.status === 'approved' ? 'success' : 
-                          request.status === 'rejected' ? 'danger' : 'warning'
-                        }`}>
-                          {request.status.replace('_', ' ').toUpperCase()}
-                        </span>
+                        <div className="text-end">
+                          <span className={`badge bg-${
+                            request.status === 'approved' ? 'success' : 
+                            request.status === 'rejected' ? 'danger' : 'warning'
+                          }`}>
+                            {request.status === 'pending_approval' ? 'PENDING APPROVAL' :
+                             request.status === 'approved' ? 'APPROVED' :
+                             request.status === 'rejected' ? 'REJECTED' :
+                             request.status?.replace('_', ' ').toUpperCase()}
+                          </span>
+                          {request.status === 'rejected' && request.rejectionReason && (
+                            <div className="mt-1">
+                              <small className="text-danger" title={request.rejectionReason}>
+                                <i className="fas fa-info-circle"></i> Reason available
+                              </small>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -786,34 +835,41 @@ const SellerDashboard = () => {
         <div className="col-12">
           <div className="card amazon-choice-card">
             <div className="card-header">
-              <h5 className="mb-1"><i className="fas fa-shopping-cart me-2"></i>List Products to Amazon's Choice</h5>
-              <small className="opacity-75">Browse and list products from our catalog</small>
+              <h5 className="mb-1"><i className="fas fa-shopping-cart me-2"></i>Request Products from Amazon's Choice</h5>
+              <small className="opacity-75">Browse and request products from our catalog (requires admin approval)</small>
             </div>
             <div className="card-body text-center py-4">
               <div className="mb-3">
-                <i className="fas fa-trophy fa-3x text-warning mb-3"></i>
-                <h6 className="mb-2">Start Listing Products</h6>
-                <p className="text-muted mb-4">Choose from our curated Amazon's Choice products and start earning</p>
+                <i className="fas fa-paper-plane fa-3x text-primary mb-3"></i>
+                <h6 className="mb-2">Submit Listing Requests</h6>
+                <p className="text-muted mb-4">
+                  Choose from our curated Amazon's Choice products and submit requests for admin approval
+                </p>
+                <div className="alert alert-info mb-4">
+                  <i className="fas fa-info-circle me-2"></i>
+                  <strong>New Process:</strong> All product listing requests now require admin approval. 
+                  You'll be notified once your requests are reviewed.
+                </div>
               </div>
               
               <button 
-                className="btn amazon-choice-btn"
+                className="btn btn-primary btn-lg"
                 disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
                 onClick={() => navigate('/seller/admin-products')}
               >
                 <div className="d-flex flex-column align-items-center">
                   <div className="d-flex align-items-center mb-1">
-                    <i className="fas fa-trophy me-2"></i>
-                    <span>Browse Amazon's Choice</span>
+                    <i className="fas fa-paper-plane me-2"></i>
+                    <span>Browse & Request Products</span>
                   </div>
-                  <small>List admin products</small>
+                  <small>Submit listing requests</small>
                 </div>
               </button>
               
               {!(seller?.canListProducts || seller?.verificationStatus === 'approved') && (
                 <div className="alert alert-warning mt-4 mb-0">
                   <i className="fas fa-exclamation-triangle me-2"></i> 
-                  <strong>Verification Required:</strong> Complete your verification to list products.
+                  <strong>Verification Required:</strong> Complete your verification to request products.
                 </div>
               )}
             </div>
@@ -856,9 +912,9 @@ const SellerDashboard = () => {
                     disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
                     onClick={() => navigate('/seller/admin-products')}
                   >
-                    <i className="fas fa-shopping-cart fa-2x mb-2"></i>
-                    <span className="fw-bold">Admin Products</span>
-                    <small className="opacity-75">Browse catalog</small>
+                    <i className="fas fa-paper-plane fa-2x mb-2"></i>
+                    <span className="fw-bold">Request Products</span>
+                    <small className="opacity-75">Browse & request</small>
                   </button>
                 </div>
                 <div className="col-lg-3 col-md-6 col-sm-6">

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import tokenRefreshManager from '../utils/tokenRefresh'
+import sessionAuthManager from '../utils/sessionAuth'
 
 const AdminContext = createContext()
 
@@ -17,142 +17,127 @@ export const AdminProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [authResolved, setAuthResolved] = useState(false)
 
-  // Simple JWT validation - decode and check expiry locally
-  const isTokenValid = (token) => {
-    if (!token) return false
-    
-    try {
-      const parts = token.split('.')
-      if (parts.length !== 3) return false
-      
-      const payload = JSON.parse(atob(parts[1]))
-      const now = Date.now() / 1000
-      
-      // Token is valid if not expired
-      return payload.exp && payload.exp > now
-    } catch (error) {
-      return false
-    }
-  }
-
-  // Initialize authentication - ONLY read from localStorage
+  // Initialize authentication - Load from localStorage and validate token
   useEffect(() => {
     const initializeAuth = () => {
-      console.log('🔑 Initializing auth from localStorage...')
+      console.log('🔑 Initializing admin auth from storage...')
       
       // Skip auto-login on login page
       if (window.location.pathname === '/admin/login') {
-        console.log('🔑 On login page, skipping auto-login')
-        setLoading(false)
-        setAuthResolved(true)
-        return
-      }
-
-      const token = localStorage.getItem('adminToken')
-      const adminData = localStorage.getItem('adminData')
-
-      if (!token || !adminData) {
-        console.log('🔑 No auth data found')
-        setLoading(false)
-        setAuthResolved(true)
-        return
-      }
-
-      // Validate token locally
-      if (!isTokenValid(token)) {
-        console.log('🔑 Token expired, clearing auth data')
-        localStorage.removeItem('adminToken')
-        localStorage.removeItem('adminData')
+        console.log('🔑 On admin login page, skipping auto-login')
         setLoading(false)
         setAuthResolved(true)
         return
       }
 
       try {
-        const parsedAdmin = JSON.parse(adminData)
-        console.log('✅ Valid auth found, setting logged in state')
-        setAdmin(parsedAdmin)
-        setIsLoggedIn(true)
+        // Try to initialize from any stored auth
+        const storedAuth = sessionAuthManager.initializeFromStorage();
+        
+        if (storedAuth && storedAuth.userType === 'admin') {
+          console.log('✅ Valid admin auth found, setting logged in state')
+          setAdmin(storedAuth.user)
+          setIsLoggedIn(true)
+          setLoading(false)
+          setAuthResolved(true)
+        } else {
+          console.log('🔑 No admin auth found')
+          setLoading(false)
+          setAuthResolved(true)
+        }
       } catch (error) {
-        console.error('❌ Error parsing admin data:', error)
-        localStorage.removeItem('adminToken')
-        localStorage.removeItem('adminData')
+        console.error('❌ Admin auth initialization error:', error)
+        setLoading(false)
+        setAuthResolved(true)
       }
-
-      setLoading(false)
-      setAuthResolved(true)
     }
 
-    initializeAuth()
-  }, [])
+    // Only run initialization if not already resolved
+    if (!authResolved) {
+      // Small delay to prevent race conditions
+      const timer = setTimeout(initializeAuth, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [authResolved])
 
-  // Cross-tab synchronization - simple storage events only
+  // Cross-tab synchronization for localStorage
   useEffect(() => {
     const handleStorageChange = (event) => {
-      if (event.key === 'adminToken') {
-        if (!event.newValue && event.oldValue) {
-          // Token removed in another tab - logout
-          console.log('🔄 Token removed in another tab, logging out')
-          setAdmin(null)
-          setIsLoggedIn(false)
-          tokenRefreshManager.stopAutoRefresh()
-        } else if (event.newValue && !event.oldValue) {
-          // Token added in another tab - sync login
-          console.log('🔄 Token added in another tab, syncing login')
-          const adminData = localStorage.getItem('adminData')
-          if (adminData && isTokenValid(event.newValue)) {
-            try {
-              const parsedAdmin = JSON.parse(adminData)
-              setAdmin(parsedAdmin)
-              setIsLoggedIn(true)
-            } catch (error) {
-              console.error('Error parsing admin data:', error)
-            }
+      // Handle localStorage changes from other tabs
+      if (event.key === 'activeUserType' && event.storageArea === localStorage) {
+        console.log('🔄 Active user type changed in another tab:', event.newValue);
+        
+        if (event.newValue === 'admin') {
+          // Admin logged in from another tab
+          const authData = sessionAuthManager.loadAuth('admin');
+          if (authData) {
+            setAdmin(authData.user);
+            setIsLoggedIn(true);
+            setAuthResolved(true);
           }
+        } else if (event.newValue !== 'admin' && isLoggedIn) {
+          // Different user type logged in, logout admin
+          console.log('🔄 Different user type active, logging out admin');
+          setAdmin(null);
+          setIsLoggedIn(false);
+        }
+      } else if (event.key === 'adminToken' && event.storageArea === localStorage) {
+        if (!event.newValue && event.oldValue && isLoggedIn) {
+          // Admin token removed in another tab
+          console.log('🔄 Admin token removed in another tab, logging out');
+          setAdmin(null);
+          setIsLoggedIn(false);
         }
       }
     }
 
     window.addEventListener('storage', handleStorageChange)
     return () => window.removeEventListener('storage', handleStorageChange)
-  }, [])
-
-  // Token refresh - ONLY start after successful login
-  useEffect(() => {
-    if (isLoggedIn && authResolved) {
-      console.log('🔄 Starting token refresh manager')
-      tokenRefreshManager.startAutoRefresh(
-        (freshAdmin) => {
-          console.log('✅ Token refreshed successfully')
-          setAdmin(freshAdmin)
-        },
-        () => {
-          console.log('❌ Token refresh failed, logging out')
-          logout()
-        }
-      )
-    } else {
-      tokenRefreshManager.stopAutoRefresh()
-    }
-
-    return () => tokenRefreshManager.stopAutoRefresh()
-  }, [isLoggedIn, authResolved])
+  }, [isLoggedIn])
 
   const login = async (adminData, token) => {
     try {
-      console.log('🔑 Admin login initiated')
+      console.log('🔑 Admin login initiated', { adminData, token: token?.substring(0, 20) + '...' })
       
-      // Save auth data
-      localStorage.setItem('adminToken', token)
-      localStorage.setItem('adminData', JSON.stringify(adminData))
+      // Set loading state during login
+      setLoading(true);
       
-      // Update state
+      // Save auth data to session
+      const success = sessionAuthManager.saveAuth('admin', adminData, token)
+      
+      if (!success) {
+        throw new Error('Failed to save authentication data')
+      }
+      
+      console.log('🔑 Session auth saved, updating context state...')
+      
+      // Update state immediately
       setAdmin(adminData)
       setIsLoggedIn(true)
+      setAuthResolved(true)
+      setLoading(false) // Clear loading state
 
-      console.log('✅ Admin login successful')
+      console.log('✅ Admin login successful - state updated')
+      
+      // Add a small delay to ensure state is fully updated before any redirects
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Verify the state was actually set
+      console.log('🔍 Verifying login state after delay...')
+      const verifyAuth = sessionAuthManager.loadAuth('admin')
+      const activeUserType = sessionStorage.getItem('activeUserType')
+      console.log('🔍 Verification:', { 
+        hasSessionAuth: !!verifyAuth, 
+        activeUserType,
+        contextAdmin: !!adminData,
+        contextIsLoggedIn: true,
+        contextAuthResolved: true,
+        contextLoading: false
+      })
+      
     } catch (error) {
-      console.error('❌ Login error:', error)
+      console.error('❌ Admin login error:', error)
+      setLoading(false) // Clear loading state on error
       throw error
     }
   }
@@ -160,12 +145,10 @@ export const AdminProvider = ({ children }) => {
   const logout = () => {
     console.log('🔄 Admin logout initiated')
     
-    // Stop token refresh
-    tokenRefreshManager.stopAutoRefresh()
+    // Clear session auth data
+    sessionAuthManager.clearAuth('admin')
     
-    // Clear auth data
-    localStorage.removeItem('adminToken')
-    localStorage.removeItem('adminData')
+    // Update state
     setAdmin(null)
     setIsLoggedIn(false)
     
@@ -177,7 +160,11 @@ export const AdminProvider = ({ children }) => {
 
   const updateAdmin = (updatedData) => {
     setAdmin(updatedData)
-    localStorage.setItem('adminData', JSON.stringify(updatedData))
+    // Update session storage
+    const currentAuth = sessionAuthManager.loadAuth('admin')
+    if (currentAuth) {
+      sessionAuthManager.saveAuth('admin', updatedData, currentAuth.token)
+    }
   }
 
   // Simple navigation helper for product pages
@@ -190,30 +177,7 @@ export const AdminProvider = ({ children }) => {
 
   // Helper for authenticated API calls
   const makeAuthenticatedRequest = async (url, options = {}) => {
-    const token = localStorage.getItem('adminToken')
-    
-    if (!token || !isTokenValid(token)) {
-      throw new Error('Authentication required')
-    }
-
-    const defaultHeaders = {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...options.headers
-    }
-
-    const requestOptions = {
-      ...options,
-      headers: defaultHeaders
-    }
-
-    const response = await fetch(url, requestOptions)
-    
-    if (response.status === 401) {
-      throw new Error('Authentication expired')
-    }
-    
-    return response
+    return sessionAuthManager.makeAuthenticatedRequest('admin', url, options)
   }
 
   const value = {

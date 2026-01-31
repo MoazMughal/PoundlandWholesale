@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import sessionAuthManager from '../utils/sessionAuth'
 
 const SellerContext = createContext()
 
@@ -16,29 +17,10 @@ export const SellerProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [authResolved, setAuthResolved] = useState(false)
 
-  // Simple JWT validation - decode and check expiry locally
-  const isTokenValid = (token) => {
-    if (!token) return false
-    
-    try {
-      const parts = token.split('.')
-      if (parts.length !== 3) return false
-      
-      const payload = JSON.parse(atob(parts[1]))
-      const now = Date.now() / 1000
-      
-      // Token is valid if not expired
-      return payload.exp && payload.exp > now
-    } catch (error) {
-      return false
-    }
-  }
-
-  // Initialize authentication - EXACTLY like admin
+  // Initialize authentication - Load from localStorage and validate token
   useEffect(() => {
     const initializeAuth = () => {
-      console.log('🔑 Initializing seller auth from localStorage...')
-      console.log('🔑 Current path:', window.location.pathname)
+      console.log('🔑 Initializing seller auth from storage...')
       
       // Skip auto-login on seller login page
       if (window.location.pathname === '/login/supplier') {
@@ -48,105 +30,112 @@ export const SellerProvider = ({ children }) => {
         return
       }
 
-      const token = localStorage.getItem('sellerToken')
-      const sellerData = localStorage.getItem('sellerData')
-
-      console.log('🔑 Auth data check:', {
-        hasToken: !!token,
-        hasSellerData: !!sellerData,
-        tokenLength: token ? token.length : 0
-      })
-
-      if (!token || !sellerData) {
-        console.log('🔑 No seller auth data found')
+      // Try to initialize from any stored auth
+      const storedAuth = sessionAuthManager.initializeFromStorage();
+      
+      if (!storedAuth) {
+        console.log('🔑 No stored auth found')
         setLoading(false)
         setAuthResolved(true)
         return
       }
 
-      // Validate token locally
-      if (!isTokenValid(token)) {
-        console.log('🔑 Seller token expired, clearing auth data')
-        localStorage.removeItem('sellerToken')
-        localStorage.removeItem('sellerData')
+      // Check if the stored auth is for seller role
+      if (storedAuth.userType !== 'seller') {
+        console.log(`🔑 Stored auth is for ${storedAuth.userType}, not seller`)
         setLoading(false)
         setAuthResolved(true)
         return
       }
 
-      try {
-        const parsedSeller = JSON.parse(sellerData)
-        console.log('✅ Valid seller auth found, setting logged in state')
-        console.log('🔑 Seller info:', {
-          id: parsedSeller._id,
-          username: parsedSeller.username,
-          email: parsedSeller.email
-        })
-        setSeller(parsedSeller)
-        setIsLoggedIn(true)
-      } catch (error) {
-        console.error('❌ Error parsing seller data:', error)
-        localStorage.removeItem('sellerToken')
-        localStorage.removeItem('sellerData')
-      }
-
+      console.log('✅ Valid seller auth found, setting logged in state')
+      setSeller(storedAuth.user)
+      setIsLoggedIn(true)
       setLoading(false)
       setAuthResolved(true)
     }
 
-    initializeAuth()
-  }, [])
+    // Only run initialization if not already resolved
+    if (!authResolved) {
+      // Small delay to prevent race conditions
+      const timer = setTimeout(initializeAuth, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [authResolved])
 
-  // Cross-tab synchronization - simple storage events only
+  // Cross-tab synchronization for localStorage
   useEffect(() => {
     const handleStorageChange = (event) => {
-      if (event.key === 'sellerToken') {
-        if (!event.newValue && event.oldValue) {
-          // Token removed in another tab - logout
-          console.log('🔄 Seller token removed in another tab, logging out')
-          setSeller(null)
-          setIsLoggedIn(false)
-        } else if (event.newValue && !event.oldValue) {
-          // Token added in another tab - sync login
-          console.log('🔄 Seller token added in another tab, syncing login')
-          const sellerData = localStorage.getItem('sellerData')
-          if (sellerData && isTokenValid(event.newValue)) {
-            try {
-              const parsedSeller = JSON.parse(sellerData)
-              setSeller(parsedSeller)
-              setIsLoggedIn(true)
-            } catch (error) {
-              console.error('Error parsing seller data:', error)
-            }
+      // Handle localStorage changes from other tabs
+      if (event.key === 'activeUserType' && event.storageArea === localStorage) {
+        console.log('🔄 Active user type changed in another tab:', event.newValue);
+        
+        if (event.newValue === 'seller') {
+          // Seller logged in from another tab
+          const authData = sessionAuthManager.loadAuth('seller');
+          if (authData) {
+            setSeller(authData.user);
+            setIsLoggedIn(true);
+            setAuthResolved(true);
           }
+        } else if (event.newValue !== 'seller' && isLoggedIn) {
+          // Different user type logged in, logout seller
+          console.log('🔄 Different user type active, logging out seller');
+          setSeller(null);
+          setIsLoggedIn(false);
+        }
+      } else if (event.key === 'sellerToken' && event.storageArea === localStorage) {
+        if (!event.newValue && event.oldValue && isLoggedIn) {
+          // Seller token removed in another tab
+          console.log('🔄 Seller token removed in another tab, logging out');
+          setSeller(null);
+          setIsLoggedIn(false);
         }
       }
     }
 
     window.addEventListener('storage', handleStorageChange)
     return () => window.removeEventListener('storage', handleStorageChange)
-  }, [])
+  }, [isLoggedIn])
 
   const login = (sellerData, token) => {
-    console.log('🔑 Seller login initiated')
-    
-    // Save auth data
-    localStorage.setItem('sellerToken', token)
-    localStorage.setItem('sellerData', JSON.stringify(sellerData))
-    
-    // Update state
-    setSeller(sellerData)
-    setIsLoggedIn(true)
+    try {
+      console.log('🔑 Seller login initiated', { sellerData, token: token?.substring(0, 20) + '...' })
+      
+      // Set loading state during login
+      setLoading(true);
+      
+      // Save auth data to localStorage
+      const success = sessionAuthManager.saveAuth('seller', sellerData, token)
+      
+      if (!success) {
+        throw new Error('Failed to save seller authentication data')
+      }
+      
+      console.log('🔑 Session auth saved, updating context state...')
+      
+      // Update state immediately
+      setSeller(sellerData)
+      setIsLoggedIn(true)
+      setAuthResolved(true)
+      setLoading(false) // Clear loading state
 
-    console.log('✅ Seller login successful')
+      console.log('✅ Seller login successful - state updated')
+      
+    } catch (error) {
+      console.error('❌ Seller login error:', error)
+      setLoading(false) // Clear loading state on error
+      throw error
+    }
   }
 
   const logout = () => {
     console.log('🔄 Seller logout initiated')
     
-    // Clear auth data
-    localStorage.removeItem('sellerToken')
-    localStorage.removeItem('sellerData')
+    // Clear session auth data
+    sessionAuthManager.clearAuth('seller')
+    
+    // Update state
     setSeller(null)
     setIsLoggedIn(false)
     
@@ -159,7 +148,11 @@ export const SellerProvider = ({ children }) => {
 
   const updateSeller = (updatedData) => {
     setSeller(updatedData)
-    localStorage.setItem('sellerData', JSON.stringify(updatedData))
+    // Update session storage
+    const currentAuth = sessionAuthManager.loadAuth('seller')
+    if (currentAuth) {
+      sessionAuthManager.saveAuth('seller', updatedData, currentAuth.token)
+    }
   }
 
   const refreshSeller = async () => {
@@ -168,54 +161,27 @@ export const SellerProvider = ({ children }) => {
       return
     }
     
-    const token = localStorage.getItem('sellerToken')
-    if (token && isTokenValid(token)) {
+    const token = sessionAuthManager.getCurrentToken('seller')
+    if (token) {
       try {
-        const response = await fetch('http://localhost:5000/api/sellers/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
+        const response = await sessionAuthManager.makeAuthenticatedRequest('seller', 'http://localhost:5000/api/sellers/profile')
         if (response.ok) {
           const data = await response.json()
           updateSeller(data)
-        } else if (response.status === 401) {
-          // Token is invalid, logout
-          logout()
         }
       } catch (error) {
         // Silent error handling for network issues
         console.log('🔍 Seller refresh network error:', error.message)
+        if (error.message === 'Authentication expired') {
+          logout()
+        }
       }
     }
   }
 
   // Helper for authenticated API calls
   const makeAuthenticatedRequest = async (url, options = {}) => {
-    const token = localStorage.getItem('sellerToken')
-    
-    if (!token || !isTokenValid(token)) {
-      throw new Error('Authentication required')
-    }
-
-    const defaultHeaders = {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...options.headers
-    }
-
-    const requestOptions = {
-      ...options,
-      headers: defaultHeaders
-    }
-
-    const response = await fetch(url, requestOptions)
-    
-    if (response.status === 401) {
-      throw new Error('Authentication expired')
-    }
-    
-    return response
+    return sessionAuthManager.makeAuthenticatedRequest('seller', url, options)
   }
 
   const value = {

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSeller } from '../../context/SellerContext';
-import { getApiUrl } from '../../utils/api';
 
 const ListedProducts = () => {
   const navigate = useNavigate();
@@ -10,8 +9,9 @@ const ListedProducts = () => {
   const [loading, setLoading] = useState(false);
   const [counts, setCounts] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
   const [activeTab, setActiveTab] = useState('all');
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [editData, setEditData] = useState({ price: '', stock: '' });
+  const [editingCell, setEditingCell] = useState(null); // Track which cell is being edited (productId-field)
+  const [editValues, setEditValues] = useState({}); // Store edit values
+  const [updatingProducts, setUpdatingProducts] = useState(new Set()); // Track which products are being updated
 
   useEffect(() => {
     if (!isLoggedIn || !seller) {
@@ -96,53 +96,116 @@ const ListedProducts = () => {
     }
   };
 
-  const handleEditInventory = (product) => {
-    setEditingProduct(product._id);
-    setEditData({
-      price: product.price.toString(),
-      stock: product.stock.toString()
-    });
-  };
+  const handleCellClick = (productId, field, currentValue) => {
+    setEditingCell(`${productId}-${field}`)
+    setEditValues({ ...editValues, [`${productId}-${field}`]: currentValue || '' })
+  }
 
-  const saveInventoryChanges = async (productId) => {
+  const handleEditChange = (productId, field, value) => {
+    setEditValues({ ...editValues, [`${productId}-${field}`]: value })
+  }
+
+  const handleInputEvent = (e, productId, field) => {
+    // Handle keyboard up/down arrows and direct input
+    const value = e.target.value
+    handleEditChange(productId, field, value)
+  }
+
+  const handleMouseWheel = (e, productId, field) => {
+    // Handle mouse wheel up/down on number inputs
+    if (e.deltaY < 0) {
+      // Wheel up - increment
+      const currentValue = parseFloat(editValues[`${productId}-${field}`] || 0)
+      const step = field === 'price' ? 0.01 : 1
+      const newValue = (currentValue + step).toFixed(field === 'price' ? 2 : 0)
+      handleEditChange(productId, field, newValue)
+    } else if (e.deltaY > 0) {
+      // Wheel down - decrement
+      const currentValue = parseFloat(editValues[`${productId}-${field}`] || 0)
+      const step = field === 'price' ? 0.01 : 1
+      const newValue = Math.max(0, currentValue - step).toFixed(field === 'price' ? 2 : 0)
+      handleEditChange(productId, field, newValue)
+    }
+  }
+
+  const handleSaveEdit = async (productId, field) => {
+    const cellKey = `${productId}-${field}`
+    const newValue = editValues[cellKey]
+
+    if (!newValue || newValue === '' || isNaN(newValue)) {
+      setEditingCell(null)
+      return
+    }
+
+    const numericValue = field === 'price' ? parseFloat(newValue) : parseInt(newValue)
+    if (numericValue < 0) {
+      setEditingCell(null)
+      return
+    }
+
+    // Add product to updating set
+    setUpdatingProducts(prev => new Set(prev).add(productId))
+    setEditingCell(null) // Exit edit mode
+
     try {
-      const token = localStorage.getItem('sellerToken');
-      
+      const token = localStorage.getItem('sellerToken')
+      const updateData = {}
+      updateData[field] = numericValue
+
       const response = await fetch(`http://localhost:5000/api/sellers/update-inventory/${productId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          price: parseFloat(editData.price),
-          stock: parseInt(editData.stock)
-        })
-      });
-
-      const data = await response.json();
+        body: JSON.stringify(updateData)
+      })
 
       if (response.ok) {
-        // Update local state
-        setProducts(prev => prev.map(p => 
-          p._id === productId 
-            ? { ...p, price: parseFloat(editData.price), stock: parseInt(editData.stock) }
-            : p
-        ));
-        setEditingProduct(null);
-        alert('✅ Inventory updated successfully');
+        // Update the local state to reflect the change
+        setProducts(prevProducts => 
+          prevProducts.map(product => 
+            product._id === productId 
+              ? { 
+                  ...product, 
+                  [field]: numericValue,
+                  // Update seller's specific price if it's a price update
+                  ...(field === 'price' && {
+                    sellerInfo: {
+                      ...product.sellerInfo,
+                      sellerPrice: numericValue
+                    }
+                  })
+                }
+              : product
+          )
+        )
       } else {
-        alert('❌ ' + data.message);
+        const data = await response.json()
+        console.error('Update failed:', data.message)
       }
     } catch (error) {
-      alert('❌ Failed to update inventory: ' + error.message);
+      console.error('Update error:', error)
+    } finally {
+      // Remove product from updating set
+      setUpdatingProducts(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(productId)
+        return newSet
+      })
     }
-  };
+  }
 
-  const cancelEdit = () => {
-    setEditingProduct(null);
-    setEditData({ price: '', stock: '' });
-  };
+  const handleKeyPress = (e, productId, field) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      handleSaveEdit(productId, field)
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setEditingCell(null)
+    }
+  }
 
   const getStatusBadge = (status) => {
     const badges = {
@@ -330,25 +393,9 @@ const ListedProducts = () => {
                   {products.map((product) => (
                     <tr key={product._id}>
                       <td>
-                        <div 
-                          onClick={(e) => {
-                            e.preventDefault()
-                            if (e.ctrlKey || e.metaKey || e.button === 1) {
-                              // Open in new tab while preserving auth
-                              window.open(`/product/${product._id}`, '_blank')
-                            } else {
-                              // Navigate in current tab
-                              navigate(`/product/${product._id}`)
-                            }
-                          }}
-                          onMouseDown={(e) => {
-                            // Handle middle mouse button click
-                            if (e.button === 1) {
-                              e.preventDefault()
-                              window.open(`/product/${product._id}`, '_blank')
-                            }
-                          }}
-                          style={{ cursor: 'pointer' }}
+                        <a 
+                          href={`/product/${product._id}`}
+                          style={{ cursor: 'pointer', display: 'block' }}
                         >
                           <img 
                             src={product.images?.[0] || 'https://via.placeholder.com/50x50?text=No+Image'} 
@@ -371,28 +418,12 @@ const ListedProducts = () => {
                             onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
                             onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
                           />
-                        </div>
+                        </a>
                       </td>
                       <td>
                         <div style={{ maxWidth: '200px' }}>
-                          <div 
-                            onClick={(e) => {
-                              e.preventDefault()
-                              if (e.ctrlKey || e.metaKey || e.button === 1) {
-                                // Open in new tab while preserving auth
-                                window.open(`/product/${product._id}`, '_blank')
-                              } else {
-                                // Navigate in current tab
-                                navigate(`/product/${product._id}`)
-                              }
-                            }}
-                            onMouseDown={(e) => {
-                              // Handle middle mouse button click
-                              if (e.button === 1) {
-                                e.preventDefault()
-                                window.open(`/product/${product._id}`, '_blank')
-                              }
-                            }}
+                          <a 
+                            href={`/product/${product._id}`}
                             style={{
                               textDecoration: 'none',
                               color: '#0066cc',
@@ -405,39 +436,95 @@ const ListedProducts = () => {
                             title={product.name}
                           >
                             {product.name}
-                          </div>
+                          </a>
                           {product.asin && (
                             <small className="text-muted">ASIN: {product.asin}</small>
                           )}
                         </div>
                       </td>
-                      <td>
-                        {editingProduct === product._id ? (
+                      <td
+                        style={{ 
+                          cursor: 'pointer', 
+                          transition: 'background 0.2s',
+                          padding: '8px'
+                        }}
+                        onClick={() => handleCellClick(product._id, 'price', product.sellerInfo?.sellerPrice || product.price)}
+                        onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
+                        onMouseLeave={(e) => e.target.style.background = ''}
+                        title="Click to edit price"
+                      >
+                        {editingCell === `${product._id}-price` ? (
                           <input
                             type="number"
-                            className="form-control form-control-sm"
-                            style={{ width: '80px' }}
-                            value={editData.price}
-                            onChange={(e) => setEditData(prev => ({ ...prev, price: e.target.value }))}
+                            step="0.01"
+                            value={editValues[`${product._id}-price`] || ''}
+                            onChange={(e) => handleEditChange(product._id, 'price', e.target.value)}
+                            onInput={(e) => handleInputEvent(e, product._id, 'price')}
+                            onWheel={(e) => handleMouseWheel(e, product._id, 'price')}
+                            onBlur={() => handleSaveEdit(product._id, 'price')}
+                            onKeyDown={(e) => handleKeyPress(e, product._id, 'price')}
+                            autoFocus
+                            disabled={updatingProducts.has(product._id)}
+                            style={{
+                              width: '80px',
+                              padding: '4px',
+                              fontSize: '0.85rem',
+                              border: '2px solid #667eea',
+                              borderRadius: '4px',
+                              outline: 'none'
+                            }}
                           />
                         ) : (
-                          <span className="fw-bold text-success">
-                            {product.currency || 'PKR'} {product.price}
-                          </span>
+                          <div>
+                            <span className="fw-bold text-success">
+                              {product.currency || 'PKR'} {product.sellerInfo?.sellerPrice || product.price}
+                              <span style={{ marginLeft: '4px', fontSize: '0.6rem', color: '#999' }}>✏️</span>
+                            </span>
+                            {product.sellerInfo?.sellerPrice && product.sellerInfo.sellerPrice !== product.price && (
+                              <div>
+                                <small className="text-muted">
+                                  Admin: {product.currency || 'PKR'} {product.price}
+                                </small>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </td>
-                      <td>
-                        {editingProduct === product._id ? (
+                      <td
+                        style={{ 
+                          cursor: 'pointer', 
+                          transition: 'background 0.2s',
+                          padding: '8px'
+                        }}
+                        onClick={() => handleCellClick(product._id, 'stock', product.stock)}
+                        onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
+                        onMouseLeave={(e) => e.target.style.background = ''}
+                        title="Click to edit stock"
+                      >
+                        {editingCell === `${product._id}-stock` ? (
                           <input
                             type="number"
-                            className="form-control form-control-sm"
-                            style={{ width: '70px' }}
-                            value={editData.stock}
-                            onChange={(e) => setEditData(prev => ({ ...prev, stock: e.target.value }))}
+                            value={editValues[`${product._id}-stock`] || ''}
+                            onChange={(e) => handleEditChange(product._id, 'stock', e.target.value)}
+                            onInput={(e) => handleInputEvent(e, product._id, 'stock')}
+                            onWheel={(e) => handleMouseWheel(e, product._id, 'stock')}
+                            onBlur={() => handleSaveEdit(product._id, 'stock')}
+                            onKeyDown={(e) => handleKeyPress(e, product._id, 'stock')}
+                            autoFocus
+                            disabled={updatingProducts.has(product._id)}
+                            style={{
+                              width: '70px',
+                              padding: '4px',
+                              fontSize: '0.85rem',
+                              border: '2px solid #667eea',
+                              borderRadius: '4px',
+                              outline: 'none'
+                            }}
                           />
                         ) : (
                           <span className={`badge ${product.stock > 0 ? 'bg-success' : 'bg-danger'}`}>
                             {product.stock}
+                            <span style={{ marginLeft: '4px', fontSize: '0.6rem', color: '#999' }}>✏️</span>
                           </span>
                         )}
                       </td>
@@ -465,47 +552,29 @@ const ListedProducts = () => {
                         </small>
                       </td>
                       <td>
-                        {editingProduct === product._id ? (
-                          <div className="btn-group btn-group-sm">
-                            <button 
-                              className="btn btn-success btn-sm"
-                              onClick={() => saveInventoryChanges(product._id)}
-                            >
-                              <i className="fas fa-check"></i>
-                            </button>
-                            <button 
-                              className="btn btn-secondary btn-sm"
-                              onClick={cancelEdit}
-                            >
-                              <i className="fas fa-times"></i>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="btn-group btn-group-sm">
-                            <a
-                              href={`/product/${product._id}`}
-                              className="btn btn-info btn-sm"
-                              title="View Product"
-                            >
-                              <i className="fas fa-eye"></i>
-                            </a>
-                            <button 
-                              className="btn btn-outline-primary btn-sm"
-                              onClick={() => handleEditInventory(product)}
-                              disabled={product.approvalStatus !== 'approved'}
-                              title={product.approvalStatus !== 'approved' ? 'Only approved products can be edited' : 'Edit price and stock'}
-                            >
-                              <i className="fas fa-edit"></i>
-                            </button>
-                            <button 
-                              className="btn btn-outline-danger btn-sm"
-                              onClick={() => handleUnlistProduct(product)}
-                              title="Remove your listing from this product"
-                            >
-                              <i className="fas fa-trash"></i>
-                            </button>
-                          </div>
-                        )}
+                        <div className="btn-group btn-group-sm">
+                          <a
+                            href={`/product/${product._id}`}
+                            className="btn btn-info btn-sm"
+                            title="View Product"
+                            style={{ 
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              textDecoration: 'none',
+                              color: 'white'
+                            }}
+                          >
+                            <i className="fas fa-eye"></i>
+                          </a>
+                          <button 
+                            className="btn btn-outline-danger btn-sm"
+                            onClick={() => handleUnlistProduct(product)}
+                            title="Remove your listing from this product"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

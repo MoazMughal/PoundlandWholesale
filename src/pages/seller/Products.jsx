@@ -5,7 +5,7 @@ import { useSeller } from '../../context/SellerContext'
 const SellerProducts = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { seller, isLoggedIn } = useSeller()
+  const { isLoggedIn } = useSeller()
   const [products, setProducts] = useState([])
   const [adminProducts, setAdminProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -18,6 +18,9 @@ const SellerProducts = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('jazzcash')
+  const [updatingProducts, setUpdatingProducts] = useState(new Set()) // Track which products are being updated
+  const [editingCell, setEditingCell] = useState(null) // Track which cell is being edited (productId-field)
+  const [editValues, setEditValues] = useState({}) // Store edit values
   const [paymentDetails, setPaymentDetails] = useState({
     receiptImage: '',
     cardNumber: '',
@@ -35,7 +38,7 @@ const SellerProducts = () => {
     if (activeTab === 'my-products') {
       fetchProducts(token)
     } else if (activeTab === 'admin-products') {
-      fetchAdminProducts(token)
+      fetchAdminProducts()
     }
   }, [navigate, filter, activeTab, isLoggedIn])
 
@@ -44,7 +47,8 @@ const SellerProducts = () => {
       const params = new URLSearchParams()
       if (filter !== 'all') params.append('status', filter)
 
-      const response = await fetch(`http://localhost:5000/api/products/seller/my-products?${params}`, {
+      // Use the correct endpoint for seller's listed products
+      const response = await fetch(`http://localhost:5000/api/sellers/my-listed-products?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -61,7 +65,7 @@ const SellerProducts = () => {
     }
   }
 
-  const fetchAdminProducts = async (token) => {
+  const fetchAdminProducts = async () => {
     try {
       setLoading(true)
       // Fetch ALL products from Excel using public endpoint
@@ -132,8 +136,8 @@ const SellerProducts = () => {
       const data = await response.json()
 
       if (response.ok) {
-        // Add product to seller's inventory
-        const addProductResponse = await fetch('http://localhost:5000/api/products/seller/list-admin-product', {
+        // Submit product listing request instead of direct listing
+        const requestResponse = await fetch('http://localhost:5000/api/sellers/request-admin-product-listing', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -141,15 +145,18 @@ const SellerProducts = () => {
           },
           body: JSON.stringify({
             adminProductId: selectedProduct._id,
-            paymentTransactionId: `TXN${Date.now()}`
+            productName: selectedProduct.name,
+            productPrice: selectedProduct.price,
+            sellerPrice: selectedProduct.price, // Use admin price as default
+            notes: `Payment submitted via ${paymentMethod} - Transaction: TXN${Date.now()}`
           })
         })
 
-        if (addProductResponse.ok) {
+        if (requestResponse.ok) {
           if (paymentMethod === 'jazzcash') {
-            alert('✅ Payment receipt submitted! Waiting for admin approval.')
+            alert('✅ Payment receipt and listing request submitted! Waiting for admin approval.')
           } else {
-            alert('✅ Payment successful! Product has been added to your inventory.')
+            alert('✅ Payment successful and listing request submitted! Waiting for admin approval.')
           }
           setShowPaymentModal(false)
           setSelectedProduct(null)
@@ -162,7 +169,7 @@ const SellerProducts = () => {
             cardHolderName: ''
           })
           // Refresh admin products to remove the listed one
-          fetchAdminProducts(token)
+          fetchAdminProducts()
           // Switch to my products tab to show the new product
           setActiveTab('my-products')
           fetchProducts(token)
@@ -203,6 +210,117 @@ const SellerProducts = () => {
     }
   }
 
+  const handleCellClick = (productId, field, currentValue) => {
+    setEditingCell(`${productId}-${field}`)
+    setEditValues({ ...editValues, [`${productId}-${field}`]: currentValue || '' })
+  }
+
+  const handleEditChange = (productId, field, value) => {
+    setEditValues({ ...editValues, [`${productId}-${field}`]: value })
+  }
+
+  const handleInputEvent = (e, productId, field) => {
+    // Handle keyboard up/down arrows and direct input
+    const value = e.target.value
+    handleEditChange(productId, field, value)
+  }
+
+  const handleMouseWheel = (e, productId, field) => {
+    // Handle mouse wheel up/down on number inputs
+    if (e.deltaY < 0) {
+      // Wheel up - increment
+      const currentValue = parseFloat(editValues[`${productId}-${field}`] || 0)
+      const step = field === 'price' ? 0.01 : 1
+      const newValue = (currentValue + step).toFixed(field === 'price' ? 2 : 0)
+      handleEditChange(productId, field, newValue)
+    } else if (e.deltaY > 0) {
+      // Wheel down - decrement
+      const currentValue = parseFloat(editValues[`${productId}-${field}`] || 0)
+      const step = field === 'price' ? 0.01 : 1
+      const newValue = Math.max(0, currentValue - step).toFixed(field === 'price' ? 2 : 0)
+      handleEditChange(productId, field, newValue)
+    }
+  }
+
+  const handleSaveEdit = async (productId, field) => {
+    const cellKey = `${productId}-${field}`
+    const newValue = editValues[cellKey]
+
+    if (!newValue || newValue === '' || isNaN(newValue)) {
+      setEditingCell(null)
+      return
+    }
+
+    const numericValue = field === 'price' ? parseFloat(newValue) : parseInt(newValue)
+    if (numericValue < 0) {
+      setEditingCell(null)
+      return
+    }
+
+    // Add product to updating set
+    setUpdatingProducts(prev => new Set(prev).add(productId))
+    setEditingCell(null) // Exit edit mode
+
+    try {
+      const token = localStorage.getItem('sellerToken')
+      const updateData = {}
+      updateData[field] = numericValue
+
+      const response = await fetch(`http://localhost:5000/api/sellers/update-inventory/${productId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updateData)
+      })
+
+      if (response.ok) {
+        // Update the local state to reflect the change
+        setProducts(prevProducts => 
+          prevProducts.map(product => 
+            product._id === productId 
+              ? { 
+                  ...product, 
+                  [field]: numericValue,
+                  // Update seller's specific price if it's a price update
+                  ...(field === 'price' && {
+                    sellerInfo: {
+                      ...product.sellerInfo,
+                      sellerPrice: numericValue
+                    }
+                  })
+                }
+              : product
+          )
+        )
+      } else {
+        const data = await response.json()
+        console.error('Update failed:', data.message)
+      }
+    } catch (error) {
+      console.error('Update error:', error)
+    } finally {
+      // Remove product from updating set
+      setUpdatingProducts(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(productId)
+        return newSet
+      })
+    }
+  }
+
+  const handleKeyPress = (e, productId, field) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      handleSaveEdit(productId, field)
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setEditingCell(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mt-5">
@@ -217,6 +335,19 @@ const SellerProducts = () => {
 
   return (
     <div className="container mt-4">
+      <style>{`
+        .editable-field {
+          cursor: pointer;
+          padding: 4px 8px;
+          border-radius: 4px;
+          border: 1px solid transparent;
+          transition: all 0.2s ease;
+        }
+        .editable-field:hover {
+          background-color: #f8f9fa;
+          border-color: #dee2e6;
+        }
+      `}</style>
       {/* Header */}
       <div className="row mb-4">
         <div className="col-md-8">
@@ -242,7 +373,7 @@ const SellerProducts = () => {
                 className={`nav-link ${activeTab === 'my-products' ? 'active' : ''}`}
                 onClick={() => setActiveTab('my-products')}
               >
-                <i className="fas fa-box"></i> My Products ({products.length})
+                <i className="fas fa-box"></i> Listed Products ({products.length})
               </button>
             </li>
             <li className="nav-item">
@@ -330,31 +461,117 @@ const SellerProducts = () => {
                       {product.description?.substring(0, 100)}...
                     </p>
                     <div className="mb-2">
-                      <strong className="text-primary">£{product.price}</strong>
-                      {product.originalPrice && product.originalPrice > product.price && (
-                        <small className="text-muted ms-2">
-                          <del>£{product.originalPrice}</del>
+                      <div className="d-flex align-items-center gap-2">
+                        <label className="small text-muted mb-0">Price:</label>
+                        <span
+                          className="text-primary fw-bold editable-field"
+                          style={{
+                            minWidth: '60px',
+                            display: 'inline-block',
+                            cursor: 'pointer',
+                            transition: 'background 0.2s',
+                            padding: '4px 8px',
+                            borderRadius: '4px'
+                          }}
+                          onClick={() => handleCellClick(product._id, 'price', product.sellerInfo?.sellerPrice || product.price)}
+                          onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
+                          onMouseLeave={(e) => e.target.style.background = ''}
+                          title="Click to edit price"
+                        >
+                          {editingCell === `${product._id}-price` ? (
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editValues[`${product._id}-price`] || ''}
+                              onChange={(e) => handleEditChange(product._id, 'price', e.target.value)}
+                              onInput={(e) => handleInputEvent(e, product._id, 'price')}
+                              onWheel={(e) => handleMouseWheel(e, product._id, 'price')}
+                              onBlur={() => handleSaveEdit(product._id, 'price')}
+                              onKeyDown={(e) => handleKeyPress(e, product._id, 'price')}
+                              autoFocus
+                              disabled={updatingProducts.has(product._id)}
+                              style={{
+                                width: '70px',
+                                padding: '3px',
+                                fontSize: '0.75rem',
+                                border: '2px solid #667eea',
+                                borderRadius: '4px',
+                                outline: 'none'
+                              }}
+                            />
+                          ) : (
+                            <span>
+                              £{product.sellerInfo?.sellerPrice || product.price}
+                              <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      {product.originalPrice && product.originalPrice > (product.sellerInfo?.sellerPrice || product.price) && (
+                        <small className="text-muted">
+                          <del>Original: £{product.originalPrice}</del>
+                        </small>
+                      )}
+                      {product.sellerInfo?.sellerPrice && product.sellerInfo.sellerPrice !== product.price && (
+                        <small className="text-info d-block">
+                          Admin Price: £{product.price}
                         </small>
                       )}
                     </div>
                     <div className="mb-2">
+                      <div className="d-flex align-items-center gap-2 mb-1">
+                        <label className="small text-muted mb-0">Stock:</label>
+                        <span
+                          className="text-dark fw-bold editable-field"
+                          style={{
+                            minWidth: '50px',
+                            display: 'inline-block',
+                            cursor: 'pointer',
+                            transition: 'background 0.2s',
+                            padding: '4px 8px',
+                            borderRadius: '4px'
+                          }}
+                          onClick={() => handleCellClick(product._id, 'stock', product.stock)}
+                          onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
+                          onMouseLeave={(e) => e.target.style.background = ''}
+                          title="Click to edit stock"
+                        >
+                          {editingCell === `${product._id}-stock` ? (
+                            <input
+                              type="number"
+                              value={editValues[`${product._id}-stock`] || ''}
+                              onChange={(e) => handleEditChange(product._id, 'stock', e.target.value)}
+                              onInput={(e) => handleInputEvent(e, product._id, 'stock')}
+                              onWheel={(e) => handleMouseWheel(e, product._id, 'stock')}
+                              onBlur={() => handleSaveEdit(product._id, 'stock')}
+                              onKeyDown={(e) => handleKeyPress(e, product._id, 'stock')}
+                              autoFocus
+                              disabled={updatingProducts.has(product._id)}
+                              style={{
+                                width: '50px',
+                                padding: '3px',
+                                fontSize: '0.7rem',
+                                border: '2px solid #667eea',
+                                borderRadius: '4px',
+                                outline: 'none'
+                              }}
+                            />
+                          ) : (
+                            <span>
+                              {product.stock}
+                              <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
+                            </span>
+                          )}
+                        </span>
+                      </div>
                       <span className={`badge bg-${
                         product.approvalStatus === 'approved' ? 'success' : 
                         product.approvalStatus === 'pending' ? 'warning' : 'danger'
                       }`}>
                         {product.approvalStatus?.toUpperCase()}
                       </span>
-                      <small className="text-muted ms-2">Stock: {product.stock}</small>
                     </div>
                     <div className="d-flex gap-2">
-                      {product.approvalStatus === 'pending' && (
-                        <button 
-                          className="btn btn-sm btn-outline-primary flex-fill"
-                          onClick={() => navigate(`/seller/products/edit/${product._id}`)}
-                        >
-                          <i className="fas fa-edit"></i> Edit
-                        </button>
-                      )}
                       <button 
                         className="btn btn-sm btn-outline-danger flex-fill"
                         onClick={() => handleDelete(product._id)}

@@ -61,6 +61,7 @@ const ImageDebug = lazy(() => import('./pages/admin/ImageDebug'))
 const AdminBuyers = lazy(() => import('./pages/admin/Buyers'))
 const AdminPendingPayments = lazy(() => import('./pages/admin/PendingPayments'))
 const AdminSellerListings = lazy(() => import('./pages/admin/SellerListings'))
+const AdminListingRequests = lazy(() => import('./pages/admin/ListingRequests'))
 const PaymentVerifications = lazy(() => import('./pages/admin/PaymentVerifications'))
 const BuyerDashboard = lazy(() => import('./pages/buyer/Dashboard'))
 const BuyerEditProfile = lazy(() => import('./pages/buyer/EditProfile'))
@@ -183,6 +184,7 @@ function App() {
           <Route path="/admin/buyers" element={<ProtectedRoute><AdminBuyers /></ProtectedRoute>} />
           <Route path="/admin/pending-payments" element={<ProtectedRoute><AdminPendingPayments /></ProtectedRoute>} />
           <Route path="/admin/seller-listings" element={<ProtectedRoute><AdminSellerListings /></ProtectedRoute>} />
+          <Route path="/admin/listing-requests" element={<ProtectedRoute><AdminListingRequests /></ProtectedRoute>} />
           <Route path="/admin/payment-verifications" element={<ProtectedRoute><PaymentVerifications /></ProtectedRoute>} />
           <Route path="/admin/excel-import" element={<ProtectedRoute><ExcelImport /></ProtectedRoute>} />
           <Route path="/admin/excel-manager" element={<ProtectedRoute><ExcelManager /></ProtectedRoute>} />

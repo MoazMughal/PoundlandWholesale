@@ -5,30 +5,58 @@
 .product-detail-page img {
   object-fit: contain !important;
   object-position: center !important;
+  max-height: none !important; /* Remove any height restrictions */
+  height: auto !important; /* Let image determine its natural height */
 }
 
-/* Additional rules to ensure full image visibility with maximum zoom out */
+/* Global image optimization for all product images */
+img[src*="cloudinary"],
+img[src*="products"],
+img[alt*="product" i],
+img[alt*="Product" i] {
+  object-fit: contain !important;
+  object-position: center !important;
+  background-color: #ffffff !important;
+}
+
+/* Admin products page image optimization */
+.admin-products img,
+.products-table img {
+  object-fit: contain !important;
+  object-position: center !important;
+  padding: 2px !important; /* Minimal padding to show more image */
+  background-color: #ffffff !important;
+}
+
+/* Additional rules to ensure full image visibility */
 .product-detail-page .img-fluid {
   max-width: 100% !important;
   height: auto !important;
+  max-height: none !important; /* Remove height restrictions */
   object-fit: contain !important;
   object-position: center !important;
 }
 
-/* Ensure main product images have maximum padding for zoom out effect */
+/* Ensure main product images are properly sized for full visibility */
 .product-detail-page .position-relative img {
-  padding: 40px !important;
+  padding: 0 !important;
   box-sizing: border-box !important;
   background-color: #ffffff !important;
+  width: 50% !important; /* Further reduce size to show full image */
+  max-width: 50% !important;
+  max-height: none !important; /* Remove height restrictions */
 }
 
-/* Force maximum zoom out for all product detail images */
+/* Consistent sizing for all product detail images */
 .product-detail-page img[alt*="product" i],
 .product-detail-page img[alt*="Product" i] {
-  padding: 30px !important;
+  padding: 0 !important;
   background-color: #ffffff !important;
   object-fit: contain !important;
   object-position: center !important;
+  width: 50% !important; /* Consistent smaller size */
+  max-width: 50% !important;
+  max-height: none !important; /* No height restrictions */
 }
 
 /* Overall font size reduction */
@@ -528,9 +556,13 @@
     margin-bottom: 1rem !important;
   }
   
-  /* Smaller images on very small screens */
+  /* Better image sizing on very small screens - smaller size for full visibility */
   .product-detail-page .position-relative img {
-    height: 200px !important;
+    min-height: auto !important; /* Let image determine its own height */
+    max-height: none !important; /* Remove height restrictions */
+    padding: 0 !important;
+    width: 50% !important; /* Further reduce size for full visibility */
+    max-width: 50% !important;
   }
   
   /* Compact buy box on small screens */

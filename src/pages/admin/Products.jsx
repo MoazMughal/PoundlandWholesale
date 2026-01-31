@@ -241,7 +241,7 @@ const SmartProductImage = ({ product, onClick }) => {
             border: '1px solid #e5e7eb',
             cursor: 'pointer',
             display: 'block',
-            padding: '4px',
+            padding: '2px', // Reduce padding to show more of the image
             backgroundColor: '#ffffff',
             boxSizing: 'border-box'
           }}
@@ -569,10 +569,6 @@ const AdminProducts = () => {
           }
         }, 1000);
         
-        // Show success message
-        setSuccessMessage('✅ Price updated! Both product price and product cost updated in Amazon FBA Revenue Calculator.');
-        setShowSuccessToast(true);
-        setTimeout(() => setShowSuccessToast(false), 4000);
       } else {
         const errorData = await updateResponse.json();
         console.log('⚠️ Failed to auto-update profit data in database:', errorData);
@@ -1482,14 +1478,37 @@ const AdminProducts = () => {
     setEditValues({ ...editValues, [`${productId}-${field}`]: value });
   };
 
+  const handleInputEvent = (e, productId, field) => {
+    // Handle keyboard up/down arrows and direct input
+    const value = e.target.value;
+    handleEditChange(productId, field, value);
+  };
+
+  const handleMouseWheel = (e, productId, field) => {
+    // Handle mouse wheel up/down on number inputs
+    if (e.deltaY < 0) {
+      // Wheel up - increment
+      const currentValue = parseFloat(editValues[`${productId}-${field}`] || 0);
+      const step = field === 'price' ? 0.01 : 1;
+      const newValue = (currentValue + step).toFixed(field === 'price' ? 2 : 0);
+      handleEditChange(productId, field, newValue);
+    } else if (e.deltaY > 0) {
+      // Wheel down - decrement
+      const currentValue = parseFloat(editValues[`${productId}-${field}`] || 0);
+      const step = field === 'price' ? 0.01 : 1;
+      const newValue = Math.max(0, currentValue - step).toFixed(field === 'price' ? 2 : 0);
+      handleEditChange(productId, field, newValue);
+    }
+  };
+
   const handleSaveEdit = async (productId, field) => {
     const cellKey = `${productId}-${field}`;
     const newValue = editValues[cellKey];
 
     console.log('💾 handleSaveEdit called:', { productId, field, cellKey, newValue, editValues });
 
-    // Allow empty values for ASIN, SKU, and category fields, but not for price/stock
-    if (newValue === undefined || (newValue === '' && field !== 'asin' && field !== 'sku' && field !== 'category')) {
+    // Allow empty values for ASIN, SKU, category, and status fields, but not for price/stock
+    if (newValue === undefined || (newValue === '' && field !== 'asin' && field !== 'sku' && field !== 'category' && field !== 'status')) {
       console.log('❌ Validation failed - empty value not allowed for field:', field);
       return;
     }
@@ -1509,6 +1528,15 @@ const AdminProducts = () => {
       } else if (field === 'category') {
         // Handle category field - trim the value
         parsedValue = newValue ? newValue.trim() : '';
+      } else if (field === 'status') {
+        // Handle status field - ensure it's a valid status
+        parsedValue = newValue;
+        console.log('🔄 Saving Status:', {
+          productId,
+          originalValue: newValue,
+          parsedValue,
+          updateData: { [field]: parsedValue }
+        });
       } else {
         parsedValue = newValue;
       }
@@ -1590,7 +1618,7 @@ const AdminProducts = () => {
             productName: updatedProducts.find(p => p._id === productId)?.name
           });
           
-          // Show success message for category update
+          // Show success message for category update only
           setSuccessMessage(`✅ Category updated to "${parsedValue}" successfully!`);
           setShowSuccessToast(true);
           setTimeout(() => setShowSuccessToast(false), 3000);
@@ -1600,7 +1628,24 @@ const AdminProducts = () => {
           window.dispatchEvent(new CustomEvent('refreshCategories'));
         }
 
-        // If price was updated, check if we need to update profit data
+        // Log successful status update
+        if (field === 'status') {
+          console.log('✅ Status updated successfully:', {
+            productId,
+            newStatus: parsedValue,
+            productName: updatedProducts.find(p => p._id === productId)?.name
+          });
+          
+          // Clear cache to ensure status changes are reflected immediately
+          cacheManager.clearAll();
+          
+          // Force a refresh of the products list to show updated status
+          setTimeout(() => {
+            fetchProducts();
+          }, 500);
+        }
+
+        // If price was updated, check if we need to update profit data (but no success message)
         if (field === 'price') {
           console.log('💰 Price field updated, calling updateProfitDataAfterPriceChange');
           console.log('📊 Price update details:', { productId, newPrice: parsedValue, field });
@@ -3521,37 +3566,48 @@ const AdminProducts = () => {
                       />
                     </td>
                     <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-                      <SmartProductImage 
-                        product={product} 
-                        onClick={(e) => handleProductClick(product, e)}
-                      />
+                      <a 
+                        href={`/product/${product._id}`}
+                        style={{ 
+                          display: 'block',
+                          textDecoration: 'none',
+                          color: 'inherit'
+                        }}
+                      >
+                        <SmartProductImage 
+                          product={product} 
+                          onClick={null}
+                        />
+                      </a>
                     </td>
                     <td className="product-info" style={{ padding: '4px 8px' }}>
-                      <div
-                        className="product-name"
-                        onClick={(e) => handleProductClick(product, e)}
-                        onMouseDown={(e) => {
-                          // Handle middle mouse button click
-                          if (e.button === 1) {
-                            e.preventDefault();
-                            handleProductClick(product, e);
-                          }
+                      <a 
+                        href={`/product/${product._id}`}
+                        style={{ 
+                          textDecoration: 'none',
+                          color: 'inherit'
                         }}
-                        style={{
-                          fontSize: '0.75rem',
-                          fontWeight: '500',
-                          marginBottom: '1px',
-                          cursor: 'pointer',
-                          color: '#667eea',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                        title="Click to view product details"
+                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
                       >
-                        {product.name}
-                        {product.isAmazonsChoice && <span style={{ fontSize: '0.7rem' }}>🏆</span>}
-                      </div>
+                        <div
+                          className="product-name"
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: '500',
+                            marginBottom: '1px',
+                            cursor: 'pointer',
+                            color: '#667eea',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title="Click to view product details"
+                        >
+                          {product.name}
+                          {product.isAmazonsChoice && <span style={{ fontSize: '0.7rem' }}>🏆</span>}
+                        </div>
+                      </a>
                       <div className="product-id" style={{ fontSize: '0.6rem', color: '#6b7280' }}>ID: {product._id.slice(-6)}</div>
                     </td>
                     <td
@@ -3720,6 +3776,8 @@ const AdminProducts = () => {
                           step="0.01"
                           value={editValues[`${product._id}-price`] || ''}
                           onChange={(e) => handleEditChange(product._id, 'price', e.target.value)}
+                          onInput={(e) => handleInputEvent(e, product._id, 'price')}
+                          onWheel={(e) => handleMouseWheel(e, product._id, 'price')}
                           onBlur={() => handleSaveEdit(product._id, 'price')}
                           onKeyDown={(e) => handleKeyPress(e, product._id, 'price')}
                           autoFocus
@@ -3753,6 +3811,8 @@ const AdminProducts = () => {
                           type="number"
                           value={editValues[`${product._id}-stock`] || ''}
                           onChange={(e) => handleEditChange(product._id, 'stock', e.target.value)}
+                          onInput={(e) => handleInputEvent(e, product._id, 'stock')}
+                          onWheel={(e) => handleMouseWheel(e, product._id, 'stock')}
                           onBlur={() => handleSaveEdit(product._id, 'stock')}
                           onKeyDown={(e) => handleKeyPress(e, product._id, 'stock')}
                           autoFocus
@@ -3772,112 +3832,160 @@ const AdminProducts = () => {
                         </span>
                       )}
                     </td>
-                    <td style={{ padding: '4px 8px' }}>
-                      {(() => {
-                        // Determine status based on approval status and Amazon's Choice listing
-                        const getStatusDisplay = (product) => {
-                          // Priority 1: Check approval status first (most important)
+                    <td 
+                      style={{ 
+                        padding: '4px 8px', 
+                        cursor: 'pointer', 
+                        transition: 'background 0.2s' 
+                      }}
+                      data-cell={`${product._id}-status`}
+                      onClick={() => {
+                        // Determine the current status value for editing
+                        let currentStatus = product.status;
+                        
+                        // If no status field exists, determine it from other fields
+                        if (!currentStatus) {
                           if (product.approvalStatus === 'pending') {
-                            return {
-                              icon: '⏳',
-                              text: 'Pending Approval',
-                              color: '#f59e0b',
-                              bgColor: '#fef3c7'
-                            };
+                            currentStatus = 'pending';
+                          } else if (product.approvalStatus === 'disapproved') {
+                            currentStatus = 'inactive';
+                          } else if (product.approvalStatus === 'approved') {
+                            // For approved products (including "Live" ones), default to active
+                            currentStatus = 'active';
+                          } else {
+                            currentStatus = 'active'; // Default fallback
                           }
-                          
-                          // Priority 2: Check if disapproved
-                          if (product.approvalStatus === 'disapproved') {
-                            return {
-                              icon: '🔴',
-                              text: 'Disapproved',
-                              color: '#dc2626',
-                              bgColor: '#fee2e2'
-                            };
-                          }
-                          
-                          // Priority 3: Check if approved and live
-                          if (product.approvalStatus === 'approved' && product.isAmazonsChoice) {
-                            return {
-                              icon: '✅',
-                              text: 'Live',
-                              color: '#059669',
-                              bgColor: '#d1fae5'
-                            };
-                          }
-                          
-                          // Priority 4: Approved but not on Amazon's Choice yet
-                          if (product.approvalStatus === 'approved') {
-                            return {
-                              icon: '✅',
-                              text: 'Approved',
-                              color: '#059669',
-                              bgColor: '#d1fae5'
-                            };
-                          }
-                          
-                          // Fallback: Check old status field for backward compatibility
-                          if (product.status === 'pending') {
-                            return {
-                              icon: '⏳',
-                              text: 'Pending Approval',
-                              color: '#f59e0b',
-                              bgColor: '#fef3c7'
-                            };
-                          }
-                          
-                          if (product.status === 'inactive') {
-                            return {
-                              icon: '🔴',
-                              text: 'Inactive',
-                              color: '#dc2626',
-                              bgColor: '#fee2e2'
-                            };
-                          }
-                          
-                          if (product.status === 'active') {
+                        }
+                        
+                        handleCellClick(product._id, 'status', currentStatus);
+                      }}
+                      onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
+                      onMouseLeave={(e) => e.target.style.background = ''}
+                      title="Click to edit status"
+                    >
+                      {editingCell === `${product._id}-status` ? (
+                        <select
+                          value={editValues[`${product._id}-status`] || ''}
+                          onChange={(e) => {
+                            handleEditChange(product._id, 'status', e.target.value);
+                            // Auto-save when user selects from dropdown
+                            setTimeout(() => handleSaveEdit(product._id, 'status'), 100);
+                          }}
+                          onBlur={() => handleSaveEdit(product._id, 'status')}
+                          onKeyDown={(e) => handleKeyPress(e, product._id, 'status')}
+                          autoFocus
+                          style={{
+                            width: '100px',
+                            padding: '4px',
+                            fontSize: '0.7rem',
+                            border: '2px solid #667eea',
+                            borderRadius: '4px',
+                            outline: 'none'
+                          }}
+                        >
+                          <option value="active">✅ Active</option>
+                          <option value="inactive">❌ Inactive</option>
+                          <option value="pending">⏳ Pending</option>
+                        </select>
+                      ) : (
+                        (() => {
+                          // Determine status based on approval status and Amazon's Choice listing
+                          const getStatusDisplay = (product) => {
+                            // Priority 1: Check approval status first (most important)
+                            if (product.approvalStatus === 'pending') {
+                              return {
+                                icon: '⏳',
+                                text: 'Pending Approval',
+                                color: '#f59e0b',
+                                bgColor: '#fef3c7'
+                              };
+                            }
+                            
+                            // Priority 2: Check if disapproved
+                            if (product.approvalStatus === 'disapproved') {
+                              return {
+                                icon: '🔴',
+                                text: 'Disapproved',
+                                color: '#dc2626',
+                                bgColor: '#fee2e2'
+                              };
+                            }
+                            
+                            // Priority 3: Check status field first (most direct)
+                            if (product.status === 'inactive') {
+                              return {
+                                icon: '❌',
+                                text: 'Inactive',
+                                color: '#dc2626',
+                                bgColor: '#fee2e2'
+                              };
+                            }
+                            
+                            if (product.status === 'pending') {
+                              return {
+                                icon: '⏳',
+                                text: 'Pending',
+                                color: '#f59e0b',
+                                bgColor: '#fef3c7'
+                              };
+                            }
+                            
+                            // Priority 4: Check if approved and live
+                            if (product.approvalStatus === 'approved' && product.isAmazonsChoice) {
+                              return {
+                                icon: '✅',
+                                text: 'Active (Live)',
+                                color: '#059669',
+                                bgColor: '#d1fae5'
+                              };
+                            }
+                            
+                            // Priority 5: Approved but not on Amazon's Choice yet
+                            if (product.approvalStatus === 'approved') {
+                              return {
+                                icon: '✅',
+                                text: 'Active (Approved)',
+                                color: '#059669',
+                                bgColor: '#d1fae5'
+                              };
+                            }
+                            
+                            // Default to active if no status specified
                             return {
                               icon: '✅',
                               text: 'Active',
                               color: '#059669',
                               bgColor: '#d1fae5'
                             };
-                          }
-                          
-                          // Default case
-                          return {
-                            icon: '⚪',
-                            text: 'Unknown',
-                            color: '#6b7280',
-                            bgColor: '#f3f4f6'
                           };
-                        };
 
-                        const statusInfo = getStatusDisplay(product);
-                        
-                        return (
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '3px 6px',
-                              borderRadius: '4px',
-                              backgroundColor: statusInfo.bgColor,
-                              border: `1px solid ${statusInfo.color}20`,
-                              fontSize: '0.65rem',
-                              fontWeight: '600',
-                              color: statusInfo.color,
-                              minWidth: '80px',
-                              justifyContent: 'center'
-                            }}
-                            title={`Status: ${statusInfo.text}${product.isAmazonsChoice ? ' (Listed on Amazon\'s Choice)' : ''}`}
-                          >
-                            <span style={{ fontSize: '0.7rem' }}>{statusInfo.icon}</span>
-                            <span>{statusInfo.text}</span>
-                          </div>
-                        );
-                      })()}
+                          const statusInfo = getStatusDisplay(product);
+                          
+                          return (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '3px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: statusInfo.bgColor,
+                                border: `1px solid ${statusInfo.color}20`,
+                                fontSize: '0.65rem',
+                                fontWeight: '600',
+                                color: statusInfo.color,
+                                minWidth: '80px',
+                                justifyContent: 'center'
+                              }}
+                              title={`Status: ${statusInfo.text}${product.isAmazonsChoice ? ' (Listed on Amazon\'s Choice)' : ''} - Click to edit`}
+                            >
+                              <span style={{ fontSize: '0.7rem' }}>{statusInfo.icon}</span>
+                              <span>{statusInfo.text}</span>
+                              <span style={{ marginLeft: '4px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
+                            </div>
+                          );
+                        })()
+                      )}
                     </td>
                     <td className="seller-info" style={{ padding: '4px 8px', fontSize: '0.7rem' }}>
                       {(() => {
@@ -3885,26 +3993,30 @@ const AdminProducts = () => {
                         const hasLegacySeller = product.seller?.businessName;
                         
                         if (sellersCount > 0) {
-                          // Show seller count and price range
-                          const prices = product.sellers
-                            .map(s => parseFloat(s.sellerPrice) || parseFloat(product.price) || 0)
-                            .filter(p => p > 0)
-                            .sort((a, b) => a - b);
-                          
-                          const minPrice = prices.length > 0 ? prices[0] : parseFloat(product.price) || 0;
-                          const maxPrice = prices.length > 0 ? prices[prices.length - 1] : parseFloat(product.price) || 0;
+                          // Show seller names (up to 3, then show count)
+                          const sellerNames = product.sellers
+                            .slice(0, 3)
+                            .map(s => {
+                              // Handle populated seller data
+                              if (s.sellerId && typeof s.sellerId === 'object') {
+                                return s.sellerId.username || s.sellerId.businessName || 'Unknown';
+                              }
+                              // Handle direct seller data (fallback)
+                              return s.username || s.businessName || 'Unknown';
+                            })
+                            .filter(name => name && name !== 'Unknown');
                           
                           return (
                             <div>
-                              <div style={{ fontWeight: '600', color: '#059669' }}>
+                              <div style={{ fontWeight: '600', color: '#059669', marginBottom: '2px' }}>
                                 {sellersCount} Seller{sellersCount > 1 ? 's' : ''}
                               </div>
-                              <div style={{ fontSize: '0.65rem', color: '#6b7280' }}>
-                                {minPrice === maxPrice 
-                                  ? `£${minPrice.toFixed(2)}`
-                                  : `£${minPrice.toFixed(2)} - £${maxPrice.toFixed(2)}`
-                                }
-                              </div>
+                              {sellerNames.length > 0 && (
+                                <div style={{ fontSize: '0.65rem', color: '#6b7280' }}>
+                                  {sellerNames.join(', ')}
+                                  {sellersCount > 3 && ` +${sellersCount - 3} more`}
+                                </div>
+                              )}
                             </div>
                           );
                         } else if (hasLegacySeller) {
@@ -3977,16 +4089,16 @@ const AdminProducts = () => {
             {filteredProducts.map(product => (
               <div key={product._id} className="mobile-product-card">
                 <div className="mobile-product-card-header">
-                  <div 
-                    style={{ flex: 1, cursor: 'pointer' }}
-                    onClick={(e) => handleProductClick(product, e)}
-                    onMouseDown={(e) => {
-                      // Handle middle mouse button click
-                      if (e.button === 1) {
-                        e.preventDefault();
-                        handleProductClick(product, e);
-                      }
+                  <a 
+                    href={`/product/${product._id}`}
+                    style={{ 
+                      flex: 1, 
+                      cursor: 'pointer',
+                      textDecoration: 'none',
+                      color: 'inherit'
                     }}
+                    onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                    onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
                   >
                     <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: 4, color: '#007bff' }}>
                       {product.name}
@@ -3994,7 +4106,7 @@ const AdminProducts = () => {
                     <div style={{ fontSize: '0.7rem', color: '#666' }}>
                       {product.category}
                     </div>
-                  </div>
+                  </a>
                   <input
                     type="checkbox"
                     checked={selectedProducts.has(product._id)}
@@ -4004,17 +4116,17 @@ const AdminProducts = () => {
                   />
                 </div>
                 
-                <div 
+                <a 
+                  href={`/product/${product._id}`}
                   className="mobile-product-card-body"
-                  onClick={(e) => handleProductClick(product, e)}
-                  onMouseDown={(e) => {
-                    // Handle middle mouse button click
-                    if (e.button === 1) {
-                      e.preventDefault();
-                      handleProductClick(product, e);
-                    }
+                  style={{
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '8px',
+                    padding: '8px'
                   }}
-                  style={{ cursor: 'pointer' }}
                 >
                   <div>
                     <div style={{ color: '#666', fontSize: '0.65rem' }}>Price</div>
@@ -4049,7 +4161,7 @@ const AdminProducts = () => {
                       })()}
                     </div>
                   </div>
-                </div>
+                </a>
                 
                 <div className="mobile-product-card-actions">
                   <button

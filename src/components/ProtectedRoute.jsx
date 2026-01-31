@@ -2,11 +2,14 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAdmin } from '../context/AdminContext';
 
 const ProtectedRoute = ({ children }) => {
-  const { isLoggedIn, authResolved } = useAdmin();
+  const { isLoggedIn, authResolved, loading } = useAdmin();
   const location = useLocation();
   
-  // Show loader until auth is resolved
-  if (!authResolved) {
+  console.log('🛡️ ProtectedRoute check:', { isLoggedIn, authResolved, loading, path: location.pathname });
+  
+  // Show loader until auth is resolved and not loading
+  if (!authResolved || loading) {
+    console.log('🛡️ ProtectedRoute: Showing loader (authResolved:', authResolved, 'loading:', loading, ')');
     return (
       <div style={{
         display: 'flex',
@@ -19,19 +22,21 @@ const ProtectedRoute = ({ children }) => {
       }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{fontSize: '2rem', marginBottom: '10px'}}>⏳</div>
-          <div>Loading...</div>
+          <div>Authenticating...</div>
         </div>
       </div>
     );
   }
   
-  // Redirect to login if not logged in
-  if (!isLoggedIn) {
+  // Only redirect if auth is fully resolved and user is not logged in
+  if (authResolved && !loading && !isLoggedIn) {
+    console.log('🛡️ ProtectedRoute: Redirecting to login');
     const redirectUrl = location.pathname + location.search;
     return <Navigate to={`/admin/login?redirect=${encodeURIComponent(redirectUrl)}`} replace />;
   }
 
   // Render children if authenticated
+  console.log('🛡️ ProtectedRoute: Rendering protected content');
   return children;
 };
 

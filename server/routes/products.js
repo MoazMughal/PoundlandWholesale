@@ -198,11 +198,21 @@ router.get('/public/cache-version', async (req, res) => {
 router.get('/public/debug/amazons-choice-count', async (req, res) => {
   try {
     const totalProducts = await Product.countDocuments({ 
-      $or: [{ status: 'active' }, { status: { $exists: false } }] 
+      $and: [
+        {
+          $or: [{ status: 'active' }, { status: { $exists: false } }]
+        },
+        { status: { $ne: 'inactive' } }
+      ]
     });
     
     const amazonsChoiceProducts = await Product.countDocuments({ 
-      $or: [{ status: 'active' }, { status: { $exists: false } }],
+      $and: [
+        {
+          $or: [{ status: 'active' }, { status: { $exists: false } }]
+        },
+        { status: { $ne: 'inactive' } }
+      ],
       isAmazonsChoice: true,
       approvalStatus: 'approved' // Only count approved products
     });
@@ -210,7 +220,12 @@ router.get('/public/debug/amazons-choice-count', async (req, res) => {
     const categoryCounts = await Product.aggregate([
       { 
         $match: { 
-          $or: [{ status: 'active' }, { status: { $exists: false } }],
+          $and: [
+            {
+              $or: [{ status: 'active' }, { status: { $exists: false } }]
+            },
+            { status: { $ne: 'inactive' } }
+          ],
           isAmazonsChoice: true,
           approvalStatus: 'approved' // Only count approved products
         } 
@@ -318,7 +333,15 @@ router.get('/public/categories', async (req, res) => {
             category: { $exists: true, $ne: null, $ne: '' }
           }
         : { // Public view: only active, approved products
-            status: 'active',
+            $and: [
+              {
+                $or: [
+                  { status: 'active' },
+                  { status: { $exists: false } }
+                ]
+              },
+              { status: { $ne: 'inactive' } }
+            ],
             approvalStatus: 'approved',
             category: { $exists: true, $ne: null, $ne: '' }
           };
@@ -1256,7 +1279,12 @@ router.post('/admin/mark-all-amazons-choice', authenticateAdmin, async (req, res
   try {
     const result = await Product.updateMany(
       { 
-        $or: [{ status: 'active' }, { status: { $exists: false } }]
+        $and: [
+          {
+            $or: [{ status: 'active' }, { status: { $exists: false } }]
+          },
+          { status: { $ne: 'inactive' } }
+        ]
       },
       { $set: { isAmazonsChoice: true } }
     );
@@ -1416,11 +1444,17 @@ router.get('/public/fast', mobileImageOptimization, optimizeProductImages, addRe
     try {
       // Use aggregation for better diversity like the category endpoints
       fastProducts = await Product.aggregate([
-        // Match active products
+        // Match active products only
         { $match: { 
-          $or: [
-            { status: 'active' },
-            { status: { $exists: false } }
+          $and: [
+            {
+              $or: [
+                { status: 'active' },
+                { status: { $exists: false } }
+              ]
+            },
+            // Ensure we don't show inactive products
+            { status: { $ne: 'inactive' } }
           ]
         }},
         
@@ -1558,11 +1592,17 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
       });
     }
 
-    // Simplified query structure for better performance
+    // Simplified query structure for better performance - only show active products
     let query = { 
-      $or: [
-        { status: 'active' },
-        { status: { $exists: false } } // Include products without status field for backward compatibility
+      $and: [
+        {
+          $or: [
+            { status: 'active' },
+            { status: { $exists: false } } // Include products without status field for backward compatibility
+          ]
+        },
+        // Ensure we don't show inactive products
+        { status: { $ne: 'inactive' } }
       ]
     };
     
@@ -2063,7 +2103,9 @@ router.get('/admin/fast', authenticateAdmin, async (req, res) => {
       allProducts = await Product.find({})
         .skip(skip)
         .limit(limitNum)
-        .select('name price category status createdAt dealUnits currency asin sku') // Minimal fields for speed including ASIN and SKU
+        .select('name price category status createdAt dealUnits currency asin sku seller sellers') // Include seller fields
+        .populate('seller', 'businessName email username')
+        .populate('sellers.sellerId', 'username businessName email')
         .sort({ createdAt: -1 })
         .maxTimeMS(5000) // Increased timeout for larger datasets
         .lean();
@@ -2225,6 +2267,7 @@ router.get('/', authenticateAdmin, async (req, res) => {
       // Optimized admin query with timeout
       adminProducts = await Product.find(query)
         .populate('seller', 'businessName email')
+        .populate('sellers.sellerId', 'username businessName email')
         .sort(sortOptions)
         .limit(limit * 1)
         .skip((page - 1) * limit)
@@ -4279,6 +4322,11 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
     const processedProducts = products.map(product => {
       const productObj = product.toObject();
       
+      // Find seller's entry in the sellers array
+      const sellerEntry = product.sellers?.find(
+        s => s.sellerId.toString() === req.seller._id.toString()
+      );
+      
       // Ensure seller can see their own information
       if (product.seller && product.seller._id.toString() === req.seller._id.toString()) {
         // This seller owns the product - show full seller info
@@ -4313,6 +4361,14 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
         // Hide seller info for unverified sellers
         delete productObj.sellerInfo;
         delete productObj.seller;
+      }
+      
+      // Add seller's individual price if they have one
+      if (sellerEntry?.sellerPrice) {
+        productObj.sellerInfo = {
+          ...productObj.sellerInfo,
+          sellerPrice: sellerEntry.sellerPrice
+        };
       }
       
       return productObj;
@@ -4358,95 +4414,21 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
   }
 });
 
-// Seller lists an admin product (with payment)
+// DEPRECATED: Direct listing route - now requires admin approval
+// Use /sellers/request-admin-product-listing instead
 router.post('/seller/list-admin-product', authenticateSeller, async (req, res) => {
   try {
-    const { adminProductId, paymentTransactionId } = req.body;
-
-    if (!req.seller.canListProducts) {
-      return res.status(403).json({ 
-        message: 'You need to complete verification before listing products' 
-      });
-    }
-
-    // Find the admin product
-    const adminProduct = await Product.findById(adminProductId);
-    if (!adminProduct || !adminProduct.isAdminProduct) {
-      return res.status(404).json({ message: 'Admin product not found' });
-    }
-
-    // Check if seller already has this product
-    const existingProduct = await Product.findOne({
-      seller: req.seller._id,
-      originalAdminProductId: adminProductId
-    });
-
-    if (existingProduct) {
-      return res.status(400).json({ message: 'You already have this product in your inventory' });
-    }
-
-    // CRITICAL FIX: Always fetch fresh seller data and cache it
-    const Seller = (await import('../models/Seller.js')).default;
-    const seller = await Seller.findById(req.seller._id);
+    console.log('⚠️ DEPRECATED: Direct listing attempt blocked via products route - admin approval required');
     
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
-
-    // Enhanced seller info for caching using fresh database data
-    const enhancedSellerInfo = {
-      username: seller.username,
-      email: seller.email,
-      whatsappNo: seller.whatsappNo,
-      city: seller.city,
-      country: seller.country,
-      verificationStatus: seller.verificationStatus,
-      _id: seller._id
-    };
-
-    // Create a copy for the seller
-    const sellerProduct = new Product({
-      name: adminProduct.name,
-      description: adminProduct.description,
-      price: adminProduct.price,
-      originalPrice: adminProduct.originalPrice,
-      discount: adminProduct.discount,
-      category: adminProduct.category,
-      subcategory: adminProduct.subcategory,
-      brand: adminProduct.brand,
-      images: adminProduct.images,
-      rating: adminProduct.rating,
-      reviews: adminProduct.reviews,
-      stock: adminProduct.stock,
-      monthlyProfit: adminProduct.monthlyProfit,
-      yearlyProfit: adminProduct.yearlyProfit,
-      isAmazonsChoice: adminProduct.isAmazonsChoice,
-      isBestSeller: adminProduct.isBestSeller,
-      seller: req.seller._id,
-      sellerInfo: enhancedSellerInfo, // Cache seller info
-      isAdminProduct: false,
-      originalAdminProductId: adminProductId,
-      paymentTransactionId: paymentTransactionId,
-      approvalStatus: 'approved', // Auto-approve since it's from admin products
-      status: 'active',
-      listedAt: new Date()
-    });
-
-    await sellerProduct.save();
-
-    console.log('✅ Admin product listed by seller with cached seller info:', {
-      productId: sellerProduct._id,
-      sellerId: seller._id,
-      sellerUsername: seller.username,
-      sellerInfoCached: !!sellerProduct.sellerInfo
-    });
-
-    res.json({ 
-      message: 'Product successfully added to your inventory',
-      product: sellerProduct
+    return res.status(403).json({
+      success: false,
+      message: 'Direct product listing is no longer allowed. Please use the request system instead.',
+      error: 'DIRECT_LISTING_DISABLED',
+      redirectTo: '/sellers/request-admin-product-listing',
+      instructions: 'All product listings now require admin approval. Please submit a request instead.'
     });
   } catch (error) {
-    console.error('❌ Error listing admin product by seller:', error);
+    console.error('Deprecated list admin product error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -6734,9 +6716,15 @@ router.get('/public/debug/category/:categoryValue', async (req, res) => {
     }
     
     const query = {
-      $or: [
-        { status: 'active' },
-        { status: { $exists: false } }
+      $and: [
+        {
+          $or: [
+            { status: 'active' },
+            { status: { $exists: false } }
+          ]
+        },
+        // Ensure we don't show inactive products
+        { status: { $ne: 'inactive' } }
       ],
       isAmazonsChoice: true,
       approvalStatus: 'approved', // Only approved products
@@ -7192,126 +7180,22 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
   }
 });
 
-// Seller endpoint to update product (seller can only update price and assign to themselves)
+// DEPRECATED: Direct seller update route - now requires admin approval
+// Use /sellers/request-admin-product-listing instead
 router.put('/seller-update/:id', authenticateSeller, async (req, res) => {
   try {
-    const { id } = req.params;
-    const { price, seller: sellerId, sellerInfo } = req.body;
+    console.log('⚠️ DEPRECATED: Direct seller update attempt blocked - admin approval required');
     
-    console.log('🔄 Seller updating product:', {
-      productId: id,
-      sellerId: req.seller._id,
-      sellerUsername: req.seller.username,
-      newPrice: price
-    });
-    
-    // Validate product ID format
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Invalid product ID format' 
-      });
-    }
-
-    // Ensure seller can only assign product to themselves
-    if (sellerId !== req.seller._id.toString()) {
-      return res.status(403).json({ 
-        success: false,
-        message: 'You can only assign products to yourself' 
-      });
-    }
-
-    // CRITICAL FIX: Always fetch fresh seller data from database
-    // instead of relying on req.seller which might be incomplete
-    const Seller = (await import('../models/Seller.js')).default;
-    const seller = await Seller.findById(req.seller._id);
-    
-    if (!seller) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Seller not found' 
-      });
-    }
-
-    console.log('🔍 Fresh seller data retrieved:', {
-      sellerId: seller._id,
-      username: seller.username,
-      email: seller.email,
-      whatsappNo: seller.whatsappNo,
-      city: seller.city,
-      country: seller.country,
-      verificationStatus: seller.verificationStatus
-    });
-
-    // Enhanced seller info for caching using fresh database data
-    const enhancedSellerInfo = {
-      username: seller.username,
-      email: seller.email,
-      whatsappNo: seller.whatsappNo,
-      city: seller.city,
-      country: seller.country,
-      verificationStatus: seller.verificationStatus,
-      _id: seller._id
-    };
-
-    // Find and update the product
-    const updateData = {
-      price: parseFloat(price),
-      seller: req.seller._id,
-      sellerInfo: sellerInfo || enhancedSellerInfo
-    };
-
-    const updatedProduct = await Product.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedProduct) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Product not found' 
-      });
-    }
-
-    // Clear cache
-    if (typeof fastProductsCache !== 'undefined') {
-      fastProductsCache = null;
-      cacheTimestamp = Date.now();
-    }
-
-    console.log('✅ Product updated by seller with details:', {
-      productId: id,
-      sellerId: req.seller._id,
-      sellerUsername: req.seller.username,
-      newPrice: price,
-      sellerInfoCached: !!updatedProduct.sellerInfo,
-      sellerInfoDetails: updatedProduct.sellerInfo,
-      updateDataUsed: updateData
-    });
-
-    // Verify the product was updated correctly by fetching it back
-    const verifyProduct = await Product.findById(id).lean();
-    console.log('🔍 Verification - Product updated in database:', {
-      productId: verifyProduct._id,
-      hasSeller: !!verifyProduct.seller,
-      hasSellerInfo: !!verifyProduct.sellerInfo,
-      sellerInfoContent: verifyProduct.sellerInfo
-    });
-
-    res.json({
-      success: true,
-      message: 'Product updated successfully with seller information',
-      product: updatedProduct,
-      sellerInfo: enhancedSellerInfo
+    return res.status(403).json({
+      success: false,
+      message: 'Direct product updates are no longer allowed. Please use the request system instead.',
+      error: 'DIRECT_UPDATE_DISABLED',
+      redirectTo: '/sellers/request-admin-product-listing',
+      instructions: 'All product listings now require admin approval. Please submit a new request instead of editing existing products.'
     });
   } catch (error) {
-    console.error('❌ Error updating product by seller:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error', 
-      error: error.message 
-    });
+    console.error('Deprecated seller update error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

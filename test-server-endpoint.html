@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Endpoint Test</title>
+</head>
+<body>
+    <h1>Server Endpoint Test</h1>
+    <button onclick="testServerSession()">Test Server Session Endpoint</button>
+    <div id="result"></div>
+
+    <script>
+        async function testServerSession() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch('/api/auth/server-session');
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `<pre>SUCCESS: ${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `ERROR: ${response.status} ${response.statusText}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `ERROR: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

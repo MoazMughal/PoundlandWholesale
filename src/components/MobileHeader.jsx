@@ -5,6 +5,7 @@ import { useAdmin } from '../context/AdminContext';
 import { useBuyer } from '../context/BuyerContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
+import sessionAuthManager from '../utils/sessionAuth';
 
 
 const MobileHeader = () => {
@@ -23,24 +24,31 @@ const MobileHeader = () => {
   const userMenuRef = useRef(null);
 
   const getUserInfo = () => {
+    // Use context providers instead of sessionAuthManager to avoid async issues
     if (isAdminLoggedIn && admin) {
-      return { 
-        type: 'Admin', 
-        name: admin.username || admin.name || 'Admin' 
+      return {
+        type: 'Admin',
+        name: admin.username || admin.name || admin.email || 'Admin',
+        role: 'admin'
       };
     }
+    
     if (isSellerLoggedIn && seller) {
-      return { 
-        type: 'Seller', 
-        name: seller.username || seller.name || 'Seller' 
+      return {
+        type: 'Seller',
+        name: seller.username || seller.businessName || seller.name || seller.email || 'Seller',
+        role: 'seller'
       };
     }
+    
     if (isBuyerLoggedIn && buyer) {
-      return { 
-        type: 'Buyer', 
-        name: buyer.username || buyer.name || 'Buyer' 
+      return {
+        type: 'Buyer',
+        name: buyer.username || buyer.name || buyer.email || 'Buyer',
+        role: 'buyer'
       };
     }
+    
     return null;
   };
 
@@ -61,6 +69,7 @@ const MobileHeader = () => {
   }, []);
 
   const handleLogout = () => {
+    // Simple logout based on context state - no async calls
     if (isAdminLoggedIn) {
       adminLogout();
     } else if (isSellerLoggedIn) {
@@ -68,6 +77,7 @@ const MobileHeader = () => {
     } else if (isBuyerLoggedIn) {
       buyerLogout();
     }
+    
     setShowUserMenu(false);
   };
 
