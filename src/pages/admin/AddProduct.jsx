@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { adminPost } from '../../utils/adminApi';
+import { getApiUrl } from '../../utils/api';
 import cacheManager from '../../utils/cacheManager';
 import '../../styles/AdminProductForm.css';
 
@@ -91,7 +92,7 @@ const AddProduct = () => {
     const autoCleanupDuplicates = async () => {
       try {
         const token = localStorage.getItem('adminToken');
-        await fetch('http://localhost:5000/api/products/admin/cleanup-duplicate-categories', {
+        await fetch(getApiUrl('products/admin/cleanup-duplicate-categories'), {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -112,7 +113,7 @@ const AddProduct = () => {
   const fetchSellers = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/sellers', {
+      const response = await fetch(getApiUrl('sellers'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -127,7 +128,7 @@ const AddProduct = () => {
   const fetchCategories = async () => {
     try {
       // Include Excel categories for admin use with proper parameters
-      const response = await fetch('http://localhost:5000/api/products/public/categories?includeExcel=true&includeEmpty=true&deduplicate=true');
+      const response = await fetch(getApiUrl('products/public/categories?includeExcel=true&includeEmpty=true&deduplicate=true'));
       if (response.ok) {
         const data = await response.json();
         let fetchedCategories = data.categories || [];
@@ -176,7 +177,7 @@ const AddProduct = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/products/public/categories', {
+      const response = await fetch(getApiUrl('products/public/categories'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -234,7 +235,7 @@ const AddProduct = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/products/admin/categories/${encodeURIComponent(categoryToRename.label)}/rename`, {
+      const response = await fetch(getApiUrl(`products/admin/categories/${encodeURIComponent(categoryToRename.label)}/rename`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -312,7 +313,7 @@ const AddProduct = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const url = `http://localhost:5000/api/products/admin/categories/${encodeURIComponent(categoryToDelete.label)}${forceDeleteCategory ? '?force=true' : ''}`;
+      const url = getApiUrl(`products/admin/categories/${encodeURIComponent(categoryToDelete.label)}${forceDeleteCategory ? '?force=true' : ''}`);
       
       const response = await fetch(url, {
         method: 'DELETE',
@@ -360,7 +361,7 @@ const AddProduct = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/products/admin/cleanup-duplicate-categories', {
+      const response = await fetch(getApiUrl('products/admin/cleanup-duplicate-categories'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -418,7 +419,7 @@ const AddProduct = () => {
       const token = localStorage.getItem('adminToken');
       
       // Check if ASIN already exists in database
-      const checkResponse = await fetch(`http://localhost:5000/api/products/check-asin/${asin}`, {
+      const checkResponse = await fetch(getApiUrl(`products/check-asin/${asin}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -436,7 +437,7 @@ const AddProduct = () => {
       }
       
       // Fetch from excel-products
-      const response = await fetch(`http://localhost:5000/api/excel/asin/${asin}`, {
+      const response = await fetch(getApiUrl(`excel/asin/${asin}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -567,7 +568,7 @@ const AddProduct = () => {
     
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/products/check-sku/${sku}`, {
+      const response = await fetch(getApiUrl(`products/check-sku/${sku}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -699,7 +700,7 @@ const AddProduct = () => {
 
       // Send to server with files - server will handle Cloudinary upload
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/products', {
+      const response = await fetch(getApiUrl('products'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

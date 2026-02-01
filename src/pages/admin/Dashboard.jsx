@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAdmin } from '../../context/AdminContext';
 import { adminGet, adminPost, adminPut, adminDelete } from '../../utils/adminApi';
+import { getApiUrl } from '../../utils/api';
 import cacheManager from '../../utils/cacheManager';
 import '../../styles/AdminDashboard.css';
 import '../../styles/AdminDashboardEnhanced.css';
@@ -69,7 +70,7 @@ const AdminDashboard = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await adminGet('http://localhost:5000/api/dashboard/stats');
+      const response = await adminGet(getApiUrl('dashboard/stats'));
       const data = await response.json();
       setStats(data);
     } catch (error) {
@@ -88,7 +89,7 @@ const AdminDashboard = () => {
 
   const fetchRecentProducts = async () => {
     try {
-      const response = await adminGet('http://localhost:5000/api/products?limit=5&sortBy=createdAt&order=desc');
+      const response = await adminGet(getApiUrl('products?limit=5&sortBy=createdAt&order=desc'));
       const data = await response.json();
       setRecentProducts(data.products);
     } catch (error) {
@@ -98,7 +99,7 @@ const AdminDashboard = () => {
 
   const fetchAllProducts = async () => {
     try {
-      const response = await adminGet('http://localhost:5000/api/products/admin/fast'); // Use fast endpoint
+      const response = await adminGet(getApiUrl('products/admin/fast')); // Use fast endpoint
       const data = await response.json();
       setAllProducts(data.products);
       
@@ -116,7 +117,7 @@ const AdminDashboard = () => {
 
   const fetchAmazonsChoice = async () => {
     try {
-      const response = await adminGet('http://localhost:5000/api/products/admin/fast'); // Use fast endpoint
+      const response = await adminGet(getApiUrl('products/admin/fast')); // Use fast endpoint
       const data = await response.json();
       const amazonProducts = data.products.filter(p => p.isAmazonsChoice);
       setAmazonsChoice(amazonProducts);
@@ -127,7 +128,7 @@ const AdminDashboard = () => {
 
   const fetchSellers = async () => {
     try {
-      const response = await adminGet('http://localhost:5000/api/sellers?status=all&limit=20');
+      const response = await adminGet(getApiUrl('sellers?status=all&limit=20'));
       const data = await response.json();
       setSellers(data.sellers);
     } catch (error) {
@@ -137,7 +138,7 @@ const AdminDashboard = () => {
 
   const fetchPendingApprovals = async () => {
     try {
-      const response = await adminGet('http://localhost:5000/api/products/pending-approval');
+      const response = await adminGet(getApiUrl('products/pending-approval'));
       const data = await response.json();
       setPendingApprovals(data.products?.length || 0);
     } catch (error) {
@@ -148,7 +149,7 @@ const AdminDashboard = () => {
 
   const fetchPendingListingRequests = async () => {
     try {
-      const response = await adminGet('http://localhost:5000/api/sellers/admin/listing-requests?status=pending_approval&limit=1000');
+      const response = await adminGet(getApiUrl('sellers/admin/listing-requests?status=pending_approval&limit=1000'));
       const data = await response.json();
       setPendingListingRequests(data.requests?.length || 0);
     } catch (error) {
@@ -161,7 +162,7 @@ const AdminDashboard = () => {
     if (!confirm('⚠️ Are you sure you want to permanently delete this seller? This action cannot be undone!')) return;
 
     try {
-      await adminDelete(`http://localhost:5000/api/sellers/${id}`);
+      await adminDelete(getApiUrl(`sellers/${id}`));
       alert('✅ Seller deleted successfully');
       fetchSellers();
       fetchStats(); // Refresh stats
@@ -195,7 +196,7 @@ const AdminDashboard = () => {
     if (!confirm('Delete this product?')) return;
     
     try {
-      await adminDelete(`http://localhost:5000/api/products/${id}`);
+      await adminDelete(getApiUrl(`products/${id}`));
       alert('✅ Product deleted successfully!');
       fetchRecentProducts();
       fetchAllProducts();
@@ -215,7 +216,7 @@ const AdminDashboard = () => {
     
     try {
       for (const product of allProducts) {
-        await adminDelete(`http://localhost:5000/api/products/${product._id}`);
+        await adminDelete(getApiUrl(`products/${product._id}`));
       }
       alert('✅ All products deleted!');
       fetchRecentProducts();
@@ -237,7 +238,7 @@ const AdminDashboard = () => {
       // Dynamically import the products data
       const { default: products } = await import('../../data/extracted-products.json');
       
-      const response = await adminPost('http://localhost:5000/api/products/bulk-import', { products });
+      const response = await adminPost(getApiUrl('products/bulk-import'), { products });
       const result = await response.json();
       alert(`✅ Import Complete!\n\n✅ Imported: ${result.imported}\n⏭️ Skipped: ${result.skipped}\n${result.errors ? `❌ Errors: ${result.errors.length}` : ''}`);
       fetchRecentProducts();
@@ -264,7 +265,7 @@ const AdminDashboard = () => {
     try {
       setSearchLoading(true);
       
-      const response = await adminGet(`http://localhost:5000/api/products?search=${encodeURIComponent(query)}&limit=100`);
+      const response = await adminGet(getApiUrl(`products?search=${encodeURIComponent(query)}&limit=100`));
       const data = await response.json();
       
       setSearchResults(data.products || []);
@@ -382,7 +383,7 @@ const AdminDashboard = () => {
     if (!editingProduct) return;
 
     try {
-      await adminPut(`http://localhost:5000/api/products/${productId}`, {
+      await adminPut(getApiUrl(`products/${productId}`), {
         price: parseFloat(editingProduct.price),
         stock: parseInt(editingProduct.stock),
         quantity: parseInt(editingProduct.quantity)
@@ -425,7 +426,7 @@ const AdminDashboard = () => {
         profitEvaluation: profitEditProduct.profitEvaluation
       };
 
-      await adminPut(`http://localhost:5000/api/products/${profitEditProduct._id}`, updateData);
+      await adminPut(getApiUrl(`products/${profitEditProduct._id}`), updateData);
       
       alert('✅ Profit data updated successfully!');
       setShowProfitModal(false);
@@ -475,7 +476,7 @@ const AdminDashboard = () => {
         profitEvaluation: fullEditProduct.profitEvaluation
       };
 
-      await adminPut(`http://localhost:5000/api/products/${fullEditProduct._id}`, updateData);
+      await adminPut(getApiUrl(`products/${fullEditProduct._id}`), updateData);
       
       // Clear cache to ensure updated product appears immediately in Amazon's Choice
       cacheManager.remove('amazons_choice_products');
@@ -500,7 +501,7 @@ const AdminDashboard = () => {
   const quickUpdatePrice = async (id, newPrice) => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/products/${id}`, {
+      const response = await fetch(getApiUrl(`products/${id}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

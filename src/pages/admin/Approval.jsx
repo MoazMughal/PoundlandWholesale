@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { adminPost, adminGet } from '../../utils/adminApi';
+import { getApiUrl } from '../../utils/api';
 import cacheManager from '../../utils/cacheManager';
 import '../../styles/AdminProductForm.css';
 
@@ -78,7 +79,7 @@ const Approval = () => {
         ...(selectedCategory !== 'all' && { category: selectedCategory })
       });
 
-      const response = await adminGet(`http://localhost:5000/api/products/pending-approval?${params}`);
+      const response = await adminGet(getApiUrl(`products/pending-approval?${params}`));
       
       if (response.ok) {
         const data = await response.json();
@@ -103,7 +104,7 @@ const Approval = () => {
   const fetchAllCategories = async () => {
     try {
       // Use the same comprehensive API call as AddProduct page
-      const response = await fetch('http://localhost:5000/api/products/public/categories?includeExcel=true&includeEmpty=true&deduplicate=true');
+      const response = await fetch(getApiUrl('products/public/categories?includeExcel=true&includeEmpty=true&deduplicate=true'));
       if (response.ok) {
         const data = await response.json();
         let fetchedCategories = data.categories || [];
@@ -143,7 +144,7 @@ const Approval = () => {
     setProcessing(productId);
     
     try {
-      const response = await adminPost(`http://localhost:5000/api/products/${productId}/approval`, {
+      const response = await adminPost(getApiUrl(`products/${productId}/approval`), {
         action, // 'approve' or 'disapprove'
         approvalStatus: action === 'approve' ? 'approved' : 'disapproved'
       });
@@ -221,7 +222,7 @@ const Approval = () => {
         ...(selectedCategory !== 'all' && { category: selectedCategory })
       });
 
-      const response = await adminGet(`http://localhost:5000/api/products/pending-approval?${params}`);
+      const response = await adminGet(getApiUrl(`products/pending-approval?${params}`));
       
       if (response.ok) {
         const data = await response.json();
@@ -311,7 +312,7 @@ const Approval = () => {
       
       const token = localStorage.getItem('adminToken');
       
-      const response = await fetch('http://localhost:5000/api/products/move-selected', {
+      const response = await fetch(getApiUrl('products/move-selected'), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -392,7 +393,7 @@ const Approval = () => {
       
       // Process each product approval/disapproval
       const approvalPromises = productIds.map(productId => 
-        adminPost(`http://localhost:5000/api/products/${productId}/approval`, {
+        adminPost(getApiUrl(`products/${productId}/approval`), {
           action: action, // 'approve' or 'disapprove'
           approvalStatus: action === 'approve' ? 'approved' : 'disapproved'
         })
@@ -471,7 +472,7 @@ const Approval = () => {
           console.log('✅ Found image in Cloudinary:', cloudinaryUrl);
           
           // Update the product with Cloudinary image
-          const updateResponse = await fetch(`http://localhost:5000/api/products/${productId}`, {
+          const updateResponse = await fetch(getApiUrl(`products/${productId}`), {
             method: 'PUT',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -553,7 +554,7 @@ const Approval = () => {
       // User confirmed, proceed with fetching from database/other sources
       console.log('✅ User confirmed, fetching from other sources');
       
-      const response = await fetch(`http://localhost:5000/api/excel/asin/${asin}`, {
+      const response = await fetch(getApiUrl(`excel/asin/${asin}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -565,7 +566,7 @@ const Approval = () => {
           const updatedImages = data.product.images.slice(0, 5);
           console.log('📷 Images to update:', updatedImages);
           
-          const updateResponse = await fetch(`http://localhost:5000/api/products/${productId}`, {
+          const updateResponse = await fetch(getApiUrl(`products/${productId}`), {
             method: 'PUT',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -745,7 +746,7 @@ const Approval = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin-excel/fix-party-accessories-category', {
+      const response = await fetch(getApiUrl('admin-excel/fix-party-accessories-category'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

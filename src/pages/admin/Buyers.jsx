@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiUrl } from '../../utils/api';
 import '../../styles/AdminSellers.css';
 
 const AdminBuyers = () => {
@@ -16,7 +17,7 @@ const AdminBuyers = () => {
   const fetchBuyers = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/buyer/all', {
+      const response = await fetch(getApiUrl('buyer/all'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -36,7 +37,7 @@ const AdminBuyers = () => {
   const handleStatusChange = async (buyerId, newStatus) => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/buyer/${buyerId}/status`, {
+      const response = await fetch(getApiUrl(`buyer/${buyerId}/status`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

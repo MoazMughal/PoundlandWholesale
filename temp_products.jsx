@@ -395,7 +395,7 @@ const AdminProducts = () => {
       console.log('🔄 Updating profit data after price change for product:', productId, 'New price:', newPrice);
       
       // Fetch the current product data to get existing profit information
-      const response = await fetch(getApiUrl(`products/${productId}`), {
+      const response = await fetch(`' + getApiUrl('products/${productId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -510,7 +510,7 @@ const AdminProducts = () => {
 
       // Save to database
       console.log('💾 Saving profit update data to database:', profitUpdateData);
-      const updateResponse = await fetch(getApiUrl(`products/${productId}`), {
+      const updateResponse = await fetch(`' + getApiUrl('products/${productId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -550,7 +550,7 @@ const AdminProducts = () => {
         // Verify the update by fetching the product again
         setTimeout(async () => {
           try {
-            const verifyResponse = await fetch(getApiUrl(`products/${productId}`), {
+            const verifyResponse = await fetch(`' + getApiUrl('products/${productId}`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             if (verifyResponse.ok) {
@@ -584,7 +584,7 @@ const AdminProducts = () => {
     try {
       const token = localStorage.getItem('adminToken');
       
-      const response = await fetch(getApiUrl(`products/admin/categories-with-profit?excludeId=${currentProductId}`), {
+      const response = await fetch(`' + getApiUrl('products/admin/categories-with-profit?excludeId=${currentProductId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -611,8 +611,8 @@ const AdminProducts = () => {
       
       // Use the optimized endpoint for better performance
       const endpoint = exactMatch 
-        ? getApiUrl(`products/admin/category/${encodeURIComponent(category)}/with-profit?excludeId=${currentProductId}&exactMatch=true`)
-        : getApiUrl(`products/admin/category/${encodeURIComponent(category)}/with-profit?excludeId=${currentProductId}&exactMatch=false`);
+        ? `' + getApiUrl('products/admin/category/${encodeURIComponent(category)}/with-profit?excludeId=${currentProductId}&exactMatch=true`
+        : `' + getApiUrl('products/admin/category/${encodeURIComponent(category)}/with-profit?excludeId=${currentProductId}&exactMatch=false`;
         
       const response = await fetch(endpoint, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -1360,7 +1360,7 @@ const AdminProducts = () => {
 
       for (const productId of selectedProducts) {
         try {
-          const response = await fetch(getApiUrl(`products/${productId}`), {
+          const response = await fetch(`' + getApiUrl('products/${productId}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
           });
@@ -1448,7 +1448,7 @@ const AdminProducts = () => {
   const handleStatusChange = async (id, newStatus) => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(getApiUrl(`products/${id}`), {
+      const response = await fetch(`' + getApiUrl('products/${id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1576,7 +1576,7 @@ const AdminProducts = () => {
         });
       }
 
-      const response = await fetch(getApiUrl(`products/${productId}`), {
+      const response = await fetch(`' + getApiUrl('products/${productId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1750,7 +1750,7 @@ const AdminProducts = () => {
 
     // Fetch available products from the same category for variations
     try {
-      const response = await fetch(getApiUrl(`products/public?category=${encodeURIComponent(product.category)}&limit=100`));
+      const response = await fetch(`' + getApiUrl('products/public?category=${encodeURIComponent(product.category)}&limit=100`);
       if (response.ok) {
         const data = await response.json();
         // Filter out the current product and only show products without variations or with different variation types
@@ -2032,7 +2032,7 @@ const AdminProducts = () => {
       if (hasLinkedProducts) {
         // Use bidirectional endpoint when there are linked products
         console.log('🔗 Found linked products, using bidirectional endpoint...');
-        const bidirectionalResponse = await fetch(getApiUrl(`products/variations/bidirectional/${variationsEditProduct._id}`), {
+        const bidirectionalResponse = await fetch(`' + getApiUrl('products/variations/bidirectional/${variationsEditProduct._id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -2069,7 +2069,7 @@ const AdminProducts = () => {
       } else {
         // Use simple update when no linked products
         console.log('🔄 No linked products, using simple update...');
-        const simpleResponse = await fetch(getApiUrl(`products/${variationsEditProduct._id}`), {
+        const simpleResponse = await fetch(`' + getApiUrl('products/${variationsEditProduct._id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -2200,7 +2200,7 @@ const AdminProducts = () => {
           return;
         }
         
-        const response = await fetch(getApiUrl(`products/category/${encodeURIComponent(categoryValue)}`), {
+        const response = await fetch(`' + getApiUrl('products/category/${encodeURIComponent(categoryValue)}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -2288,7 +2288,7 @@ const AdminProducts = () => {
     try {
       // Always fetch the latest product data to ensure we have up-to-date profit calculations
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(getApiUrl(`products/${product._id}`), {
+      const response = await fetch(`' + getApiUrl('products/${product._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -2414,7 +2414,7 @@ const AdminProducts = () => {
   const testApiConnection = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(getApiUrl('products/admin/fast'), {
+      const response = await fetch('' + getApiUrl('products/admin/fast', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       console.log('🧪 API Test - Status:', response.status);
@@ -2433,7 +2433,7 @@ const AdminProducts = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(getApiUrl(`products/${profitEditProduct._id}`), {
+      const response = await fetch(`' + getApiUrl('products/${profitEditProduct._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -2447,7 +2447,7 @@ const AdminProducts = () => {
         console.log('- Profit Evaluation:', productData.profitEvaluation);
 
         // Also test the public API endpoint that the product detail page uses
-        const publicResponse = await fetch(getApiUrl(`products/public/${productData._id}`));
+        const publicResponse = await fetch(`' + getApiUrl('products/public/${productData._id}`);
         if (publicResponse.ok) {
           const publicData = await publicResponse.json();
           console.log('🌐 Public API data (what product detail page sees):');
@@ -2552,9 +2552,9 @@ const AdminProducts = () => {
       console.log('🔄 Sending profit update data:', updateData);
       console.log('🔑 Using token:', token ? 'Token exists' : 'No token');
       console.log('🎯 Product ID:', profitEditProduct._id);
-      console.log('🌐 API URL:', getApiUrl(`products/${profitEditProduct._id}`));
+      console.log('🌐 API URL:', `' + getApiUrl('products/${profitEditProduct._id}`);
 
-      const response = await fetch(getApiUrl(`products/${profitEditProduct._id}`), {
+      const response = await fetch(`' + getApiUrl('products/${profitEditProduct._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -6345,7 +6345,7 @@ const AdminProducts = () => {
                                   options: []
                                 }));
 
-                              const response = await fetch(getApiUrl(`products/variations/independent/${variationsEditProduct._id}`), {
+                              const response = await fetch(`' + getApiUrl('products/variations/independent/${variationsEditProduct._id}`, {
                                 method: 'PUT',
                                 headers: {
                                   'Content-Type': 'application/json',
@@ -6446,7 +6446,7 @@ const AdminProducts = () => {
                               console.log('🎨 Saving variations with linked products:', cleanedVariations);
 
                               // Use enhanced bidirectional endpoint to update both current and linked products
-                              const response = await fetch(getApiUrl(`products/variations/enhanced/${variationsEditProduct._id}`), {
+                              const response = await fetch(`' + getApiUrl('products/variations/enhanced/${variationsEditProduct._id}`, {
                                 method: 'PUT',
                                 headers: {
                                   'Content-Type': 'application/json',
@@ -6538,7 +6538,7 @@ const AdminProducts = () => {
                                 options: []
                               }));
 
-                            const response = await fetch(getApiUrl(`products/variations/independent/${variationsEditProduct._id}`), {
+                            const response = await fetch(`' + getApiUrl('products/variations/independent/${variationsEditProduct._id}`, {
                               method: 'PUT',
                               headers: {
                                 'Content-Type': 'application/json',
