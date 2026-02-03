@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { adminGet, adminPut, adminDelete } from '../../utils/adminApi';
+import { getApiUrl } from '../../utils/api';
 import cacheManager from '../../utils/cacheManager';
 import ImageSelector from '../../components/ImageSelector';
 import '../../styles/AdminProductForm.css';
@@ -157,7 +158,7 @@ const EditProduct = () => {
 
   const fetchProduct = async () => {
     try {
-      const response = await adminGet(`http://localhost:5000/api/products/${id}`);
+      const response = await adminGet(`products/${id}`);
       const product = await response.json();
       
       // Store original price - all prices in GBP
@@ -252,7 +253,7 @@ const EditProduct = () => {
 
   const fetchSellers = async () => {
     try {
-      const response = await adminGet('http://localhost:5000/api/sellers');
+      const response = await adminGet('sellers');
       const data = await response.json();
       setSellers(data.sellers || []);
     } catch (error) {
@@ -263,7 +264,7 @@ const EditProduct = () => {
   const fetchCategories = async () => {
     try {
       // Include Excel categories for admin use
-      const response = await fetch('http://localhost:5000/api/products/public/categories?includeExcel=true');
+      const response = await fetch(getApiUrl('products/public/categories?includeExcel=true'));
       if (response.ok) {
         const data = await response.json();
         setCategories(data.categories || []);
@@ -290,7 +291,7 @@ const EditProduct = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/products/public/categories', {
+      const response = await fetch(getApiUrl('products/public/categories'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -378,7 +379,7 @@ const EditProduct = () => {
     
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin-excel/asin/${asin}/add-images`, {
+      const response = await fetch(getApiUrl(`admin-excel/asin/${asin}/add-images`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -828,7 +829,7 @@ const EditProduct = () => {
         
         // Send to server with files - server will handle Cloudinary upload
         const token = localStorage.getItem('adminToken');
-        const response = await fetch(`http://localhost:5000/api/products/${id}`, {
+        const response = await fetch(getApiUrl(`products/${id}`), {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -903,7 +904,7 @@ const EditProduct = () => {
           productData.seller = formData.seller;
         }
 
-        const response = await adminPut(`http://localhost:5000/api/products/${id}`, productData);
+        const response = await adminPut(`products/${id}`, productData);
       }
 
       // Clear cache to ensure updated product appears immediately in Amazon's Choice
@@ -967,7 +968,7 @@ const EditProduct = () => {
     if (!confirm('⚠️ Are you sure you want to delete this product? This action cannot be undone.')) return;
 
     try {
-      await adminDelete(`http://localhost:5000/api/products/${id}`);
+      await adminDelete(`products/${id}`);
       alert('✅ Product deleted successfully!');
       // Navigate back with category filter preserved
       const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;

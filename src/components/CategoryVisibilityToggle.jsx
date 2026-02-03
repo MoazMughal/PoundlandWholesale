@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getApiUrl } from '../utils/api';
 
 const CategoryVisibilityToggle = ({ compact = false }) => {
   const [categories, setCategories] = useState([]);
@@ -32,7 +33,7 @@ const CategoryVisibilityToggle = ({ compact = false }) => {
       console.log('🔍 CategoryVisibilityToggle: Fetching categories...');
       
       // Include empty categories for full admin control
-      const response = await fetch('http://localhost:5000/api/products/public/categories?includeCounts=true&includeEmpty=true');
+      const response = await fetch(getApiUrl('products/public/categories?includeCounts=true&includeEmpty=true'));
       console.log('🔍 CategoryVisibilityToggle: Response status:', response.status);
       
       if (response.ok) {
@@ -119,8 +120,8 @@ const CategoryVisibilityToggle = ({ compact = false }) => {
       setDeletingCategory(categoryLabel);
       
       const url = hasProducts 
-        ? `http://localhost:5000/api/products/admin/categories/${encodeURIComponent(categoryLabel)}?force=true`
-        : `http://localhost:5000/api/products/admin/categories/${encodeURIComponent(categoryLabel)}`;
+        ? getApiUrl(`products/admin/categories/${encodeURIComponent(categoryLabel)}?force=true`)
+        : getApiUrl(`products/admin/categories/${encodeURIComponent(categoryLabel)}`);
       
       const response = await fetch(url, {
         method: 'DELETE',
@@ -182,7 +183,7 @@ const CategoryVisibilityToggle = ({ compact = false }) => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/products/admin/categories/${encodeURIComponent(oldCategoryLabel)}/rename`, {
+      const response = await fetch(getApiUrl(`products/admin/categories/${encodeURIComponent(oldCategoryLabel)}/rename`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,

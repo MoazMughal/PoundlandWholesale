@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getApiUrl } from '../../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '../../context/AdminContext';
 import '../../styles/AdminSellers.css';
@@ -29,16 +30,16 @@ const AdminSellers = () => {
       
       // Fetch counts for each status
       const [pendingRes, approvedRes, rejectedRes, allRes] = await Promise.all([
-        fetch('http://localhost:5000/api/sellers?status=pending', {
+        fetch(getApiUrl('sellers?status=pending'), {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:5000/api/sellers?status=approved', {
+        fetch(getApiUrl('sellers?status=approved'), {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:5000/api/sellers?status=rejected', {
+        fetch(getApiUrl('sellers?status=rejected'), {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:5000/api/sellers?status=all', {
+        fetch(getApiUrl('sellers?status=all'), {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -66,7 +67,7 @@ const AdminSellers = () => {
       const token = localStorage.getItem('adminToken');
       const params = new URLSearchParams({ status: filter });
       
-      const response = await fetch(`http://localhost:5000/api/sellers?${params}`, {
+      const response = await fetch(getApiUrl(`sellers?${params}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -86,7 +87,7 @@ const AdminSellers = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/sellers/${id}/approve`, {
+      const response = await fetch(getApiUrl(`sellers/${id}/approve`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -109,7 +110,7 @@ const AdminSellers = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/sellers/${id}/reject`, {
+      const response = await fetch(getApiUrl(`sellers/${id}/reject`), {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -129,7 +130,7 @@ const AdminSellers = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/sellers/${id}`, {
+      const response = await fetch(getApiUrl(`sellers/${id}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

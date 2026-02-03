@@ -1,4 +1,29 @@
-Options -MultiViews
+# Force HTTPS and handle www redirects
 RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteRule ^ index.html [QSA,L]
+
+# Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Handle sitemap.xml with correct content-type
+<Files "sitemap.xml">
+    Header set Content-Type "application/xml; charset=utf-8"
+    Header set Cache-Control "public, max-age=3600"
+</Files>
+
+# Handle robots.txt with correct content-type
+<Files "robots.txt">
+    Header set Content-Type "text/plain; charset=utf-8"
+    Header set Cache-Control "public, max-age=86400"
+</Files>
+
+# Handle XML files
+<FilesMatch "\.(xml)$">
+    Header set Content-Type "application/xml; charset=utf-8"
+</FilesMatch>
+
+# Security headers
+Header always set X-Frame-Options "DENY"
+Header always set X-Content-Type-Options "nosniff"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+Header always set X-XSS-Protection "1; mode=block"

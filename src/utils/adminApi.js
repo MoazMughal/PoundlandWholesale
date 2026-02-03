@@ -1,7 +1,8 @@
 import { getValidAdminToken, cleanupAuthTokens } from './authFix';
+import { getApiUrl } from './api';
 
 // Admin API utility with improved error handling
-export const adminApiCall = async (url, options = {}) => {
+export const adminApiCall = async (endpoint, options = {}) => {
   // Clean up any invalid tokens first
   cleanupAuthTokens();
   
@@ -12,6 +13,9 @@ export const adminApiCall = async (url, options = {}) => {
     window.location.href = '/admin/login';
     throw new Error('No valid authentication token found');
   }
+
+  // Convert endpoint to full URL
+  const url = getApiUrl(endpoint);
 
   const defaultOptions = {
     headers: {
@@ -56,21 +60,21 @@ export const adminApiCall = async (url, options = {}) => {
 };
 
 // Helper for GET requests
-export const adminGet = (url) => adminApiCall(url);
+export const adminGet = (endpoint) => adminApiCall(endpoint);
 
 // Helper for POST requests
-export const adminPost = (url, data) => adminApiCall(url, {
+export const adminPost = (endpoint, data) => adminApiCall(endpoint, {
   method: 'POST',
   body: JSON.stringify(data)
 });
 
 // Helper for PUT requests
-export const adminPut = (url, data) => adminApiCall(url, {
+export const adminPut = (endpoint, data) => adminApiCall(endpoint, {
   method: 'PUT',
   body: JSON.stringify(data)
 });
 
 // Helper for DELETE requests
-export const adminDelete = (url) => adminApiCall(url, {
+export const adminDelete = (endpoint) => adminApiCall(endpoint, {
   method: 'DELETE'
 });

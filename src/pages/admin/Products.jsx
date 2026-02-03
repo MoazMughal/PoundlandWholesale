@@ -1138,7 +1138,10 @@ const AdminProducts = () => {
         const hiddenCategories = JSON.parse(localStorage.getItem('hiddenCategories') || '[]');
 
         // Also fetch Amazon's Choice counts for each category
-        const amazonsChoiceCountsResponse = await fetch(getApiUrl('products/admin/amazons-choice-counts'));
+        const token = localStorage.getItem('adminToken');
+        const amazonsChoiceCountsResponse = await fetch(getApiUrl('products/admin/amazons-choice-counts'), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         let amazonsChoiceCounts = {};
         if (amazonsChoiceCountsResponse.ok) {
           const countsData = await amazonsChoiceCountsResponse.json();

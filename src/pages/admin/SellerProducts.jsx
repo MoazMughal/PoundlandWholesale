@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getApiUrl } from '../../utils/api'
 
 const AdminSellerProducts = () => {
   const navigate = useNavigate()
@@ -17,7 +18,7 @@ const AdminSellerProducts = () => {
       const token = localStorage.getItem('adminToken')
       const params = new URLSearchParams({ status: filter, limit: 1000 }) // Get more products for better stats
       
-      const response = await fetch(`http://localhost:5000/api/products/admin/seller-products?${params}`, {
+      const response = await fetch(getApiUrl(`products/admin/seller-products?${params}`), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -30,7 +31,7 @@ const AdminSellerProducts = () => {
         // Calculate stats from all products
         if (filter === 'pending') {
           // Fetch all products to calculate stats
-          const allResponse = await fetch(`http://localhost:5000/api/products/admin/seller-products?status=all&limit=1000`, {
+          const allResponse = await fetch(getApiUrl(`products/admin/seller-products?status=all&limit=1000`), {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -59,7 +60,7 @@ const AdminSellerProducts = () => {
 
     try {
       const token = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:5000/api/products/admin/approve/${id}`, {
+      const response = await fetch(getApiUrl(`products/admin/approve/${id}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -85,7 +86,7 @@ const AdminSellerProducts = () => {
 
     try {
       const token = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:5000/api/products/admin/reject/${id}`, {
+      const response = await fetch(getApiUrl(`products/admin/reject/${id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

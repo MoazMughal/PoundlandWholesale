@@ -15,13 +15,14 @@ Disallow: /node_modules/
 Disallow: /login/
 Disallow: /register/
 Disallow: /auth/
-Disallow: /forgot-password
+Disallow: /forgot-password/
 Disallow: /reset-password/
 
 # Allow important public pages
 Allow: /about-us
 Allow: /categories
-Allow: /basket
+Allow: /best-sellers
+Allow: /latest-deals
 Allow: /excel-products
 Allow: /join-now
 Allow: /terms-of-service

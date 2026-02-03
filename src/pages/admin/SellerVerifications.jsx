@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getApiUrl } from '../../utils/api'
 
 const AdminSellerVerifications = () => {
   const navigate = useNavigate()
@@ -18,7 +19,7 @@ const AdminSellerVerifications = () => {
   const fetchPendingVerifications = async () => {
     try {
       const token = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:5000/api/sellers/admin/verification-pending', {
+      const response = await fetch(getApiUrl('sellers/admin/verification-pending'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -40,7 +41,7 @@ const AdminSellerVerifications = () => {
 
     try {
       const token = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:5000/api/sellers/admin/verification/${id}/approve`, {
+      const response = await fetch(getApiUrl(`sellers/admin/verification/${id}/approve`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -70,7 +71,7 @@ const AdminSellerVerifications = () => {
 
     try {
       const token = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:5000/api/sellers/admin/verification/${rejectingSeller}/reject`, {
+      const response = await fetch(getApiUrl(`sellers/admin/verification/${rejectingSeller}/reject`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -19,6 +19,8 @@
 /favicon.ico        /favicon.ico        200!
 /robots.txt         /robots.txt         200!
 /sitemap.xml        /sitemap.xml        200!
+/site.webmanifest   /site.webmanifest   200!
+/browserconfig.xml  /browserconfig.xml  200!
 /manifest.json      /manifest.json      200!
 /sw.js              /sw.js              200!
 /deployment-test.html  /deployment-test.html  200!
