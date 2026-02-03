@@ -358,8 +358,8 @@ img[loading="lazy"].loaded {
   }
   
   .product-image-container {
-    height: 120px !important;
-    min-height: 120px !important;
+    height: auto !important;
+    min-height: 150px !important;
     padding: 15px !important;
     margin: 0 !important;
     background: #fff !important;
@@ -383,8 +383,8 @@ img[loading="lazy"].loaded {
   }
   
   .product-image-container {
-    height: 140px !important;
-    min-height: 140px !important;
+    height: auto !important;
+    min-height: 180px !important;
     padding: 15px !important;
     margin: 0 !important;
     background: #fff !important;

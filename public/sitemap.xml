@@ -17,34 +17,20 @@
   </url>
   
   <url>
-    <loc>https://poundlandwholesale.com/categories</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-    <lastmod>2025-02-03</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://poundlandwholesale.com/best-sellers</loc>
+    <loc>https://poundlandwholesale.com/basket</loc>
     <changefreq>daily</changefreq>
-    <priority>0.9</priority>
+    <priority>0.7</priority>
     <lastmod>2025-02-03</lastmod>
   </url>
   
+  <!-- Authentication & Onboarding Pages -->
   <url>
-    <loc>https://poundlandwholesale.com/latest-deals</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <loc>https://poundlandwholesale.com/auth</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
     <lastmod>2025-02-03</lastmod>
   </url>
   
-  <url>
-    <loc>https://poundlandwholesale.com/excel-products</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-    <lastmod>2025-02-03</lastmod>
-  </url>
-  
-  <!-- Business Pages -->
   <url>
     <loc>https://poundlandwholesale.com/join-now</loc>
     <changefreq>monthly</changefreq>

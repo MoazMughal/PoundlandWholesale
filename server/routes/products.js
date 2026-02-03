@@ -1671,6 +1671,8 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
           { name: { $regex: escapedSearch, $options: 'i' } },
           // Brand match
           { brand: { $regex: escapedSearch, $options: 'i' } },
+          // SKU match - ADDED FOR SKU SEARCH
+          { sku: { $regex: escapedSearch, $options: 'i' } },
           // Category match
           { category: { $regex: escapedSearch, $options: 'i' } },
           // Description match
@@ -2209,6 +2211,8 @@ router.get('/', authenticateAdmin, async (req, res) => {
           { name: { $regex: escapedSearch, $options: 'i' } },
           // Brand match
           { brand: { $regex: escapedSearch, $options: 'i' } },
+          // SKU match - ADDED FOR SKU SEARCH
+          { sku: { $regex: escapedSearch, $options: 'i' } },
           // Category match
           { category: { $regex: escapedSearch, $options: 'i' } },
           // Description match

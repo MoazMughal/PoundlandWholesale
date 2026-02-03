@@ -15,19 +15,30 @@
   object-position: center !important;
 }
 
-/* Ensure main product images have maximum padding for zoom out effect */
+/* Ensure main product images are properly displayed with proper zoom out */
 .product-detail-page .position-relative img {
-  padding: 40px !important;
+  padding: 0 !important;
   box-sizing: border-box !important;
   background-color: #ffffff !important;
+  object-fit: contain !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: 85% !important;
+  max-height: 85% !important;
 }
 
-/* Force maximum zoom out for all product detail images */
+/* Optimize all product detail images for full visibility with proper spacing */
 .product-detail-page img[alt*="product" i],
 .product-detail-page img[alt*="Product" i] {
-  padding: 30px !important;
+  padding: 0 !important;
   background-color: #ffffff !important;
   object-fit: contain !important;
+  object-position: center !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: 85% !important;
+  max-height: 85% !important;
+}
   object-position: center !important;
 }
 

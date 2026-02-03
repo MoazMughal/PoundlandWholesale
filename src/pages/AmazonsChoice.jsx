@@ -574,10 +574,7 @@ const AmazonsChoice = () => {
       }
       
       // Use proper API URL for both development and production with timeout
-      const baseApiUrl = process.env.NODE_ENV === 'production' 
-        ? 'https://generic-wholesale-backend.onrender.com/api' 
-        : 'http://localhost:5000/api';
-      const apiUrl = `${baseApiUrl}/products/public?${params.toString()}`
+      const apiUrl = `${getApiUrl('products/public')}?${params.toString()}`
       
       // Production optimization: Add timeout and retry logic
       const controller = new AbortController();

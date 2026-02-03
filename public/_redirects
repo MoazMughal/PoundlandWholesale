@@ -1,33 +1,26 @@
-# Render SPA Configuration - Fixed Asset Paths
-# Manual Render config: Source: /* → Destination: /index.html → Action: Rewrite
+# Redirect www to non-www
+https://www.poundlandwholesale.com/* https://poundlandwholesale.com/:splat 301!
 
-# CRITICAL: Static assets must be served directly with correct MIME types
-/assets/*       /assets/:splat      200!
-/*.js           /:splat             200!
-/*.css          /:splat             200!
-/*.png          /:splat             200!
-/*.jpg          /:splat             200!
-/*.jpeg         /:splat             200!
-/*.svg          /:splat             200!
-/*.ico          /:splat             200!
-/*.woff         /:splat             200!
-/*.woff2        /:splat             200!
-/*.ttf          /:splat             200!
-/*.eot          /:splat             200!
+# Serve static files with correct content-type
+/sitemap.xml /sitemap.xml 200!
+  Content-Type: application/xml; charset=utf-8
+  Cache-Control: public, max-age=3600
 
-# Important files that should be served directly
-/favicon.ico        /favicon.ico        200!
-/robots.txt         /robots.txt         200!
-/sitemap.xml        /sitemap.xml        200!
-/site.webmanifest   /site.webmanifest   200!
-/browserconfig.xml  /browserconfig.xml  200!
-/manifest.json      /manifest.json      200!
-/sw.js              /sw.js              200!
-/deployment-test.html  /deployment-test.html  200!
+/robots.txt /robots.txt 200!
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=86400
 
-# API routes - proxy to backend (if not handled by Render)
-/api/*  https://generic-wholesale-backend.onrender.com/api/:splat  200!
+/favicon-v3.png /favicon-v3.png 200!
+  Content-Type: image/png
+  Cache-Control: public, max-age=31536000, immutable
+
+/site.webmanifest /site.webmanifest 200!
+  Content-Type: application/manifest+json
+  Cache-Control: public, max-age=86400
+
+/browserconfig.xml /browserconfig.xml 200!
+  Content-Type: application/xml; charset=utf-8
+  Cache-Control: public, max-age=86400
 
 # SPA fallback - serve index.html for all other routes
-# This handles /product/123, /admin/dashboard, etc.
-/*    /index.html   200
+/* /index.html 200

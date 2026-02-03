@@ -745,7 +745,7 @@ const MobileHeader = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search products..."
+              placeholder="Search by name, SKU, category, or keywords..."
               className="mobile-search-input"
             />
           </form>
@@ -817,7 +817,7 @@ const MobileHeader = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search products by name, category, or keywords..."
+                placeholder="Search by name, SKU, category, or keywords..."
                 style={{
                   width: '100%',
                   padding: '4px 32px 4px 32px',

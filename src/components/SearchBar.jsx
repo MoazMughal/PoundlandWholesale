@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 const SearchBar = ({ 
-  placeholder = "Search products...", 
+  placeholder = "Search by name, SKU, category...", 
   onSearch, 
   suggestions = [],
   showSuggestions = false,

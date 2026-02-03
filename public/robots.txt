@@ -20,11 +20,9 @@ Disallow: /reset-password/
 
 # Allow important public pages
 Allow: /about-us
-Allow: /categories
-Allow: /best-sellers
-Allow: /latest-deals
-Allow: /excel-products
+Allow: /basket
 Allow: /join-now
+Allow: /auth
 Allow: /terms-of-service
 Allow: /privacy-policy
 Allow: /help-center

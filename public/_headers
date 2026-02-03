@@ -5,13 +5,14 @@
   Referrer-Policy: strict-origin-when-cross-origin
   X-XSS-Protection: 1; mode=block
 
-# XML files (sitemap, RSS feeds)
-/*.xml
+# Sitemap specific - highest priority
+/sitemap.xml
   Content-Type: application/xml; charset=utf-8
   Cache-Control: public, max-age=3600
+  Access-Control-Allow-Origin: *
 
-# Sitemap specific
-/sitemap.xml
+# XML files (sitemap, RSS feeds)
+/*.xml
   Content-Type: application/xml; charset=utf-8
   Cache-Control: public, max-age=3600
 
@@ -23,6 +24,22 @@
 # Cache static assets
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# New favicon with cache busting
+/favicon-v3.png
+  Content-Type: image/png
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+# Web manifest
+/site.webmanifest
+  Content-Type: application/manifest+json
+  Cache-Control: public, max-age=86400
+
+# Browser config
+/browserconfig.xml
+  Content-Type: application/xml; charset=utf-8
+  Cache-Control: public, max-age=86400
 
 # Cache images
 /*.png

@@ -2232,20 +2232,7 @@ const ProductDetail = () => {
   }
   
   // Use database products if available, fallback to hardcoded for backward compatibility
-  const topDeals = topDealsFromDB.length > 0 ? topDealsFromDB : products
-    .filter(p => p.id !== product?.id)
-    .sort((a, b) => {
-      const markupA = parseFloat(a.markup?.replace(/[^0-9.]/g, '') || 0)
-      const markupB = parseFloat(b.markup?.replace(/[^0-9.]/g, '') || 0)
-      return markupB - markupA
-    })
-    .slice(0, 6)
-  
-  // Use database products if available, fallback to hardcoded for backward compatibility
-  const mostPopular = mostPopularFromDB.length > 0 ? mostPopularFromDB : products
-    .filter(p => p.id !== product?.id)
-    .sort((a, b) => (b.reviews || 0) - (a.reviews || 0))
-    .slice(0, 6)
+  // topDeals and mostPopular are now handled directly by topDealsFromDB and mostPopularFromDB state
 
   // Helper function to safely format numbers and filter NaN
   const safeNumber = (value) => {
@@ -2720,16 +2707,16 @@ const ProductDetail = () => {
                 {/* Compact Main Image Container */}
                 <div className="position-relative mb-2" style={{
                   background: '#ffffff', 
-                  border: 'none', // Remove border to eliminate inner border effect
+                  border: 'none',
                   borderRadius: '8px', 
-                  padding: '25px', // Add more padding for better spacing around smaller image
+                  padding: '30px',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
                   transition: 'box-shadow 0.3s ease',
-                  minHeight: 'auto', // Let image determine height naturally
-                  maxHeight: 'none', // Remove height restrictions
-                  display: 'flex', // Use flex to center the smaller image
+                  minHeight: '400px',
+                  display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  overflow: 'hidden'
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'}
                 onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)'}
@@ -2739,15 +2726,22 @@ const ProductDetail = () => {
                     alt={product.name} 
                     className="img-fluid"
                     style={{
-                      width: '50%', // Further reduce width to show full image without cropping
-                      maxWidth: '50%', // Prevent overflow
-                      height: 'auto', // Maintain aspect ratio
-                      maxHeight: 'none', // Remove height restrictions completely
-                      objectFit: 'contain', // Ensure full image is visible without cropping
+                      maxWidth: '85%',
+                      maxHeight: '85%',
+                      width: 'auto',
+                      height: 'auto',
+                      objectFit: 'contain',
                       objectPosition: 'center',
-                      borderRadius: '8px', // Match container border radius
-                      backgroundColor: '#ffffff', // White background for better visibility
-                      display: 'block'
+                      backgroundColor: 'transparent',
+                      display: 'block',
+                      transition: 'transform 0.3s ease',
+                      cursor: 'zoom-in'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.transform = 'scale(1.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.transform = 'scale(1)';
                     }}
                     onLoad={(e) => {
                       console.log('🖼️ Image loaded:', {
@@ -2820,15 +2814,19 @@ const ProductDetail = () => {
                       key={idx}
                       onClick={() => setSelectedImage(idx)}
                       style={{
-                        minWidth: '45px',
-                        height: '45px',
+                        minWidth: '60px',
+                        height: '60px',
                         border: selectedImage === idx ? '2px solid #ff9900' : '1px solid #e1e5e9',
                         borderRadius: '6px',
-                        padding: '3px',
+                        padding: '4px',
                         cursor: 'pointer',
                         background: '#fff',
                         transition: 'all 0.2s ease',
-                        boxShadow: selectedImage === idx ? '0 2px 6px rgba(255, 153, 0, 0.2)' : '0 1px 3px rgba(0,0,0,0.06)'
+                        boxShadow: selectedImage === idx ? '0 2px 6px rgba(255, 153, 0, 0.2)' : '0 1px 3px rgba(0,0,0,0.06)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'visible'
                       }}
                       onMouseEnter={(e) => {
                         if (selectedImage !== idx) {
@@ -2849,12 +2847,13 @@ const ProductDetail = () => {
                         src={img}
                         alt={`${product.name} ${idx + 1}`}
                         style={{
-                          width: '100%', 
-                          height: '100%', 
+                          maxWidth: '100%', 
+                          maxHeight: '100%', 
+                          width: 'auto',
+                          height: 'auto',
                           objectFit: 'contain',
                           objectPosition: 'center',
-                          borderRadius: '6px',
-                          padding: '1px', // Minimal padding for better visibility
+                          borderRadius: '4px',
                           backgroundColor: '#ffffff'
                         }}
                       />
@@ -4594,7 +4593,19 @@ const ProductDetail = () => {
                     <div className="related-card-badge" style={{position: 'absolute', top: '10px', left: '10px', background: 'var(--bs-primary)', color: 'white', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '600', zIndex: 2}}>
                       Amazon's Choice
                     </div>
-                    <img src={relatedProduct.image} alt={relatedProduct.name} style={{width: '100%', maxHeight: '180px', height: 'auto', objectFit: 'contain', background: '#ffffff', padding: '30px'}} />
+                    <img 
+                      src={relatedProduct.image} 
+                      alt={relatedProduct.name} 
+                      className="w-100" 
+                      style={{
+                        height: 'auto',
+                        minHeight: '160px',
+                        maxHeight: '200px',
+                        objectFit: 'contain',
+                        background: '#ffffff',
+                        padding: '15px'
+                      }} 
+                    />
                     <div style={{padding: '15px'}}>
                       <h5 style={{fontSize: '0.9rem', fontWeight: '600', marginBottom: '8px', color: '#2d3748', lineHeight: '1.4', height: '40px', overflow: 'hidden'}}>{relatedProduct.name}</h5>
                       <div style={{color: '#ffc107', fontSize: '0.75rem', marginBottom: '8px'}}>
@@ -4617,7 +4628,7 @@ const ProductDetail = () => {
               <Link to={`/?cat=${encodeURIComponent(product?.category || '')}`} className="btn btn-sm btn-outline-primary">View All</Link>
             </div>
             <div className="row g-3">
-              {topDeals.map((deal, idx) => (
+              {topDealsFromDB.map((deal, idx) => (
                 <div key={deal.id} className="col-lg-2 col-md-3 col-sm-4 col-6">
                   <Link 
                     to={`/product/${deal.id}?name=${encodeURIComponent(deal.name)}&img=${encodeURIComponent(deal.image)}&price=${parseFloat(deal.price.replace(/[?$?]/g, ''))}&rating=${deal.rating}&reviews=${deal.reviews || 100}&category=${encodeURIComponent(deal.category || 'General')}&brand=${encodeURIComponent(deal.brand || '')}&discount=${deal.markup || '250%'}`}
@@ -4628,11 +4639,23 @@ const ProductDetail = () => {
                       <span className="badge bg-danger position-absolute top-0 end-0 m-2" style={{fontSize: '0.65rem', zIndex: 2}}>
                         {deal.markup}
                       </span>
-                      <img src={deal.image} alt={deal.name} className="card-img-top" style={{maxHeight: '140px', height: 'auto', objectFit: 'contain', padding: '25px', background: '#ffffff'}} />
+                      <img 
+                        src={deal.image} 
+                        alt={deal.name} 
+                        className="card-img-top w-100" 
+                        style={{
+                          height: 'auto',
+                          minHeight: '180px',
+                          maxHeight: 'none',
+                          objectFit: 'contain',
+                          padding: '10px',
+                          background: '#ffffff'
+                        }} 
+                      />
                     </div>
                     <div className="card-body p-2">
                       <h6 className="card-title" style={{fontSize: '0.75rem', fontWeight: '600', color: '#2d3748', height: '32px', overflow: 'hidden', lineHeight: '1.3', marginBottom: '4px'}}>{deal.name}</h6>
-                      <div className="d-flex justify-content-between align-items-center">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
                         <span className="text-primary fw-bold" style={{fontSize: '0.85rem'}}>{deal.price}</span>
                         <div className="text-warning" style={{fontSize: '0.65rem'}}>
                           {[...Array(5)].map((_, i) => (
@@ -4640,6 +4663,9 @@ const ProductDetail = () => {
                           ))}
                         </div>
                       </div>
+                      <small className="text-success" style={{fontSize: '0.65rem'}}>
+                        <i className="fas fa-percentage me-1"></i>High Profit
+                      </small>
                     </div>
                   </Link>
                 </div>
@@ -4656,7 +4682,7 @@ const ProductDetail = () => {
               <Link to="/" className="btn btn-sm btn-outline-primary">View All</Link>
             </div>
             <div className="row g-3">
-              {mostPopular.map((popular, idx) => (
+              {mostPopularFromDB.map((popular, idx) => (
                 <div key={popular.id} className="col-lg-2 col-md-3 col-sm-4 col-6">
                   <Link 
                     to={`/product/${popular.id}?name=${encodeURIComponent(popular.name)}&img=${encodeURIComponent(popular.image)}&price=${parseFloat(popular.price.replace(/[?$?]/g, ''))}&rating=${popular.rating}&reviews=${popular.reviews || 100}&category=${encodeURIComponent(popular.category || 'General')}&brand=${encodeURIComponent(popular.brand || '')}&discount=${popular.markup || '250%'}`}
@@ -4665,9 +4691,21 @@ const ProductDetail = () => {
                   >
                     <div className="position-relative">
                       <span className="badge bg-success position-absolute top-0 end-0 m-2" style={{fontSize: '0.65rem', zIndex: 2}}>
-                        <i className="fas fa-fire me-1"></i>Popular
+                        <i className="fas fa-star me-1"></i>Popular
                       </span>
-                      <img src={popular.image} alt={popular.name} className="card-img-top" style={{maxHeight: '140px', height: 'auto', objectFit: 'contain', padding: '25px', background: '#ffffff'}} />
+                      <img 
+                        src={popular.image} 
+                        alt={popular.name} 
+                        className="card-img-top w-100" 
+                        style={{
+                          height: 'auto',
+                          minHeight: '180px',
+                          maxHeight: 'none',
+                          objectFit: 'contain',
+                          padding: '10px',
+                          background: '#ffffff'
+                        }} 
+                      />
                     </div>
                     <div className="card-body p-2">
                       <h6 className="card-title" style={{fontSize: '0.75rem', fontWeight: '600', color: '#2d3748', height: '32px', overflow: 'hidden', lineHeight: '1.3', marginBottom: '4px'}}>{popular.name}</h6>
@@ -4686,8 +4724,8 @@ const ProductDetail = () => {
                   </Link>
                 </div>
               ))}
-              </div>
             </div>
+          </div>
             
             {/* Customer Testimonials - Enhanced - MOVED TO END */}
           {product.testimonials && product.testimonials.length > 0 && (

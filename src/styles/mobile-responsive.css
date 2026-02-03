@@ -16,9 +16,10 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   }
   
-  /* Product images mobile sizing */
+  /* Product images mobile sizing - allow larger images */
   .product-card img {
-    height: 120px !important;
+    height: auto !important;
+    min-height: 150px !important;
     object-fit: contain;
   }
   
@@ -122,7 +123,8 @@
   }
   
   .product-card img {
-    height: 100px !important;
+    height: auto !important;
+    min-height: 120px !important;
   }
   
   .product-card h6 {
@@ -181,7 +183,8 @@
   }
   
   .product-card img {
-    height: 140px !important;
+    height: auto !important;
+    min-height: 160px !important;
   }
 }
 
