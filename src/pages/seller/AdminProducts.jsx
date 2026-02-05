@@ -485,6 +485,9 @@ const AdminProducts = () => {
             background: #f8f9fa;
             padding: 8px;
             border-radius: 8px 8px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
           
           .product-info {
@@ -831,15 +834,23 @@ const AdminProducts = () => {
                     }}
                   >
                     {product.images && product.images.length > 0 ? (
-                      <img 
-                        src={getImageUrl(product.images[0])}
-                        className="product-image"
-                        alt={product.name}
-                        onError={(e) => {
-                          e.target.style.display = 'none'
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      />
+                      <div className="product-image">
+                        <img 
+                          src={getImageUrl(product.images[0])}
+                          alt={product.name}
+                          onError={(e) => {
+                            e.target.style.display = 'none'
+                          }}
+                          style={{ 
+                            cursor: 'pointer',
+                            maxWidth: '100%',
+                            maxHeight: '100%',
+                            width: 'auto',
+                            height: 'auto',
+                            objectFit: 'contain'
+                          }}
+                        />
+                      </div>
                     ) : (
                       <div 
                         className="product-image"

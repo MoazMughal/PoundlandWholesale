@@ -17,12 +17,24 @@ export const AdminProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [authResolved, setAuthResolved] = useState(false)
 
-  // Initialize authentication - Restore valid sessions on all pages
+  // Initialize authentication - Only restore sessions on protected pages
   useEffect(() => {
     const initializeAuth = async () => {
       console.log('🔑 AdminContext: Starting auth initialization...')
       
       try {
+        // Check if we're on an admin page or product page - restore auth on both
+        const currentPath = window.location.pathname
+        const isAdminPage = currentPath.startsWith('/admin/')
+        const isProductPage = currentPath.startsWith('/product/')
+        
+        if (!isAdminPage && !isProductPage) {
+          console.log('🔍 AdminContext: Not on admin or product page, skipping auth restoration')
+          setLoading(false)
+          setAuthResolved(true)
+          return
+        }
+        
         // Initialize auth manager and check for valid tokens
         console.log('🔑 AdminContext: Calling authManager.initializeAuth()...')
         const authData = await authManager.initializeAuth()
@@ -36,6 +48,14 @@ export const AdminProvider = ({ children }) => {
         } else {
           console.log('🔍 AdminContext: No valid admin auth found')
           console.log('🔍 AdminContext: authData was:', authData)
+          
+          // If on admin page but no auth, redirect to login
+          // Don't redirect if on product page - allow viewing products without admin auth
+          if (isAdminPage && currentPath !== '/admin/login') {
+            console.log('🔄 AdminContext: Redirecting to admin login')
+            window.location.replace('/admin/login')
+            return
+          }
         }
       } catch (error) {
         console.error('❌ AdminContext: Auth initialization error:', error)
@@ -115,6 +135,11 @@ export const AdminProvider = ({ children }) => {
       await new Promise(resolve => setTimeout(resolve, 100))
       
       console.log('✅ Admin login successful - context updated')
+      
+      // Navigate to dashboard after successful login
+      setTimeout(() => {
+        window.location.href = '/admin/dashboard'
+      }, 200)
       
       return { success: true }
     } catch (error) {

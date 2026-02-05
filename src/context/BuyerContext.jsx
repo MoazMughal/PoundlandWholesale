@@ -21,6 +21,20 @@ export const BuyerProvider = ({ children }) => {
       console.log('🔑 Initializing buyer auth...')
 
       try {
+        // Check if we're on a buyer page or product page - restore auth on both
+        const currentPath = window.location.pathname
+        const isBuyerPage = currentPath.startsWith('/buyer/') || 
+                           currentPath === '/basket' ||
+                           currentPath.startsWith('/login/buyer') ||
+                           currentPath.startsWith('/register/buyer') ||
+                           currentPath.startsWith('/product/')
+        
+        if (!isBuyerPage) {
+          console.log('🔍 BuyerContext: Not on buyer or product page, skipping auth restoration')
+          setLoading(false)
+          return
+        }
+
         // Initialize auth manager and check for valid tokens
         const authData = await authManager.initializeAuth()
         
@@ -30,6 +44,13 @@ export const BuyerProvider = ({ children }) => {
           setIsLoggedIn(true)
         } else {
           console.log('🔍 No valid buyer auth found')
+          
+          // If on protected buyer page but no auth, redirect to login
+          if (currentPath.startsWith('/buyer/')) {
+            console.log('🔄 BuyerContext: Redirecting to buyer login')
+            window.location.replace('/login/buyer')
+            return
+          }
         }
       } catch (error) {
         console.error('❌ Buyer auth initialization error:', error)
@@ -60,6 +81,11 @@ export const BuyerProvider = ({ children }) => {
       setIsLoggedIn(true)
       
       console.log('✅ Buyer login successful - context updated')
+      
+      // Navigate to dashboard after successful login
+      setTimeout(() => {
+        window.location.href = '/buyer/dashboard'
+      }, 200)
       
       return { success: true }
     } catch (error) {

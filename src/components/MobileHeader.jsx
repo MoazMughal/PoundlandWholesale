@@ -952,16 +952,16 @@ const MobileHeader = () => {
                         style={{
                           display: 'block',
                           width: '100%',
-                          textAlign: 'left',
                           padding: '8px 12px',
                           fontSize: '11px',
                           color: '#dc2626',
                           background: 'none',
                           border: 'none',
+                          textAlign: 'left',
                           cursor: 'pointer'
                         }}
                       >
-                        Logout
+                        <i className="fas fa-sign-out-alt"></i> Logout
                       </button>
                     </div>
                   )}

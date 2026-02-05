@@ -32,6 +32,43 @@ const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
+  // Clear any existing authentication when visiting homepage from external sources
+  useEffect(() => {
+    const clearAuthOnPublicAccess = () => {
+      // Check if user came from external source (Google, direct link, etc.)
+      const referrer = document.referrer
+      const isExternalReferrer = !referrer || !referrer.includes(window.location.hostname)
+      const isHomepage = window.location.pathname === '/'
+      
+      if (isHomepage && isExternalReferrer) {
+        console.log('🔒 Homepage accessed from external source - clearing any existing auth for security')
+        
+        // Clear all authentication data to ensure clean state
+        const keysToRemove = [
+          'adminToken', 'adminData',
+          'sellerToken', 'sellerData', 
+          'buyerToken', 'buyerData',
+          'activeUserType', 'currentAuthToken'
+        ]
+        
+        keysToRemove.forEach(key => {
+          localStorage.removeItem(key)
+          sessionStorage.removeItem(key)
+        })
+        
+        // Force contexts to reset
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: 'activeUserType',
+          oldValue: 'any',
+          newValue: null,
+          storageArea: localStorage
+        }))
+      }
+    }
+    
+    clearAuthOnPublicAccess()
+  }, [])
+
   // Critical mobile fixes for Amazon Choice page
   useEffect(() => {
     const style = document.createElement('style')

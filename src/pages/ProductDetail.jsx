@@ -3068,24 +3068,26 @@ const ProductDetail = () => {
                         }}>/Unit (DDP to Amazon Warehouse)</span>
                       </div>
                       
-                      {/* Price Breakdown */}
+                      {/* Price Breakdown - Always show */}
                       {(() => {
                         const breakdown = getLowestPriceBreakdown();
-                        if (breakdown.shipping > 0) {
-                          return (
-                            <div style={{ 
-                              fontSize: '0.8rem', 
-                              color: '#6c757d', 
-                              fontWeight: 'normal',
-                              marginTop: '8px',
-                              marginBottom: '8px',
-                              paddingLeft: '2px'
-                            }}>
-                              {convertPrice(`£${breakdown.price.toFixed(2)}`)} + {convertPrice(`£${breakdown.shipping.toFixed(2)}`)} shipping
-                            </div>
-                          );
-                        }
-                        return null;
+                        
+                        // Always show breakdown with calculator icon and styling
+                        return (
+                          <div style={{
+                            fontSize: '0.8rem', 
+                            color: '#6b7280', 
+                            marginTop: '8px',
+                            marginBottom: '8px',
+                            padding: '4px 8px',
+                            background: 'rgba(107, 114, 128, 0.1)',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(107, 114, 128, 0.2)'
+                          }}>
+                            <i className="fas fa-calculator" style={{ fontSize: '0.7rem', marginRight: '6px' }}></i>
+                            {convertPrice(`£${breakdown.price.toFixed(2)}`)} + {convertPrice(`£${breakdown.shipping.toFixed(2)}`)} shipping
+                          </div>
+                        );
                       })()}
                       
                       {/* Enhanced RRP and Save Section */}
@@ -3426,14 +3428,35 @@ const ProductDetail = () => {
                     </div>
                     {(() => {
                       const breakdown = getLowestPriceBreakdown();
-                      if (breakdown.shipping > 0) {
-                        return (
-                          <div style={{fontSize: '0.65rem', color: '#6b7280', marginTop: '2px', marginBottom: '4px'}}>
-                            £{breakdown.price.toFixed(2)} + £{breakdown.shipping.toFixed(2)} shipping
-                          </div>
-                        );
-                      }
-                      return null;
+                      const lowestPrice = getLowestPrice();
+                      
+                      console.log('🔍 Buy Box Breakdown Debug:', {
+                        breakdown,
+                        lowestPrice,
+                        price: breakdown.price,
+                        shipping: breakdown.shipping
+                      });
+                      
+                      // Get shipping cost from breakdown or product
+                      const shippingCost = breakdown.shipping > 0 ? breakdown.shipping : parseFloat(product.shipping) || 0;
+                      const basePrice = breakdown.price > 0 ? breakdown.price : (shippingCost > 0 ? lowestPrice - shippingCost : lowestPrice);
+                      
+                      // Always show breakdown with calculator icon and styling
+                      return (
+                        <div style={{
+                          fontSize: '0.7rem', 
+                          color: '#6b7280', 
+                          marginTop: '2px', 
+                          marginBottom: '4px',
+                          padding: '2px 4px',
+                          background: 'rgba(107, 114, 128, 0.1)',
+                          borderRadius: '3px',
+                          border: '1px solid rgba(107, 114, 128, 0.2)'
+                        }}>
+                          <i className="fas fa-calculator" style={{ fontSize: '0.6rem', marginRight: '4px' }}></i>
+                          £{Math.max(0, basePrice).toFixed(2)} + £{shippingCost.toFixed(2)} shipping
+                        </div>
+                      );
                     })()}
                     <small style={{fontSize: '0.6rem', color: '#565959', fontWeight: '500'}}>
                       (DDP to Amazon Warehouse)
@@ -3700,9 +3723,23 @@ const ProductDetail = () => {
                       </div>
                       {(() => {
                         const breakdown = getLowestPriceBreakdown();
+                        const shippingCost = breakdown.shipping || parseFloat(product.shipping) || 0;
+                        const basePrice = breakdown.price || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+                        
+                        // Always show breakdown - even if shipping is 0
                         return (
-                          <div style={{fontSize: '0.75rem', color: '#6b7280', marginTop: '-8px', marginBottom: '8px'}}>
-                            £{breakdown.price.toFixed(2)} + £{breakdown.shipping.toFixed(2)} shipping
+                          <div style={{
+                            fontSize: '0.75rem', 
+                            color: '#6b7280', 
+                            marginTop: '-8px', 
+                            marginBottom: '8px',
+                            padding: '2px 6px',
+                            background: 'rgba(107, 114, 128, 0.1)',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(107, 114, 128, 0.2)'
+                          }}>
+                            <i className="fas fa-calculator" style={{ fontSize: '0.65rem', marginRight: '4px' }}></i>
+                            £{basePrice.toFixed(2)} + £{shippingCost.toFixed(2)} shipping
                           </div>
                         );
                       })()}
@@ -3750,9 +3787,22 @@ const ProductDetail = () => {
                           </div>
                           {(() => {
                             const breakdown = getLowestPriceBreakdown();
+                            const shippingCost = breakdown.shipping || parseFloat(product.shipping) || 0;
+                            const basePrice = breakdown.price || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+                            
+                            // Always show breakdown - even if shipping is 0
                             return (
-                              <div style={{fontSize: '0.65rem', color: '#6b7280', marginTop: '2px'}}>
-                                £{breakdown.price.toFixed(2)} + £{breakdown.shipping.toFixed(2)} shipping
+                              <div style={{
+                                fontSize: '0.65rem', 
+                                color: '#6b7280', 
+                                marginTop: '2px',
+                                padding: '1px 4px',
+                                background: 'rgba(107, 114, 128, 0.1)',
+                                borderRadius: '3px',
+                                border: '1px solid rgba(107, 114, 128, 0.2)'
+                              }}>
+                                <i className="fas fa-calculator" style={{ fontSize: '0.55rem', marginRight: '3px' }}></i>
+                                £{basePrice.toFixed(2)} + £{shippingCost.toFixed(2)} shipping
                               </div>
                             );
                           })()}

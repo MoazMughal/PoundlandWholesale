@@ -17,12 +17,26 @@ export const SellerProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [authResolved, setAuthResolved] = useState(false)
 
-  // Initialize authentication - Restore valid sessions on all pages
+  // Initialize authentication - Only restore sessions on seller pages
   useEffect(() => {
     const initializeAuth = async () => {
       console.log('🔑 Initializing seller auth...')
 
       try {
+        // Check if we're on a seller page - only restore auth on seller pages
+        const currentPath = window.location.pathname
+        const isSellerPage = currentPath.startsWith('/seller/') || 
+                            currentPath.startsWith('/login/supplier') ||
+                            currentPath.startsWith('/register/supplier') ||
+                            currentPath.startsWith('/product/') // Allow product pages for sellers
+        
+        if (!isSellerPage) {
+          console.log('🔍 SellerContext: Not on seller page, skipping auth restoration')
+          setLoading(false)
+          setAuthResolved(true)
+          return
+        }
+
         // Initialize auth manager and check for valid tokens
         const authData = await authManager.initializeAuth()
         
@@ -34,6 +48,13 @@ export const SellerProvider = ({ children }) => {
           console.log('🔍 No valid seller auth found')
           setSeller(null)
           setIsLoggedIn(false)
+          
+          // If on protected seller page but no auth, redirect to login
+          if (currentPath.startsWith('/seller/')) {
+            console.log('🔄 SellerContext: Redirecting to seller login')
+            window.location.replace('/login/supplier')
+            return
+          }
         }
       } catch (error) {
         console.error('❌ Seller auth initialization error:', error)
@@ -106,6 +127,11 @@ export const SellerProvider = ({ children }) => {
       await new Promise(resolve => setTimeout(resolve, 100))
       
       console.log('✅ Seller login successful - context updated')
+      
+      // Navigate to dashboard after successful login
+      setTimeout(() => {
+        window.location.href = '/seller/dashboard'
+      }, 200)
       
       return { success: true }
     } catch (error) {
