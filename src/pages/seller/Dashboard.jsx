@@ -17,6 +17,8 @@ const SellerDashboard = () => {
   })
   const [paymentHistory, setPaymentHistory] = useState([])
   const [listingRequests, setListingRequests] = useState([])
+  const [previewProducts, setPreviewProducts] = useState([])
+  const [loadingPreview, setLoadingPreview] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [showVerificationModal, setShowVerificationModal] = useState(false)
   const [verificationDocs, setVerificationDocs] = useState({
@@ -58,64 +60,62 @@ const SellerDashboard = () => {
   }, [authResolved, isLoggedIn, seller, navigate]) // Minimal dependencies
 
   const fetchDashboardData = async (token) => {
+    console.log('📊 Starting dashboard data fetch...')
     setDashboardLoading(true)
+    setLoadingPreview(true)
     
     try {
-      // Check dashboard access
-      try {
-        const accessResponse = await fetch('http://localhost:5000/api/sellers/dashboard-access', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+      // Fetch all data in parallel for better performance
+      const [accessResponse, paymentsResponse, listingResponse, previewResponse] = await Promise.allSettled([
+        // Dashboard access check
+        fetch('http://localhost:5000/api/sellers/dashboard-access', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        // Payment history
+        fetch('http://localhost:5000/api/sellers/payments', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        // Listing requests
+        fetch('http://localhost:5000/api/sellers/listing-requests', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        // Preview products
+        fetch('http://localhost:5000/api/products/admin/available?limit=6', {
+          headers: { 'Authorization': `Bearer ${token}` }
         })
+      ])
 
-        if (accessResponse.ok) {
-          const accessData = await accessResponse.json()
-          setDashboardAccess(accessData)
-        }
-      } catch (accessError) {
-        console.error('Dashboard access check failed:', accessError)
-        // Continue without dashboard access data
+      // Process dashboard access
+      if (accessResponse.status === 'fulfilled' && accessResponse.value.ok) {
+        const accessData = await accessResponse.value.json()
+        setDashboardAccess(accessData)
       }
 
-      // Fetch payment history
-      try {
-        const paymentsResponse = await fetch('http://localhost:5000/api/sellers/payments', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-
-        if (paymentsResponse.ok) {
-          const paymentsData = await paymentsResponse.json()
-          setPaymentHistory(paymentsData)
-        }
-      } catch (paymentsError) {
-        console.error('Payment history fetch failed:', paymentsError)
-        // Continue without payment history
+      // Process payment history
+      if (paymentsResponse.status === 'fulfilled' && paymentsResponse.value.ok) {
+        const paymentsData = await paymentsResponse.value.json()
+        setPaymentHistory(paymentsData)
       }
 
-      // Fetch listing requests
-      try {
-        const listingResponse = await fetch('http://localhost:5000/api/sellers/listing-requests', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-
-        if (listingResponse.ok) {
-          const listingData = await listingResponse.json()
-          setListingRequests(listingData.requests)
-        }
-      } catch (listingError) {
-        console.error('Listing requests fetch failed:', listingError)
-        // Continue without listing requests
+      // Process listing requests
+      if (listingResponse.status === 'fulfilled' && listingResponse.value.ok) {
+        const listingData = await listingResponse.value.json()
+        console.log('📋 Listing requests fetched:', listingData.requests)
+        setListingRequests(listingData.requests || [])
       }
 
+      // Process preview products
+      if (previewResponse.status === 'fulfilled' && previewResponse.value.ok) {
+        const previewData = await previewResponse.value.json()
+        setPreviewProducts(previewData.products || [])
+      }
+
+      console.log('✅ Dashboard data fetch completed')
     } catch (error) {
-      console.error('Error fetching dashboard data:', error)
+      console.error('❌ Error fetching dashboard data:', error)
     } finally {
       setDashboardLoading(false)
+      setLoadingPreview(false)
     }
   }
 
@@ -838,40 +838,129 @@ const SellerDashboard = () => {
               <h5 className="mb-1"><i className="fas fa-shopping-cart me-2"></i>Request Products from Amazon's Choice</h5>
               <small className="opacity-75">Browse and request products from our catalog (requires admin approval)</small>
             </div>
-            <div className="card-body text-center py-4">
-              <div className="mb-3">
-                <i className="fas fa-paper-plane fa-3x text-primary mb-3"></i>
-                <h6 className="mb-2">Submit Listing Requests</h6>
-                <p className="text-muted mb-4">
-                  Choose from our curated Amazon's Choice products and submit requests for admin approval
-                </p>
-                <div className="alert alert-info mb-4">
-                  <i className="fas fa-info-circle me-2"></i>
-                  <strong>New Process:</strong> All product listing requests now require admin approval. 
-                  You'll be notified once your requests are reviewed.
-                </div>
-              </div>
-              
-              <button 
-                className="btn btn-primary btn-lg"
-                disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
-                onClick={() => navigate('/seller/admin-products')}
-              >
-                <div className="d-flex flex-column align-items-center">
-                  <div className="d-flex align-items-center mb-1">
-                    <i className="fas fa-paper-plane me-2"></i>
-                    <span>Browse & Request Products</span>
+            <div className="card-body">
+              {/* Product Preview Section */}
+              {previewProducts.length > 0 && (
+                <div className="mb-4">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h6 className="mb-0">
+                      <i className="fas fa-star text-warning me-2"></i>
+                      Featured Products
+                    </h6>
+                    <button 
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => navigate('/seller/admin-products')}
+                      disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}
+                    >
+                      <i className="fas fa-th-large me-1"></i>
+                      Show All
+                    </button>
                   </div>
-                  <small>Submit listing requests</small>
-                </div>
-              </button>
-              
-              {!(seller?.canListProducts || seller?.verificationStatus === 'approved') && (
-                <div className="alert alert-warning mt-4 mb-0">
-                  <i className="fas fa-exclamation-triangle me-2"></i> 
-                  <strong>Verification Required:</strong> Complete your verification to request products.
+                  
+                  {loadingPreview ? (
+                    <div className="text-center py-3">
+                      <div className="spinner-border spinner-border-sm text-primary" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                      </div>
+                      <small className="text-muted ms-2">Loading products...</small>
+                    </div>
+                  ) : (
+                    <div className="row g-2">
+                      {previewProducts.slice(0, 6).map((product, index) => (
+                        <div key={product._id} className="col-lg-2 col-md-3 col-sm-4 col-6">
+                          <div className="card h-100 shadow-sm" style={{fontSize: '0.75rem'}}>
+                            <div className="position-relative">
+                              <img 
+                                src={product.images?.[0] || 'https://via.placeholder.com/150x150?text=No+Image'} 
+                                alt={product.name}
+                                className="card-img-top"
+                                style={{
+                                  height: '100px',
+                                  objectFit: 'contain',
+                                  backgroundColor: '#f8f9fa',
+                                  padding: '8px'
+                                }}
+                                onError={(e) => {
+                                  e.target.src = 'https://via.placeholder.com/150x150?text=No+Image';
+                                }}
+                              />
+                            </div>
+                            <div className="card-body p-2">
+                              <h6 className="card-title mb-1" style={{
+                                fontSize: '0.7rem',
+                                lineHeight: '1.2',
+                                height: '2.4rem',
+                                overflow: 'hidden',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical'
+                              }}>
+                                {product.name}
+                              </h6>
+                              <div className="d-flex justify-content-between align-items-center">
+                                <span className="text-success fw-bold" style={{fontSize: '0.8rem'}}>
+                                  £{product.price}
+                                  {product.shipping > 0 && (
+                                    <div style={{fontSize: '0.6rem', color: '#6c757d'}}>
+                                      +£{product.shipping} ship
+                                    </div>
+                                  )}
+                                </span>
+                                <button 
+                                  className="btn btn-primary btn-sm"
+                                  style={{fontSize: '0.6rem', padding: '2px 6px'}}
+                                  onClick={() => navigate('/seller/admin-products')}
+                                  disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}
+                                  title="Go to products page to request this item"
+                                >
+                                  <i className="fas fa-plus"></i>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
+              
+              {/* Main Action Section */}
+              <div className="text-center py-3">
+                <div className="mb-3">
+                  <i className="fas fa-paper-plane fa-3x text-primary mb-3"></i>
+                  <h6 className="mb-2">Submit Listing Requests</h6>
+                  <p className="text-muted mb-4">
+                    Choose from our curated Amazon's Choice products and submit requests for admin approval
+                  </p>
+                  <div className="alert alert-info mb-4">
+                    <i className="fas fa-info-circle me-2"></i>
+                    <strong>New Process:</strong> All product listing requests now require admin approval. 
+                    You'll be notified once your requests are reviewed.
+                  </div>
+                </div>
+                
+                <button 
+                  className="btn btn-primary btn-lg"
+                  disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}
+                  onClick={() => navigate('/seller/admin-products')}
+                >
+                  <div className="d-flex flex-column align-items-center">
+                    <div className="d-flex align-items-center mb-1">
+                      <i className="fas fa-paper-plane me-2"></i>
+                      <span>Browse & Request Products</span>
+                    </div>
+                    <small>Submit listing requests</small>
+                  </div>
+                </button>
+                
+                {!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active') && (
+                  <div className="alert alert-warning mt-4 mb-0">
+                    <i className="fas fa-exclamation-triangle me-2"></i> 
+                    <strong>Verification Required:</strong> Complete your verification to request products.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -909,7 +998,7 @@ const SellerDashboard = () => {
                 <div className="col-lg-3 col-md-6 col-sm-6">
                   <button 
                     className="btn btn-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
-                    disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved')}
+                    disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}
                     onClick={() => navigate('/seller/admin-products')}
                   >
                     <i className="fas fa-paper-plane fa-2x mb-2"></i>

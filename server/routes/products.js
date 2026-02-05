@@ -1465,6 +1465,7 @@ router.get('/public/fast', mobileImageOptimization, optimizeProductImages, addRe
         { $project: {
           name: 1,
           price: 1,
+          shipping: 1,
           originalPrice: 1,
           discount: 1,
           category: 1,
@@ -2105,7 +2106,7 @@ router.get('/admin/fast', authenticateAdmin, async (req, res) => {
       allProducts = await Product.find({})
         .skip(skip)
         .limit(limitNum)
-        .select('name price category status createdAt dealUnits currency asin sku seller sellers') // Include seller fields
+        .select('name price shipping category status createdAt dealUnits currency asin sku seller sellers') // Include shipping field
         .populate('seller', 'businessName email username')
         .populate('sellers.sellerId', 'username businessName email')
         .sort({ createdAt: -1 })
@@ -2401,7 +2402,10 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
     // Ensure currency is always GBP for new products
     const productData = {
       ...req.body,
-      currency: 'GBP'
+      currency: 'GBP',
+      // Ensure numeric fields are properly converted
+      price: parseFloat(req.body.price) || 0,
+      shipping: parseFloat(req.body.shipping) || 0
     };
     
     // Parse features from JSON string if provided
@@ -2486,6 +2490,8 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
     console.log('✅ Product created successfully:', {
       id: product._id,
       name: product.name,
+      price: product.price,
+      shipping: product.shipping,
       asin: product.asin,
       sku: product.sku,
       approvalStatus: product.approvalStatus,
@@ -3317,15 +3323,6 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
   const tempFiles = [];
   
   try {
-    // Log ASIN updates specifically
-    if (req.body.asin !== undefined) {
-      console.log('🏷️ ASIN update:', {
-        productId: req.params.id,
-        newASIN: req.body.asin,
-        asinType: typeof req.body.asin
-      });
-    }
-    
     // Validate product ID format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       console.log('❌ Invalid product ID format:', req.params.id);
@@ -3377,12 +3374,37 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       }));
     }
 
-    // Prepare update data
+    // Prepare update data - only include fields that are actually being updated
     const updateData = {
       ...req.body,
-      currency: 'GBP',
-      ...(cleanedVariations && { variations: cleanedVariations })
+      currency: 'GBP'
     };
+    
+    // Only update numeric fields if they are provided in the request
+    if (req.body.price !== undefined) {
+      updateData.price = parseFloat(req.body.price) || 0;
+    }
+    
+    if (req.body.shipping !== undefined) {
+      updateData.shipping = parseFloat(req.body.shipping) || 0;
+    }
+    
+    // Add variations if provided
+    if (cleanedVariations) {
+      updateData.variations = cleanedVariations;
+    }
+    
+    console.log('📝 Product update request:', {
+      productId: req.params.id,
+      requestBody: req.body,
+      priceProvided: req.body.price !== undefined,
+      shippingProvided: req.body.shipping !== undefined,
+      updateData: {
+        price: updateData.price,
+        shipping: updateData.shipping,
+        currency: updateData.currency
+      }
+    });
     
     // Parse features from JSON string if provided
     if (updateData.features && typeof updateData.features === 'string') {
@@ -3470,6 +3492,14 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       updateData,
       { new: true, runValidators: true }
     );
+
+    console.log('✅ Product updated successfully:', {
+      id: product._id,
+      name: product.name,
+      price: product.price,
+      shipping: product.shipping,
+      updateDataShipping: updateData.shipping
+    });
 
     // Clear cache when product is updated
     fastProductsCache = null;
@@ -4303,26 +4333,30 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
   try {
     const { page = 1, limit = 50, status, marketplace } = req.query;
     
-    let query = { 
+    let allProducts = [];
+    
+    // 1. Get approved products where seller is listed
+    let productQuery = { 
       $or: [
         { seller: req.seller._id }, // Primary seller (backward compatibility)
         { 'sellers.sellerId': req.seller._id } // Seller in sellers array
       ]
     };
     
-    if (status) query.approvalStatus = status;
-    if (marketplace) query.marketplace = marketplace;
+    // Only filter by status if it's not 'pending' (since pending requests are not products yet)
+    if (status && status !== 'pending') {
+      productQuery.approvalStatus = status;
+    }
+    if (marketplace) productQuery.marketplace = marketplace;
 
-    const products = await Product.find(query)
-      .populate('seller', 'username email whatsappNo city country verificationStatus _id') // Populate seller info
+    const products = await Product.find(productQuery)
+      .populate('seller', 'username email whatsappNo city country verificationStatus _id')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit))
-      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images asin sku dealUnits originalProductId sellers seller sellerInfo');
+      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images asin sku dealUnits originalProductId sellers seller sellerInfo shipping');
 
-    const count = await Product.countDocuments(query);
-
-    // Process products to ensure seller can see their own information
+    // Process approved products
     const processedProducts = products.map(product => {
       const productObj = product.toObject();
       
@@ -4333,7 +4367,6 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
       
       // Ensure seller can see their own information
       if (product.seller && product.seller._id.toString() === req.seller._id.toString()) {
-        // This seller owns the product - show full seller info
         if (!productObj.sellerInfo) {
           productObj.sellerInfo = {
             username: product.seller.username,
@@ -4345,9 +4378,7 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
             _id: product.seller._id
           };
         }
-        console.log('✅ Showing seller their own info for product:', product.name);
       } else if (product.seller && product.seller.verificationStatus === 'approved') {
-        // Other seller's product - show limited info if verified
         if (!productObj.sellerInfo) {
           productObj.sellerInfo = {
             username: product.seller.username,
@@ -4358,58 +4389,126 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
             _id: product.seller._id
           };
         } else {
-          // Remove email from cached info for other sellers
           delete productObj.sellerInfo.email;
         }
       } else {
-        // Hide seller info for unverified sellers
         delete productObj.sellerInfo;
         delete productObj.seller;
       }
       
-      // Add seller's individual price if they have one
+      // Add seller's individual price and shipping if they have one
       if (sellerEntry?.sellerPrice) {
         productObj.sellerInfo = {
           ...productObj.sellerInfo,
-          sellerPrice: sellerEntry.sellerPrice
+          sellerPrice: sellerEntry.sellerPrice,
+          sellerShipping: sellerEntry.sellerShipping || 0
         };
       }
       
       return productObj;
     });
 
-    // Get counts by status
-    const statusCounts = await Product.aggregate([
-      { 
-        $match: { 
-          $or: [
-            { seller: req.seller._id },
-            { 'sellers.sellerId': req.seller._id }
-          ]
-        } 
-      },
-      { $group: { _id: '$approvalStatus', count: { $sum: 1 } } }
-    ]);
+    allProducts = [...processedProducts];
+
+    // 2. Get seller's listing requests and add them as "pending" products
+    const Seller = (await import('../models/Seller.js')).default;
+    const seller = await Seller.findById(req.seller._id);
+    
+    if (seller && seller.productListingRequests) {
+      const Product = (await import('../models/Product.js')).default;
+      
+      // Filter requests based on status
+      let requestsToInclude = seller.productListingRequests;
+      if (status === 'pending') {
+        requestsToInclude = requestsToInclude.filter(r => r.status === 'pending_approval');
+      } else if (status === 'rejected') {
+        requestsToInclude = requestsToInclude.filter(r => r.status === 'rejected');
+      } else if (status === 'approved') {
+        // Don't include requests for approved filter, only actual products
+        requestsToInclude = [];
+      }
+      // For 'all' or no status, include pending and rejected requests
+      else if (!status || status === 'all') {
+        requestsToInclude = requestsToInclude.filter(r => 
+          r.status === 'pending_approval' || r.status === 'rejected'
+        );
+      }
+      
+      // Transform requests to look like products
+      for (const request of requestsToInclude) {
+        try {
+          const adminProduct = await Product.findById(request.productId);
+          if (adminProduct) {
+            const requestProduct = {
+              _id: `request_${request._id}`,
+              name: request.productName || adminProduct.name,
+              price: request.sellerPrice,
+              shipping: request.sellerShipping || 0,
+              stock: 0, // Requests don't have stock yet
+              category: adminProduct.category,
+              marketplace: adminProduct.marketplace || 'UK',
+              currency: 'GBP',
+              approvalStatus: request.status === 'pending_approval' ? 'pending' : 'rejected',
+              status: 'inactive',
+              isAmazonsChoice: false,
+              createdAt: request.submittedAt,
+              images: adminProduct.images,
+              asin: adminProduct.asin,
+              isListingRequest: true,
+              originalRequestId: request._id,
+              rejectionReason: request.rejectionReason,
+              rejectedAt: request.rejectedAt,
+              sellerInfo: {
+                username: seller.username,
+                email: seller.email,
+                whatsappNo: seller.whatsappNo,
+                city: seller.city,
+                country: seller.country,
+                verificationStatus: seller.verificationStatus,
+                _id: seller._id,
+                sellerPrice: request.sellerPrice,
+                sellerShipping: request.sellerShipping || 0
+              }
+            };
+            
+            allProducts.push(requestProduct);
+          }
+        } catch (err) {
+          console.error('Error processing request:', err);
+        }
+      }
+    }
+
+    // Sort all products by creation date
+    allProducts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // Get counts including requests
+    const approvedCount = processedProducts.filter(p => p.approvalStatus === 'approved').length;
+    const pendingRequestsCount = seller?.productListingRequests?.filter(r => r.status === 'pending_approval').length || 0;
+    const rejectedRequestsCount = seller?.productListingRequests?.filter(r => r.status === 'rejected').length || 0;
 
     const counts = {
-      total: count,
-      pending: statusCounts.find(s => s._id === 'pending')?.count || 0,
-      approved: statusCounts.find(s => s._id === 'approved')?.count || 0,
-      rejected: statusCounts.find(s => s._id === 'rejected')?.count || 0
+      total: allProducts.length,
+      pending: pendingRequestsCount,
+      approved: approvedCount,
+      rejected: rejectedRequestsCount
     };
 
-    console.log('📋 Seller listed products response:', {
+    console.log('📋 Seller listed products response (with requests):', {
       sellerId: req.seller._id,
       sellerUsername: req.seller.username,
-      totalProducts: processedProducts.length,
-      productsWithSellerInfo: processedProducts.filter(p => p.sellerInfo).length
+      totalProducts: allProducts.length,
+      approvedProducts: approvedCount,
+      pendingRequests: pendingRequestsCount,
+      rejectedRequests: rejectedRequestsCount,
+      requestsIncluded: allProducts.filter(p => p.isListingRequest).length
     });
 
     res.json({
-      products: processedProducts,
-      totalPages: Math.ceil(count / parseInt(limit)),
+      products: allProducts,
+      totalPages: Math.ceil(allProducts.length / parseInt(limit)),
       currentPage: parseInt(page),
-      total: count,
+      total: allProducts.length,
       counts
     });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import sessionAuthManager from '../utils/sessionAuth'
+import authManager from '../utils/authManager'
 
 const SellerContext = createContext()
 
@@ -17,79 +17,64 @@ export const SellerProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [authResolved, setAuthResolved] = useState(false)
 
-  // Initialize authentication - Load from localStorage and validate token
+  // Initialize authentication - Restore valid sessions on all pages
   useEffect(() => {
-    const initializeAuth = () => {
-      console.log('🔑 Initializing seller auth from storage...')
-      
-      // Skip auto-login on seller login page
-      if (window.location.pathname === '/login/supplier') {
-        console.log('🔑 On seller login page, skipping auto-login')
+    const initializeAuth = async () => {
+      console.log('🔑 Initializing seller auth...')
+
+      try {
+        // Initialize auth manager and check for valid tokens
+        const authData = await authManager.initializeAuth()
+        
+        if (authData && authData.userType === 'seller') {
+          console.log('✅ Valid seller auth found after verification')
+          setSeller(authData.user)
+          setIsLoggedIn(true)
+        } else {
+          console.log('🔍 No valid seller auth found')
+          setSeller(null)
+          setIsLoggedIn(false)
+        }
+      } catch (error) {
+        console.error('❌ Seller auth initialization error:', error)
+        // Clear auth on error to prevent stuck states
+        setSeller(null)
+        setIsLoggedIn(false)
+      } finally {
         setLoading(false)
         setAuthResolved(true)
-        return
       }
-
-      // Try to initialize from any stored auth
-      const storedAuth = sessionAuthManager.initializeFromStorage();
-      
-      if (!storedAuth) {
-        console.log('🔑 No stored auth found')
-        setLoading(false)
-        setAuthResolved(true)
-        return
-      }
-
-      // Check if the stored auth is for seller role
-      if (storedAuth.userType !== 'seller') {
-        console.log(`🔑 Stored auth is for ${storedAuth.userType}, not seller`)
-        setLoading(false)
-        setAuthResolved(true)
-        return
-      }
-
-      console.log('✅ Valid seller auth found, setting logged in state')
-      setSeller(storedAuth.user)
-      setIsLoggedIn(true)
-      setLoading(false)
-      setAuthResolved(true)
     }
 
-    // Only run initialization if not already resolved
-    if (!authResolved) {
-      // Small delay to prevent race conditions
-      const timer = setTimeout(initializeAuth, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [authResolved])
+    initializeAuth()
+  }, [])
 
-  // Cross-tab synchronization for localStorage
+  // Cross-tab synchronization
   useEffect(() => {
     const handleStorageChange = (event) => {
-      // Handle localStorage changes from other tabs
       if (event.key === 'activeUserType' && event.storageArea === localStorage) {
-        console.log('🔄 Active user type changed in another tab:', event.newValue);
+        console.log('🔄 Active user type changed in another tab:', event.newValue)
         
         if (event.newValue === 'seller') {
-          // Seller logged in from another tab
-          const authData = sessionAuthManager.loadAuth('seller');
-          if (authData) {
-            setSeller(authData.user);
-            setIsLoggedIn(true);
-            setAuthResolved(true);
-          }
+          // Seller logged in from another tab - verify and update
+          authManager.loadAuth('seller').then(authData => {
+            if (authData) {
+              setSeller(authData.user)
+              setIsLoggedIn(true)
+            }
+          })
         } else if (event.newValue !== 'seller' && isLoggedIn) {
           // Different user type logged in, logout seller
-          console.log('🔄 Different user type active, logging out seller');
-          setSeller(null);
-          setIsLoggedIn(false);
+          console.log('🔄 Different user type active, logging out seller')
+          setSeller(null)
+          setIsLoggedIn(false)
         }
       } else if (event.key === 'sellerToken' && event.storageArea === localStorage) {
         if (!event.newValue && event.oldValue && isLoggedIn) {
           // Seller token removed in another tab
-          console.log('🔄 Seller token removed in another tab, logging out');
-          setSeller(null);
-          setIsLoggedIn(false);
+          console.log('🔄 Seller token removed in another tab, logging out')
+          setSeller(null)
+          setIsLoggedIn(false)
         }
       }
     }
@@ -98,42 +83,44 @@ export const SellerProvider = ({ children }) => {
     return () => window.removeEventListener('storage', handleStorageChange)
   }, [isLoggedIn])
 
-  const login = (sellerData, token) => {
+  const login = async (sellerData, token) => {
     try {
-      console.log('🔑 Seller login initiated', { sellerData, token: token?.substring(0, 20) + '...' })
+      console.log('🔑 Seller login initiated')
+      setLoading(true)
       
-      // Set loading state during login
-      setLoading(true);
+      // Save and verify auth with new auth manager
+      const result = await authManager.saveAuth('seller', sellerData, token)
       
-      // Save auth data to localStorage
-      const success = sessionAuthManager.saveAuth('seller', sellerData, token)
-      
-      if (!success) {
-        throw new Error('Failed to save seller authentication data')
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save seller authentication')
       }
       
-      console.log('🔑 Session auth saved, updating context state...')
+      console.log('✅ Seller auth saved and verified')
       
-      // Update state immediately
-      setSeller(sellerData)
+      // Update context state
+      setSeller(result.user)
       setIsLoggedIn(true)
       setAuthResolved(true)
-      setLoading(false) // Clear loading state
-
-      console.log('✅ Seller login successful - state updated')
       
+      // Small delay to ensure state is updated
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      console.log('✅ Seller login successful - context updated')
+      
+      return { success: true }
     } catch (error) {
       console.error('❌ Seller login error:', error)
-      setLoading(false) // Clear loading state on error
       throw error
+    } finally {
+      setLoading(false)
     }
   }
 
   const logout = () => {
     console.log('🔄 Seller logout initiated')
     
-    // Clear session auth data
-    sessionAuthManager.clearAuth('seller')
+    // Clear auth data
+    authManager.logout('seller')
     
     // Update state
     setSeller(null)
@@ -148,10 +135,10 @@ export const SellerProvider = ({ children }) => {
 
   const updateSeller = (updatedData) => {
     setSeller(updatedData)
-    // Update session storage
-    const currentAuth = sessionAuthManager.loadAuth('seller')
-    if (currentAuth) {
-      sessionAuthManager.saveAuth('seller', updatedData, currentAuth.token)
+    // Update stored data
+    const token = localStorage.getItem('sellerToken')
+    if (token) {
+      localStorage.setItem('sellerData', JSON.stringify(updatedData))
     }
   }
 
@@ -161,27 +148,23 @@ export const SellerProvider = ({ children }) => {
       return
     }
     
-    const token = sessionAuthManager.getCurrentToken('seller')
-    if (token) {
-      try {
-        const response = await sessionAuthManager.makeAuthenticatedRequest('seller', 'http://localhost:5000/api/sellers/profile')
-        if (response.ok) {
-          const data = await response.json()
-          updateSeller(data)
-        }
-      } catch (error) {
-        // Silent error handling for network issues
-        console.log('🔍 Seller refresh network error:', error.message)
-        if (error.message === 'Authentication expired') {
-          logout()
-        }
+    try {
+      const authData = await authManager.loadAuth('seller')
+      if (authData) {
+        setSeller(authData.user)
+        setIsLoggedIn(true)
+      }
+    } catch (error) {
+      console.warn('Failed to refresh seller:', error)
+      if (error.message === 'Authentication expired') {
+        logout()
       }
     }
   }
 
   // Helper for authenticated API calls
-  const makeAuthenticatedRequest = async (url, options = {}) => {
-    return sessionAuthManager.makeAuthenticatedRequest('seller', url, options)
+  const makeAuthenticatedRequest = async (endpoint, options = {}) => {
+    return authManager.makeAuthenticatedRequest('seller', endpoint, options)
   }
 
   const value = {

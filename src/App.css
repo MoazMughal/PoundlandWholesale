@@ -446,7 +446,7 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 4px 12px rgba(255, 102, 0, 0.3);
 }
 
-/* Enhanced Product Cards */
+/* COMMENTED OUT - REPLACED BY compact-cards.css
 .product-card {
   background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);
   border-radius: 15px;
@@ -480,6 +480,7 @@ h1, h2, h3, h4, h5, h6 {
 .product-card:hover::before {
   opacity: 1;
 }
+*/
 
 /* Blinking animation for profit values */
 @keyframes blink {
@@ -547,7 +548,7 @@ h1, h2, h3, h4, h5, h6 {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4) !important;
   }
   
-  /* Product cards - better spacing on mobile */
+  /* COMMENTED OUT - REPLACED BY compact-cards.css
   .product-card {
     margin-bottom: 15px;
   }
@@ -560,6 +561,7 @@ h1, h2, h3, h4, h5, h6 {
   .product-card .card-text {
     font-size: 0.75rem;
   }
+  */
   
   /* Buttons - better touch targets */
   .btn {

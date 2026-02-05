@@ -7,10 +7,10 @@ import '../../styles/AdminLogin.css';
 const AdminLogin = () => {
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, isLoggedIn } = useAdmin();
+  const { login, isLoggedIn, authResolved, loading } = useAdmin();
 
   // Get redirect URL from query params
   const redirectUrl = searchParams.get('redirect') || '/admin/dashboard';
@@ -18,19 +18,16 @@ const AdminLogin = () => {
   // Redirect if already logged in - with debugging
   useEffect(() => {
     console.log('🔍 AdminLogin useEffect - isLoggedIn:', isLoggedIn)
-    if (isLoggedIn) {
+    if (isLoggedIn && authResolved && !loading) {
       console.log('🔄 Admin already logged in, redirecting to:', redirectUrl)
-      // Add a small delay to ensure the context is fully updated
-      setTimeout(() => {
-        navigate(redirectUrl, { replace: true });
-      }, 100);
+      navigate(redirectUrl, { replace: true });
     }
-  }, [isLoggedIn, navigate, redirectUrl]);
+  }, [isLoggedIn, authResolved, loading, navigate, redirectUrl]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
+    setIsSubmitting(true);
 
     try {
       console.log('🔑 Admin login form submitted')
@@ -55,21 +52,30 @@ const AdminLogin = () => {
         throw new Error(data.message || 'Login failed');
       }
 
-      console.log('🔑 Server login successful, calling context login...')
+      console.log('🔑 Server login successful, response data:', {
+        hasToken: !!data.token,
+        tokenLength: data.token?.length,
+        adminData: data.admin,
+        message: data.message
+      })
 
-      // Use the AdminContext login function
-      await login(data.admin, data.token);
+      // Use the AdminContext login function and wait for completion
+      const result = await login(data.admin, data.token);
       
-      console.log('🔑 Context login completed, preparing to navigate...')
-      
-      // Don't navigate immediately - let the useEffect handle it
-      // The useEffect will trigger when isLoggedIn becomes true
+      if (result.success) {
+        console.log('🔑 Context login completed successfully, navigating...')
+        
+        // Navigate immediately after successful login
+        navigate(redirectUrl, { replace: true });
+      } else {
+        throw new Error('Context login failed');
+      }
       
     } catch (err) {
       console.error('❌ Login error:', err)
       setError(err.message || 'Login failed. Please try again.');
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -224,7 +230,7 @@ const AdminLogin = () => {
                   <button 
                     type="submit" 
                     className="btn admin-login-btn w-100 py-2 fw-bold mb-3" 
-                    disabled={loading}
+                    disabled={isSubmitting}
                     style={{
                       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                       border: 'none',
@@ -234,7 +240,7 @@ const AdminLogin = () => {
                       boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
                     }}
                   >
-                    {loading ? (
+                    {isSubmitting ? (
                       <>
                         <span className="spinner-border spinner-border-sm me-2" role="status"></span>
                         Authenticating...

@@ -42,6 +42,9 @@ const getApiBaseUrl = () => {
 // Get API base URL dynamically
 export const API_BASE_URL = getApiBaseUrl();
 
+// New authentication API endpoints (v2)
+export const AUTH_API_BASE_URL = API_BASE_URL.replace('/api', '/api/v2');
+
 // Remove /api suffix if present to get base server URL
 export const SERVER_BASE_URL = API_BASE_URL.replace('/api', '');
 

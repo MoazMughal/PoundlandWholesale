@@ -6,7 +6,7 @@ const EditProduct = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const { seller, isLoggedIn } = useSeller()
+  const { seller, isLoggedIn, loading: authLoading, authResolved } = useSeller()
   
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -17,6 +17,11 @@ const EditProduct = () => {
   })
 
   useEffect(() => {
+    // Wait for authentication to be resolved before checking login status
+    if (!authResolved || authLoading) {
+      return
+    }
+
     if (!isLoggedIn || !seller) {
       navigate('/login/supplier')
       return

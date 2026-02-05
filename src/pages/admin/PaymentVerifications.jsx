@@ -4,7 +4,7 @@ import { useAdmin } from '../../context/AdminContext';
 
 const PaymentVerifications = () => {
   const navigate = useNavigate();
-  const { admin, isLoggedIn } = useAdmin();
+  const { admin, isLoggedIn, loading: authLoading, authResolved } = useAdmin();
   const [verifications, setVerifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -41,12 +41,17 @@ const PaymentVerifications = () => {
   };
 
   useEffect(() => {
+    // Wait for authentication to be resolved before checking login status
+    if (!authResolved || authLoading) {
+      return;
+    }
+
     if (!isLoggedIn || !admin) {
       navigate('/admin/login');
       return;
     }
     fetchVerifications();
-  }, [isLoggedIn, admin, currentPage, statusFilter]);
+  }, [isLoggedIn, admin, currentPage, statusFilter, authResolved, authLoading]);
 
   const fetchVerifications = async () => {
     try {

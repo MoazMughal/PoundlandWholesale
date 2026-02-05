@@ -6,7 +6,7 @@ import '../../styles/dashboard-responsive.css'
 
 const AdminProducts = () => {
   const navigate = useNavigate()
-  const { seller, isLoggedIn } = useSeller()
+  const { seller, isLoggedIn, loading: authLoading, authResolved } = useSeller()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
@@ -25,12 +25,22 @@ const AdminProducts = () => {
   }, [])
 
   useEffect(() => {
+    // Wait for authentication to be resolved before checking login status
+    if (!authResolved || authLoading) {
+      return
+    }
+
     if (!isLoggedIn || !seller) {
       navigate('/login/supplier')
       return
     }
 
-    if (!(seller?.canListProducts || seller?.verificationStatus === 'approved')) {
+    if (!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')) {
+      console.log('🚫 Seller cannot list products:', {
+        canListProducts: seller?.canListProducts,
+        verificationStatus: seller?.verificationStatus,
+        status: seller?.status
+      })
       navigate('/seller/dashboard')
       return
     }
@@ -114,6 +124,7 @@ const AdminProducts = () => {
     try {
       // Check if there are existing sellers and show confirmation
       let sellerPrice = null;
+      let sellerShipping = null;
       
       if (product.sellers && product.sellers.length > 0) {
         const existingSellers = product.sellers
@@ -155,6 +166,24 @@ const AdminProducts = () => {
         }
         
         sellerPrice = parsedPrice;
+        
+        // Ask for seller's shipping cost
+        const shippingInput = window.prompt(
+          `Set your shipping cost for "${product.name}":\n\nAdmin shipping: £${parseFloat(product.shipping || 0).toFixed(2)}\n\nEnter your shipping cost (in GBP, without £ symbol):`,
+          parseFloat(product.shipping || 0).toFixed(2)
+        );
+        
+        if (shippingInput === null) {
+          return; // User cancelled
+        }
+        
+        const parsedShipping = parseFloat(shippingInput);
+        if (isNaN(parsedShipping) || parsedShipping < 0) {
+          alert('❌ Invalid shipping cost. Please enter a valid number (0 or greater).');
+          return;
+        }
+        
+        sellerShipping = parsedShipping;
       } else {
         // First seller - ask for their price
         const priceInput = window.prompt(
@@ -173,6 +202,24 @@ const AdminProducts = () => {
         }
         
         sellerPrice = parsedPrice;
+        
+        // Ask for seller's shipping cost
+        const shippingInput = window.prompt(
+          `Set your shipping cost for "${product.name}":\n\nAdmin shipping: £${parseFloat(product.shipping || 0).toFixed(2)}\n\nEnter your shipping cost (in GBP, without £ symbol):`,
+          parseFloat(product.shipping || 0).toFixed(2)
+        );
+        
+        if (shippingInput === null) {
+          return; // User cancelled
+        }
+        
+        const parsedShipping = parseFloat(shippingInput);
+        if (isNaN(parsedShipping) || parsedShipping < 0) {
+          alert('❌ Invalid shipping cost. Please enter a valid number (0 or greater).');
+          return;
+        }
+        
+        sellerShipping = parsedShipping;
       }
       
       const token = localStorage.getItem('sellerToken')
@@ -189,14 +236,16 @@ const AdminProducts = () => {
           productName: product.name,
           productPrice: product.price,
           sellerPrice: sellerPrice,
-          notes: `Seller requested to list "${product.name}" at £${sellerPrice.toFixed(2)}`
+          sellerShipping: sellerShipping,
+          notes: `Seller requested to list "${product.name}" at £${sellerPrice.toFixed(2)} + £${sellerShipping.toFixed(2)} shipping`
         })
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        alert(`✅ Listing request submitted successfully!\n\nProduct: ${product.name}\nYour Price: £${sellerPrice.toFixed(2)}\nStatus: Pending Admin Approval\n\nYou will be notified once the admin reviews your request.`)
+        const totalCost = sellerPrice + sellerShipping;
+        alert(`✅ Listing request submitted successfully!\n\nProduct: ${product.name}\nYour Price: £${sellerPrice.toFixed(2)}\nYour Shipping: £${sellerShipping.toFixed(2)}\nTotal Cost: £${totalCost.toFixed(2)}\nStatus: Pending Admin Approval\n\nYou will be notified once the admin reviews your request.`)
         fetchAdminProducts() // Refresh to show updated status
       } else {
         // Enhanced error handling
@@ -420,8 +469,8 @@ const AdminProducts = () => {
             position: relative;
             display: flex;
             flex-direction: column;
-            min-height: ${windowWidth < 768 ? '240px' : '260px'};
-            max-height: ${windowWidth < 768 ? '300px' : '320px'};
+            min-height: ${windowWidth < 768 ? '280px' : '320px'};
+            max-height: ${windowWidth < 768 ? '350px' : '400px'};
           }
           
           .product-card:hover {
@@ -431,24 +480,11 @@ const AdminProducts = () => {
           
           .product-image {
             width: 100%;
-            height: ${windowWidth < 768 ? '90px' : '100px'};
+            height: ${windowWidth < 768 ? '120px' : '150px'};
             object-fit: contain;
             background: #f8f9fa;
-            padding: 6px;
-          }
-          
-          .product-badge {
-            position: absolute;
-            top: 6px;
-            right: 6px;
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            color: white;
-            padding: 3px 6px;
-            border-radius: 10px;
-            font-size: ${windowWidth < 768 ? '7px' : '9px'};
-            font-weight: bold;
-            box-shadow: 0 2px 6px rgba(0,123,255,0.3);
-            z-index: 2;
+            padding: 8px;
+            border-radius: 8px 8px 0 0;
           }
           
           .product-info {
@@ -819,11 +855,6 @@ const AdminProducts = () => {
                       </div>
                     )}
                   </a>
-                  
-                  <div className="product-badge">
-                    <i className="fas fa-star" style={{ marginRight: '4px' }}></i>
-                    Amazon's Choice
-                  </div>
                   
                   {/* Already listed indicator */}
                   {isAlreadyListed(product) && (

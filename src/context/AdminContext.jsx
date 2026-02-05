@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import sessionAuthManager from '../utils/sessionAuth'
+import authManager from '../utils/authManager'
 
 const AdminContext = createContext()
 
@@ -17,76 +17,65 @@ export const AdminProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [authResolved, setAuthResolved] = useState(false)
 
-  // Initialize authentication - Load from localStorage and validate token
+  // Initialize authentication - Restore valid sessions on all pages
   useEffect(() => {
-    const initializeAuth = () => {
-      console.log('🔑 Initializing admin auth from storage...')
+    const initializeAuth = async () => {
+      console.log('🔑 AdminContext: Starting auth initialization...')
       
-      // Skip auto-login on login page
-      if (window.location.pathname === '/admin/login') {
-        console.log('🔑 On admin login page, skipping auto-login')
-        setLoading(false)
-        setAuthResolved(true)
-        return
-      }
-
       try {
-        // Try to initialize from any stored auth
-        const storedAuth = sessionAuthManager.initializeFromStorage();
+        // Initialize auth manager and check for valid tokens
+        console.log('🔑 AdminContext: Calling authManager.initializeAuth()...')
+        const authData = await authManager.initializeAuth()
+        console.log('🔑 AdminContext: authManager.initializeAuth() returned:', authData)
         
-        if (storedAuth && storedAuth.userType === 'admin') {
-          console.log('✅ Valid admin auth found, setting logged in state')
-          setAdmin(storedAuth.user)
+        if (authData && authData.userType === 'admin') {
+          console.log('✅ AdminContext: Valid admin auth restored after verification')
+          console.log('✅ AdminContext: Setting admin user:', authData.user)
+          setAdmin(authData.user)
           setIsLoggedIn(true)
-          setLoading(false)
-          setAuthResolved(true)
         } else {
-          console.log('🔑 No admin auth found')
-          setLoading(false)
-          setAuthResolved(true)
+          console.log('🔍 AdminContext: No valid admin auth found')
+          console.log('🔍 AdminContext: authData was:', authData)
         }
       } catch (error) {
-        console.error('❌ Admin auth initialization error:', error)
+        console.error('❌ AdminContext: Auth initialization error:', error)
+        // Don't clear auth on error - might be temporary network issue
+      } finally {
+        console.log('🔑 AdminContext: Setting loading=false, authResolved=true')
         setLoading(false)
         setAuthResolved(true)
       }
     }
 
-    // Only run initialization if not already resolved
-    if (!authResolved) {
-      // Small delay to prevent race conditions
-      const timer = setTimeout(initializeAuth, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [authResolved])
+    initializeAuth()
+  }, [])
 
-  // Cross-tab synchronization for localStorage
+  // Cross-tab synchronization
   useEffect(() => {
     const handleStorageChange = (event) => {
-      // Handle localStorage changes from other tabs
       if (event.key === 'activeUserType' && event.storageArea === localStorage) {
-        console.log('🔄 Active user type changed in another tab:', event.newValue);
+        console.log('🔄 Active user type changed in another tab:', event.newValue)
         
         if (event.newValue === 'admin') {
-          // Admin logged in from another tab
-          const authData = sessionAuthManager.loadAuth('admin');
-          if (authData) {
-            setAdmin(authData.user);
-            setIsLoggedIn(true);
-            setAuthResolved(true);
-          }
+          // Admin logged in from another tab - verify and update
+          authManager.loadAuth('admin').then(authData => {
+            if (authData) {
+              setAdmin(authData.user)
+              setIsLoggedIn(true)
+            }
+          })
         } else if (event.newValue !== 'admin' && isLoggedIn) {
           // Different user type logged in, logout admin
-          console.log('🔄 Different user type active, logging out admin');
-          setAdmin(null);
-          setIsLoggedIn(false);
+          console.log('🔄 Different user type active, logging out admin')
+          setAdmin(null)
+          setIsLoggedIn(false)
         }
       } else if (event.key === 'adminToken' && event.storageArea === localStorage) {
         if (!event.newValue && event.oldValue && isLoggedIn) {
           // Admin token removed in another tab
-          console.log('🔄 Admin token removed in another tab, logging out');
-          setAdmin(null);
-          setIsLoggedIn(false);
+          console.log('🔄 Admin token removed in another tab, logging out')
+          setAdmin(null)
+          setIsLoggedIn(false)
         }
       }
     }
@@ -97,56 +86,50 @@ export const AdminProvider = ({ children }) => {
 
   const login = async (adminData, token) => {
     try {
-      console.log('🔑 Admin login initiated', { adminData, token: token?.substring(0, 20) + '...' })
+      console.log('🔑 Admin login initiated')
+      console.log('🔍 Admin data received:', { 
+        id: adminData?.id, 
+        username: adminData?.username, 
+        role: adminData?.role 
+      })
+      console.log('🔍 Token received (first 50 chars):', token?.substring(0, 50) + '...')
       
-      // Set loading state during login
-      setLoading(true);
+      setLoading(true)
       
-      // Save auth data to session
-      const success = sessionAuthManager.saveAuth('admin', adminData, token)
+      // Save and verify auth with new auth manager
+      const result = await authManager.saveAuth('admin', adminData, token)
       
-      if (!success) {
-        throw new Error('Failed to save authentication data')
+      if (!result.success) {
+        console.error('❌ Auth manager saveAuth failed:', result.error)
+        throw new Error(result.error || 'Failed to save authentication')
       }
       
-      console.log('🔑 Session auth saved, updating context state...')
+      console.log('✅ Admin auth saved and verified')
       
-      // Update state immediately
-      setAdmin(adminData)
+      // Update context state
+      setAdmin(result.user)
       setIsLoggedIn(true)
       setAuthResolved(true)
-      setLoading(false) // Clear loading state
-
-      console.log('✅ Admin login successful - state updated')
       
-      // Add a small delay to ensure state is fully updated before any redirects
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Small delay to ensure state is updated
+      await new Promise(resolve => setTimeout(resolve, 100))
       
-      // Verify the state was actually set
-      console.log('🔍 Verifying login state after delay...')
-      const verifyAuth = sessionAuthManager.loadAuth('admin')
-      const activeUserType = sessionStorage.getItem('activeUserType')
-      console.log('🔍 Verification:', { 
-        hasSessionAuth: !!verifyAuth, 
-        activeUserType,
-        contextAdmin: !!adminData,
-        contextIsLoggedIn: true,
-        contextAuthResolved: true,
-        contextLoading: false
-      })
+      console.log('✅ Admin login successful - context updated')
       
+      return { success: true }
     } catch (error) {
       console.error('❌ Admin login error:', error)
-      setLoading(false) // Clear loading state on error
       throw error
+    } finally {
+      setLoading(false)
     }
   }
 
   const logout = () => {
     console.log('🔄 Admin logout initiated')
     
-    // Clear session auth data
-    sessionAuthManager.clearAuth('admin')
+    // Clear auth data
+    authManager.logout('admin')
     
     // Update state
     setAdmin(null)
@@ -160,24 +143,16 @@ export const AdminProvider = ({ children }) => {
 
   const updateAdmin = (updatedData) => {
     setAdmin(updatedData)
-    // Update session storage
-    const currentAuth = sessionAuthManager.loadAuth('admin')
-    if (currentAuth) {
-      sessionAuthManager.saveAuth('admin', updatedData, currentAuth.token)
+    // Update stored data
+    const token = localStorage.getItem('adminToken')
+    if (token) {
+      localStorage.setItem('adminData', JSON.stringify(updatedData))
     }
   }
 
-  // Simple navigation helper for product pages
-  const navigateToProduct = (productId, options = {}) => {
-    console.log('🔗 Admin navigating to product:', productId, options)
-    // This is just a helper function for logging/tracking
-    // The actual navigation is handled by the calling component
-    return { productId, options }
-  }
-
   // Helper for authenticated API calls
-  const makeAuthenticatedRequest = async (url, options = {}) => {
-    return sessionAuthManager.makeAuthenticatedRequest('admin', url, options)
+  const makeAuthenticatedRequest = async (endpoint, options = {}) => {
+    return authManager.makeAuthenticatedRequest('admin', endpoint, options)
   }
 
   const value = {
@@ -188,7 +163,6 @@ export const AdminProvider = ({ children }) => {
     login,
     logout,
     updateAdmin,
-    navigateToProduct,
     makeAuthenticatedRequest
   }
 

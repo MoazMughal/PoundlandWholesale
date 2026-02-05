@@ -389,12 +389,12 @@ const AdminProducts = () => {
     }
   }, [profitEditProduct?.profitEvaluation?.salesProceeds, profitEditProduct?.platformComparison]);
 
-  // Helper function to update profit data after price change
-  const updateProfitDataAfterPriceChange = async (productId, newPrice, token) => {
+  // Helper function to update profit data after price or shipping change
+  const updateProfitDataAfterChange = async (productId, token) => {
     try {
-      console.log('🔄 Updating profit data after price change for product:', productId, 'New price:', newPrice);
+      console.log('🔄 Updating profit data after price/shipping change for product:', productId);
       
-      // Fetch the current product data to get existing profit information
+      // Fetch the current product data to get existing profit information and current price/shipping
       const response = await fetch(getApiUrl(`products/${productId}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -415,43 +415,60 @@ const AdminProducts = () => {
 
       console.log('📊 Product has profit data, updating calculations...');
 
+      // Calculate total product cost using lowest seller price (including shipping)
+      const priceInfo = getLowestPriceDisplay(productData);
+      const totalProductCost = priceInfo.total;
+      
+      console.log('💰 Product cost calculation:', {
+        adminPrice: parseFloat(productData.price) || 0,
+        adminShipping: parseFloat(productData.shipping) || 0,
+        lowestPrice: priceInfo.price,
+        lowestShipping: priceInfo.shipping,
+        totalProductCost: totalProductCost,
+        isSellerPrice: priceInfo.isSellerPrice,
+        sellerName: priceInfo.sellerName
+      });
+
       // Update profit modal if it's open for this product
       if (profitEditProduct && profitEditProduct._id === productId) {
         console.log('🔄 Profit modal is open, updating modal state');
 
-        // Update the product cost in the profit evaluation - UPDATE BOTH PRICE AND COST
+        const balanceChange = profitEditProduct.profitEvaluation?.balanceChange || 0;
+
+        // Update the product cost in the profit evaluation - use total cost (price + shipping)
         const updatedProfitEvaluation = {
           ...profitEditProduct.profitEvaluation,
-          salesProceeds: newPrice, // Update sales proceeds to match new price
-          productCost: newPrice // Also update product cost to match new price
+          salesProceeds: priceInfo.price, // Update sales proceeds to match lowest price
+          productCost: totalProductCost // Update product cost to total (price + shipping)
         };
 
-        // Recalculate net profit with new product cost (same as new price)
-        const newProductCost = newPrice; // Product cost = new price
-        const newNetProfit = parseFloat((balanceChange - newProductCost).toFixed(2));
+        // Recalculate net profit with new total product cost
+        const newNetProfit = parseFloat((balanceChange - totalProductCost).toFixed(2));
         updatedProfitEvaluation.netProfit = newNetProfit;
 
-        // Update profit calculations - use new price as cost price
+        // Update profit calculations - use total cost as cost price
         const updatedProfitCalculations = {
           ...profitEditProduct.profitCalculations,
-          costPrice: newProductCost, // Use new price as cost price
+          costPrice: totalProductCost, // Use total cost (price + shipping) as cost price
           profitPerUnit: newNetProfit
         };
 
-        // Update platform comparison profits and markup with new product cost
+        // Update platform comparison profits and markup with new total product cost
         const updatedPlatformComparison = profitEditProduct.platformComparison.map(platform => ({
           ...platform,
           profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2)),
-          markup: calculateMarkupPercentage(platform.rrpPerUnit, newProductCost) // Use new price as product cost
+          markup: calculateMarkupPercentage(platform.rrpPerUnit, totalProductCost) // Use total cost
         }));
 
-        // Calculate auto-savings percentage with new product cost
-        const autoCalculatedSavings = newProductCost === 0 ? 0 : 
-          ((balanceChange - newProductCost) / newProductCost) * 100;
+        // Calculate auto-savings percentage with new total product cost
+        const autoCalculatedSavings = totalProductCost === 0 ? 0 : 
+          ((balanceChange - totalProductCost) / totalProductCost) * 100;
 
         // Update the profit edit product state
         setProfitEditProduct({
           ...profitEditProduct,
+          price: currentPrice, // Update price in modal
+          shipping: currentShipping, // Update shipping in modal
           profitEvaluation: updatedProfitEvaluation,
           profitCalculations: updatedProfitCalculations,
           platformComparison: updatedPlatformComparison,
@@ -466,36 +483,35 @@ const AdminProducts = () => {
       // Always update the database with new profit calculations
       const existingEvaluation = productData.profitEvaluation || {};
       const balanceChange = existingEvaluation.balanceChange || 0;
-      const newProductCost = newPrice; // Set product cost to match new price
-      const newNetProfit = parseFloat((balanceChange - newProductCost).toFixed(2));
+      const newNetProfit = parseFloat((balanceChange - totalProductCost).toFixed(2));
 
       const updatedProfitEvaluation = {
         ...existingEvaluation,
-        salesProceeds: newPrice, // Update sales proceeds to match new price
-        productCost: newProductCost, // Update product cost to match new price
+        salesProceeds: priceInfo.price, // Update sales proceeds to match lowest price
+        productCost: totalProductCost, // Update product cost to total (price + shipping)
         netProfit: newNetProfit
       };
 
       console.log('💰 Updated profit evaluation:', updatedProfitEvaluation);
 
-      // Update profit calculations - use new price as cost price
+      // Update profit calculations - use total cost as cost price
       const existingCalculations = productData.profitCalculations || {};
       const updatedProfitCalculations = {
         ...existingCalculations,
-        costPrice: newProductCost, // Use new price as product cost
+        costPrice: totalProductCost, // Use total cost (price + shipping) as cost price
         profitPerUnit: newNetProfit
       };
 
-      // Update platform comparison if it exists - use new price as product cost
+      // Update platform comparison if it exists - use total cost
       const updatedPlatformComparison = (productData.platformComparison || []).map(platform => ({
         ...platform,
         profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2)),
-        markup: calculateMarkupPercentage(platform.rrpPerUnit, newProductCost) // Use new price as product cost
+        markup: calculateMarkupPercentage(platform.rrpPerUnit, totalProductCost) // Use total cost
       }));
 
-      // Calculate auto-savings percentage with new product cost
-      const autoCalculatedSavings = newProductCost === 0 ? 0 : 
-        ((balanceChange - newProductCost) / newProductCost) * 100;
+      // Calculate auto-savings percentage with new total product cost
+      const autoCalculatedSavings = totalProductCost === 0 ? 0 : 
+        ((balanceChange - totalProductCost) / totalProductCost) * 100;
 
       // Prepare update data
       const profitUpdateData = {
@@ -544,8 +560,8 @@ const AdminProducts = () => {
         );
         cacheKeys.forEach(key => localStorage.removeItem(key));
         
-        // Force refresh products list
-        await fetchProducts();
+        // Don't fetch products here - let the local state update handle the display
+        // await fetchProducts(); // REMOVED - this was causing the values to reset to 0
         
         // Verify the update by fetching the product again
         setTimeout(async () => {
@@ -931,8 +947,133 @@ const AdminProducts = () => {
     // Categories will be loaded from API
   ]);
 
-  const formatPrice = (price) => {
-    return `£${parseFloat(price || 0).toFixed(2)}`;
+  const formatPrice = (price, shipping = 0) => {
+    const basePrice = parseFloat(price || 0);
+    const shippingCost = parseFloat(shipping || 0);
+    const totalPrice = basePrice + shippingCost;
+    
+    if (shippingCost > 0) {
+      return (
+        <span>
+          <span style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>£{totalPrice.toFixed(2)}</span>
+          <span style={{ fontSize: '0.65rem', color: '#666', marginLeft: '2px' }}>
+            (£{basePrice.toFixed(2)} + £{shippingCost.toFixed(2)})
+          </span>
+        </span>
+      );
+    } else {
+      return `£${basePrice.toFixed(2)}`;
+    }
+  };
+
+  // Helper function to get the lowest seller price (including shipping) or admin price
+  const getLowestPriceDisplay = (product) => {
+    const adminPrice = parseFloat(product.price || 0);
+    const adminShipping = parseFloat(product.shipping || 0);
+    const adminTotal = adminPrice + adminShipping;
+    
+    // If no sellers, return admin price
+    if (!product.sellers || product.sellers.length === 0) {
+      return {
+        total: adminTotal,
+        price: adminPrice,
+        shipping: adminShipping,
+        isSellerPrice: false,
+        sellerName: null
+      };
+    }
+    
+    // Find the seller with the lowest total price
+    let lowestSeller = null;
+    let lowestTotal = adminTotal;
+    
+    product.sellers.forEach(seller => {
+      const sellerPrice = parseFloat(seller.sellerPrice || 0);
+      const sellerShipping = parseFloat(seller.sellerShipping || 0);
+      const sellerTotal = sellerPrice + sellerShipping;
+      
+      if (sellerTotal > 0 && sellerTotal < lowestTotal) {
+        lowestTotal = sellerTotal;
+        lowestSeller = {
+          price: sellerPrice,
+          shipping: sellerShipping,
+          total: sellerTotal,
+          name: seller.username || seller.name || 'Seller'
+        };
+      }
+    });
+    
+    if (lowestSeller) {
+      return {
+        total: lowestSeller.total,
+        price: lowestSeller.price,
+        shipping: lowestSeller.shipping,
+        isSellerPrice: true,
+        sellerName: lowestSeller.name
+      };
+    }
+    
+    return {
+      total: adminTotal,
+      price: adminPrice,
+      shipping: adminShipping,
+      isSellerPrice: false,
+      sellerName: null
+    };
+  };
+
+  // Enhanced format price function that shows seller prices when available
+  const formatPriceWithSeller = (product) => {
+    const priceInfo = getLowestPriceDisplay(product);
+    
+    if (priceInfo.shipping > 0) {
+      return (
+        <span>
+          <span style={{ fontWeight: 'bold', fontSize: '0.8rem', color: priceInfo.isSellerPrice ? '#28a745' : '#000' }}>
+            £{priceInfo.total.toFixed(2)}
+          </span>
+          <span style={{ fontSize: '0.65rem', color: '#666', marginLeft: '2px' }}>
+            (£{priceInfo.price.toFixed(2)} + £{priceInfo.shipping.toFixed(2)})
+          </span>
+          {priceInfo.isSellerPrice && (
+            <div style={{ fontSize: '0.6rem', color: '#28a745', fontWeight: '500' }}>
+              by {priceInfo.sellerName}
+            </div>
+          )}
+        </span>
+      );
+    }
+    
+    return (
+      <span>
+        <span style={{ fontWeight: 'bold', fontSize: '0.8rem', color: priceInfo.isSellerPrice ? '#28a745' : '#000' }}>
+          £{priceInfo.price.toFixed(2)}
+        </span>
+        {priceInfo.isSellerPrice && (
+          <div style={{ fontSize: '0.6rem', color: '#28a745', fontWeight: '500' }}>
+            by {priceInfo.sellerName}
+          </div>
+        )}
+      </span>
+    );
+  };
+
+  // Enhanced format shipping function that shows seller shipping when available
+  const formatShippingWithSeller = (product) => {
+    const priceInfo = getLowestPriceDisplay(product);
+    
+    return (
+      <span>
+        <span style={{ fontWeight: 'bold', fontSize: '0.8rem', color: priceInfo.isSellerPrice ? '#28a745' : '#000' }}>
+          £{priceInfo.shipping.toFixed(2)}
+        </span>
+        {priceInfo.isSellerPrice && (
+          <div style={{ fontSize: '0.6rem', color: '#28a745', fontWeight: '500' }}>
+            by {priceInfo.sellerName}
+          </div>
+        )}
+      </span>
+    );
   };
 
   const safeFormatNumber = (value, decimals = 2) => {
@@ -1492,14 +1633,14 @@ const AdminProducts = () => {
     if (e.deltaY < 0) {
       // Wheel up - increment
       const currentValue = parseFloat(editValues[`${productId}-${field}`] || 0);
-      const step = field === 'price' ? 0.01 : 1;
-      const newValue = (currentValue + step).toFixed(field === 'price' ? 2 : 0);
+      const step = (field === 'price' || field === 'shipping') ? 0.01 : 1;
+      const newValue = (currentValue + step).toFixed((field === 'price' || field === 'shipping') ? 2 : 0);
       handleEditChange(productId, field, newValue);
     } else if (e.deltaY > 0) {
       // Wheel down - decrement
       const currentValue = parseFloat(editValues[`${productId}-${field}`] || 0);
-      const step = field === 'price' ? 0.01 : 1;
-      const newValue = Math.max(0, currentValue - step).toFixed(field === 'price' ? 2 : 0);
+      const step = (field === 'price' || field === 'shipping') ? 0.01 : 1;
+      const newValue = Math.max(0, currentValue - step).toFixed((field === 'price' || field === 'shipping') ? 2 : 0);
       handleEditChange(productId, field, newValue);
     }
   };
@@ -1510,8 +1651,8 @@ const AdminProducts = () => {
 
     console.log('💾 handleSaveEdit called:', { productId, field, cellKey, newValue, editValues });
 
-    // Allow empty values for ASIN, SKU, category, and status fields, but not for price/stock
-    if (newValue === undefined || (newValue === '' && field !== 'asin' && field !== 'sku' && field !== 'category' && field !== 'status')) {
+    // Allow empty values for ASIN, SKU, category, status, and shipping fields, but not for price/stock
+    if (newValue === undefined || (newValue === '' && field !== 'asin' && field !== 'sku' && field !== 'category' && field !== 'status' && field !== 'shipping')) {
       console.log('❌ Validation failed - empty value not allowed for field:', field);
       return;
     }
@@ -1520,8 +1661,8 @@ const AdminProducts = () => {
       const token = localStorage.getItem('adminToken');
       let parsedValue;
 
-      if (field === 'price' || field === 'stock') {
-        parsedValue = parseFloat(newValue);
+      if (field === 'price' || field === 'stock' || field === 'shipping') {
+        parsedValue = parseFloat(newValue) || 0; // Default to 0 if empty or invalid
       } else if (field === 'asin') {
         // Handle ASIN field - trim and convert to uppercase, allow empty string
         parsedValue = newValue ? newValue.trim().toUpperCase() : '';
@@ -1545,7 +1686,7 @@ const AdminProducts = () => {
       }
 
       const updateData = { [field]: parsedValue };
-      if (field === 'price') {
+      if (field === 'price' || field === 'shipping') {
         updateData.currency = 'GBP';
       }
 
@@ -1579,6 +1720,32 @@ const AdminProducts = () => {
         });
       }
 
+      // Debug logging for shipping updates
+      if (field === 'shipping') {
+        console.log('🚢 Saving Shipping:', {
+          productId,
+          originalValue: newValue,
+          parsedValue,
+          updateData
+        });
+      }
+
+      // Debug logging for price updates
+      if (field === 'price') {
+        console.log('💰 Saving Price:', {
+          productId,
+          originalValue: newValue,
+          parsedValue,
+          updateData
+        });
+      }
+
+      console.log('📡 Sending update request:', {
+        url: getApiUrl(`products/${productId}`),
+        method: 'PUT',
+        body: updateData
+      });
+
       const response = await fetch(getApiUrl(`products/${productId}`), {
         method: 'PUT',
         headers: {
@@ -1590,9 +1757,17 @@ const AdminProducts = () => {
 
       if (response.ok) {
         const updateObject = { [field]: parsedValue };
-        if (field === 'price') {
+        if (field === 'price' || field === 'shipping') {
           updateObject.currency = 'GBP';
         }
+
+        console.log('💾 Updating local state:', {
+          productId,
+          field,
+          parsedValue,
+          updateObject,
+          beforeUpdate: products.find(p => p._id === productId)?.[field]
+        });
 
         const updatedProducts = products.map(p =>
           p._id === productId ? { ...p, ...updateObject } : p
@@ -1602,6 +1777,20 @@ const AdminProducts = () => {
         setFilteredProducts(filteredProducts.map(p =>
           p._id === productId ? { ...p, ...updateObject } : p
         ));
+        
+        console.log('✅ Local state updated:', {
+          productId,
+          field,
+          afterUpdate: updatedProducts.find(p => p._id === productId)?.[field]
+        });
+        
+        // Clear the edit value for this specific field
+        const cellKey = `${productId}-${field}`;
+        setEditValues(prev => {
+          const newEditValues = { ...prev };
+          delete newEditValues[cellKey];
+          return newEditValues;
+        });
         setEditingCell(null);
 
         // Log successful ASIN update
@@ -1642,18 +1831,46 @@ const AdminProducts = () => {
           // Clear cache to ensure status changes are reflected immediately
           cacheManager.clearAll();
           
+          // Only refresh for status changes, not for price/shipping changes
           // Force a refresh of the products list to show updated status
           setTimeout(() => {
             fetchProducts();
           }, 500);
         }
 
-        // If price was updated, check if we need to update profit data (but no success message)
+        // If price or shipping was updated, check if we need to update profit data (but no success message)
+        if (field === 'price' || field === 'shipping') {
+          console.log(`💰 ${field} field updated, calling updateProfitDataAfterChange`);
+          console.log('📊 Update details:', { productId, newValue: parsedValue, field });
+          // Update profit data in background without affecting UI state
+          updateProfitDataAfterChange(productId, token).catch(error => {
+            console.error('❌ Profit data update failed:', error);
+          });
+        }
+
+        // Log successful shipping update
+        if (field === 'shipping') {
+          console.log('✅ Shipping updated successfully:', {
+            productId,
+            newShipping: parsedValue,
+            productName: updatedProducts.find(p => p._id === productId)?.name,
+            updatedProduct: updatedProducts.find(p => p._id === productId)
+          });
+          
+          // Show success message for shipping update
+          setSuccessMessage(`✅ Shipping cost updated to £${parsedValue.toFixed(2)} successfully!`);
+          setShowSuccessToast(true);
+          setTimeout(() => setShowSuccessToast(false), 3000);
+        }
+
+        // Log successful price update
         if (field === 'price') {
-          console.log('💰 Price field updated, calling updateProfitDataAfterPriceChange');
-          console.log('📊 Price update details:', { productId, newPrice: parsedValue, field });
-          // Always update profit data when price changes, regardless of modal state
-          await updateProfitDataAfterPriceChange(productId, parsedValue, token);
+          console.log('✅ Price updated successfully:', {
+            productId,
+            newPrice: parsedValue,
+            productName: updatedProducts.find(p => p._id === productId)?.name,
+            updatedProduct: updatedProducts.find(p => p._id === productId)
+          });
         }
 
         cacheManager.clearAll();
@@ -2303,7 +2520,9 @@ const AdminProducts = () => {
       // Error fetching latest product data, using current data
     }
 
-    const productPrice = parseFloat(product.price) || 0;
+    // Get the lowest price (including seller prices)
+    const priceInfo = getLowestPriceDisplay(product);
+    const totalProductCost = priceInfo.total;
     const initialUnits = product.platformUnits || 200;
     setSelectedUnits(initialUnits);
 
@@ -2322,12 +2541,12 @@ const AdminProducts = () => {
         rrpPerUnit: safeParseFloat(platform.rrpPerUnit, 0),
         units: safeParseFloat(platform.units, 200),
         profitFor200Units: safeParseFloat(platform.profitFor200Units, 0),
-        markup: calculateMarkupPercentage(platform.rrpPerUnit, productPrice) // Calculate markup with current product price
+        markup: calculateMarkupPercentage(platform.rrpPerUnit, totalProductCost) // Calculate markup with current total product cost
       }))
       : [
-        { platform: 'RRP', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: calculateMarkupPercentage(0, productPrice) },
-        { platform: 'Amazon', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: calculateMarkupPercentage(0, productPrice) },
-        { platform: 'eBay', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: calculateMarkupPercentage(0, productPrice) }
+        { platform: 'RRP', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: calculateMarkupPercentage(0, totalProductCost) },
+        { platform: 'Amazon', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: calculateMarkupPercentage(0, totalProductCost) },
+        { platform: 'eBay', rrpPerUnit: 0, units: 200, profitFor200Units: 0, markup: calculateMarkupPercentage(0, totalProductCost) }
       ];
 
     const initProfitCalculations = {
@@ -2351,7 +2570,7 @@ const AdminProducts = () => {
     // Update only the RRP platform's RRP/Unit to match Sales Proceeds
     if (rrpPlatform) {
       rrpPlatform.rrpPerUnit = syncedSalesProceeds;
-      rrpPlatform.markup = calculateMarkupPercentage(syncedSalesProceeds, productPrice); // Recalculate markup after sync
+      rrpPlatform.markup = calculateMarkupPercentage(syncedSalesProceeds, totalProductCost); // Recalculate markup after sync
     }
     
     const initProfitEvaluation = {
@@ -2363,7 +2582,7 @@ const AdminProducts = () => {
       fbaFulfilmentFee: safeParseFloat(existingEvaluation?.fbaFulfilmentFee, 0),
       fbaFulfilmentTax: safeParseFloat(existingEvaluation?.fbaFulfilmentTax, 0),
       balanceChange: safeParseFloat(existingEvaluation?.balanceChange, 0),
-      productCost: productPrice, // Always use current product price as product cost
+      productCost: totalProductCost, // Always use current total product cost (price + shipping)
       netProfit: 0, // Will be calculated below
       monthlyProfit: safeParseFloat(existingEvaluation?.monthlyProfit, defaultMonthlyProfit),
       yearlyProfit: safeParseFloat(existingEvaluation?.yearlyProfit, defaultYearlyProfit)
@@ -2402,6 +2621,8 @@ const AdminProducts = () => {
     setProfitEditProduct({
       _id: product._id,
       name: product.name || '',
+      price: parseFloat(product.price || 0),
+      shipping: parseFloat(product.shipping || 0),
       dealUnits: safeParseFloat(product.dealUnits, 1),
       description: product.description || '',
       features: Array.isArray(product.features) ? product.features : [],
@@ -2543,7 +2764,8 @@ const AdminProducts = () => {
       });
 
       const updateData = {
-        price: parseFloat(cleanProfitEvaluation.productCost), // Update main product price to match product cost
+        price: parseFloat(profitEditProduct.price || 0), // Use the actual price field
+        shipping: parseFloat(profitEditProduct.shipping || 0), // Use the actual shipping field
         currency: 'GBP',
         platformComparison: cleanPlatformComparison,
         platformUnits: parseInt(selectedUnits) || 200,
@@ -3550,6 +3772,7 @@ const AdminProducts = () => {
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>SKU</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Category</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Price</th>
+                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Shipping</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Stock</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Status</th>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Sellers</th>
@@ -3795,7 +4018,43 @@ const AdminProducts = () => {
                         />
                       ) : (
                         <span>
-                          {formatPrice(product.price)}
+                          {formatPriceWithSeller(product)}
+                          <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      className="shipping"
+                      style={{ padding: '4px 8px', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s' }}
+                      data-cell={`${product._id}-shipping`}
+                      onClick={() => handleCellClick(product._id, 'shipping', product.shipping || 0)}
+                      onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
+                      onMouseLeave={(e) => e.target.style.background = ''}
+                      title="Click to edit shipping cost"
+                    >
+                      {editingCell === `${product._id}-shipping` ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editValues[`${product._id}-shipping`] || ''}
+                          onChange={(e) => handleEditChange(product._id, 'shipping', e.target.value)}
+                          onInput={(e) => handleInputEvent(e, product._id, 'shipping')}
+                          onWheel={(e) => handleMouseWheel(e, product._id, 'shipping')}
+                          onBlur={() => handleSaveEdit(product._id, 'shipping')}
+                          onKeyDown={(e) => handleKeyPress(e, product._id, 'shipping')}
+                          autoFocus
+                          style={{
+                            width: '60px',
+                            padding: '3px',
+                            fontSize: '0.75rem',
+                            border: '2px solid #667eea',
+                            borderRadius: '4px',
+                            outline: 'none'
+                          }}
+                        />
+                      ) : (
+                        <span>
+                          {formatShippingWithSeller(product)}
                           <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
                         </span>
                       )}
@@ -5575,9 +5834,9 @@ const AdminProducts = () => {
                     </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                        Product Cost (£)
+                        Product Price (£)
                         <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
-                          (Manually editable)
+                          (Base price)
                         </span>
                         {productCostUpdated && (
                           <span style={{
@@ -5594,33 +5853,36 @@ const AdminProducts = () => {
                       <input
                         type="number"
                         step="0.01"
-                        value={safeFormatNumber(profitEditProduct.profitEvaluation.productCost)}
+                        value={safeFormatNumber(profitEditProduct.price || 0)}
                         onChange={(e) => {
-                          const newProductCost = parseFloat(e.target.value) || 0;
+                          const newPrice = parseFloat(e.target.value) || 0;
+                          const currentShipping = parseFloat(profitEditProduct.shipping || 0);
+                          const newTotalCost = newPrice + currentShipping;
                           
                           // Update the profit evaluation
                           const updatedProfitEvaluation = {
                             ...profitEditProduct.profitEvaluation,
-                            productCost: newProductCost
+                            salesProceeds: newPrice,
+                            productCost: newTotalCost
                           };
                           
-                          // Recalculate net profit with new product cost
+                          // Recalculate net profit with new total cost
                           const balanceChange = updatedProfitEvaluation.balanceChange || 0;
-                          const newNetProfit = parseFloat((balanceChange - newProductCost).toFixed(2));
+                          const newNetProfit = parseFloat((balanceChange - newTotalCost).toFixed(2));
                           updatedProfitEvaluation.netProfit = newNetProfit;
                           
                           // Update the product
                           const updatedProduct = {
                             ...profitEditProduct,
-                            price: newProductCost, // Also update the main product price
+                            price: newPrice,
                             profitEvaluation: updatedProfitEvaluation
                           };
                           
-                          // Update platform comparison profits and markup with new product cost
+                          // Update platform comparison profits and markup with new total cost
                           const updatedPlatformComparison = profitEditProduct.platformComparison.map(platform => ({
                             ...platform,
                             profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2)),
-                            markup: calculateMarkupPercentage(platform.rrpPerUnit, newProductCost)
+                            markup: calculateMarkupPercentage(platform.rrpPerUnit, newTotalCost)
                           }));
                           
                           updatedProduct.platformComparison = updatedPlatformComparison;
@@ -5640,7 +5902,92 @@ const AdminProducts = () => {
                           backgroundColor: productCostUpdated ? '#d4edda' : '#f8f9ff',
                           transition: 'all 0.3s ease'
                         }}
-                        placeholder="Enter product cost"
+                        placeholder="Enter product price"
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                        Shipping Cost (£)
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
+                          (Delivery cost)
+                        </span>
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={safeFormatNumber(profitEditProduct.shipping || 0)}
+                        onChange={(e) => {
+                          const newShipping = parseFloat(e.target.value) || 0;
+                          const currentPrice = parseFloat(profitEditProduct.price || 0);
+                          const newTotalCost = currentPrice + newShipping;
+                          
+                          // Update the profit evaluation
+                          const updatedProfitEvaluation = {
+                            ...profitEditProduct.profitEvaluation,
+                            productCost: newTotalCost
+                          };
+                          
+                          // Recalculate net profit with new total cost
+                          const balanceChange = updatedProfitEvaluation.balanceChange || 0;
+                          const newNetProfit = parseFloat((balanceChange - newTotalCost).toFixed(2));
+                          updatedProfitEvaluation.netProfit = newNetProfit;
+                          
+                          // Update the product
+                          const updatedProduct = {
+                            ...profitEditProduct,
+                            shipping: newShipping,
+                            profitEvaluation: updatedProfitEvaluation
+                          };
+                          
+                          // Update platform comparison profits and markup with new total cost
+                          const updatedPlatformComparison = profitEditProduct.platformComparison.map(platform => ({
+                            ...platform,
+                            profitFor200Units: parseFloat((newNetProfit * (platform.units || 200)).toFixed(2)),
+                            markup: calculateMarkupPercentage(platform.rrpPerUnit, newTotalCost)
+                          }));
+                          
+                          updatedProduct.platformComparison = updatedPlatformComparison;
+                          
+                          setProfitEditProduct(updatedProduct);
+                          
+                          // Set visual indicator that product cost was updated
+                          setProductCostUpdated(true);
+                          setTimeout(() => setProductCostUpdated(false), 3000);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          border: '2px solid #007bff',
+                          borderRadius: '6px',
+                          fontSize: '0.9rem',
+                          backgroundColor: '#f8f9ff',
+                          transition: 'all 0.3s ease'
+                        }}
+                        placeholder="Enter shipping cost"
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#28a745' }}>
+                        Total Product Cost (£)
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
+                          (Price + Shipping = Auto-calculated)
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={`£${((parseFloat(profitEditProduct.price || 0) + parseFloat(profitEditProduct.shipping || 0)).toFixed(2))}`}
+                        readOnly
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          border: '2px solid #28a745',
+                          borderRadius: '6px',
+                          fontSize: '0.9rem',
+                          backgroundColor: '#d4edda',
+                          fontWeight: 'bold',
+                          color: '#155724',
+                          cursor: 'not-allowed'
+                        }}
                       />
                     </div>
                   </div>

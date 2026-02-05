@@ -870,6 +870,7 @@ router.post('/request-admin-product-listing', authenticateSeller, async (req, re
       productName,
       productPrice,
       sellerPrice,
+      sellerShipping = 0, // Add shipping field with default value
       notes = 'Seller requested to list admin product'
     } = req.body;
 
@@ -877,7 +878,8 @@ router.post('/request-admin-product-listing', authenticateSeller, async (req, re
       adminProductId,
       sellerId: req.seller._id,
       sellerUsername: req.seller.username,
-      sellerPrice
+      sellerPrice,
+      sellerShipping
     });
 
     // Import Product model
@@ -932,6 +934,7 @@ router.post('/request-admin-product-listing', authenticateSeller, async (req, re
       productName: adminProduct.name,
       productPrice: adminProduct.price,
       sellerPrice: sellerPrice ? parseFloat(sellerPrice) : parseFloat(adminProduct.price),
+      sellerShipping: sellerShipping ? parseFloat(sellerShipping) : 0, // Add shipping to request
       transactionId: `REQ_${Date.now()}`,
       paymentMethod: 'Pending Admin Approval',
       notes,
@@ -995,26 +998,31 @@ router.get('/admin/listing-requests', authenticateAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 20, status = 'pending_approval' } = req.query;
     
+    // Import Product model
+    const Product = (await import('../models/Product.js')).default;
+    
     // Find all sellers with listing requests
     const sellers = await Seller.find({
       'productListingRequests.status': status
-    }).populate('productListingRequests.productId');
-    
-    // Extract and flatten all requests
-    const allRequests = [];
-    sellers.forEach(seller => {
-      seller.productListingRequests
-        .filter(request => request.status === status)
-        .forEach(request => {
-          allRequests.push({
-            ...request.toObject(),
-            sellerId: seller._id,
-            sellerUsername: seller.username,
-            sellerEmail: seller.email,
-            sellerVerificationStatus: seller.verificationStatus
-          });
-        });
     });
+    
+    // Extract and flatten all requests with product details
+    const allRequests = [];
+    for (const seller of sellers) {
+      for (const request of seller.productListingRequests.filter(r => r.status === status)) {
+        // Fetch the admin product to get shipping information
+        const adminProduct = await Product.findById(request.productId);
+        
+        allRequests.push({
+          ...request.toObject(),
+          sellerId: seller._id,
+          sellerUsername: seller.username,
+          sellerEmail: seller.email,
+          sellerVerificationStatus: seller.verificationStatus,
+          productShipping: adminProduct?.shipping || 0 // Add admin product shipping
+        });
+      }
+    }
     
     // Sort by submission date (newest first)
     allRequests.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
@@ -1089,6 +1097,7 @@ router.put('/admin/listing-requests/:sellerId/:requestId/approve', authenticateA
       country: seller.country,
       verificationStatus: seller.verificationStatus,
       sellerPrice: request.sellerPrice,
+      sellerShipping: request.sellerShipping || 0, // Add seller shipping
       listedAt: new Date(),
       transactionId: request.transactionId,
       paymentMethod: 'Admin Approved',
@@ -1107,6 +1116,7 @@ router.put('/admin/listing-requests/:sellerId/:requestId/approve', authenticateA
         country: seller.country,
         verificationStatus: seller.verificationStatus,
         sellerPrice: request.sellerPrice,
+        sellerShipping: request.sellerShipping || 0, // Add seller shipping
         _id: seller._id
       };
       adminProduct.seller = seller._id;
@@ -1232,7 +1242,7 @@ router.post('/cleanup-duplicate-sellers', authenticateAdmin, async (req, res) =>
 router.put('/update-inventory/:productId', authenticateSeller, async (req, res) => {
   try {
     const { productId } = req.params;
-    const { price, stock } = req.body;
+    const { price, stock, shipping } = req.body;
     
     // Import Product model
     const Product = (await import('../models/Product.js')).default;
@@ -1258,8 +1268,10 @@ router.put('/update-inventory/:productId', authenticateSeller, async (req, res) 
       sellerUsername: req.seller.username,
       sellerIndex,
       currentSellerPrice: product.sellers[sellerIndex].sellerPrice,
+      currentSellerShipping: product.sellers[sellerIndex].sellerShipping,
       newPrice: price,
-      newStock: stock
+      newStock: stock,
+      newShipping: shipping
     });
 
     // Update the seller's specific price in the sellers array
@@ -1269,6 +1281,16 @@ router.put('/update-inventory/:productId', authenticateSeller, async (req, res) 
         sellerUsername: product.sellers[sellerIndex].username,
         oldPrice: product.sellers[sellerIndex].sellerPrice,
         newPrice: parseFloat(price)
+      });
+    }
+
+    // Update the seller's specific shipping in the sellers array
+    if (shipping !== undefined) {
+      product.sellers[sellerIndex].sellerShipping = parseFloat(shipping);
+      console.log('✅ Updated seller shipping in sellers array:', {
+        sellerUsername: product.sellers[sellerIndex].username,
+        oldShipping: product.sellers[sellerIndex].sellerShipping,
+        newShipping: parseFloat(shipping)
       });
     }
 
@@ -1282,6 +1304,10 @@ router.put('/update-inventory/:productId', authenticateSeller, async (req, res) 
       if (price !== undefined) {
         product.sellerInfo.sellerPrice = parseFloat(price);
         console.log('✅ Updated primary sellerInfo price for consistency');
+      }
+      if (shipping !== undefined) {
+        product.sellerInfo.sellerShipping = parseFloat(shipping);
+        console.log('✅ Updated primary sellerInfo shipping for consistency');
       }
     }
 

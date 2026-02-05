@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import sessionAuthManager from '../utils/sessionAuth'
-import { getApiUrl } from '../utils/api'
+import authManager from '../utils/authManager'
 
 const BuyerContext = createContext()
 
@@ -18,59 +17,51 @@ export const BuyerProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const initializeAuth = () => {
-      // Don't initialize buyer auth on admin or seller routes
-      if (window.location.pathname.startsWith('/admin') || 
-          window.location.pathname.startsWith('/seller')) {
-        setLoading(false)
-        return
-      }
-      
-      console.log('🔑 Initializing buyer auth from storage...')
+    const initializeAuth = async () => {
+      console.log('🔑 Initializing buyer auth...')
 
       try {
-        // Try to initialize from any stored auth
-        const storedAuth = sessionAuthManager.initializeFromStorage();
+        // Initialize auth manager and check for valid tokens
+        const authData = await authManager.initializeAuth()
         
-        if (storedAuth && storedAuth.userType === 'buyer') {
-          console.log('✅ Valid buyer auth found, setting logged in state')
-          setBuyer(storedAuth.user)
+        if (authData && authData.userType === 'buyer') {
+          console.log('✅ Valid buyer auth found after verification')
+          setBuyer(authData.user)
           setIsLoggedIn(true)
         } else {
-          console.log('🔑 No buyer auth found')
+          console.log('🔍 No valid buyer auth found')
         }
-        
-        setLoading(false)
       } catch (error) {
         console.error('❌ Buyer auth initialization error:', error)
+        // Don't clear auth on error - might be temporary
+      } finally {
         setLoading(false)
       }
     }
     
-    // Small delay to prevent race conditions
-    const timer = setTimeout(initializeAuth, 50);
-    return () => clearTimeout(timer);
+    initializeAuth()
   }, [])
 
   const login = async (buyerData, token) => {
     try {
-      console.log('🔑 Buyer login initiated', { buyerData, token: token?.substring(0, 20) + '...' })
+      console.log('🔑 Buyer login initiated')
       
-      // Save auth data to localStorage
-      const success = await sessionAuthManager.saveAuth('buyer', buyerData, token)
+      // Save and verify auth with new auth manager
+      const result = await authManager.saveAuth('buyer', buyerData, token)
       
-      if (!success) {
-        throw new Error('Failed to save buyer authentication data')
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save buyer authentication')
       }
       
-      console.log('🔑 Session auth saved, updating context state...')
+      console.log('✅ Buyer auth saved and verified')
       
-      // Update state immediately
-      setBuyer(buyerData)
+      // Update context state
+      setBuyer(result.user)
       setIsLoggedIn(true)
-
-      console.log('✅ Buyer login successful - state updated')
       
+      console.log('✅ Buyer login successful - context updated')
+      
+      return { success: true }
     } catch (error) {
       console.error('❌ Buyer login error:', error)
       throw error
@@ -80,8 +71,8 @@ export const BuyerProvider = ({ children }) => {
   const logout = () => {
     console.log('🔄 Buyer logout initiated')
     
-    // Clear session auth data
-    sessionAuthManager.clearAuth('buyer')
+    // Clear auth data
+    authManager.logout('buyer')
     
     // Update state
     setBuyer(null)
@@ -93,29 +84,24 @@ export const BuyerProvider = ({ children }) => {
 
   const updateBuyer = (updatedData) => {
     setBuyer(updatedData)
-    // Update session storage - make this async safe
-    try {
-      const currentAuth = sessionAuthManager.loadAuth ? sessionAuthManager.loadAuth('buyer') : null
-      if (currentAuth) {
-        sessionAuthManager.saveAuth('buyer', updatedData, currentAuth.token)
-      }
-    } catch (error) {
-      console.warn('Failed to update buyer in storage:', error)
+    // Update stored data
+    const token = localStorage.getItem('buyerToken')
+    if (token) {
+      localStorage.setItem('buyerData', JSON.stringify(updatedData))
     }
   }
 
-  const refreshBuyer = () => {
+  const refreshBuyer = async () => {
     // Don't refresh buyer on admin or seller routes
     if (window.location.pathname.startsWith('/admin') || 
         window.location.pathname.startsWith('/seller')) {
       return
     }
     
-    // Simple refresh - just reload from storage
     try {
-      const storedAuth = sessionAuthManager.initializeFromStorage();
-      if (storedAuth && storedAuth.userType === 'buyer') {
-        setBuyer(storedAuth.user)
+      const authData = await authManager.loadAuth('buyer')
+      if (authData) {
+        setBuyer(authData.user)
         setIsLoggedIn(true)
       }
     } catch (error) {

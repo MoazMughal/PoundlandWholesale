@@ -1,0 +1,296 @@
+/* COMPACT CARDS - HIGH PRIORITY STYLES */
+/* This file ensures cards are compact from the initial load */
+
+/* CRITICAL: Override all existing card styles with !important */
+.product-card,
+.enhanced-card,
+.product-card.enhanced-card,
+div[class*="product-card"],
+div[class*="enhanced-card"] {
+  /* Force compact dimensions immediately */
+  min-height: 220px !important;
+  max-height: 250px !important;
+  height: auto !important;
+  padding: 4px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  
+  /* Ensure proper flex layout */
+  display: flex !important;
+  flex-direction: column !important;
+  
+  /* Override any conflicting positioning */
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+/* Mobile specific overrides */
+@media (max-width: 576px) {
+  .product-card,
+  .enhanced-card,
+  .product-card.enhanced-card,
+  div[class*="product-card"],
+  div[class*="enhanced-card"] {
+    min-height: 220px !important;
+    max-height: 250px !important;
+    padding: 4px !important;
+  }
+}
+
+/* Large mobile (577px-768px) */
+@media (min-width: 577px) and (max-width: 768px) {
+  .product-card,
+  .enhanced-card,
+  .product-card.enhanced-card,
+  div[class*="product-card"],
+  div[class*="enhanced-card"] {
+    min-height: 240px !important;
+    max-height: 270px !important;
+    padding: 6px !important;
+  }
+}
+
+/* Desktop */
+@media (min-width: 769px) {
+  .product-card,
+  .enhanced-card,
+  .product-card.enhanced-card,
+  div[class*="product-card"],
+  div[class*="enhanced-card"] {
+    min-height: 240px !important;
+    max-height: none !important;
+    padding: 6px !important;
+  }
+}
+
+/* Image container overrides */
+.product-image-container,
+.product-card .product-image-container,
+.enhanced-card .product-image-container {
+  height: 80px !important;
+  min-height: 80px !important;
+  max-height: 80px !important;
+  margin-bottom: 2px !important;
+  padding: 2px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #fff !important;
+  overflow: visible !important;
+}
+
+@media (min-width: 577px) and (max-width: 768px) {
+  .product-image-container,
+  .product-card .product-image-container,
+  .enhanced-card .product-image-container {
+    height: 90px !important;
+    min-height: 90px !important;
+    max-height: 90px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .product-image-container,
+  .product-card .product-image-container,
+  .enhanced-card .product-image-container {
+    height: 120px !important;
+    min-height: 120px !important;
+    max-height: 120px !important;
+  }
+}
+
+/* Image size overrides */
+.product-image-container img,
+.product-card .product-image-container img,
+.enhanced-card .product-image-container img {
+  max-width: 70px !important;
+  max-height: 70px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
+
+@media (min-width: 577px) and (max-width: 768px) {
+  .product-image-container img,
+  .product-card .product-image-container img,
+  .enhanced-card .product-image-container img {
+    max-width: 80px !important;
+    max-height: 80px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .product-image-container img,
+  .product-card .product-image-container img,
+  .enhanced-card .product-image-container img {
+    max-width: 100px !important;
+    max-height: 100px !important;
+  }
+}
+
+/* Product info container */
+.product-info,
+.product-card .product-info,
+.enhanced-card .product-info {
+  padding: 1px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+  overflow: hidden !important;
+  flex: 1 !important;
+  justify-content: space-between !important;
+}
+
+/* Title overrides */
+.product-info h5,
+.product-card .product-info h5,
+.enhanced-card .product-info h5,
+.product-card h5,
+.enhanced-card h5 {
+  font-size: 10px !important;
+  line-height: 1.1 !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  height: 33px !important;
+  overflow: hidden !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  color: #1a1a1a !important;
+  background: transparent !important;
+  z-index: 1 !important;
+  position: relative !important;
+  padding: 1px 2px !important;
+  margin-bottom: 4px !important;
+}
+
+@media (min-width: 577px) and (max-width: 768px) {
+  .product-info h5,
+  .product-card .product-info h5,
+  .enhanced-card .product-info h5,
+  .product-card h5,
+  .enhanced-card h5 {
+    font-size: 11px !important;
+    height: 39px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .product-info h5,
+  .product-card .product-info h5,
+  .enhanced-card .product-info h5,
+  .product-card h5,
+  .enhanced-card h5 {
+    font-size: 10px !important;
+    height: 36px !important;
+  }
+}
+
+/* Badge overrides */
+.mobile-badge,
+.desktop-badge {
+  position: absolute !important;
+  top: 4px !important;
+  right: 4px !important;
+  font-size: 6px !important;
+  padding: 2px 4px !important;
+  border-radius: 3px !important;
+  max-width: 70px !important;
+  min-width: 50px !important;
+  z-index: 10 !important;
+  font-weight: 600 !important;
+  color: white !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  width: fit-content !important;
+}
+
+@media (min-width: 577px) {
+  .mobile-badge {
+    display: none !important;
+  }
+  
+  .desktop-badge {
+    display: flex !important;
+    top: 6px !important;
+    right: 6px !important;
+    font-size: 7px !important;
+    padding: 2px 4px !important;
+    border-radius: 4px !important;
+    max-width: 100px !important;
+    gap: 2px !important;
+    align-items: center !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .desktop-badge {
+    display: none !important;
+  }
+  
+  .mobile-badge {
+    display: block !important;
+  }
+}
+
+/* Disable problematic animations and transitions during load */
+.product-card,
+.enhanced-card {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Re-enable transitions after load (will be overridden by JS) */
+.product-card.loaded,
+.enhanced-card.loaded {
+  transition: all 0.3s ease !important;
+}
+
+/* Override any conflicting cloudinary styles */
+.product-card .product-image,
+.enhanced-card .product-image {
+  height: auto !important;
+  width: auto !important;
+  max-width: 70px !important;
+  max-height: 70px !important;
+}
+
+@media (min-width: 577px) and (max-width: 768px) {
+  .product-card .product-image,
+  .enhanced-card .product-image {
+    max-width: 80px !important;
+    max-height: 80px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .product-card .product-image,
+  .enhanced-card .product-image {
+    max-width: 100px !important;
+    max-height: 100px !important;
+  }
+}
+
+/* Ensure grid layout doesn't interfere */
+#products-grid .product-card,
+#products-grid .enhanced-card {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Override any card body styles */
+.product-card .card-body,
+.enhanced-card .card-body {
+  padding: 1px !important;
+  flex: 1 !important;
+}
+
+/* Prevent layout shift */
+.product-card,
+.enhanced-card {
+  contain: layout style !important;
+}

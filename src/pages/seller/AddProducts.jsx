@@ -4,7 +4,7 @@ import { useSeller } from '../../context/SellerContext'
 
 const AddProducts = () => {
   const navigate = useNavigate()
-  const { seller, isLoggedIn } = useSeller()
+  const { seller, isLoggedIn, loading: authLoading, authResolved } = useSeller()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -19,12 +19,17 @@ const AddProducts = () => {
   })
 
   useEffect(() => {
+    // Wait for authentication to be resolved before checking login status
+    if (!authResolved || authLoading) {
+      return
+    }
+
     if (!isLoggedIn || !seller) {
       navigate('/login/supplier')
       return
     }
     fetchProducts()
-  }, [navigate, isLoggedIn, seller])
+  }, [navigate, isLoggedIn, seller, authResolved, authLoading])
 
   const fetchProducts = async () => {
     try {

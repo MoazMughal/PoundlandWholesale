@@ -24,6 +24,7 @@ const AddProduct = () => {
   const [formData, setFormData] = useState({
     name: '',
     price: 0,
+    shipping: 0, // Add shipping field
     category: '',
     brand: '',
     asin: '',
@@ -392,6 +393,7 @@ const AddProduct = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
     setFormData(prev => {
       const newData = {
         ...prev,
@@ -650,6 +652,7 @@ const AddProduct = () => {
         formDataToSend.append('features', JSON.stringify(featuresArray));
       }
       formDataToSend.append('price', parseFloat(formData.price) || 0);
+      formDataToSend.append('shipping', parseFloat(formData.shipping) || 0);
       formDataToSend.append('currency', 'GBP');
       formDataToSend.append('category', formData.category);
       formDataToSend.append('brand', formData.brand || '');
@@ -1212,9 +1215,41 @@ const AddProduct = () => {
                 step="0.01"
                 placeholder="0.00"
               />
-              <small>Enter price in GBP (£). All products use GBP currency for consistency.</small>
+              <small>Base price per unit</small>
             </div>
 
+            <div className="form-group">
+              <label>Shipping (£)</label>
+              <input
+                type="number"
+                name="shipping"
+                value={formData.shipping || 0}
+                onChange={handleChange}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Shipping cost per unit</small>
+            </div>
+
+            <div className="form-group">
+              <label>Total Price (£)</label>
+              <div style={{
+                padding: '10px',
+                backgroundColor: '#f8f9fa',
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                color: '#28a745'
+              }}>
+                £{((parseFloat(formData.price) || 0) + (parseFloat(formData.shipping) || 0)).toFixed(2)}
+              </div>
+              <small>Price + Shipping = Total</small>
+            </div>
+          </div>
+
+          <div className="form-row">
             <div className="form-group">
               <label>Rating (0-5)</label>
               <input

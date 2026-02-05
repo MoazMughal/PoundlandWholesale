@@ -6,7 +6,7 @@ import { getImageUrl } from '../../utils/imageImports';
 
 const SellerAmazonsChoiceProducts = () => {
   const navigate = useNavigate();
-  const { seller, isLoggedIn } = useSeller();
+  const { seller, isLoggedIn, loading: authLoading, authResolved } = useSeller();
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -16,12 +16,17 @@ const SellerAmazonsChoiceProducts = () => {
   const [categoryFilter, setCategoryFilter] = useState('all');
 
   useEffect(() => {
+    // Wait for authentication to be resolved before checking login status
+    if (!authResolved || authLoading) {
+      return;
+    }
+
     if (!isLoggedIn || !seller) {
       navigate('/login/supplier');
       return;
     }
     loadAmazonsChoiceProducts();
-  }, [isLoggedIn, seller, navigate]);
+  }, [isLoggedIn, seller, navigate, authResolved, authLoading]);
 
   useEffect(() => {
     let filtered = products;

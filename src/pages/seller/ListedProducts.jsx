@@ -4,9 +4,9 @@ import { useSeller } from '../../context/SellerContext';
 
 const ListedProducts = () => {
   const navigate = useNavigate();
-  const { seller, isLoggedIn } = useSeller();
+  const { seller, isLoggedIn, loading, authResolved } = useSeller();
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
   const [counts, setCounts] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
   const [activeTab, setActiveTab] = useState('all');
   const [editingCell, setEditingCell] = useState(null); // Track which cell is being edited (productId-field)
@@ -14,16 +14,22 @@ const ListedProducts = () => {
   const [updatingProducts, setUpdatingProducts] = useState(new Set()); // Track which products are being updated
 
   useEffect(() => {
+    // Wait for authentication to be resolved before checking login status
+    if (!authResolved || loading) {
+      return;
+    }
+
     if (!isLoggedIn || !seller) {
       navigate('/login/supplier');
       return;
     }
+    
     loadProducts();
-  }, [isLoggedIn, seller, navigate, activeTab]);
+  }, [isLoggedIn, seller, navigate, activeTab, authResolved, loading]);
 
   const loadProducts = async () => {
     try {
-      setLoading(true);
+      setPageLoading(true);
       const token = localStorage.getItem('sellerToken');
       
       if (!token) {
@@ -63,7 +69,7 @@ const ListedProducts = () => {
       console.error('Network error:', error);
       alert('❌ Could not load products: ' + error.message);
     } finally {
-      setLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -116,14 +122,14 @@ const ListedProducts = () => {
     if (e.deltaY < 0) {
       // Wheel up - increment
       const currentValue = parseFloat(editValues[`${productId}-${field}`] || 0)
-      const step = field === 'price' ? 0.01 : 1
-      const newValue = (currentValue + step).toFixed(field === 'price' ? 2 : 0)
+      const step = (field === 'price' || field === 'shipping') ? 0.01 : 1
+      const newValue = (currentValue + step).toFixed((field === 'price' || field === 'shipping') ? 2 : 0)
       handleEditChange(productId, field, newValue)
     } else if (e.deltaY > 0) {
       // Wheel down - decrement
       const currentValue = parseFloat(editValues[`${productId}-${field}`] || 0)
-      const step = field === 'price' ? 0.01 : 1
-      const newValue = Math.max(0, currentValue - step).toFixed(field === 'price' ? 2 : 0)
+      const step = (field === 'price' || field === 'shipping') ? 0.01 : 1
+      const newValue = Math.max(0, currentValue - step).toFixed((field === 'price' || field === 'shipping') ? 2 : 0)
       handleEditChange(productId, field, newValue)
     }
   }
@@ -137,7 +143,7 @@ const ListedProducts = () => {
       return
     }
 
-    const numericValue = field === 'price' ? parseFloat(newValue) : parseInt(newValue)
+    const numericValue = (field === 'price' || field === 'shipping') ? parseFloat(newValue) : parseInt(newValue)
     if (numericValue < 0) {
       setEditingCell(null)
       return
@@ -174,6 +180,13 @@ const ListedProducts = () => {
                     sellerInfo: {
                       ...product.sellerInfo,
                       sellerPrice: numericValue
+                    }
+                  }),
+                  // Update seller's specific shipping if it's a shipping update
+                  ...(field === 'shipping' && {
+                    sellerInfo: {
+                      ...product.sellerInfo,
+                      sellerShipping: numericValue
                     }
                   })
                 }
@@ -226,7 +239,20 @@ const ListedProducts = () => {
     return badges[marketplace] || 'bg-secondary';
   };
 
-  if (loading) {
+  if (loading || !authResolved) {
+    return (
+      <div className="container-fluid mt-3">
+        <div className="text-center py-5">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <p className="mt-3">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pageLoading) {
     return (
       <div className="container-fluid mt-3">
         <div className="text-center py-5">
@@ -381,6 +407,7 @@ const ListedProducts = () => {
                     <th style={{ width: '60px' }}>Image</th>
                     <th>Product Name</th>
                     <th>Price</th>
+                    <th>Shipping</th>
                     <th>Stock</th>
                     <th>Category</th>
                     <th>Marketplace</th>
@@ -393,50 +420,74 @@ const ListedProducts = () => {
                   {products.map((product) => (
                     <tr key={product._id}>
                       <td>
-                        <a 
-                          href={`/product/${product._id}`}
-                          style={{ cursor: 'pointer', display: 'block' }}
-                        >
-                          <img 
-                            src={product.images?.[0] || 'https://via.placeholder.com/50x50?text=No+Image'} 
-                            alt={product.name}
-                            style={{ 
-                              width: '40px', 
-                              height: '40px', 
-                              objectFit: 'contain', 
-                              objectPosition: 'center',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              padding: '2px',
-                              backgroundColor: '#f8f9fa',
-                              border: '1px solid #e5e7eb',
-                              transition: 'transform 0.2s ease'
-                            }}
-                            onError={(e) => {
-                              e.target.src = 'https://via.placeholder.com/40x40?text=No+Image';
-                            }}
-                            onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
-                            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-                          />
-                        </a>
+                        {!product.isListingRequest ? (
+                          <a 
+                            href={`/product/${product._id}`}
+                            style={{ cursor: 'pointer', display: 'block' }}
+                          >
+                            <img 
+                              src={product.images?.[0] || 'https://via.placeholder.com/50x50?text=No+Image'} 
+                              alt={product.name}
+                              style={{ 
+                                width: '40px', 
+                                height: '40px', 
+                                objectFit: 'contain', 
+                                objectPosition: 'center',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                padding: '2px',
+                                backgroundColor: '#f8f9fa',
+                                border: '1px solid #e5e7eb',
+                                transition: 'transform 0.2s ease'
+                              }}
+                              onError={(e) => {
+                                e.target.src = 'https://via.placeholder.com/40x40?text=No+Image';
+                              }}
+                              onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
+                              onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                            />
+                          </a>
+                        ) : (
+                          <div style={{ 
+                            width: '40px', 
+                            height: '40px', 
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#f8f9fa',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '4px'
+                          }}>
+                            <i className="fas fa-clock text-muted" title="Listing request pending"></i>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <div style={{ maxWidth: '200px' }}>
-                          <a 
-                            href={`/product/${product._id}`}
-                            style={{
-                              textDecoration: 'none',
-                              color: '#0066cc',
-                              fontWeight: 'bold',
-                              cursor: 'pointer'
-                            }}
-                            className="d-block text-truncate"
-                            onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                            onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                            title={product.name}
-                          >
-                            {product.name}
-                          </a>
+                          {product.isListingRequest ? (
+                            <div>
+                              <span className="d-block text-truncate fw-bold" style={{ color: '#0066cc' }} title={product.name}>
+                                {product.name}
+                              </span>
+                              <small className="badge bg-info">Listing Request</small>
+                            </div>
+                          ) : (
+                            <a 
+                              href={`/product/${product._id}`}
+                              style={{
+                                textDecoration: 'none',
+                                color: '#0066cc',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                              }}
+                              className="d-block text-truncate"
+                              onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                              onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                              title={product.name}
+                            >
+                              {product.name}
+                            </a>
+                          )}
                           {product.asin && (
                             <small className="text-muted">ASIN: {product.asin}</small>
                           )}
@@ -444,16 +495,16 @@ const ListedProducts = () => {
                       </td>
                       <td
                         style={{ 
-                          cursor: 'pointer', 
+                          cursor: product.isListingRequest ? 'default' : 'pointer', 
                           transition: 'background 0.2s',
                           padding: '8px'
                         }}
-                        onClick={() => handleCellClick(product._id, 'price', product.sellerInfo?.sellerPrice || product.price)}
-                        onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
+                        onClick={() => !product.isListingRequest && handleCellClick(product._id, 'price', product.sellerInfo?.sellerPrice || product.price)}
+                        onMouseEnter={(e) => !product.isListingRequest && (e.target.style.background = '#f0f0ff')}
                         onMouseLeave={(e) => e.target.style.background = ''}
-                        title="Click to edit price"
+                        title={product.isListingRequest ? "Cannot edit price for listing requests" : "Click to edit price"}
                       >
-                        {editingCell === `${product._id}-price` ? (
+                        {editingCell === `${product._id}-price` && !product.isListingRequest ? (
                           <input
                             type="number"
                             step="0.01"
@@ -477,13 +528,24 @@ const ListedProducts = () => {
                         ) : (
                           <div>
                             <span className="fw-bold text-success">
-                              {product.currency || 'PKR'} {product.sellerInfo?.sellerPrice || product.price}
-                              <span style={{ marginLeft: '4px', fontSize: '0.6rem', color: '#999' }}>✏️</span>
+                              {product.currency || 'GBP'} {product.sellerInfo?.sellerPrice || product.price}
+                              {!product.isListingRequest && (
+                                <span style={{ marginLeft: '4px', fontSize: '0.6rem', color: '#999' }}>✏️</span>
+                              )}
                             </span>
-                            {product.sellerInfo?.sellerPrice && product.sellerInfo.sellerPrice !== product.price && (
+                            {/* Show admin price comparison for listing requests */}
+                            {product.isListingRequest && product.sellerInfo?.sellerPrice && (
                               <div>
                                 <small className="text-muted">
-                                  Admin: {product.currency || 'PKR'} {product.price}
+                                  Requested price
+                                </small>
+                              </div>
+                            )}
+                            {/* Show admin price if different */}
+                            {!product.isListingRequest && product.sellerInfo?.sellerPrice && product.sellerInfo.sellerPrice !== product.price && (
+                              <div>
+                                <small className="text-muted">
+                                  Admin: {product.currency || 'GBP'} {product.price}
                                 </small>
                               </div>
                             )}
@@ -492,16 +554,67 @@ const ListedProducts = () => {
                       </td>
                       <td
                         style={{ 
-                          cursor: 'pointer', 
+                          cursor: product.isListingRequest ? 'default' : 'pointer', 
                           transition: 'background 0.2s',
                           padding: '8px'
                         }}
-                        onClick={() => handleCellClick(product._id, 'stock', product.stock)}
-                        onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
+                        onClick={() => !product.isListingRequest && handleCellClick(product._id, 'shipping', product.sellerInfo?.sellerShipping || product.shipping || 0)}
+                        onMouseEnter={(e) => !product.isListingRequest && (e.target.style.background = '#f0f0ff')}
                         onMouseLeave={(e) => e.target.style.background = ''}
-                        title="Click to edit stock"
+                        title={product.isListingRequest ? "Cannot edit shipping for listing requests" : "Click to edit shipping"}
                       >
-                        {editingCell === `${product._id}-stock` ? (
+                        {editingCell === `${product._id}-shipping` && !product.isListingRequest ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={editValues[`${product._id}-shipping`] || ''}
+                            onChange={(e) => handleEditChange(product._id, 'shipping', e.target.value)}
+                            onInput={(e) => handleInputEvent(e, product._id, 'shipping')}
+                            onWheel={(e) => handleMouseWheel(e, product._id, 'shipping')}
+                            onBlur={() => handleSaveEdit(product._id, 'shipping')}
+                            onKeyDown={(e) => handleKeyPress(e, product._id, 'shipping')}
+                            autoFocus
+                            disabled={updatingProducts.has(product._id)}
+                            style={{
+                              width: '80px',
+                              padding: '4px',
+                              fontSize: '0.85rem',
+                              border: '2px solid #667eea',
+                              borderRadius: '4px',
+                              outline: 'none'
+                            }}
+                          />
+                        ) : (
+                          <div>
+                            <span className="fw-bold text-info">
+                              £{(product.sellerInfo?.sellerShipping || product.shipping || 0).toFixed(2)}
+                              {!product.isListingRequest && (
+                                <span style={{ marginLeft: '4px', fontSize: '0.6rem', color: '#999' }}>✏️</span>
+                              )}
+                            </span>
+                            {/* Show admin shipping if different */}
+                            {!product.isListingRequest && product.sellerInfo?.sellerShipping && product.sellerInfo.sellerShipping !== product.shipping && (
+                              <div>
+                                <small className="text-muted">
+                                  Admin: £{(product.shipping || 0).toFixed(2)}
+                                </small>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td
+                        style={{ 
+                          cursor: product.isListingRequest ? 'default' : 'pointer', 
+                          transition: 'background 0.2s',
+                          padding: '8px'
+                        }}
+                        onClick={() => !product.isListingRequest && handleCellClick(product._id, 'stock', product.stock)}
+                        onMouseEnter={(e) => !product.isListingRequest && (e.target.style.background = '#f0f0ff')}
+                        onMouseLeave={(e) => e.target.style.background = ''}
+                        title={product.isListingRequest ? "Stock not available for listing requests" : "Click to edit stock"}
+                      >
+                        {editingCell === `${product._id}-stock` && !product.isListingRequest ? (
                           <input
                             type="number"
                             value={editValues[`${product._id}-stock`] || ''}
@@ -522,9 +635,14 @@ const ListedProducts = () => {
                             }}
                           />
                         ) : (
-                          <span className={`badge ${product.stock > 0 ? 'bg-success' : 'bg-danger'}`}>
-                            {product.stock}
-                            <span style={{ marginLeft: '4px', fontSize: '0.6rem', color: '#999' }}>✏️</span>
+                          <span className={`badge ${
+                            product.isListingRequest ? 'bg-secondary' : 
+                            product.stock > 0 ? 'bg-success' : 'bg-danger'
+                          }`}>
+                            {product.isListingRequest ? 'Pending' : product.stock}
+                            {!product.isListingRequest && (
+                              <span style={{ marginLeft: '4px', fontSize: '0.6rem', color: '#999' }}>✏️</span>
+                            )}
                           </span>
                         )}
                       </td>
@@ -553,27 +671,48 @@ const ListedProducts = () => {
                       </td>
                       <td>
                         <div className="btn-group btn-group-sm">
-                          <a
-                            href={`/product/${product._id}`}
-                            className="btn btn-info btn-sm"
-                            title="View Product"
-                            style={{ 
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              textDecoration: 'none',
-                              color: 'white'
-                            }}
-                          >
-                            <i className="fas fa-eye"></i>
-                          </a>
-                          <button 
-                            className="btn btn-outline-danger btn-sm"
-                            onClick={() => handleUnlistProduct(product)}
-                            title="Remove your listing from this product"
-                          >
-                            <i className="fas fa-trash"></i>
-                          </button>
+                          {!product.isListingRequest ? (
+                            <>
+                              <a
+                                href={`/product/${product._id}`}
+                                className="btn btn-info btn-sm"
+                                title="View Product"
+                                style={{ 
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  textDecoration: 'none',
+                                  color: 'white'
+                                }}
+                              >
+                                <i className="fas fa-eye"></i>
+                              </a>
+                              <button 
+                                className="btn btn-outline-danger btn-sm"
+                                onClick={() => handleUnlistProduct(product)}
+                                title="Remove your listing from this product"
+                              >
+                                <i className="fas fa-trash"></i>
+                              </button>
+                            </>
+                          ) : (
+                            <div className="d-flex gap-1">
+                              <span className="badge bg-info" title="This is a listing request pending admin approval">
+                                <i className="fas fa-clock me-1"></i>
+                                {product.approvalStatus === 'pending' ? 'Pending Review' : 
+                                 product.approvalStatus === 'rejected' ? 'Rejected' : 'Request'}
+                              </span>
+                              {product.rejectionReason && (
+                                <span 
+                                  className="badge bg-danger" 
+                                  title={`Rejection reason: ${product.rejectionReason}`}
+                                  style={{ cursor: 'help' }}
+                                >
+                                  <i className="fas fa-info-circle"></i>
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -26,6 +26,7 @@ const EditProduct = () => {
   const [formData, setFormData] = useState({
     name: '',
     price: 0,
+    shipping: 0, // Add shipping field
     category: '',
     brand: '',
     asin: '',
@@ -180,6 +181,7 @@ const EditProduct = () => {
       setFormData({
         name: product.name || '',
         price: productPrice,
+        shipping: product.shipping || 0, // Add shipping field
         category: product.category || '',
         brand: product.brand || '',
         asin: product.asin || '',
@@ -337,6 +339,7 @@ const EditProduct = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
     const newFormData = {
       ...formData,
       [name]: type === 'checkbox' ? checked : value
@@ -779,6 +782,7 @@ const EditProduct = () => {
         }
         
         formDataToSend.append('price', parseFloat(formData.price) || 0);
+        formDataToSend.append('shipping', parseFloat(formData.shipping) || 0);
         formDataToSend.append('currency', 'GBP');
         formDataToSend.append('category', formData.category);
         formDataToSend.append('brand', formData.brand || '');
@@ -878,6 +882,7 @@ const EditProduct = () => {
         productData = {
           name: formData.name.trim(),
           price: currentPrice,
+          shipping: parseFloat(formData.shipping) || 0,
           currency: 'GBP',
           category: formData.category,
           brand: formData.brand || '',
@@ -1281,7 +1286,37 @@ const EditProduct = () => {
                 step="0.01"
                 placeholder="0.00"
               />
-              <small>Price per unit</small>
+              <small>Base price per unit</small>
+            </div>
+
+            <div className="form-group">
+              <label>Shipping (£)</label>
+              <input
+                type="number"
+                name="shipping"
+                value={formData.shipping || 0}
+                onChange={handleChange}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <small>Shipping cost per unit</small>
+            </div>
+
+            <div className="form-group">
+              <label>Total Price (£)</label>
+              <div style={{
+                padding: '10px',
+                backgroundColor: '#f8f9fa',
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                color: '#28a745'
+              }}>
+                £{((parseFloat(formData.price) || 0) + (parseFloat(formData.shipping) || 0)).toFixed(2)}
+              </div>
+              <small>Price + Shipping = Total</small>
             </div>
           </div>
 

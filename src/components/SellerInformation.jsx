@@ -67,36 +67,44 @@ const SellerInformation = ({
     }
   };
 
-  // Get current seller's price from the sellers array
+  // Get current seller's total price (price + shipping) from the sellers array
   const getCurrentSellerPrice = () => {
     if (!currentSeller || !product.sellers) return null;
     const currentSellerEntry = product.sellers.find(s => s.sellerId?.toString() === currentSeller._id?.toString());
-    return currentSellerEntry ? parseFloat(currentSellerEntry.sellerPrice) : null;
+    if (!currentSellerEntry) return null;
+    
+    const price = parseFloat(currentSellerEntry.sellerPrice) || 0;
+    const shipping = parseFloat(currentSellerEntry.sellerShipping) || 0;
+    return price + shipping;
   };
 
-  // Get the lowest price from all sellers
+  // Get the lowest price from all sellers (including shipping)
   const getLowestPrice = () => {
     if (!product) return 0;
     
-    // Parse the main product price, handling currency symbols
+    // Parse the main product price and shipping, handling currency symbols
     const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+    const mainShipping = parseFloat(product.shipping) || 0;
+    const mainTotal = mainPrice + mainShipping;
     
     if (!product.sellers || product.sellers.length === 0) {
-      return mainPrice;
+      return mainTotal;
     }
     
-    const sellerPrices = product.sellers
+    const sellerTotals = product.sellers
       .map(seller => {
         const price = parseFloat(seller.sellerPrice);
-        return isNaN(price) ? mainPrice : price;
+        const shipping = parseFloat(seller.sellerShipping) || 0;
+        const total = (isNaN(price) ? mainPrice : price) + shipping;
+        return total;
       })
-      .filter(price => price > 0);
+      .filter(total => total > 0);
     
-    const allPrices = [mainPrice, ...sellerPrices];
-    const result = Math.min(...allPrices);
+    const allTotals = [mainTotal, ...sellerTotals];
+    const result = Math.min(...allTotals);
     
     // Final safety check to ensure we never return NaN
-    return isNaN(result) ? mainPrice : result;
+    return isNaN(result) ? mainTotal : result;
   };
 
   const lowestPrice = getLowestPrice();
@@ -159,12 +167,22 @@ const SellerInformation = ({
                   {uniqueSellers
                     .sort((a, b) => {
                       const priceA = parseFloat(a.sellerPrice) || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+                      const shippingA = parseFloat(a.sellerShipping) || 0;
+                      const totalA = priceA + shippingA;
+                      
                       const priceB = parseFloat(b.sellerPrice) || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                      return priceA - priceB;
+                      const shippingB = parseFloat(b.sellerShipping) || 0;
+                      const totalB = priceB + shippingB;
+                      
+                      return totalA - totalB;
                     })
                     .map((sellerEntry, index) => {
                 const sellerPrice = parseFloat(sellerEntry.sellerPrice) || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+                const sellerShipping = parseFloat(sellerEntry.sellerShipping) || 0;
+                const sellerTotal = sellerPrice + sellerShipping;
                 const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+                const mainShipping = parseFloat(product.shipping) || 0;
+                const mainTotal = mainPrice + mainShipping;
                 
                 return (
                   <div key={`seller-${sellerEntry.sellerId || sellerEntry._id}-${sellerEntry.username}-${index}`} className="border rounded p-2 mb-2" style={{background: index === 0 ? '#f0f9ff' : '#f8f9fa'}}>
@@ -185,18 +203,38 @@ const SellerInformation = ({
                       </div>
                       <div className="text-end">
                         <div className="fw-bold text-success" style={{fontSize: '0.8rem'}}>
-                          {convertPrice(`£${sellerPrice}`)}
+                          {sellerShipping > 0 ? (
+                            <div>
+                              <div>{convertPrice(`£${sellerTotal}`)}</div>
+                              <div style={{fontSize: '0.6rem', color: '#6c757d'}}>
+                                {convertPrice(`£${sellerPrice}`)} + {convertPrice(`£${sellerShipping}`)} shipping
+                              </div>
+                            </div>
+                          ) : (
+                            convertPrice(`£${sellerPrice}`)
+                          )}
                         </div>
                         {/* Show crossed out prices for higher prices */}
-                        {index === 0 && sellerPrice < mainPrice && (
+                        {index === 0 && sellerTotal < mainTotal && (
                           <div style={{fontSize: '0.6rem', textDecoration: 'line-through', color: '#999'}}>
-                            Admin: {convertPrice(`£${mainPrice}`)}
+                            Admin: {mainShipping > 0 ? (
+                              <span>{convertPrice(`£${mainTotal}`)} ({convertPrice(`£${mainPrice}`)} + {convertPrice(`£${mainShipping}`)} shipping)</span>
+                            ) : (
+                              convertPrice(`£${mainPrice}`)
+                            )}
                           </div>
                         )}
                         {/* Show crossed out prices for other sellers with higher prices */}
                         {index > 0 && (
                           <div style={{fontSize: '0.6rem', textDecoration: 'line-through', color: '#999'}}>
-                            Was: {convertPrice(`£${parseFloat(uniqueSellers[0].sellerPrice) || mainPrice}`)}
+                            Was: {(() => {
+                              const firstSellerPrice = parseFloat(uniqueSellers[0].sellerPrice) || mainPrice;
+                              const firstSellerShipping = parseFloat(uniqueSellers[0].sellerShipping) || 0;
+                              const firstSellerTotal = firstSellerPrice + firstSellerShipping;
+                              return firstSellerShipping > 0 ? 
+                                `${convertPrice(`£${firstSellerTotal}`)} (${convertPrice(`£${firstSellerPrice}`)} + ${convertPrice(`£${firstSellerShipping}`)} shipping)` :
+                                convertPrice(`£${firstSellerPrice}`);
+                            })()}
                           </div>
                         )}
                       </div>
@@ -290,15 +328,38 @@ const SellerInformation = ({
                   <div className="fw-bold text-success" style={{fontSize: '0.8rem'}}>
                     {(() => {
                       const sellerPrice = parseFloat(sellerData.sellerPrice) || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                      return convertPrice(`£${sellerPrice}`);
+                      const sellerShipping = parseFloat(sellerData.sellerShipping) || 0;
+                      const sellerTotal = sellerPrice + sellerShipping;
+                      
+                      if (sellerShipping > 0) {
+                        return (
+                          <div>
+                            <div>{convertPrice(`£${sellerTotal}`)}</div>
+                            <div style={{fontSize: '0.6rem', color: '#6c757d'}}>
+                              {convertPrice(`£${sellerPrice}`)} + {convertPrice(`£${sellerShipping}`)} shipping
+                            </div>
+                          </div>
+                        );
+                      } else {
+                        return convertPrice(`£${sellerPrice}`);
+                      }
                     })()}
                   </div>
                   {(() => {
                     const sellerPrice = parseFloat(sellerData.sellerPrice);
+                    const sellerShipping = parseFloat(sellerData.sellerShipping) || 0;
+                    const sellerTotal = sellerPrice + sellerShipping;
                     const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                    return sellerData.sellerPrice && !isNaN(sellerPrice) && sellerPrice < mainPrice && (
+                    const mainShipping = parseFloat(product.shipping) || 0;
+                    const mainTotal = mainPrice + mainShipping;
+                    
+                    return sellerData.sellerPrice && !isNaN(sellerPrice) && sellerTotal < mainTotal && (
                       <div style={{fontSize: '0.6rem', textDecoration: 'line-through', color: '#999'}}>
-                        {convertPrice(`£${mainPrice}`)}
+                        {mainShipping > 0 ? (
+                          <span>{convertPrice(`£${mainTotal}`)} ({convertPrice(`£${mainPrice}`)} + {convertPrice(`£${mainShipping}`)} shipping)</span>
+                        ) : (
+                          convertPrice(`£${mainPrice}`)
+                        )}
                       </div>
                     );
                   })()}
@@ -353,15 +414,33 @@ const SellerInformation = ({
           
           {/* Show current seller's price */}
           {(() => {
-            const currentPrice = getCurrentSellerPrice();
-            return currentPrice && (
-              <div className="mb-2" style={{fontSize: '0.7rem'}}>
-                <strong>Your Current Price:</strong> 
-                <span className="text-success ms-1 fw-bold">
-                  {convertPrice(`£${currentPrice}`)}
-                </span>
-              </div>
-            );
+            const currentSellerEntry = currentSeller && product.sellers ? 
+              product.sellers.find(s => s.sellerId?.toString() === currentSeller._id?.toString()) : null;
+            
+            if (currentSellerEntry) {
+              const price = parseFloat(currentSellerEntry.sellerPrice) || 0;
+              const shipping = parseFloat(currentSellerEntry.sellerShipping) || 0;
+              const total = price + shipping;
+              
+              return (
+                <div className="mb-2" style={{fontSize: '0.7rem'}}>
+                  <strong>Your Current Price:</strong> 
+                  <div className="text-success ms-1 fw-bold">
+                    {shipping > 0 ? (
+                      <div>
+                        <div>{convertPrice(`£${total}`)}</div>
+                        <div style={{fontSize: '0.6rem', color: '#6c757d'}}>
+                          {convertPrice(`£${price}`)} + {convertPrice(`£${shipping}`)} shipping
+                        </div>
+                      </div>
+                    ) : (
+                      convertPrice(`£${price}`)
+                    )}
+                  </div>
+                </div>
+              );
+            }
+            return null;
           })()}
           
           <div className="mb-2">
@@ -401,10 +480,14 @@ const SellerInformation = ({
             Set your competitive price. Lower prices appear first.
             {(() => {
               const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-              return lowestPrice < mainPrice && (
+              const mainShipping = parseFloat(product.shipping) || 0;
+              const mainTotal = mainPrice + mainShipping;
+              const lowestPrice = getLowestPrice();
+              
+              return lowestPrice < mainTotal && (
                 <div className="mt-1">
                   <i className="fas fa-exclamation-triangle text-warning me-1"></i>
-                  Current lowest price: {convertPrice(`£${lowestPrice}`)}
+                  Current lowest total: {convertPrice(`£${lowestPrice}`)}
                 </div>
               );
             })()}

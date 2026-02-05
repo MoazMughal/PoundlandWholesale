@@ -261,7 +261,7 @@ const AdminListingRequests = () => {
                 <tr>
                   <th style={{fontSize: '0.75rem'}}>Product</th>
                   <th style={{fontSize: '0.75rem'}}>Seller</th>
-                  <th style={{fontSize: '0.75rem'}}>Prices</th>
+                  <th style={{fontSize: '0.75rem'}}>Pricing Details</th>
                   <th style={{fontSize: '0.75rem'}}>Submitted</th>
                   <th style={{fontSize: '0.75rem'}}>Status</th>
                   <th style={{fontSize: '0.75rem'}}>Actions</th>
@@ -301,23 +301,54 @@ const AdminListingRequests = () => {
                     </td>
                     <td>
                       <div>
-                        <div><strong>Admin:</strong> £{parseFloat(request.productPrice || 0).toFixed(2)}</div>
-                        <div><strong>Seller:</strong> £{parseFloat(request.sellerPrice || 0).toFixed(2)}</div>
+                        <div className="mb-1">
+                          <strong>Price:</strong>
+                          <div style={{marginLeft: '10px'}}>
+                            <div><span className="text-muted">Admin:</span> £{parseFloat(request.productPrice || 0).toFixed(2)}</div>
+                            <div><span className="text-muted">Seller:</span> £{parseFloat(request.sellerPrice || 0).toFixed(2)}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="mb-1">
+                          <strong>Shipping:</strong>
+                          <div style={{marginLeft: '10px'}}>
+                            <div><span className="text-muted">Admin:</span> £{parseFloat(request.productShipping || 0).toFixed(2)}</div>
+                            <div><span className="text-muted">Seller:</span> £{parseFloat(request.sellerShipping || 0).toFixed(2)}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="border-top pt-1">
+                          <strong>Total Cost:</strong>
+                          <div style={{marginLeft: '10px'}}>
+                            <div><span className="text-muted">Admin:</span> £{(parseFloat(request.productPrice || 0) + parseFloat(request.productShipping || 0)).toFixed(2)}</div>
+                            <div><span className="text-muted">Seller:</span> £{(parseFloat(request.sellerPrice || 0) + parseFloat(request.sellerShipping || 0)).toFixed(2)}</div>
+                          </div>
+                        </div>
+                        
                         {request.sellerPrice && request.productPrice && (
-                          <div className="text-muted" style={{fontSize: '0.7rem'}}>
-                            {parseFloat(request.sellerPrice) < parseFloat(request.productPrice) ? (
-                              <span className="text-success">
-                                <i className="fas fa-arrow-down me-1"></i>
-                                Lower by £{(parseFloat(request.productPrice) - parseFloat(request.sellerPrice)).toFixed(2)}
-                              </span>
-                            ) : parseFloat(request.sellerPrice) > parseFloat(request.productPrice) ? (
-                              <span className="text-warning">
-                                <i className="fas fa-arrow-up me-1"></i>
-                                Higher by £{(parseFloat(request.sellerPrice) - parseFloat(request.productPrice)).toFixed(2)}
-                              </span>
-                            ) : (
-                              <span className="text-info">Same price</span>
-                            )}
+                          <div className="text-muted mt-1" style={{fontSize: '0.7rem'}}>
+                            {(() => {
+                              const adminTotal = parseFloat(request.productPrice || 0) + parseFloat(request.productShipping || 0);
+                              const sellerTotal = parseFloat(request.sellerPrice || 0) + parseFloat(request.sellerShipping || 0);
+                              
+                              if (sellerTotal < adminTotal) {
+                                return (
+                                  <span className="text-success">
+                                    <i className="fas fa-arrow-down me-1"></i>
+                                    Lower by £{(adminTotal - sellerTotal).toFixed(2)}
+                                  </span>
+                                );
+                              } else if (sellerTotal > adminTotal) {
+                                return (
+                                  <span className="text-warning">
+                                    <i className="fas fa-arrow-up me-1"></i>
+                                    Higher by £{(sellerTotal - adminTotal).toFixed(2)}
+                                  </span>
+                                );
+                              } else {
+                                return <span className="text-info">Same total cost</span>;
+                              }
+                            })()}
                           </div>
                         )}
                       </div>

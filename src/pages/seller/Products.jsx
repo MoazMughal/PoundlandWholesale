@@ -5,7 +5,7 @@ import { useSeller } from '../../context/SellerContext'
 const SellerProducts = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { isLoggedIn } = useSeller()
+  const { isLoggedIn, loading: authLoading, authResolved } = useSeller()
   const [products, setProducts] = useState([])
   const [adminProducts, setAdminProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -30,6 +30,11 @@ const SellerProducts = () => {
   })
 
   useEffect(() => {
+    // Wait for authentication to be resolved before checking login status
+    if (!authResolved || authLoading) {
+      return
+    }
+
     if (!isLoggedIn) {
       navigate('/login/supplier')
       return

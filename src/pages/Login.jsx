@@ -53,14 +53,21 @@ const Login = () => {
 
       if (response.ok) {
         if (formData.userType === 'seller') {
-           // Debug log
-          sellerLogin(data.seller, data.token)
+          // Wait for seller login to complete before navigating
+          console.log('🔑 Seller login successful, updating context...')
+          await sellerLogin(data.seller, data.token)
+          console.log('✅ Seller context updated, waiting for state sync...')
+          
+          // Small delay to ensure state is fully synced
+          await new Promise(resolve => setTimeout(resolve, 200))
+          
+          console.log('✅ Navigating to seller dashboard...')
+          navigate(redirectPath)
         } else {
           localStorage.setItem(tokenKey, data.token)
           localStorage.setItem(dataKey, JSON.stringify(data.buyer))
+          navigate(redirectPath)
         }
-        
-        navigate(redirectPath)
       } else {
         alert('❌ Invalid credentials. Please check your username and password.')
       }

@@ -5,7 +5,13 @@ const ProtectedRoute = ({ children }) => {
   const { isLoggedIn, authResolved, loading } = useAdmin();
   const location = useLocation();
   
-  console.log('🛡️ ProtectedRoute check:', { isLoggedIn, authResolved, loading, path: location.pathname });
+  console.log('🛡️ ProtectedRoute check:', { 
+    isLoggedIn, 
+    authResolved, 
+    loading, 
+    path: location.pathname,
+    timestamp: new Date().toLocaleTimeString()
+  });
   
   // Show loader until auth is resolved and not loading
   if (!authResolved || loading) {
@@ -23,6 +29,9 @@ const ProtectedRoute = ({ children }) => {
         <div style={{ textAlign: 'center' }}>
           <div style={{fontSize: '2rem', marginBottom: '10px'}}>⏳</div>
           <div>Authenticating...</div>
+          <div style={{fontSize: '0.8rem', marginTop: '10px', color: '#999'}}>
+            Auth Resolved: {authResolved ? 'Yes' : 'No'} | Loading: {loading ? 'Yes' : 'No'}
+          </div>
         </div>
       </div>
     );
@@ -30,13 +39,13 @@ const ProtectedRoute = ({ children }) => {
   
   // Only redirect if auth is fully resolved and user is not logged in
   if (authResolved && !loading && !isLoggedIn) {
-    console.log('🛡️ ProtectedRoute: Redirecting to login');
+    console.log('🛡️ ProtectedRoute: Redirecting to login - user not authenticated');
     const redirectUrl = location.pathname + location.search;
     return <Navigate to={`/admin/login?redirect=${encodeURIComponent(redirectUrl)}`} replace />;
   }
 
   // Render children if authenticated
-  console.log('🛡️ ProtectedRoute: Rendering protected content');
+  console.log('🛡️ ProtectedRoute: Rendering protected content - user authenticated');
   return children;
 };
 

@@ -173,39 +173,98 @@ const ProductDetail = () => {
     return '0%';
   };
 
-  // Function to get the lowest price from all sellers
+  // Function to get the lowest price from all sellers (including shipping)
   const getLowestPrice = () => {
     if (!product) return 0;
     
-    // Parse the main product price, handling currency symbols
+    // Parse the main product price and shipping, handling currency symbols
     const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+    const mainShipping = parseFloat(product.shipping) || 0;
+    const mainTotal = mainPrice + mainShipping;
     
     if (!product.sellers || product.sellers.length === 0) {
-      return mainPrice;
+      return mainTotal;
     }
     
-    const sellerPrices = product.sellers
+    const sellerTotals = product.sellers
       .map(seller => {
         const price = parseFloat(seller.sellerPrice);
-        return isNaN(price) ? mainPrice : price;
+        const shipping = parseFloat(seller.sellerShipping) || 0;
+        const total = (isNaN(price) ? mainPrice : price) + shipping;
+        return total;
       })
-      .filter(price => price > 0);
+      .filter(total => total > 0);
     
-    const allPrices = [mainPrice, ...sellerPrices];
-    const result = Math.min(...allPrices);
+    const allTotals = [mainTotal, ...sellerTotals];
+    const result = Math.min(...allTotals);
     
     // Final safety check to ensure we never return NaN
-    return isNaN(result) ? mainPrice : result;
+    return isNaN(result) ? mainTotal : result;
   };
 
-  // Function to check if there's a lower seller price than the main product price
+  // Function to get price breakdown for the lowest price
+  const getLowestPriceBreakdown = () => {
+    if (!product) return { total: 0, price: 0, shipping: 0, isSellerPrice: false };
+    
+    const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+    const mainShipping = parseFloat(product.shipping) || 0;
+    const mainTotal = mainPrice + mainShipping;
+    
+    if (!product.sellers || product.sellers.length === 0) {
+      return { 
+        total: mainTotal, 
+        price: mainPrice, 
+        shipping: mainShipping, 
+        isSellerPrice: false 
+      };
+    }
+    
+    // Find the seller with the lowest total price
+    let lowestSeller = null;
+    let lowestTotal = mainTotal;
+    
+    product.sellers.forEach(seller => {
+      const price = parseFloat(seller.sellerPrice);
+      const shipping = parseFloat(seller.sellerShipping) || 0;
+      const total = (isNaN(price) ? mainPrice : price) + shipping;
+      
+      if (total < lowestTotal) {
+        lowestTotal = total;
+        lowestSeller = {
+          price: isNaN(price) ? mainPrice : price,
+          shipping: shipping,
+          total: total
+        };
+      }
+    });
+    
+    if (lowestSeller) {
+      return {
+        total: lowestSeller.total,
+        price: lowestSeller.price,
+        shipping: lowestSeller.shipping,
+        isSellerPrice: true
+      };
+    }
+    
+    return { 
+      total: mainTotal, 
+      price: mainPrice, 
+      shipping: mainShipping, 
+      isSellerPrice: false 
+    };
+  };
+
+  // Function to check if there's a lower seller price than the main product price (including shipping)
   const hasLowerSellerPrice = () => {
     if (!product || !product.sellers || product.sellers.length === 0) return false;
     
     const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+    const mainShipping = parseFloat(product.shipping) || 0;
+    const mainTotal = mainPrice + mainShipping;
     const lowestPrice = getLowestPrice();
     
-    return lowestPrice < mainPrice;
+    return lowestPrice < mainTotal;
   };
 
   // Function to refresh product data (for seller price updates)
@@ -308,6 +367,30 @@ const ProductDetail = () => {
     }
     
     return `${currencySymbols[currency]}${converted.toFixed(2)}`
+  }
+
+  // Function to convert total price (price + shipping)
+  const convertTotalPrice = (priceStr, shipping = 0) => {
+    const basePrice = parseFloat(String(priceStr).replace(/[₨£$€Rs]/g, '').trim()) || 0;
+    const shippingCost = parseFloat(shipping) || 0;
+    const totalPrice = basePrice + shippingCost;
+    
+    if (shippingCost > 0) {
+      const convertedTotal = convertPrice(`£${totalPrice.toFixed(2)}`);
+      const convertedBase = convertPrice(`£${basePrice.toFixed(2)}`);
+      const convertedShipping = convertPrice(`£${shippingCost.toFixed(2)}`);
+      
+      return (
+        <div>
+          <span style={{ fontWeight: 'bold', color: '#28a745' }}>{convertedTotal}</span>
+          <div style={{ fontSize: '0.8rem', color: '#6c757d' }}>
+            {convertedBase} + {convertedShipping} shipping
+          </div>
+        </div>
+      );
+    } else {
+      return convertPrice(priceStr);
+    }
   }
 
   // Check if user is admin or seller
@@ -572,6 +655,7 @@ const ProductDetail = () => {
                    dbProduct.currency === 'USD' ? `$${dbProduct.price}` :
                    dbProduct.currency === 'AED' ? `د.إ${dbProduct.price}` :
                    `₨${dbProduct.price}`, // Default to GBP if currency not set
+            shipping: dbProduct.shipping || 0, // Add shipping field
             rrp: dbProduct.name.toLowerCase().includes('nose ring') ? '£3.49' : (dbProduct.originalPrice ? `₨${dbProduct.originalPrice}` : `₨${(dbProduct.price * 1.5).toFixed(2)}`),
             rating: dbProduct.rating || 4.5,
             reviews: dbProduct.reviews || 100,
@@ -1240,6 +1324,7 @@ const ProductDetail = () => {
           id: id,
           name: nameParam,
           price: `₨${price}`,
+          shipping: 0, // Default shipping for URL-based products
           rrp: nameParam.toLowerCase().includes('nose ring') ? '£3.49' : `₨${originalPrice.toFixed(2)}`,
           rating: parseFloat(ratingParam) || 4.5,
           reviews: parseInt(reviewsParam) || Math.floor(Math.random() * 2000) + 100,
@@ -1630,6 +1715,7 @@ const ProductDetail = () => {
                      foundProduct.currency === 'USD' ? `$${foundProduct.price}` :
                      foundProduct.currency === 'AED' ? `د.إ${foundProduct.price}` :
                      `₨${foundProduct.price}`,
+              shipping: foundProduct.shipping || 0, // Add shipping field
               rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
               rating: foundProduct.rating || 4.5,
               dealUnits: Math.floor((foundProduct.platformUnits || 200) / 12), // Calculate as platformUnits / 12
@@ -1988,6 +2074,7 @@ const ProductDetail = () => {
                        foundProduct.currency === 'USD' ? `$${foundProduct.price}` :
                        foundProduct.currency === 'AED' ? `د.إ${foundProduct.price}` :
                        `₨${foundProduct.price}`, // Use the actual currency from database
+                shipping: foundProduct.shipping || 0, // Add shipping field
                 rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
                 rating: foundProduct.rating || 4.5,
                 dealUnits: Math.floor((foundProduct.platformUnits || 200) / 12), // Calculate as platformUnits / 12
@@ -2400,19 +2487,21 @@ const ProductDetail = () => {
       console.log('- selectedUnits:', selectedUnits);
     }
     
-    // Get product cost price in GBP for calculations
+    // Get product cost price in GBP for calculations (including shipping)
     const getProductCostGBP = () => {
       const costPriceRaw = parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0);
+      const shippingCost = parseFloat(product?.shipping) || 0;
+      const totalCostRaw = costPriceRaw + shippingCost;
       const isPKR = product?.price?.includes('₨') || product?.price?.includes('Rs');
       const isGBP = product?.price?.includes('£');
       
       if (isPKR) {
-        return costPriceRaw * 0.00272; // Convert PKR to GBP
+        return totalCostRaw * 0.00272; // Convert PKR to GBP (price + shipping)
       } else if (isGBP) {
-        return costPriceRaw; // Already in GBP
+        return totalCostRaw; // Already in GBP (price + shipping)
       } else {
         // Assume PKR if no currency symbol
-        return costPriceRaw * 0.00272;
+        return totalCostRaw * 0.00272;
       }
     };
     
@@ -2957,7 +3046,10 @@ const ProductDetail = () => {
                           letterSpacing: '-0.5px',
                           fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                         }}>
-                          {convertPrice(`£${getLowestPrice()}`)}
+                          {(() => {
+                            const breakdown = getLowestPriceBreakdown();
+                            return convertPrice(`£${breakdown.total.toFixed(2)}`);
+                          })()}
                         </span>
                         {hasLowerSellerPrice() && (
                           <span style={{
@@ -2967,7 +3059,7 @@ const ProductDetail = () => {
                             marginLeft: '8px',
                             fontWeight: '500'
                           }}>
-                            {convertPrice(product.price)}
+                            {convertTotalPrice(product.price, product.shipping)}
                           </span>
                         )}
                         <span className="text-muted" style={{
@@ -2975,6 +3067,27 @@ const ProductDetail = () => {
                           fontWeight: '500'
                         }}>/Unit (DDP to Amazon Warehouse)</span>
                       </div>
+                      
+                      {/* Price Breakdown */}
+                      {(() => {
+                        const breakdown = getLowestPriceBreakdown();
+                        if (breakdown.shipping > 0) {
+                          return (
+                            <div style={{ 
+                              fontSize: '0.8rem', 
+                              color: '#6c757d', 
+                              fontWeight: 'normal',
+                              marginTop: '8px',
+                              marginBottom: '8px',
+                              paddingLeft: '2px'
+                            }}>
+                              {convertPrice(`£${breakdown.price.toFixed(2)}`)} + {convertPrice(`£${breakdown.shipping.toFixed(2)}`)} shipping
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                      
                       {/* Enhanced RRP and Save Section */}
                       <div className="d-flex gap-3 align-items-center flex-wrap">
                         <div className="d-flex align-items-center gap-1">
@@ -3278,7 +3391,16 @@ const ProductDetail = () => {
                         fontWeight: '700',
                         letterSpacing: '-0.3px'
                       }}>
-                        {convertPrice(`£${getLowestPrice()}`)}
+                        {(() => {
+                          const lowestPrice = getLowestPrice();
+                          const shippingCost = parseFloat(product.shipping) || 0;
+                          if (shippingCost > 0) {
+                            const totalPrice = lowestPrice + shippingCost;
+                            return convertPrice(`£${totalPrice.toFixed(2)}`);
+                          } else {
+                            return convertPrice(`£${lowestPrice}`);
+                          }
+                        })()}
                       </span>
                       {hasLowerSellerPrice() && (
                         <span style={{
@@ -3288,11 +3410,31 @@ const ProductDetail = () => {
                           marginLeft: '4px',
                           fontWeight: '400'
                         }}>
-                          {convertPrice(product.price)}
+                          {(() => {
+                            const basePrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+                            const shippingCost = parseFloat(product.shipping) || 0;
+                            if (shippingCost > 0) {
+                              const totalPrice = basePrice + shippingCost;
+                              return convertPrice(`£${totalPrice.toFixed(2)}`);
+                            } else {
+                              return convertPrice(product.price);
+                            }
+                          })()}
                         </span>
                       )}
                       <span style={{fontSize: '0.6rem', color: '#565959', fontWeight: '500'}}>/Unit</span>
                     </div>
+                    {(() => {
+                      const breakdown = getLowestPriceBreakdown();
+                      if (breakdown.shipping > 0) {
+                        return (
+                          <div style={{fontSize: '0.65rem', color: '#6b7280', marginTop: '2px', marginBottom: '4px'}}>
+                            £{breakdown.price.toFixed(2)} + £{breakdown.shipping.toFixed(2)} shipping
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                     <small style={{fontSize: '0.6rem', color: '#565959', fontWeight: '500'}}>
                       (DDP to Amazon Warehouse)
                     </small>
@@ -3555,18 +3697,26 @@ const ProductDetail = () => {
                     <div className="text-center">
                       <div className="fw-bold mb-2" style={{fontSize: '1.2rem', color: '#dc2626'}}>
                         {convertPrice(`£${getLowestPrice()}`)}
-                        {hasLowerSellerPrice() && (
-                          <div style={{
-                            fontSize: '0.8rem',
-                            color: '#999',
-                            textDecoration: 'line-through',
-                            fontWeight: '400',
-                            marginTop: '2px'
-                          }}>
-                            {convertPrice(product.price)}
-                          </div>
-                        )}
                       </div>
+                      {(() => {
+                        const breakdown = getLowestPriceBreakdown();
+                        return (
+                          <div style={{fontSize: '0.75rem', color: '#6b7280', marginTop: '-8px', marginBottom: '8px'}}>
+                            £{breakdown.price.toFixed(2)} + £{breakdown.shipping.toFixed(2)} shipping
+                          </div>
+                        );
+                      })()}
+                      {hasLowerSellerPrice() && (
+                        <div style={{
+                          fontSize: '0.8rem',
+                          color: '#999',
+                          textDecoration: 'line-through',
+                          fontWeight: '400',
+                          marginTop: '2px'
+                        }}>
+                          {convertTotalPrice(product.price, product.shipping)}
+                        </div>
+                      )}
                       <small className="d-block mb-3" style={{color: '#6b7280'}}>ex. VAT</small>
                       <div className="d-grid">
                         <button 
@@ -3598,6 +3748,14 @@ const ProductDetail = () => {
                           <div className="fw-bold text-danger" style={{fontSize: '1.1rem'}}>
                             {convertPrice(`£${getLowestPrice()}`)}
                           </div>
+                          {(() => {
+                            const breakdown = getLowestPriceBreakdown();
+                            return (
+                              <div style={{fontSize: '0.65rem', color: '#6b7280', marginTop: '2px'}}>
+                                £{breakdown.price.toFixed(2)} + £{breakdown.shipping.toFixed(2)} shipping
+                              </div>
+                            );
+                          })()}
                           {hasLowerSellerPrice() && (
                             <div style={{
                               fontSize: '0.7rem',
@@ -3605,7 +3763,7 @@ const ProductDetail = () => {
                               textDecoration: 'line-through',
                               fontWeight: '400'
                             }}>
-                              {convertPrice(product.price)}
+                              {convertTotalPrice(product.price, product.shipping)}
                             </div>
                           )}
                           <small className="text-muted">ex. VAT</small>
@@ -3681,19 +3839,21 @@ const ProductDetail = () => {
                               const platformData = calculatePlatformData();
                               console.log('🎯 PLATFORM DATA FOR DISPLAY:', platformData);
                               
-                              // Get product cost for display
+                              // Get product cost for display (including shipping)
                               const getProductCostGBP = () => {
                                 const costPriceRaw = parseFloat(product?.price?.replace(/[£₨$€]/g, '') || 0);
+                                const shippingCost = parseFloat(product?.shipping) || 0;
+                                const totalCostRaw = costPriceRaw + shippingCost;
                                 const isPKR = product?.price?.includes('₨') || product?.price?.includes('Rs');
                                 const isGBP = product?.price?.includes('£');
                                 
                                 if (isPKR) {
-                                  return costPriceRaw * 0.00272; // Convert PKR to GBP
+                                  return totalCostRaw * 0.00272; // Convert PKR to GBP (price + shipping)
                                 } else if (isGBP) {
-                                  return costPriceRaw; // Already in GBP
+                                  return totalCostRaw; // Already in GBP (price + shipping)
                                 } else {
                                   // Assume PKR if no currency symbol
-                                  return costPriceRaw * 0.00272;
+                                  return totalCostRaw * 0.00272;
                                 }
                               };
                               

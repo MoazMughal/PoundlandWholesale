@@ -58,7 +58,26 @@ const ProductCard = ({ product }) => {
         </div>
         
         <div className="price">
-          {product.price}
+          {(() => {
+            const basePrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+            const shippingCost = parseFloat(product.shipping) || 0;
+            const totalPrice = basePrice + shippingCost;
+            
+            if (shippingCost > 0) {
+              return (
+                <div>
+                  <span className="total-price" style={{ fontWeight: 'bold', color: '#28a745' }}>
+                    £{totalPrice.toFixed(2)}
+                  </span>
+                  <div style={{ fontSize: '0.8rem', color: '#6c757d' }}>
+                    £{basePrice.toFixed(2)} + £{shippingCost.toFixed(2)} shipping
+                  </div>
+                </div>
+              );
+            } else {
+              return `£${basePrice.toFixed(2)}`;
+            }
+          })()}
           {product.originalPrice && (
             <span className="text-muted text-decoration-line-through ms-2" style={{fontSize: '0.8rem'}}>
               {product.originalPrice}

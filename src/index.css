@@ -424,7 +424,7 @@ input, textarea, select {
     background-color: #f8f9fa !important;
 }
 
-/* Product Cards */
+/* COMMENTED OUT - REPLACED BY compact-cards.css
 .product-card {
     border: none;
     border-radius: 12px;
@@ -484,6 +484,7 @@ input, textarea, select {
     height: 36px;
     overflow: hidden;
 }
+*/
 
 /* Amazon Choice Badge */
 .amazon-choice-badge {

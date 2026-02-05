@@ -26,6 +26,7 @@ import '../styles/enhanced-images.css'
 import '../styles/mobile-image-optimization.css'
 import '../styles/image-fixes.css'
 import '../styles/production-optimizations.css'
+import '../styles/compact-cards.css'
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
@@ -56,16 +57,16 @@ const AmazonsChoice = () => {
           background: transparent !important;
         }
         
-        /* Cards - Compact but readable */
+        /* Cards - More Compact */
         .product-card, .enhanced-card {
           display: flex !important;
           flex-direction: column !important;
           background: white !important;
           border: 2px solid #ff6600 !important;
           border-radius: 8px !important;
-          padding: 6px !important;
-          min-height: 280px !important;
-          max-height: 320px !important;
+          padding: 4px !important;
+          min-height: 220px !important;
+          max-height: 250px !important;
           width: 100% !important;
           position: relative !important;
           overflow: hidden !important;
@@ -73,23 +74,23 @@ const AmazonsChoice = () => {
           margin: 0 !important;
         }
         
-        /* Images - INCREASED SIZE */
+        /* Images - Smaller Size */
         .product-image-container {
-          height: 110px !important;
-          min-height: 110px !important;
-          max-height: 110px !important;
+          height: 80px !important;
+          min-height: 80px !important;
+          max-height: 80px !important;
           width: 100% !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
           background: #fff !important;
-          margin-bottom: 4px !important;
-          padding: 4px !important;
+          margin-bottom: 2px !important;
+          padding: 2px !important;
         }
         
         .product-image-container img {
-          max-width: 100px !important;
-          max-height: 100px !important;
+          max-width: 70px !important;
+          max-height: 70px !important;
           width: auto !important;
           height: auto !important;
           object-fit: contain !important;
@@ -106,16 +107,16 @@ const AmazonsChoice = () => {
           background: transparent !important;
         }
         
-        /* Title - FULLY VISIBLE */
+        /* Title - Larger Font */
         .product-info h5 {
           font-size: 10px !important;
-          line-height: 1.2 !important;
+          line-height: 1.1 !important;
           font-weight: 600 !important;
           margin: 0 !important;
-          height: 48px !important; /* Increased height for mobile title visibility */
+          height: 33px !important;
           overflow: hidden !important;
           display: -webkit-box !important;
-          -webkit-line-clamp: 3 !important;
+          -webkit-line-clamp: 2 !important;
           -webkit-box-orient: vertical !important;
           color: #1a1a1a !important;
           background: transparent !important;
@@ -126,19 +127,19 @@ const AmazonsChoice = () => {
         
         /* FORCE ALL PRICE AND PROFIT ELEMENTS TO BE VISIBLE AND LARGER */
         
-        /* Unit Price - MINIMAL SPACING */
+        /* Unit Price - Larger Font */
         .product-info div[style*="/unit"] {
-          font-size: 10px !important;
+          font-size: 9px !important;
           font-weight: 700 !important;
-          padding: 3px 5px !important;
-          margin: 0 !important; /* Removed margin */
-          border-radius: 4px !important;
+          padding: 2px 4px !important;
+          margin: 0 !important;
+          border-radius: 3px !important;
           text-align: center !important;
           background: #fff8dc !important;
           color: #ff6600 !important;
-          border: 0.5px solid #ffe4b5 !important; /* Reduced border width from 1px to 0.5px */
-          min-width: 70px !important;
-          max-width: 100px !important;
+          border: 0.5px solid #ffe4b5 !important;
+          min-width: 65px !important;
+          max-width: 85px !important;
           display: block !important;
           visibility: visible !important;
           opacity: 1 !important;
@@ -157,19 +158,19 @@ const AmazonsChoice = () => {
           align-items: flex-start !important;
         }
         
-        /* Profit boxes - MINIMAL SPACING */
+        /* Profit boxes - Larger Font */
         .product-info > div[style*="flexDirection: column"] > div {
-          font-size: 9px !important;
+          font-size: 8px !important;
           font-weight: 700 !important;
           padding: 2px 4px !important;
-          margin: 0 !important; /* Removed margin */
-          border-radius: 3px !important;
+          margin: 0 !important;
+          border-radius: 2px !important;
           text-align: center !important;
           background: #fff8dc !important;
           color: #ff6600 !important;
           border: 1px solid #ffe4b5 !important;
-          min-width: 60px !important;
-          max-width: 90px !important;
+          min-width: 55px !important;
+          max-width: 75px !important;
           white-space: nowrap !important;
           box-shadow: 0 1px 2px rgba(255, 228, 181, 0.2) !important;
           display: block !important;
@@ -178,20 +179,20 @@ const AmazonsChoice = () => {
           width: fit-content !important;
         }
         
-        /* Deal container - MINIMAL SPACING */
+        /* Deal container - Larger Font for Desktop */
         .product-info > div:last-of-type > div {
-          font-size: 10px !important;
+          font-size: 9px !important;
           font-weight: 700 !important;
-          padding: 3px 5px !important;
-          margin: 1px 0 !important; /* Minimal margin */
-          border-radius: 4px !important;
+          padding: 2px 4px !important;
+          margin: 1px 0 !important;
+          border-radius: 3px !important;
           background: #fff8dc !important;
           color: #ff6600 !important;
           border: 1px solid #ffe4b5 !important;
           display: flex !important;
           justify-content: space-between !important;
           align-items: center !important;
-          gap: 8px !important;
+          gap: 6px !important;
           min-height: 20px !important;
           max-height: 22px !important;
           box-shadow: 0 1px 3px rgba(255, 228, 181, 0.3) !important;
@@ -199,36 +200,36 @@ const AmazonsChoice = () => {
           opacity: 1 !important;
         }
         
-        /* Deal Text - ADJUSTED FONT SIZES */
+        /* Deal Text - Larger Font */
         .product-info span[style*="Deal"] {
-          font-size: 7px !important; /* Decreased mobile font size from 8px to 7px */
+          font-size: 7px !important;
           font-weight: 700 !important;
           color: #ff6600 !important;
           white-space: nowrap !important;
           overflow: hidden !important;
           text-overflow: ellipsis !important;
           flex: 1 !important;
-          max-width: calc(100% - 50px) !important; /* More space for price */
+          max-width: calc(100% - 40px) !important;
         }
         
-        /* Price in Deal Section - MOBILE POSITIONING */
+        /* Price in Deal Section - Larger Font */
         .product-info span[style*="£"] {
-          font-size: 7px !important; /* Decreased mobile font size from 8px to 7px */
+          font-size: 7px !important;
           font-weight: 700 !important;
           color: #ff6600 !important;
           white-space: nowrap !important;
-          min-width: 35px !important; /* Reduced for mobile */
-          text-align: left !important; /* Left align to move left */
-          margin-left: -5px !important; /* Move left on mobile */
+          min-width: 32px !important;
+          text-align: left !important;
+          margin-left: -3px !important;
         }
         
-        /* Basket Button - MOBILE SMALL CIRCLE - CENTERED ICON */
+        /* Basket Button - Larger */
         .product-info button {
-          font-size: 7px !important; /* Reduced from 8px */
-          width: 18px !important; /* Reduced from 20px */
-          height: 18px !important; /* Reduced from 20px */
-          min-width: 18px !important; /* Reduced from 20px */
-          border-radius: 50% !important; /* Make it circular like desktop */
+          font-size: 7px !important;
+          width: 18px !important;
+          height: 18px !important;
+          min-width: 18px !important;
+          border-radius: 50% !important;
           background: #ff6600 !important;
           color: white !important;
           border: none !important;
@@ -239,9 +240,9 @@ const AmazonsChoice = () => {
           box-shadow: 0 2px 4px rgba(255, 102, 0, 0.4) !important;
           visibility: visible !important;
           opacity: 1 !important;
-          margin-left: 4px !important;
-          padding: 0 !important; /* Remove padding for perfect centering */
-          line-height: 1 !important; /* Ensure proper line height for centering */
+          margin-left: 3px !important;
+          padding: 0 !important;
+          line-height: 1 !important;
         }
         
         /* Center the basket icon specifically */
@@ -253,13 +254,13 @@ const AmazonsChoice = () => {
           height: 100% !important;
         }
         
-        /* Amazon Button - LARGER */
+        /* Amazon Button - Larger Font */
         .product-info a[href*="amazon"] {
-          font-size: 9px !important;
-          padding: 6px 8px !important;
-          margin-top: 4px !important;
-          border-radius: 6px !important;
-          min-height: 26px !important;
+          font-size: 8px !important;
+          padding: 4px 6px !important;
+          margin-top: 2px !important;
+          border-radius: 4px !important;
+          min-height: 22px !important;
           font-weight: 600 !important;
           background: #1a1a1a !important;
           color: white !important;
@@ -269,22 +270,22 @@ const AmazonsChoice = () => {
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
-          gap: 4px !important;
+          gap: 3px !important;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
           visibility: visible !important;
           opacity: 1 !important;
         }
         
-        /* Badges - MOBILE OPTIMIZED - DYNAMIC WIDTH */
+        /* Badges - More Compact */
         .mobile-badge {
           position: absolute !important;
-          top: 6px !important;
-          right: 6px !important;
-          font-size: 8px !important;
-          padding: 3px 6px !important; /* Reduced horizontal padding from 8px to 6px */
-          border-radius: 4px !important;
-          max-width: 90px !important; /* Reduced from 100px to 90px */
-          min-width: 70px !important; /* Reduced from 85px to 70px */
+          top: 4px !important;
+          right: 4px !important;
+          font-size: 6px !important;
+          padding: 2px 4px !important;
+          border-radius: 3px !important;
+          max-width: 70px !important;
+          min-width: 50px !important;
           z-index: 10 !important;
           font-weight: 600 !important;
           color: white !important;
@@ -294,7 +295,7 @@ const AmazonsChoice = () => {
           white-space: nowrap !important;
           overflow: hidden !important;
           text-overflow: ellipsis !important;
-          width: fit-content !important; /* Dynamic width based on content */
+          width: fit-content !important;
         }
         
         .desktop-badge {
@@ -328,12 +329,12 @@ const AmazonsChoice = () => {
         
         .desktop-badge {
           position: absolute !important;
-          top: 8px !important;
-          right: 8px !important;
-          font-size: 8px !important; /* Decreased font size for laptop */
-          padding: 3px 6px !important; /* Reduced padding to match smaller font */
-          border-radius: 6px !important;
-          max-width: 120px !important;
+          top: 6px !important;
+          right: 6px !important;
+          font-size: 7px !important;
+          padding: 2px 4px !important;
+          border-radius: 4px !important;
+          max-width: 100px !important;
           z-index: 20 !important;
           font-weight: 600 !important;
           color: white !important;
@@ -341,7 +342,7 @@ const AmazonsChoice = () => {
           box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3) !important;
           display: flex !important;
           align-items: center !important;
-          gap: 3px !important; /* Reduced gap to match smaller size */
+          gap: 2px !important;
           visibility: visible !important;
           opacity: 1 !important;
         }
@@ -352,29 +353,29 @@ const AmazonsChoice = () => {
           z-index: 1 !important;
         }
         
-        /* Desktop Deal Text - SMALLER FONT AND BETTER SPACING */
+        /* Desktop Deal Text - Larger Font */
         .product-info span[style*="Deal"] {
-          font-size: 7px !important; /* Reduced from 8px to 7px for desktop */
+          font-size: 8px !important;
           white-space: nowrap !important;
-          overflow: visible !important; /* Changed from hidden to visible */
-          text-overflow: clip !important; /* Changed from ellipsis to clip */
-          max-width: none !important; /* Remove max-width restriction */
+          overflow: visible !important;
+          text-overflow: clip !important;
+          max-width: none !important;
         }
         
         .product-info span[style*="£"] {
-          font-size: 7px !important; /* Reduced from 8px to 7px for desktop */
-          text-align: center !important; /* Center align on desktop */
-          margin-left: 0px !important; /* No left margin on desktop */
+          font-size: 7px !important;
+          text-align: center !important;
+          margin-left: 0px !important;
         }
         
-        /* Desktop Deal Container - REDUCED PADDING AND MARGINS */
+        /* Desktop Deal Container - Larger Font */
         .product-info > div:last-of-type > div {
-          font-size: 7px !important; /* Reduced font size */
-          padding: 2px 4px !important; /* Reduced padding from 3px 5px */
-          margin: 0px 0 !important; /* Removed margin */
-          gap: 4px !important; /* Reduced gap from 8px to 4px */
-          min-height: 18px !important; /* Reduced from 20px */
-          max-height: 20px !important; /* Reduced from 22px */
+          font-size: 8px !important;
+          padding: 2px 4px !important;
+          margin: 0px 0 !important;
+          gap: 4px !important;
+          min-height: 20px !important;
+          max-height: 22px !important;
         }
       }
       
@@ -386,25 +387,25 @@ const AmazonsChoice = () => {
         }
         
         .product-card, .enhanced-card {
-          min-height: 320px !important;
-          max-height: 360px !important;
-          padding: 8px !important;
+          min-height: 240px !important;
+          max-height: 270px !important;
+          padding: 6px !important;
         }
         
         .product-image-container {
-          height: 110px !important;
-          min-height: 110px !important;
-          max-height: 110px !important;
+          height: 90px !important;
+          min-height: 90px !important;
+          max-height: 90px !important;
         }
         
         .product-image-container img {
-          max-width: 100px !important;
-          max-height: 100px !important;
+          max-width: 80px !important;
+          max-height: 80px !important;
         }
         
         .product-info h5 {
           font-size: 11px !important;
-          height: 45px !important; /* Increased height for more title visibility */
+          height: 39px !important;
           overflow: hidden !important;
           color: #1a1a1a !important;
           background: transparent !important;
@@ -413,41 +414,41 @@ const AmazonsChoice = () => {
           padding: 1px 2px !important;
           margin: 0 !important;
           display: -webkit-box !important;
-          -webkit-line-clamp: 3 !important;
+          -webkit-line-clamp: 2 !important;
           -webkit-box-orient: vertical !important;
           line-height: 1.2 !important;
         }
         
         .product-info div[style*="/unit"] {
-          font-size: 11px !important;
-          padding: 5px 10px !important;
-          min-width: 90px !important;
+          font-size: 10px !important;
+          padding: 3px 6px !important;
+          min-width: 75px !important;
         }
         
         .product-info > div[style*="flexDirection: column"] > div {
-          font-size: 10px !important;
-          padding: 4px 8px !important;
-          min-width: 80px !important;
+          font-size: 9px !important;
+          padding: 2px 5px !important;
+          min-width: 65px !important;
         }
         
         .product-info > div:last-of-type > div {
-          font-size: 12px !important; /* Increased from 11px for better readability */
-          padding: 7px 10px !important;
-          min-height: 32px !important;
+          font-size: 10px !important;
+          padding: 4px 6px !important;
+          min-height: 26px !important;
         }
         
         .product-info button {
-          width: 20px !important; /* Reduced from 22px */
-          height: 20px !important; /* Reduced from 22px */
-          font-size: 8px !important; /* Reduced from 9px */
-          border-radius: 50% !important; /* Make it circular */
+          width: 20px !important;
+          height: 20px !important;
+          font-size: 8px !important;
+          border-radius: 50% !important;
           box-shadow: 0 2px 4px rgba(255, 102, 0, 0.4) !important;
         }
         
         .product-info a[href*="amazon"] {
-          font-size: 10px !important;
-          padding: 8px 10px !important;
-          min-height: 30px !important;
+          font-size: 9px !important;
+          padding: 5px 7px !important;
+          min-height: 24px !important;
         }
       }
     `
@@ -485,6 +486,18 @@ const AmazonsChoice = () => {
   const { formatPrice } = useCurrency()
   const { addToBasket, isInBasket } = useBasket()
   const { isLoggedIn: isAdminContextLoggedIn } = useAdmin()
+
+  // Add loaded class to cards after component mounts to enable transitions
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const cards = document.querySelectorAll('.product-card, .enhanced-card')
+      cards.forEach(card => {
+        card.classList.add('loaded')
+      })
+    }, 100) // Small delay to ensure initial render is complete
+    
+    return () => clearTimeout(timer)
+  }, [products])
 
   // Badge generator - Amazon's Choice + unique rotating badge per product
   const getProductBadges = (product, index) => {
@@ -1106,6 +1119,69 @@ const AmazonsChoice = () => {
         <ScrollToTop />
         <ProductionStatus />
 
+        {/* SEO Header Section */}
+        <div style={{
+          textAlign: 'center',
+          padding: windowWidth < 576 ? '4px 8px' : '6px 12px',
+          marginBottom: windowWidth < 576 ? '5px' : '6px',
+          background: 'linear-gradient(135deg, #fff8f5 0%, #ffede0 100%)',
+          borderRadius: '6px',
+          border: '1px solid #ff6600',
+          boxShadow: '0 1px 4px rgba(255, 102, 0, 0.08)'
+        }}>
+          {windowWidth < 768 ? (
+            // Mobile/Tablet: Stack vertically
+            <>
+              <h1 style={{
+                margin: '0 0 2px 0',
+                fontSize: windowWidth < 576 ? '0.9rem' : '1rem',
+                fontWeight: '600',
+                color: '#ff6600',
+                letterSpacing: '0.2px'
+              }}>
+                Poundland Wholesale
+              </h1>
+              <p style={{
+                margin: 0,
+                fontSize: windowWidth < 576 ? '0.65rem' : '0.7rem',
+                color: '#666',
+                lineHeight: '1.2',
+                fontWeight: '400'
+              }}>
+                Online wholesale store offering quality products at competitive prices for retailers and resellers.
+              </p>
+            </>
+          ) : (
+            // Desktop: Single line
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              flexWrap: 'wrap'
+            }}>
+              <h1 style={{
+                margin: 0,
+                fontSize: '1rem',
+                fontWeight: '600',
+                color: '#ff6600',
+                letterSpacing: '0.2px',
+                whiteSpace: 'nowrap'
+              }}>
+                Poundland Wholesale
+              </h1>
+              <span style={{
+                fontSize: '0.7rem',
+                color: '#666',
+                fontWeight: '400',
+                whiteSpace: 'nowrap'
+              }}>
+                - Online wholesale store offering quality products at competitive prices
+              </span>
+            </div>
+          )}
+        </div>
+
         {/* Data Source Indicator for Debugging - Only show for problematic sources */}
         {dataSource && dataSource !== 'database' && dataSource !== 'fast' && dataSource !== 'database_random' && (
           <div style={{
@@ -1156,7 +1232,7 @@ const AmazonsChoice = () => {
             justifyContent: 'space-between',
             alignItems: 'center',
             marginBottom: windowWidth < 576 ? '10px' : '10px', // Consistent margin
-            padding: windowWidth < 576 ? '15px 20px' : '15px 20px', // Increased mobile padding
+            padding: windowWidth < 576 ? '8px 16px' : '10px 18px', // Reduced padding for smaller height
             background: 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
             borderRadius: windowWidth < 576 ? '12px' : '12px', // Consistent radius
             color: 'white',
@@ -1180,33 +1256,42 @@ const AmazonsChoice = () => {
             <div style={{ position: 'relative', zIndex: 1 }}>
               <h2 style={{ 
                 margin: 0, 
-                fontSize: windowWidth < 576 ? '1.2rem' : '1.5rem', // Smaller on mobile
+                fontSize: windowWidth < 576 ? '1.1rem' : '1.3rem', // Reduced font size
                 fontWeight: '700',
-                textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)', // Better text shadow
+                textShadow: '0 2px 4px rgba(255, 255, 255, 0.3)', // Better text shadow
                 letterSpacing: '0.5px' // Improved letter spacing
               }}>
                 🏆 Amazon's Choice Products
               </h2>
+            </div>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              position: 'relative',
+              zIndex: 1,
+              textAlign: 'right'
+            }}>
+              <div style={{
+                fontSize: windowWidth < 576 ? '1.3rem' : '1.7rem', // Reduced icon size
+                opacity: 0.8,
+                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))', // Enhanced icon shadow
+                marginBottom: '2px'
+              }}>
+                
+              </div>
               <p style={{ 
-                margin: '4px 0 0 0', 
-                fontSize: windowWidth < 576 ? '0.8rem' : '0.9rem', // Smaller on mobile
+                margin: 0, // No margin since it's now separate
+                fontSize: windowWidth < 576 ? '0.75rem' : '0.85rem', // Reduced font size
                 opacity: 0.95, // Slightly more opaque
                 fontWeight: '500',
                 color: 'white', // Explicitly white for mobile
-                textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' // Text shadow for better readability
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)', // Text shadow for better readability
+                whiteSpace: 'nowrap' // Prevent wrapping on mobile
               }}>
-                Showing {products.length} of {totalProducts.toLocaleString()} products
+                ✨ Showing {products.length} of {totalProducts.toLocaleString()} products
                 {currentPage > 1 && ` (Page ${currentPage} of ${totalPages})`}
               </p>
-            </div>
-            <div style={{
-              fontSize: windowWidth < 576 ? '1.5rem' : '2rem', // Smaller on mobile
-              opacity: 0.8,
-              position: 'relative',
-              zIndex: 1,
-              filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))' // Enhanced icon shadow
-            }}>
-              ✨
             </div>
           </div>
         )}
@@ -1292,8 +1377,8 @@ const AmazonsChoice = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 width: '100%',
-                minHeight: windowWidth < 576 ? '260px' : '280px',
-                maxHeight: windowWidth < 576 ? '300px' : 'none',
+                minHeight: windowWidth < 576 ? '220px' : '240px',
+                maxHeight: windowWidth < 576 ? '250px' : 'none',
                 boxSizing: 'border-box',
                 padding: windowWidth < 576 ? '6px' : '0px',
                 textDecoration: 'none',
@@ -1316,7 +1401,7 @@ const AmazonsChoice = () => {
             >
               <div className="product-image-container" style={{
                 position: 'relative', 
-                height: windowWidth < 576 ? '100px' : '160px', 
+                height: windowWidth < 576 ? '80px' : '120px', 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center', 
@@ -1402,18 +1487,18 @@ const AmazonsChoice = () => {
                 justifyContent: 'space-between'
               }}>
                 <h5 style={{
-                  fontSize: windowWidth < 576 ? '11px' : '10px',
+                  fontSize: windowWidth < 576 ? '10px' : '10px',
                   fontWeight: '700', 
                   margin: 0,
                   lineHeight: '1.3', 
-                  height: windowWidth < 576 ? '48px' : '39px', /* Increased mobile height for more title visibility */
+                  height: windowWidth < 576 ? '33px' : '36px', /* Increased height */
                   overflow: 'hidden',
                   color: '#1a1a1a',
                   textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
                   transition: 'color 0.3s ease',
                   marginBottom: '4px',
                   display: '-webkit-box',
-                  WebkitLineClamp: windowWidth < 576 ? 3 : 3, // Changed to 3 lines
+                  WebkitLineClamp: windowWidth < 576 ? 2 : 2, // Reduced to 2 lines
                   WebkitBoxOrient: 'vertical'
                 }}
                 onMouseEnter={(e) => e.target.style.color = '#ff6600'}
@@ -1555,24 +1640,24 @@ const AmazonsChoice = () => {
                   </div>
                 )}
                 
-                <div style={{display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-start', gap: '5px', marginTop: '1px', overflow: 'hidden', flexDirection: windowWidth < 576 ? 'column' : 'row'}}>
+                <div style={{display: 'flex', justifyContent: windowWidth < 576 ? 'flex-start' : 'space-between', alignItems: 'flex-start', gap: '5px', marginTop: '1px', overflow: 'hidden', flexDirection: windowWidth < 576 ? 'column' : 'row'}}>
                   {/* Left side - Compact Enhanced Price */}
                   <div style={{
                     fontWeight: '800', 
-                    fontSize: windowWidth < 576 ? '8px' : '9px',
+                    fontSize: windowWidth < 576 ? '8px' : '8px',
                     color: '#ff3300',
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
-                    padding: windowWidth < 576 ? '3px 6px' : '1px 3px',
-                    borderRadius: windowWidth < 576 ? '4px' : '3px',
+                    padding: windowWidth < 576 ? '2px 4px' : '1px 2px',
+                    borderRadius: windowWidth < 576 ? '3px' : '2px',
                     border: windowWidth < 576 ? '0.5px solid #ff6600' : '1px solid #ff6600', /* Reduced mobile border width */
                     textShadow: '0 1px 2px rgba(255, 51, 0, 0.3)',
                     boxShadow: '0 1px 3px rgba(255, 102, 0, 0.15)',
                     whiteSpace: 'nowrap',
                     maxWidth: 'fit-content',
-                    margin: windowWidth < 576 ? '2px 0' : '2px 0',
+                    margin: windowWidth < 576 ? '1px 0' : '1px 0',
                     flex: 'none',
                     textAlign: 'center',
-                    minWidth: windowWidth < 576 ? '80px' : 'auto'
+                    minWidth: windowWidth < 576 ? '65px' : 'auto'
                   }}>
                     {(() => {
                       // Use the raw database price directly as per-unit price
@@ -1582,7 +1667,7 @@ const AmazonsChoice = () => {
                     })()}
                   </div>
                   
-                  {/* Right side - Profit Information - MOVED LEFT */}
+                  {/* Right side - Profit Information - Mobile: Stack vertically, Desktop: Right aligned */}
                   {(() => {
                     // Check profit data availability
 
@@ -1726,52 +1811,55 @@ const AmazonsChoice = () => {
                     return (
                       <div style={{
                         display: 'flex', 
-                        flexDirection: 'column', 
-                        alignItems: 'flex-start',
-                        gap: '2px',
-                        marginLeft: windowWidth < 576 ? '0px' : '0px',
-                        marginTop: windowWidth < 576 ? '2px' : '2px',
-                        width: windowWidth < 576 ? 'fit-content' : '100%', /* Dynamic width on mobile */
-                        overflow: 'hidden'
+                        flexDirection: windowWidth < 576 ? 'row' : 'column', 
+                        alignItems: windowWidth < 576 ? 'flex-start' : 'flex-end',
+                        gap: windowWidth < 576 ? '3px' : '1px',
+                        marginLeft: windowWidth < 576 ? '0px' : 'auto',
+                        marginTop: windowWidth < 576 ? '1px' : '1px',
+                        width: windowWidth < 576 ? '100%' : 'fit-content',
+                        overflow: 'visible',
+                        flexWrap: windowWidth < 576 ? 'wrap' : 'nowrap'
                       }}>
                         {/* Profit per unit */}
                         <div style={{
-                          fontSize: windowWidth < 576 ? '9px' : '8px',
+                          fontSize: windowWidth < 576 ? '8px' : '8px',
                           color: '#ff6600',
                           fontWeight: '700',
                           background: '#fff8dc',
-                          padding: windowWidth < 576 ? '2px 4px' : '2px 3px',
-                          borderRadius: windowWidth < 576 ? '3px' : '4px',
+                          padding: windowWidth < 576 ? '2px 3px' : '1px 2px',
+                          borderRadius: windowWidth < 576 ? '2px' : '3px',
                           border: '1px solid #ffe4b5',
                           whiteSpace: 'nowrap',
-                          minWidth: windowWidth < 576 ? 'fit-content' : 'fit-content',
-                          width: windowWidth < 576 ? 'fit-content' : 'fit-content',
-                          maxWidth: windowWidth < 576 ? '90px' : 'none',
+                          minWidth: 'fit-content',
+                          width: 'fit-content',
+                          maxWidth: windowWidth < 576 ? '70px' : 'none',
                           textAlign: 'center',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          boxShadow: windowWidth < 576 ? '0 1px 2px rgba(255, 228, 181, 0.2)' : '0 1px 3px rgba(255, 102, 0, 0.15)'
+                          boxShadow: windowWidth < 576 ? '0 1px 2px rgba(255, 228, 181, 0.2)' : '0 1px 3px rgba(255, 102, 0, 0.15)',
+                          flex: windowWidth < 576 ? '0 0 auto' : 'none'
                         }}>
                           💰 £{profitPerUnit.toFixed(2)}/unit
                         </div>
                         
                         {/* Profit for deal units */}
                         <div style={{
-                          fontSize: windowWidth < 576 ? '9px' : '8px',
+                          fontSize: windowWidth < 576 ? '8px' : '8px',
                           color: '#ff6600',
                           fontWeight: '700',
                           background: '#fff8dc',
-                          padding: windowWidth < 576 ? '2px 4px' : '2px 3px',
-                          borderRadius: windowWidth < 576 ? '3px' : '4px',
+                          padding: windowWidth < 576 ? '2px 3px' : '1px 2px',
+                          borderRadius: windowWidth < 576 ? '2px' : '3px',
                           border: '1px solid #ffe4b5',
                           whiteSpace: 'nowrap',
-                          minWidth: windowWidth < 576 ? 'fit-content' : 'fit-content',
-                          width: windowWidth < 576 ? 'fit-content' : 'fit-content',
-                          maxWidth: windowWidth < 576 ? '100px' : 'none',
+                          minWidth: 'fit-content',
+                          width: 'fit-content',
+                          maxWidth: windowWidth < 576 ? '80px' : 'none',
                           textAlign: 'center',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          boxShadow: windowWidth < 576 ? '0 1px 2px rgba(255, 228, 181, 0.2)' : '0 1px 3px rgba(255, 102, 0, 0.15)'
+                          boxShadow: windowWidth < 576 ? '0 1px 2px rgba(255, 228, 181, 0.2)' : '0 1px 3px rgba(255, 102, 0, 0.15)',
+                          flex: windowWidth < 576 ? '0 0 auto' : 'none'
                         }}>
                           📈 £{totalProfit.toFixed(2)}/{dealUnits}units
                         </div>
@@ -1781,11 +1869,11 @@ const AmazonsChoice = () => {
                 </div>
 
                 {/* Deal Units Display - Moved Down for Mobile */}
-                <div style={{ marginTop: windowWidth < 576 ? '4px' : '1px' }}>
+                <div style={{ marginTop: windowWidth < 576 ? '2px' : '1px' }}>
                   <div style={{
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)', 
-                    padding: windowWidth < 576 ? '4px 6px' : '2px 3px', // Reduced desktop padding
-                    borderRadius: windowWidth < 576 ? '4px' : '4px',
+                    padding: windowWidth < 576 ? '3px 4px' : '1px 2px',
+                    borderRadius: windowWidth < 576 ? '3px' : '3px',
                     border: '1px solid #ff6600', 
                     boxShadow: windowWidth < 576 ? '0 1px 3px rgba(255, 102, 0, 0.15)' : '0 1px 4px rgba(255, 102, 0, 0.15)',
                     display: 'flex',
@@ -1793,9 +1881,9 @@ const AmazonsChoice = () => {
                     alignItems: 'center',
                     minWidth: windowWidth < 576 ? '100%' : 'auto',
                     width: '100%',
-                    gap: windowWidth < 576 ? '8px' : '4px', // Reduced desktop gap from 6px to 4px
-                    minHeight: windowWidth < 576 ? '22px' : '18px', // Reduced desktop min-height
-                    maxHeight: windowWidth < 576 ? '24px' : '20px', // Reduced desktop max-height
+                    gap: windowWidth < 576 ? '6px' : '4px',
+                    minHeight: windowWidth < 576 ? '18px' : '20px',
+                    maxHeight: windowWidth < 576 ? '20px' : '22px',
                     boxSizing: 'border-box'
                   }}>
                     <div style={{
@@ -1806,29 +1894,29 @@ const AmazonsChoice = () => {
                       minWidth: 0 // Allow text to wrap if needed
                     }}>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '7px' : '7px', /* Decreased mobile font from 8px to 7px */
+                        fontSize: windowWidth < 576 ? '7px' : '8px',
                         color: '#cc3300', 
                         fontWeight: '700',
                         whiteSpace: 'nowrap',
                         overflow: 'visible', // Changed from hidden to visible on desktop
                         textOverflow: windowWidth < 576 ? 'ellipsis' : 'clip', // Only ellipsis on mobile
-                        maxWidth: windowWidth < 576 ? 'calc(100% - 55px)' : 'none', // Remove max-width on desktop
+                        maxWidth: windowWidth < 576 ? 'calc(100% - 45px)' : 'none', // Remove max-width on desktop
                         flex: '0 1 auto' // Allow shrinking but don't grow
                       }}>
                         💰 Deal of {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '7px' : '7px', /* Decreased mobile font from 8px to 7px */
+                        fontSize: windowWidth < 576 ? '7px' : '8px',
                         fontWeight: '800', 
                         color: '#ff3300',
                         whiteSpace: 'nowrap',
-                        minWidth: windowWidth < 576 ? '35px' : '40px', // Slightly increased desktop min-width
+                        minWidth: windowWidth < 576 ? '32px' : '40px', // Slightly increased desktop min-width
                         display: 'inline-block',
                         textAlign: windowWidth < 576 ? 'left' : 'center', // Left align on mobile to move left
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         flex: '0 0 auto', // Don't grow or shrink
-                        marginLeft: windowWidth < 576 ? '-5px' : '0px' // Move left on mobile
+                        marginLeft: windowWidth < 576 ? '-3px' : '0px' // Move left on mobile
                       }}>
                         {(() => {
                           try {
@@ -1862,15 +1950,15 @@ const AmazonsChoice = () => {
                         border: 'none',
                         padding: windowWidth < 576 ? '0' : '0',
                         borderRadius: windowWidth < 576 ? '50%' : '50%',
-                        fontSize: windowWidth < 576 ? '8px' : '9px',
+                        fontSize: windowWidth < 576 ? '7px' : '8px',
                         cursor: 'pointer',
                         boxShadow: windowWidth < 576 ? 
                           '0 2px 4px rgba(255, 102, 0, 0.4)' : 
                           '0 3px 8px rgba(255, 102, 0, 0.4)',
                         transition: 'all 0.2s ease',
-                        minWidth: windowWidth < 576 ? '18px' : '18px', // Reduced from 20px to 18px
-                        width: windowWidth < 576 ? '18px' : '18px', // Reduced from 20px to 18px
-                        height: windowWidth < 576 ? '18px' : '18px', // Reduced from 20px to 18px
+                        minWidth: windowWidth < 576 ? '18px' : '18px',
+                        width: windowWidth < 576 ? '18px' : '18px',
+                        height: windowWidth < 576 ? '18px' : '18px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1911,7 +1999,7 @@ const AmazonsChoice = () => {
                 </div>
 
                 {/* Verify on Amazon Button */}
-                <div style={{ marginTop: windowWidth < 576 ? '4px' : '2px' }}>
+                <div style={{ marginTop: windowWidth < 576 ? '2px' : '1px' }}>
                   <a 
                     href={`https://www.amazon.com/s?k=${encodeURIComponent(product.name)}`}
                     target="_blank"
@@ -1921,19 +2009,19 @@ const AmazonsChoice = () => {
                       background: 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)',
                       color: 'white',
                       border: '2px solid #ff6600',
-                      padding: windowWidth < 576 ? '4px 6px' : '5px 8px',
-                      borderRadius: '8px',
-                      fontSize: windowWidth < 576 ? '8px' : '8.5px',
+                      padding: windowWidth < 576 ? '3px 4px' : '3px 5px',
+                      borderRadius: '6px',
+                      fontSize: windowWidth < 576 ? '7px' : '8px',
                       fontWeight: '700',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '4px',
+                      gap: '3px',
                       width: '100%',
                       textDecoration: 'none',
                       transition: 'all 0.3s ease',
                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                      minHeight: windowWidth < 576 ? '22px' : '26px',
+                      minHeight: windowWidth < 576 ? '20px' : '22px',
                       boxSizing: 'border-box'
                     }}
                     onMouseEnter={(e) => {

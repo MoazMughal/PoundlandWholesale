@@ -63,6 +63,14 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Debug: Log admin data
+    console.log('🔍 Admin found:', {
+      id: admin._id,
+      username: admin.username,
+      email: admin.email,
+      role: admin.role
+    });
+
     // Verify password
     const isPasswordValid = await admin.comparePassword(password);
     
@@ -73,8 +81,11 @@ router.post('/login', async (req, res) => {
     }
 
     // Generate JWT token
+    const tokenPayload = { id: admin._id, role: admin.role };
+    console.log('🔍 Token payload being signed:', tokenPayload);
+    
     const token = jwt.sign(
-      { id: admin._id, role: admin.role },
+      tokenPayload,
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -87,6 +98,8 @@ router.post('/login', async (req, res) => {
       role: admin.role
     };
 
+    console.log('🔍 Returning admin data:', adminData);
+
     res.json({
       message: 'Login successful',
       token,
@@ -94,6 +107,7 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
+    console.error('❌ Login error:', error);
     res.status(500).json({ 
       message: 'Server error. Please try again later.' 
     });
@@ -726,10 +740,58 @@ router.get('/verify-reset-token/:token', async (req, res) => {
   }
 });
 
-// GET /auth/verify - Verify JWT token
-router.get('/verify', async (req, res) => {
+// GET /auth/debug-token - Debug endpoint to decode token (development only)
+router.get('/debug-token', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(400).json({ 
+        message: 'No token provided' 
+      });
+    }
+
+    // Decode without verification to see what's inside
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return res.status(400).json({ 
+        message: 'Invalid token format' 
+      });
+    }
+
+    const header = JSON.parse(Buffer.from(parts[0], 'base64').toString());
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+
+    // Also try to verify it
+    let verified = null;
+    try {
+      verified = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (verifyError) {
+      verified = { error: verifyError.message };
+    }
+
+    res.json({
+      header,
+      payload,
+      verified,
+      tokenLength: token.length,
+      hasSecret: !!process.env.JWT_SECRET
+    });
+
+  } catch (error) {
+    console.error('Debug token error:', error);
+    res.status(500).json({ 
+      message: 'Debug error',
+      error: error.message 
+    });
+  }
+});
+
+// POST /auth/verify - Verify JWT token for any user type
+router.post('/verify', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { userType } = req.body;
     
     if (!token) {
       return res.status(401).json({ 
@@ -738,28 +800,62 @@ router.get('/verify', async (req, res) => {
       });
     }
 
-    // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Find admin by ID
-    const admin = await Admin.findById(decoded.id).select('-password');
-    
-    if (!admin) {
-      return res.status(401).json({ 
+    if (!userType || !['admin', 'seller', 'buyer'].includes(userType)) {
+      return res.status(400).json({ 
         success: false,
-        message: 'Admin not found' 
+        message: 'Invalid user type' 
       });
     }
 
-    // Return admin data
+    // Verify JWT token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Verify the role matches the requested user type
+    // For admin userType, accept both 'admin' and 'superadmin' roles
+    let roleMatches = false;
+    if (userType === 'admin') {
+      roleMatches = decoded.role === 'admin' || decoded.role === 'superadmin';
+    } else {
+      roleMatches = decoded.role === userType;
+    }
+    
+    if (!roleMatches) {
+      console.log(`Token role mismatch: expected ${userType}, got ${decoded.role}`);
+      return res.status(401).json({ 
+        success: false,
+        message: `Token role mismatch: expected ${userType}, got ${decoded.role}` 
+      });
+    }
+
+    let user;
+    
+    // Find user by type and ID
+    if (userType === 'admin') {
+      user = await Admin.findById(decoded.id).select('-password');
+    } else if (userType === 'seller') {
+      user = await Seller.findById(decoded.id).select('-password');
+    } else if (userType === 'buyer') {
+      user = await Buyer.findById(decoded.id).select('-password');
+    }
+    
+    if (!user) {
+      return res.status(401).json({ 
+        success: false,
+        message: `${userType} not found` 
+      });
+    }
+
+    // Return user data with role
     res.json({
       success: true,
-      admin: {
-        id: admin._id,
-        username: admin.username,
-        email: admin.email,
-        role: admin.role
-      }
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: decoded.role,
+        ...user.toObject()
+      },
+      role: decoded.role
     });
 
   } catch (error) {
@@ -777,6 +873,7 @@ router.get('/verify', async (req, res) => {
       });
     }
 
+    console.error('Token verification error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error' 

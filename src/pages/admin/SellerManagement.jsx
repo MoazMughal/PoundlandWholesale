@@ -5,7 +5,7 @@ import { adminGet, adminPost, adminPut } from '../../utils/adminApi';
 
 const SellerManagement = () => {
   const navigate = useNavigate();
-  const { admin, isLoggedIn } = useAdmin();
+  const { admin, isLoggedIn, loading: authLoading, authResolved } = useAdmin();
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSeller, setSelectedSeller] = useState(null);
@@ -15,12 +15,17 @@ const SellerManagement = () => {
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
+    // Wait for authentication to be resolved before checking login status
+    if (!authResolved || authLoading) {
+      return;
+    }
+
     if (!isLoggedIn || !admin) {
       navigate('/admin/login');
       return;
     }
     fetchSellers();
-  }, [isLoggedIn, admin, navigate]);
+  }, [isLoggedIn, admin, navigate, authResolved, authLoading]);
 
   const fetchSellers = async () => {
     try {

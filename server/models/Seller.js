@@ -113,6 +113,10 @@ const sellerSchema = new mongoose.Schema({
     productName: String,
     productPrice: Number,
     sellerPrice: Number, // Add seller's custom price
+    sellerShipping: { // Add seller's custom shipping cost
+      type: Number,
+      default: 0
+    },
     transactionId: String,
     paymentMethod: String,
     notes: String,

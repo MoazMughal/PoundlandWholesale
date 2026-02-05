@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { useSeller } from '../context/SellerContext'
 import { useAdmin } from '../context/AdminContext'
+import { useSeller } from '../context/SellerContext'
 import { useBuyer } from '../context/BuyerContext'
 
 const Navbar = () => {

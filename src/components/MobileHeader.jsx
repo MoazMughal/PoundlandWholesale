@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useSeller } from '../context/SellerContext';
 import { useAdmin } from '../context/AdminContext';
+import { useSeller } from '../context/SellerContext';
 import { useBuyer } from '../context/BuyerContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
-import sessionAuthManager from '../utils/sessionAuth';
 
 
 const MobileHeader = () => {

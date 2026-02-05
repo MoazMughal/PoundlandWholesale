@@ -13,6 +13,10 @@ const productSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  shipping: {
+    type: Number,
+    default: 0
+  },
   originalPrice: Number,
   rrp: Number, // Recommended Retail Price
   discount: Number,
@@ -73,6 +77,10 @@ const productSchema = new mongoose.Schema({
     sellerPrice: {
       type: Number,
       default: null // Seller's custom price, if null uses product.price
+    },
+    sellerShipping: { // Add seller's custom shipping cost
+      type: Number,
+      default: 0
     },
     listedAt: {
       type: Date,

@@ -69,7 +69,7 @@
   object-fit: cover;
 }
 
-/* Product card image optimizations */
+/* COMMENTED OUT - REPLACED BY compact-cards.css
 .product-card .product-image-container {
   position: relative;
   overflow: hidden;
@@ -89,10 +89,8 @@
   transform: scale(1.05);
 }
 
-/* Mobile optimizations */
 @media (max-width: 768px) {
   .cloudinary-image {
-    /* Reduce GPU usage on mobile */
     will-change: auto;
     transform: none;
   }
@@ -101,11 +99,11 @@
     height: 180px;
   }
   
-  /* Disable hover effects on mobile */
   .product-card:hover .product-image {
     transform: none;
   }
 }
+*/
 
 /* Loading skeleton */
 .image-skeleton {

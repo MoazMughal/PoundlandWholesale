@@ -4,7 +4,7 @@ import { useSeller } from '../../context/SellerContext'
 
 const EditProfile = () => {
   const navigate = useNavigate()
-  const { seller, isLoggedIn, updateSeller } = useSeller()
+  const { seller, isLoggedIn, loading: authLoading, authResolved, updateSeller } = useSeller()
   const [loading, setLoading] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false)
@@ -27,6 +27,11 @@ const EditProfile = () => {
   })
 
   useEffect(() => {
+    // Wait for authentication to be resolved before checking login status
+    if (!authResolved || authLoading) {
+      return
+    }
+
     if (!isLoggedIn || !seller) {
       navigate('/login/supplier')
       return
