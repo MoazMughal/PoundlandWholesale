@@ -5,6 +5,7 @@ import { useSeller } from '../context/SellerContext';
 import { useBuyer } from '../context/BuyerContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
+import apiConfig from '../config/api.config';
 
 
 const MobileHeader = () => {
@@ -82,17 +83,25 @@ const MobileHeader = () => {
 
   const [categories, setCategories] = useState([
     { value: 'all', label: 'All' },
+    { value: 'Automotive', label: 'Automotive' },
+    { value: 'Beauty & Personal Care', label: 'Beauty' },
+    { value: 'Business, Industry & Science', label: 'Business Industry & Science' },
+    { value: 'Car Bulb', label: 'Car Bulb' },
+    { value: 'Clothing & Accessories', label: 'Clothing' },
+    { value: 'Computer & Accessories', label: 'Computer & Acessories' },
+    { value: 'DIY & Tools', label: 'DIY & Tools' },
+    { value: 'Fashion', label: 'Fashion' },
+    { value: 'Health & Household', label: 'Health & Personal Care' },
+    { value: 'Home & Garden', label: 'Home & Garden' },
+    { value: 'Home & Kitchen', label: 'Home & Kitchen' },
+    { value: 'Jewelry', label: 'Jewelry' },
+    { value: 'Lightning', label: 'Lightning' },
+    { value: 'Party Accessories', label: 'Party Accessories' },
     { value: 'remote', label: 'Remote Controls' },
-    { value: 'electronics', label: 'Electronics' },
-    { value: 'strap', label: 'Watch Straps' },
-    { value: 'jewelry', label: 'Jewelry' },
-    { value: 'party', label: 'Party Supplies' },
-    { value: 'home', label: 'Home & Decor' },
-    { value: 'kitchen', label: 'Kitchen' },
-    { value: 'automotive', label: 'Automotive' },
-    { value: 'tape', label: 'Tape' },
-    { value: 'lampshade', label: 'Lampshades' }
-    // Note: Excel categories (UAE Products, UK Products, Amazon10) are intentionally excluded
+    { value: 'Sports & Outdoors', label: 'Sports & 0utdoor' },
+    { value: 'Stationery & Office Supplies', label: 'Stationery & Office Supplies' },
+    { value: 'Stickers', label: 'Stickers' },
+    { value: 'Toys & Games', label: 'Toys & Games' }
   ]);
 
   // Fetch dynamic categories
@@ -102,7 +111,7 @@ const MobileHeader = () => {
         // Add cache buster to ensure fresh data and request deduplication
         // Only get categories with active products and include counts for validation
         const cacheBuster = `_t=${Date.now()}`;
-        const response = await fetch(`http://localhost:5000/api/products/public/categories?deduplicate=true&includeCounts=true&${cacheBuster}`, {
+        const response = await fetch(apiConfig.getApiUrl(`products/public/categories?deduplicate=true&includeCounts=true&${cacheBuster}`), {
           headers: {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
@@ -117,10 +126,8 @@ const MobileHeader = () => {
             !['UAE Products', 'UK Products', 'Amazon10'].includes(cat.label)
           );
           
-          // Filter out categories with no active products (count = 0), but keep "All"
-          filteredCategories = filteredCategories.filter(cat => 
-            cat.value === 'all' || (cat.count && cat.count > 0)
-          );
+          // DON'T filter by count - show all categories even if they have 0 products
+          // This ensures all categories are visible in production
           
           // Get hidden categories from localStorage
           const hiddenCategories = JSON.parse(localStorage.getItem('hiddenCategories') || '[]');
@@ -165,8 +172,10 @@ const MobileHeader = () => {
             }
           });
           
-          // Use deduplicated categories
-          setCategories(deduplicatedCategories);
+          // If we got categories from API, use them; otherwise keep defaults
+          if (deduplicatedCategories.length > 1) { // More than just "All"
+            setCategories(deduplicatedCategories);
+          }
         }
       } catch (error) {
         console.error('Error fetching categories for mobile header:', error);
@@ -179,7 +188,7 @@ const MobileHeader = () => {
     // Auto-cleanup duplicates when header loads (silent)
     const autoCleanupDuplicates = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/products/admin/cleanup-duplicate-categories', {
+        const response = await fetch(apiConfig.getApiUrl('products/admin/cleanup-duplicate-categories'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
