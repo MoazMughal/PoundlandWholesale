@@ -43,7 +43,7 @@ const MobileHeader = () => {
     if (isBuyerLoggedIn && buyer) {
       return {
         type: 'Buyer',
-        name: buyer.username || buyer.name || buyer.email || 'Buyer',
+        name: buyer.name || `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || buyer.email || 'Buyer',
         role: 'buyer'
       };
     }
@@ -522,7 +522,7 @@ const MobileHeader = () => {
         }
 
         .mobile-category-nav {
-          display: none;
+          display: block; /* Show on mobile too */
         }
 
         /* Desktop Styles - Show desktop header, hide mobile */

@@ -10,6 +10,8 @@ import SellerInformation from '../components/SellerInformation'
 import apiConfig from '../config/api.config'
 import { useCurrency } from '../context/CurrencyContext'
 import { useAdmin } from '../context/AdminContext'
+import { useBuyer } from '../context/BuyerContext'
+import { useSeller } from '../context/SellerContext'
 import '../styles/product-detail-compact.css'
 import '../styles/product-detail-enhanced.css'
 
@@ -92,10 +94,11 @@ const ProductDetail = () => {
   // Use currency from context instead of local state
   const { currency, currencyRates, currencySymbols } = useCurrency()
   const { admin, isLoggedIn: isAdminLoggedIn } = useAdmin()
+  const { buyer, isLoggedIn: isBuyerLoggedIn } = useBuyer()
+  const { seller, isLoggedIn: isSellerLoggedIn } = useSeller()
   const [relatedProducts, setRelatedProducts] = useState([])
   const [topDealsFromDB, setTopDealsFromDB] = useState([])
   const [mostPopularFromDB, setMostPopularFromDB] = useState([])
-  const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(false)
   const [isSupplierUnlocked, setIsSupplierUnlocked] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [supplierId, setSupplierId] = useState(null)
@@ -103,7 +106,6 @@ const ProductDetail = () => {
   const [sellerInfo, setSellerInfo] = useState(null)
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [showPaymentUploadModal, setShowPaymentUploadModal] = useState(false)
-  const [isSellerLoggedIn, setIsSellerLoggedIn] = useState(false)
   const [currentSeller, setCurrentSeller] = useState(null)
   const [savingUnits, setSavingUnits] = useState(false) // Loading state for saving units
   const [quantity, setQuantity] = useState(1) // Set MOQ to 1
@@ -267,6 +269,137 @@ const ProductDetail = () => {
     return lowestPrice < mainTotal;
   };
 
+  // Function to handle Buy Now with WhatsApp quotation
+  const handleBuyNow = () => {
+    // Check if user is logged in
+    if (!isBuyerLoggedIn && !isSellerLoggedIn && !isAdminLoggedIn) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    // Get user information
+    const userInfo = buyer || seller || admin;
+    
+    // For buyer, prioritize name field, then construct from firstName/lastName
+    let userName = 'User';
+    if (isBuyerLoggedIn && buyer) {
+      userName = buyer.name || 
+                 (buyer.firstName && buyer.lastName ? `${buyer.firstName} ${buyer.lastName}` : '') ||
+                 buyer.email?.split('@')[0] || 
+                 'Buyer';
+    } else if (isSellerLoggedIn && seller) {
+      userName = seller.username || seller.businessName || seller.name || 'Seller';
+    } else if (isAdminLoggedIn && admin) {
+      userName = admin.username || admin.name || 'Admin';
+    }
+    
+    const userEmail = buyer?.email || seller?.email || admin?.email || '';
+    const userPhone = buyer?.phone || buyer?.whatsappNo || seller?.whatsappNo || '';
+    const userType = isBuyerLoggedIn ? 'Buyer' : isSellerLoggedIn ? 'Seller' : 'Admin';
+
+    // Debug log to verify buyer information
+    console.log('🔍 Buy Now - User Info:', {
+      isBuyerLoggedIn,
+      buyer,
+      userName,
+      userEmail,
+      userPhone,
+      userType
+    });
+
+    // Get seller information (the one who listed the product)
+    let sellerWhatsApp = '';
+    let sellerName = '';
+    
+    // Check if there are sellers for this product
+    if (product.sellers && product.sellers.length > 0) {
+      // Get the seller with the lowest price
+      const breakdown = getLowestPriceBreakdown();
+      if (breakdown.isSellerPrice) {
+        // Find the seller with the lowest price
+        const lowestSeller = product.sellers.find(s => {
+          const price = parseFloat(s.sellerPrice) || 0;
+          const shipping = parseFloat(s.sellerShipping) || 0;
+          return (price + shipping) === breakdown.total;
+        });
+        
+        if (lowestSeller) {
+          sellerWhatsApp = lowestSeller.whatsappNo;
+          sellerName = lowestSeller.username;
+        }
+      }
+    }
+    
+    // If no seller found from sellers array, use product's seller info
+    if (!sellerWhatsApp && product.sellerInfo) {
+      sellerWhatsApp = product.sellerInfo.whatsappNo;
+      sellerName = product.sellerInfo.username;
+    }
+
+    // If still no seller WhatsApp, show error
+    if (!sellerWhatsApp) {
+      alert('❌ Seller contact information not available. Please contact support.');
+      return;
+    }
+
+    // Check if user is trying to buy their own product
+    if (isSellerLoggedIn && seller && product.sellers) {
+      const isOwnProduct = product.sellers.some(s => 
+        s.sellerId?.toString() === seller._id?.toString() || 
+        s.sellerId?.toString() === seller.id?.toString()
+      );
+      
+      if (isOwnProduct) {
+        alert('❌ You cannot buy your own product!');
+        return;
+      }
+    }
+
+    // Get product details
+    const productName = product.name || 'Product';
+    const productPrice = getLowestPrice();
+    const breakdown = getLowestPriceBreakdown();
+    const totalPrice = breakdown.total;
+    const unitPrice = breakdown.price;
+    const shippingCost = breakdown.shipping;
+    const orderQuantity = quantity || 1;
+    const totalAmount = totalPrice * orderQuantity;
+
+    // Format WhatsApp message
+    const message = `
+🛍️ *QUOTATION REQUEST*
+
+📦 *Product Details:*
+• Product: ${productName}
+• Unit Price: £${unitPrice.toFixed(2)}
+• Shipping: £${shippingCost.toFixed(2)}
+• Total per Unit: £${totalPrice.toFixed(2)}
+• Quantity: ${orderQuantity} units
+• *Total Amount: £${totalAmount.toFixed(2)}*
+
+👤 *Buyer Information:*
+• Name: ${userName}
+• Type: ${userType}
+• Email: ${userEmail}
+${userPhone ? `• Phone: ${userPhone}` : ''}
+
+📝 *Message:*
+Hello ${sellerName}, I'm interested in purchasing this product. Please confirm availability and provide further details.
+
+---
+_This quotation was generated from PoundlandWholesale.com_
+    `.trim();
+
+    // Clean WhatsApp number (remove spaces, dashes, etc.)
+    const cleanWhatsApp = sellerWhatsApp.replace(/[^0-9+]/g, '');
+    
+    // Create WhatsApp URL
+    const whatsappUrl = `https://wa.me/${cleanWhatsApp}?text=${encodeURIComponent(message)}`;
+    
+    // Open WhatsApp in new tab
+    window.open(whatsappUrl, '_blank');
+  };
+
   // Function to refresh product data (for seller price updates)
   const refreshProductData = async () => {
     try {
@@ -399,7 +532,6 @@ const ProductDetail = () => {
     const isSellerUser = !!sellerToken;
     
     setIsAdmin(isAdminLoggedIn);
-    setIsSellerLoggedIn(isSellerUser);
     
     // Get current seller info if logged in
     if (isSellerUser) {
@@ -3624,13 +3756,7 @@ const ProductDetail = () => {
                         overflow: 'hidden'
                       }}
                       onClick={() => {
-                        const buyerToken = localStorage.getItem('buyerToken');
-                        if (!buyerToken) {
-                          setShowLoginModal(true);
-                        } else {
-                          // Handle buy logic for logged in users
-                          alert('Buy functionality will be implemented soon!');
-                        }
+                        handleBuyNow();
                       }}
                       onMouseEnter={(e) => {
                         e.target.style.transform = 'translateY(-1px)';
@@ -3760,13 +3886,7 @@ const ProductDetail = () => {
                           className="btn btn-danger"
                           style={{backgroundColor: '#dc2626', borderColor: '#dc2626', color: '#ffffff'}}
                           onClick={() => {
-                            const buyerToken = localStorage.getItem('buyerToken');
-                            if (!buyerToken) {
-                              setShowLoginModal(true);
-                            } else {
-                              // Handle buy logic for logged in users
-                              alert('Buy functionality will be implemented soon!');
-                            }
+                            handleBuyNow();
                           }}
                         >
                           <i className="fas fa-bolt me-1"></i>Buy Now
@@ -3823,13 +3943,7 @@ const ProductDetail = () => {
                             <button 
                               className="btn btn-danger btn-sm"
                               onClick={() => {
-                                const buyerToken = localStorage.getItem('buyerToken');
-                                if (!buyerToken) {
-                                  setShowLoginModal(true);
-                                } else {
-                                  // Handle buy logic for logged in users
-                                  alert('Buy functionality will be implemented soon!');
-                                }
+                                handleBuyNow();
                               }}
                             >
                               <i className="fas fa-bolt me-1"></i>Buy Now
