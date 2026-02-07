@@ -22,7 +22,6 @@ Disallow: /reset-password/
 Allow: /about-us
 Allow: /basket
 Allow: /join-now
-Allow: /auth
 Allow: /terms-of-service
 Allow: /privacy-policy
 Allow: /help-center

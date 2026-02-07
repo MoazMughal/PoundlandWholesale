@@ -5,7 +5,7 @@
     <loc>https://poundlandwholesale.com/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
-    <lastmod>2025-02-03</lastmod>
+    <lastmod>2025-02-07</lastmod>
   </url>
   
   <!-- Main Public Pages -->
@@ -13,29 +13,22 @@
     <loc>https://poundlandwholesale.com/about-us</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <lastmod>2025-02-03</lastmod>
+    <lastmod>2025-02-07</lastmod>
   </url>
   
   <url>
     <loc>https://poundlandwholesale.com/basket</loc>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
-    <lastmod>2025-02-03</lastmod>
+    <lastmod>2025-02-07</lastmod>
   </url>
   
-  <!-- Authentication & Onboarding Pages -->
-  <url>
-    <loc>https://poundlandwholesale.com/auth</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-    <lastmod>2025-02-03</lastmod>
-  </url>
-  
+  <!-- Onboarding Page -->
   <url>
     <loc>https://poundlandwholesale.com/join-now</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <lastmod>2025-02-03</lastmod>
+    <lastmod>2025-02-07</lastmod>
   </url>
   
   <!-- Legal Pages -->
@@ -43,27 +36,27 @@
     <loc>https://poundlandwholesale.com/terms-of-service</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
-    <lastmod>2025-02-03</lastmod>
+    <lastmod>2025-02-07</lastmod>
   </url>
   
   <url>
     <loc>https://poundlandwholesale.com/privacy-policy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
-    <lastmod>2025-02-03</lastmod>
+    <lastmod>2025-02-07</lastmod>
   </url>
   
   <url>
     <loc>https://poundlandwholesale.com/help-center</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
-    <lastmod>2025-02-03</lastmod>
+    <lastmod>2025-02-07</lastmod>
   </url>
   
   <url>
     <loc>https://poundlandwholesale.com/faq</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
-    <lastmod>2025-02-03</lastmod>
+    <lastmod>2025-02-07</lastmod>
   </url>
 </urlset>
