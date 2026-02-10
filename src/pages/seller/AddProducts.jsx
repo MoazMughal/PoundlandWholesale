@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
+import { getApiUrl } from '../../utils/api'
 
 const AddProducts = () => {
   const navigate = useNavigate()
@@ -35,7 +36,7 @@ const AddProducts = () => {
     try {
       setLoading(true)
       // Fetch products from Excel file using dedicated endpoint
-      const response = await fetch('http://localhost:5000/api/products/excel-products?limit=1000')
+      const response = await fetch(getApiUrl('products/excel-products?limit=1000'))
 
       if (response.ok) {
         const data = await response.json()
@@ -90,7 +91,7 @@ const AddProducts = () => {
         receiptImageUrl: paymentDetails.receiptImageUrl
       }
 
-      const response = await fetch('http://localhost:5000/api/sellers/submit-product-listing', {
+      const response = await fetch(getApiUrl('sellers/submit-product-listing'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

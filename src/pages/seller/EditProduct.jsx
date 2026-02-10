@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
+import { getApiUrl } from '../../utils/api'
 
 const EditProduct = () => {
   const { id } = useParams()
@@ -36,7 +37,7 @@ const EditProduct = () => {
       const token = localStorage.getItem('sellerToken')
       
       // Use seller endpoint to get product with proper seller info visibility
-      const response = await fetch(`http://localhost:5000/api/products/seller/detail/${id}`, {
+      const response = await fetch(getApiUrl(`products/seller/detail/${id}`), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -75,7 +76,7 @@ const EditProduct = () => {
       const token = localStorage.getItem('sellerToken')
       
       // Use the request system instead of direct update
-      const response = await fetch('http://localhost:5000/api/sellers/request-admin-product-listing', {
+      const response = await fetch(getApiUrl('sellers/request-admin-product-listing'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

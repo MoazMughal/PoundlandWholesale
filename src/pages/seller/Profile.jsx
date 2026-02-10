@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
+import { getApiUrl } from '../../utils/api'
 
 const SellerProfile = () => {
   const navigate = useNavigate()
@@ -47,7 +48,7 @@ const SellerProfile = () => {
 
     try {
       const token = localStorage.getItem('sellerToken')
-      const response = await fetch('http://localhost:5000/api/sellers/profile', {
+      const response = await fetch(getApiUrl('sellers/profile'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

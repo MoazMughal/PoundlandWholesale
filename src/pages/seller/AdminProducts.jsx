@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
 import { getImageUrl } from '../../utils/imageImports'
 import '../../styles/dashboard-responsive.css'
+import { getApiUrl } from '../../utils/api'
 
 const AdminProducts = () => {
   const navigate = useNavigate()
@@ -63,7 +64,7 @@ const AdminProducts = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/products/public/categories?includeCounts=true&includeEmpty=true&deduplicate=true')
+      const response = await fetch(getApiUrl('products/public/categories?includeCounts=true&includeEmpty=true&deduplicate=true'))
       if (response.ok) {
         const data = await response.json()
         // Ensure we have the "All" category first
@@ -105,7 +106,7 @@ const AdminProducts = () => {
         ...(selectedCategory !== 'all' && { category: selectedCategory })
       })
 
-      const response = await fetch(`http://localhost:5000/api/products/admin/available?${params}`, {
+      const response = await fetch(getApiUrl(`products/admin/available?${params}`), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -244,7 +245,7 @@ const AdminProducts = () => {
       const token = localStorage.getItem('sellerToken')
       
       // Use the new request system instead of direct listing
-      const response = await fetch('http://localhost:5000/api/sellers/request-admin-product-listing', {
+      const response = await fetch(getApiUrl('sellers/request-admin-product-listing'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -320,7 +321,7 @@ const AdminProducts = () => {
 
     try {
       const token = localStorage.getItem('sellerToken')
-      const response = await fetch(`http://localhost:5000/api/products/admin/search-suggestions?q=${encodeURIComponent(query)}`, {
+      const response = await fetch(getApiUrl(`products/admin/search-suggestions?q=${encodeURIComponent(query)}`), {
         headers: {
           'Authorization': `Bearer ${token}`
         }

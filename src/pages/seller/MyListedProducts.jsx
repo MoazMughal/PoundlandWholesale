@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
 import { getImageUrl } from '../../utils/imageImports'
+import { getApiUrl } from '../../utils/api'
 
 const MyListedProducts = () => {
   const navigate = useNavigate()
@@ -46,7 +47,7 @@ const MyListedProducts = () => {
         ...(selectedStatus !== 'all' && { status: selectedStatus })
       })
 
-      const response = await fetch(`http://localhost:5000/api/sellers/my-listed-products?${params}`, {
+      const response = await fetch(getApiUrl(`sellers/my-listed-products?${params}`), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -76,7 +77,7 @@ const MyListedProducts = () => {
     try {
       const token = localStorage.getItem('sellerToken')
       
-      const response = await fetch(`http://localhost:5000/api/sellers/unlist-product/${product._id}`, {
+      const response = await fetch(getApiUrl(`sellers/unlist-product/${product._id}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

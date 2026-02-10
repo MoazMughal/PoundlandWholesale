@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getApiUrl } from '../../utils/api'
 
 const AddProduct = () => {
   const navigate = useNavigate()
@@ -81,7 +82,7 @@ const AddProduct = () => {
         stock: parseInt(formData.stock)
       }
 
-      const response = await fetch('http://localhost:5000/api/products/seller/add', {
+      const response = await fetch(getApiUrl('products/seller/add'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
