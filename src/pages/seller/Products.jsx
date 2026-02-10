@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
+import { getApiUrl } from '../../utils/api'
 
 const SellerProducts = () => {
   const navigate = useNavigate()
@@ -53,7 +54,7 @@ const SellerProducts = () => {
       if (filter !== 'all') params.append('status', filter)
 
       // Use the correct endpoint for seller's listed products
-      const response = await fetch(`http://localhost:5000/api/sellers/my-listed-products?${params}`, {
+      const response = await fetch(getApiUrl(`sellers/my-listed-products?${params}`), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -74,7 +75,7 @@ const SellerProducts = () => {
     try {
       setLoading(true)
       // Fetch ALL products from Excel using public endpoint
-      const response = await fetch('http://localhost:5000/api/products/public?limit=1000', {
+      const response = await fetch(getApiUrl('products/public?limit=1000'), {
         // No authorization needed for public endpoint
       })
 
@@ -129,7 +130,7 @@ const SellerProducts = () => {
         status: paymentMethod === 'jazzcash' ? 'pending' : 'completed' // JazzCash needs admin approval
       }
 
-      const response = await fetch('http://localhost:5000/api/sellers/payment', {
+      const response = await fetch(getApiUrl('sellers/payment'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -142,7 +143,7 @@ const SellerProducts = () => {
 
       if (response.ok) {
         // Submit product listing request instead of direct listing
-        const requestResponse = await fetch('http://localhost:5000/api/sellers/request-admin-product-listing', {
+        const requestResponse = await fetch(getApiUrl('sellers/request-admin-product-listing'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -195,7 +196,7 @@ const SellerProducts = () => {
 
     try {
       const token = localStorage.getItem('sellerToken')
-      const response = await fetch(`http://localhost:5000/api/products/seller/${id}`, {
+      const response = await fetch(getApiUrl(`products/seller/${id}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -271,7 +272,7 @@ const SellerProducts = () => {
       const updateData = {}
       updateData[field] = numericValue
 
-      const response = await fetch(`http://localhost:5000/api/sellers/update-inventory/${productId}`, {
+      const response = await fetch(getApiUrl(`sellers/update-inventory/${productId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

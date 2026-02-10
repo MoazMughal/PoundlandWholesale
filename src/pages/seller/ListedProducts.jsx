@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSeller } from '../../context/SellerContext';
+import { getApiUrl } from '../../utils/api';
 
 const ListedProducts = () => {
   const navigate = useNavigate();
@@ -12,6 +13,8 @@ const ListedProducts = () => {
   const [editingCell, setEditingCell] = useState(null); // Track which cell is being edited (productId-field)
   const [editValues, setEditValues] = useState({}); // Store edit values
   const [updatingProducts, setUpdatingProducts] = useState(new Set()); // Track which products are being updated
+  const [retryCount, setRetryCount] = useState(0);
+  const [showRetryButton, setShowRetryButton] = useState(false);
 
   useEffect(() => {
     // Wait for authentication to be resolved before checking login status
@@ -27,9 +30,11 @@ const ListedProducts = () => {
     loadProducts();
   }, [isLoggedIn, seller, navigate, activeTab, authResolved, loading]);
 
-  const loadProducts = async () => {
+  const loadProducts = async (isRetry = false) => {
     try {
       setPageLoading(true);
+      setShowRetryButton(false);
+      
       const token = localStorage.getItem('sellerToken');
       
       if (!token) {
@@ -40,34 +45,57 @@ const ListedProducts = () => {
       
       const statusParam = activeTab !== 'all' ? `&status=${activeTab}` : '';
       
-      console.log('Loading products with token:', token ? 'Token exists' : 'No token');
-      console.log('API URL:', `http://localhost:5000/api/products/seller/listed-products?limit=50${statusParam}`);
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const response = await fetch(`http://localhost:5000/api/products/seller/listed-products?limit=50${statusParam}`, {
+      const response = await fetch(getApiUrl(`products/seller/listed-products?limit=50${statusParam}`), {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
-      console.log('API Response:', { status: response.status, data });
       
       if (response.ok) {
         setProducts(data.products || []);
         setCounts(data.counts || { total: 0, pending: 0, approved: 0, rejected: 0 });
-        // Products loaded
+        setRetryCount(0); // Reset retry count on success
+        // Products loaded successfully
       } else {
         console.error('Listed products error:', data);
         if (response.status === 401) {
           alert('❌ Authentication failed. Please login again.');
           navigate('/login/supplier');
+        } else if (response.status >= 500) {
+          // Server error - show retry option
+          setShowRetryButton(true);
+          alert('❌ Server error. Please try again.');
         } else {
           alert('❌ ' + (data.message || 'Failed to load products'));
         }
       }
     } catch (error) {
       console.error('Network error:', error);
-      alert('❌ Could not load products: ' + error.message);
+      
+      if (error.name === 'AbortError') {
+        setShowRetryButton(true);
+        alert('❌ Request timed out. Please check your connection and try again.');
+      } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        setShowRetryButton(true);
+        alert('❌ Could not connect to server. Please check your internet connection and try again.');
+      } else {
+        // Auto-retry up to 2 times for network errors
+        if (!isRetry && retryCount < 2) {
+          setRetryCount(prev => prev + 1);
+          setTimeout(() => loadProducts(true), 2000); // Retry after 2 seconds
+          return;
+        }
+        setShowRetryButton(true);
+        alert('❌ Could not load products. Please try again.');
+      }
     } finally {
       setPageLoading(false);
     }
@@ -81,7 +109,7 @@ const ListedProducts = () => {
     try {
       const token = localStorage.getItem('sellerToken');
       
-      const response = await fetch(`http://localhost:5000/api/sellers/unlist-product/${product._id}`, {
+      const response = await fetch(getApiUrl(`sellers/unlist-product/${product._id}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -158,7 +186,7 @@ const ListedProducts = () => {
       const updateData = {}
       updateData[field] = numericValue
 
-      const response = await fetch(`http://localhost:5000/api/sellers/update-inventory/${productId}`, {
+      const response = await fetch(getApiUrl(`sellers/update-inventory/${productId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -381,6 +409,23 @@ const ListedProducts = () => {
       </ul>
 
       {/* Products Table */}
+      {showRetryButton && (
+        <div className="alert alert-warning d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <i className="fas fa-exclamation-triangle me-2"></i>
+            Failed to load products. Please check your connection and try again.
+          </div>
+          <button 
+            className="btn btn-warning btn-sm"
+            onClick={() => loadProducts()}
+            disabled={pageLoading}
+          >
+            <i className="fas fa-redo me-1"></i>
+            {pageLoading ? 'Retrying...' : 'Retry'}
+          </button>
+        </div>
+      )}
+      
       <div className="card">
         <div className="card-body">
           {products.length === 0 ? (

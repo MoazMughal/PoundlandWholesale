@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
+import { getApiUrl } from '../../utils/api'
 import '../../styles/dashboard-responsive.css'
 import '../../styles/mobile-dashboard.css'
 import '../../styles/seller-dashboard-improvements.css'
@@ -68,19 +69,19 @@ const SellerDashboard = () => {
       // Fetch all data in parallel for better performance
       const [accessResponse, paymentsResponse, listingResponse, previewResponse] = await Promise.allSettled([
         // Dashboard access check
-        fetch('http://localhost:5000/api/sellers/dashboard-access', {
+        fetch(getApiUrl('sellers/dashboard-access'), {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
         // Payment history
-        fetch('http://localhost:5000/api/sellers/payments', {
+        fetch(getApiUrl('sellers/payments'), {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
         // Listing requests
-        fetch('http://localhost:5000/api/sellers/listing-requests', {
+        fetch(getApiUrl('sellers/listing-requests'), {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
         // Preview products
-        fetch('http://localhost:5000/api/products/admin/available?limit=6', {
+        fetch(getApiUrl('products/admin/available?limit=6'), {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ])
@@ -127,7 +128,7 @@ const SellerDashboard = () => {
     try {
       const token = localStorage.getItem('sellerToken')
       if (token) {
-        const response = await fetch('http://localhost:5000/api/sellers/profile', {
+        const response = await fetch(getApiUrl('sellers/profile'), {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -163,7 +164,7 @@ const SellerDashboard = () => {
         return
       }
       
-      const response = await fetch('http://localhost:5000/api/sellers/verification/submit', {
+      const response = await fetch(getApiUrl('sellers/verification/submit'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
