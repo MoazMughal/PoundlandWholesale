@@ -17,51 +17,41 @@ export const SellerProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [authResolved, setAuthResolved] = useState(false)
 
-  // Initialize authentication - Only restore sessions on seller pages
+  // Initialize authentication - Restore sessions on ALL pages (like AdminContext should work)
   useEffect(() => {
     const initializeAuth = async () => {
-      console.log('🔑 Initializing seller auth...')
-
+      console.log('🔑 SellerContext: Starting auth initialization...')
+      
       try {
-        // Check if we're on a seller page - only restore auth on seller pages
-        const currentPath = window.location.pathname
-        const isSellerPage = currentPath.startsWith('/seller/') || 
-                            currentPath.startsWith('/login/supplier') ||
-                            currentPath.startsWith('/register/supplier') ||
-                            currentPath.startsWith('/product/') // Allow product pages for sellers
-        
-        if (!isSellerPage) {
-          console.log('🔍 SellerContext: Not on seller page, skipping auth restoration')
-          setLoading(false)
-          setAuthResolved(true)
-          return
-        }
-
-        // Initialize auth manager and check for valid tokens
+        // Initialize auth manager and check for valid tokens on ALL pages
+        console.log('🔑 SellerContext: Calling authManager.initializeAuth()...')
         const authData = await authManager.initializeAuth()
+        console.log('🔑 SellerContext: authManager.initializeAuth() returned:', authData)
         
         if (authData && authData.userType === 'seller') {
-          console.log('✅ Valid seller auth found after verification')
+          console.log('✅ SellerContext: Valid seller auth restored after verification')
+          console.log('✅ SellerContext: Setting seller user:', authData.user)
           setSeller(authData.user)
           setIsLoggedIn(true)
         } else {
-          console.log('🔍 No valid seller auth found')
+          console.log('🔍 SellerContext: No valid seller auth found')
+          console.log('🔍 SellerContext: authData was:', authData)
           setSeller(null)
           setIsLoggedIn(false)
           
-          // If on protected seller page but no auth, redirect to login
-          if (currentPath.startsWith('/seller/')) {
+          // Only redirect if on protected seller page but no auth
+          const currentPath = window.location.pathname
+          if (currentPath.startsWith('/seller/') && currentPath !== '/login/supplier') {
             console.log('🔄 SellerContext: Redirecting to seller login')
             window.location.replace('/login/supplier')
             return
           }
         }
       } catch (error) {
-        console.error('❌ Seller auth initialization error:', error)
-        // Clear auth on error to prevent stuck states
-        setSeller(null)
-        setIsLoggedIn(false)
+        console.error('❌ SellerContext: Auth initialization error:', error)
+        // Don't clear auth on error - might be temporary network issue
       } finally {
+        console.log('🔑 SellerContext: Setting loading=false, authResolved=true')
         setLoading(false)
         setAuthResolved(true)
       }
@@ -70,19 +60,25 @@ export const SellerProvider = ({ children }) => {
     initializeAuth()
   }, [])
 
-  // Cross-tab synchronization
+  // Cross-tab synchronization - Enhanced like AdminContext
   useEffect(() => {
     const handleStorageChange = (event) => {
+      console.log('🔄 SellerContext: Storage change detected:', event.key, event.newValue)
+      
       if (event.key === 'activeUserType' && event.storageArea === localStorage) {
         console.log('🔄 Active user type changed in another tab:', event.newValue)
         
         if (event.newValue === 'seller') {
           // Seller logged in from another tab - verify and update
+          console.log('🔄 Seller logged in from another tab, updating context')
           authManager.loadAuth('seller').then(authData => {
             if (authData) {
+              console.log('✅ Seller auth loaded from another tab')
               setSeller(authData.user)
               setIsLoggedIn(true)
             }
+          }).catch(error => {
+            console.error('❌ Failed to load seller auth from another tab:', error)
           })
         } else if (event.newValue !== 'seller' && isLoggedIn) {
           // Different user type logged in, logout seller
@@ -96,6 +92,18 @@ export const SellerProvider = ({ children }) => {
           console.log('🔄 Seller token removed in another tab, logging out')
           setSeller(null)
           setIsLoggedIn(false)
+        } else if (event.newValue && !event.oldValue && !isLoggedIn) {
+          // Seller token added in another tab
+          console.log('🔄 Seller token added in another tab, checking auth')
+          authManager.loadAuth('seller').then(authData => {
+            if (authData) {
+              console.log('✅ Seller auth restored from new token')
+              setSeller(authData.user)
+              setIsLoggedIn(true)
+            }
+          }).catch(error => {
+            console.error('❌ Failed to restore seller auth from new token:', error)
+          })
         }
       }
     }

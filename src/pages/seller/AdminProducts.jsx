@@ -13,10 +13,22 @@ const AdminProducts = () => {
   const [totalPages, setTotalPages] = useState(1)
   const [totalProducts, setTotalProducts] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchSuggestions, setSearchSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [searchHistory, setSearchHistory] = useState([])
+  const [isSearching, setIsSearching] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [categories, setCategories] = useState([])
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [productsPerPage, setProductsPerPage] = useState(100)
+
+  useEffect(() => {
+    // Load search history from localStorage
+    const savedHistory = localStorage.getItem('adminProductsSearchHistory')
+    if (savedHistory) {
+      setSearchHistory(JSON.parse(savedHistory))
+    }
+  }, [])
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth)
@@ -83,6 +95,7 @@ const AdminProducts = () => {
   const fetchAdminProducts = async () => {
     try {
       setLoading(true)
+      setIsSearching(!!searchQuery)
       const token = localStorage.getItem('sellerToken')
       
       const params = new URLSearchParams({
@@ -100,10 +113,15 @@ const AdminProducts = () => {
 
       if (response.ok) {
         const data = await response.json()
-        // Products are already randomized on server for "all" category
+        // Products are already sorted by relevance on server for search results
         setProducts(data.products || [])
         setTotalPages(data.totalPages || 1)
         setTotalProducts(data.totalProducts || 0)
+        
+        // Save search term to history if it's a search and has results
+        if (searchQuery && data.products && data.products.length > 0) {
+          saveSearchToHistory(searchQuery)
+        }
       } else {
         console.error('Failed to fetch admin products')
         setProducts([])
@@ -117,6 +135,7 @@ const AdminProducts = () => {
       setTotalProducts(0)
     } finally {
       setLoading(false)
+      setIsSearching(false)
     }
   }
 
@@ -280,8 +299,68 @@ const AdminProducts = () => {
     return product.sellers.some(s => s.sellerId?.toString() === seller._id?.toString())
   }
 
-  const handleSearch = (e) => {
-    e.preventDefault()
+  const saveSearchToHistory = (searchTerm) => {
+    if (!searchTerm || searchTerm.length < 2) return
+    
+    const newHistory = [searchTerm, ...searchHistory.filter(term => term !== searchTerm)].slice(0, 10)
+    setSearchHistory(newHistory)
+    localStorage.setItem('adminProductsSearchHistory', JSON.stringify(newHistory))
+  }
+
+  const clearSearchHistory = () => {
+    setSearchHistory([])
+    localStorage.removeItem('adminProductsSearchHistory')
+  }
+
+  const fetchSearchSuggestions = async (query) => {
+    if (!query || query.length < 2) {
+      setSearchSuggestions([])
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('sellerToken')
+      const response = await fetch(`http://localhost:5000/api/products/admin/search-suggestions?q=${encodeURIComponent(query)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setSearchSuggestions(data.suggestions || [])
+      }
+    } catch (error) {
+      console.error('Error fetching search suggestions:', error)
+    }
+  }
+
+  const handleSearchInputChange = (e) => {
+    const value = e.target.value
+    setSearchQuery(value)
+    
+    // Debounce search suggestions
+    clearTimeout(window.searchSuggestionsTimeout)
+    window.searchSuggestionsTimeout = setTimeout(() => {
+      fetchSearchSuggestions(value)
+    }, 300)
+    
+    setShowSuggestions(true)
+  }
+
+  const handleSearch = (e, searchTerm = null) => {
+    e?.preventDefault()
+    const term = searchTerm || searchQuery
+    setSearchQuery(term)
+    setCurrentPage(1)
+    setShowSuggestions(false)
+    fetchAdminProducts()
+  }
+
+  const clearSearch = () => {
+    setSearchQuery('')
+    setSearchSuggestions([])
+    setShowSuggestions(false)
     setCurrentPage(1)
     fetchAdminProducts()
   }
@@ -754,17 +833,179 @@ const AdminProducts = () => {
             <form onSubmit={handleSearch} style={{ 
               display: 'flex', 
               flex: windowWidth < 768 ? 'none' : '1',
-              marginBottom: windowWidth < 768 ? '15px' : '0'
+              marginBottom: windowWidth < 768 ? '15px' : '0',
+              position: 'relative'
             }}>
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <button type="submit" className="search-btn">
-                <i className="fas fa-search"></i>
+              <div style={{ 
+                position: 'relative', 
+                flex: 1,
+                display: 'flex'
+              }}>
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="Search by Product Name, ASIN, SKU, Brand..."
+                  value={searchQuery}
+                  onChange={handleSearchInputChange}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  style={{
+                    paddingRight: searchQuery ? '40px' : '15px'
+                  }}
+                />
+                
+                {/* Clear search button */}
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={clearSearch}
+                    style={{
+                      position: 'absolute',
+                      right: '50px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: '#6c757d',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      padding: '4px',
+                      borderRadius: '50%',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = '#f8f9fa'
+                      e.target.style.color = '#dc3545'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = 'none'
+                      e.target.style.color = '#6c757d'
+                    }}
+                    title="Clear search"
+                  >
+                    <i className="fas fa-times"></i>
+                  </button>
+                )}
+                
+                {/* Search suggestions dropdown */}
+                {showSuggestions && (searchSuggestions.length > 0 || searchHistory.length > 0) && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'white',
+                    border: '1px solid #e9ecef',
+                    borderRadius: '0 0 8px 8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    zIndex: 1000,
+                    maxHeight: '300px',
+                    overflowY: 'auto'
+                  }}>
+                    {/* Search History */}
+                    {searchHistory.length > 0 && !searchQuery && (
+                      <div>
+                        <div style={{
+                          padding: '8px 12px',
+                          background: '#f8f9fa',
+                          borderBottom: '1px solid #e9ecef',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: '#6c757d',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <span><i className="fas fa-history" style={{marginRight: '4px'}}></i>Recent Searches</span>
+                          <button
+                            type="button"
+                            onClick={clearSearchHistory}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#dc3545',
+                              cursor: 'pointer',
+                              fontSize: '10px',
+                              padding: '2px 4px'
+                            }}
+                            title="Clear history"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                        {searchHistory.map((term, index) => (
+                          <div
+                            key={index}
+                            onClick={() => handleSearch(null, term)}
+                            style={{
+                              padding: '8px 12px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              borderBottom: index < searchHistory.length - 1 ? '1px solid #f8f9fa' : 'none',
+                              transition: 'background 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => e.target.style.background = '#f8f9fa'}
+                            onMouseLeave={(e) => e.target.style.background = 'white'}
+                          >
+                            <i className="fas fa-clock" style={{marginRight: '8px', color: '#6c757d', fontSize: '11px'}}></i>
+                            {term}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Live Suggestions */}
+                    {searchSuggestions.length > 0 && searchQuery && (
+                      <div>
+                        <div style={{
+                          padding: '8px 12px',
+                          background: '#f8f9fa',
+                          borderBottom: '1px solid #e9ecef',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: '#6c757d'
+                        }}>
+                          <i className="fas fa-search" style={{marginRight: '4px'}}></i>Suggestions
+                        </div>
+                        {searchSuggestions.map((suggestion, index) => (
+                          <div
+                            key={index}
+                            onClick={() => handleSearch(null, suggestion.text)}
+                            style={{
+                              padding: '8px 12px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              borderBottom: index < searchSuggestions.length - 1 ? '1px solid #f8f9fa' : 'none',
+                              transition: 'background 0.2s ease',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center'
+                            }}
+                            onMouseEnter={(e) => e.target.style.background = '#f8f9fa'}
+                            onMouseLeave={(e) => e.target.style.background = 'white'}
+                          >
+                            <span>
+                              <i className={`fas ${suggestion.type === 'asin' ? 'fa-barcode' : suggestion.type === 'sku' ? 'fa-tag' : 'fa-box'}`} 
+                                 style={{marginRight: '8px', color: '#007bff', fontSize: '11px'}}></i>
+                              {suggestion.text}
+                            </span>
+                            <span style={{fontSize: '10px', color: '#6c757d', textTransform: 'uppercase'}}>
+                              {suggestion.type}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              <button type="submit" className="search-btn" disabled={isSearching}>
+                {isSearching ? (
+                  <i className="fas fa-spinner fa-spin"></i>
+                ) : (
+                  <i className="fas fa-search"></i>
+                )}
               </button>
             </form>
             
@@ -808,7 +1049,37 @@ const AdminProducts = () => {
           
           {totalProducts > 0 && (
             <div className="stats-info">
-              Showing {((currentPage - 1) * productsPerPage) + 1} - {Math.min(currentPage * productsPerPage, totalProducts)} of {totalProducts} products
+              {searchQuery ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <span>
+                    <i className="fas fa-search" style={{marginRight: '5px', color: '#007bff'}}></i>
+                    Search results for "<strong>{searchQuery}</strong>": 
+                    <strong style={{color: '#28a745', marginLeft: '5px'}}>{totalProducts}</strong> products found
+                  </span>
+                  <button
+                    onClick={clearSearch}
+                    style={{
+                      background: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => e.target.style.background = '#c82333'}
+                    onMouseLeave={(e) => e.target.style.background = '#dc3545'}
+                  >
+                    <i className="fas fa-times" style={{marginRight: '3px'}}></i>
+                    Clear Search
+                  </button>
+                </div>
+              ) : (
+                <span>
+                  Showing {((currentPage - 1) * productsPerPage) + 1} - {Math.min(currentPage * productsPerPage, totalProducts)} of {totalProducts} products
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -904,6 +1175,53 @@ const AdminProducts = () => {
                   </a>
                   
                   <div className="product-category">{product.category}</div>
+                  
+                  {/* Search match indicators */}
+                  {searchQuery && (
+                    <div style={{
+                      display: 'flex',
+                      gap: '4px',
+                      marginBottom: '4px',
+                      flexWrap: 'wrap'
+                    }}>
+                      {product.asin && product.asin.toLowerCase().includes(searchQuery.toLowerCase()) && (
+                        <span style={{
+                          fontSize: '7px',
+                          background: '#007bff',
+                          color: 'white',
+                          padding: '1px 4px',
+                          borderRadius: '3px',
+                          fontWeight: '600'
+                        }}>
+                          ASIN: {product.asin}
+                        </span>
+                      )}
+                      {product.sku && product.sku.toLowerCase().includes(searchQuery.toLowerCase()) && (
+                        <span style={{
+                          fontSize: '7px',
+                          background: '#28a745',
+                          color: 'white',
+                          padding: '1px 4px',
+                          borderRadius: '3px',
+                          fontWeight: '600'
+                        }}>
+                          SKU: {product.sku}
+                        </span>
+                      )}
+                      {product.brand && product.brand.toLowerCase().includes(searchQuery.toLowerCase()) && (
+                        <span style={{
+                          fontSize: '7px',
+                          background: '#ffc107',
+                          color: '#212529',
+                          padding: '1px 4px',
+                          borderRadius: '3px',
+                          fontWeight: '600'
+                        }}>
+                          BRAND: {product.brand}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   
                   <div className="product-price">
                     £{parseFloat(product.price).toFixed(2)}

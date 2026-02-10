@@ -203,7 +203,7 @@ class AuthManager {
     console.log(`🔄 ${userType} auth cleared`)
   }
 
-  // Initialize authentication on app load - CONSERVATIVE MODE
+  // Initialize authentication on app load - UNIVERSAL MODE
   async initializeAuth() {
     if (this.initialized) {
       return this.initPromise
@@ -215,25 +215,9 @@ class AuthManager {
 
   async _performInitialization() {
     try {
-      console.log('🔄 Initializing authentication - CONSERVATIVE MODE...')
+      console.log('🔄 Initializing authentication - UNIVERSAL MODE...')
       
-      // STEP 1: Check current page path
-      const currentPath = window.location.pathname
-      
-      // STEP 2: Only restore auth on protected pages
-      const isProtectedPage = currentPath.startsWith('/admin/') || 
-                             currentPath.startsWith('/seller/') || 
-                             currentPath.startsWith('/buyer/') ||
-                             currentPath === '/basket' ||
-                             currentPath.startsWith('/product/') // Allow product pages
-      
-      if (!isProtectedPage) {
-        console.log('🔍 Not on protected page - skipping auth restoration for security')
-        this.initialized = true
-        return null
-      }
-      
-      // STEP 3: Check if we have any auth data at all
+      // STEP 1: Check if we have any auth data at all
       const activeUserType = localStorage.getItem('activeUserType')
       
       if (!activeUserType) {
@@ -242,7 +226,7 @@ class AuthManager {
         return null
       }
 
-      // STEP 4: Get the token for the active user type
+      // STEP 2: Get the token for the active user type
       const token = localStorage.getItem(`${activeUserType}Token`)
       
       if (!token) {
@@ -252,7 +236,7 @@ class AuthManager {
         return null
       }
 
-      // STEP 5: Check if token is still valid (not expired)
+      // STEP 3: Check if token is still valid (not expired)
       if (!this.isTokenValid(token)) {
         console.log('🔄 Token expired - clearing auth')
         this.clearAuth(activeUserType)
@@ -260,7 +244,7 @@ class AuthManager {
         return null
       }
 
-      // STEP 6: Verify token with server (but be more forgiving)
+      // STEP 4: Verify token with server (but be more forgiving)
       try {
         const verification = await this.verifyTokenWithServer(token, activeUserType)
         

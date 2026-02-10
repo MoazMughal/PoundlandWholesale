@@ -17,25 +17,13 @@ export const AdminProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [authResolved, setAuthResolved] = useState(false)
 
-  // Initialize authentication - Only restore sessions on protected pages
+  // Initialize authentication - Restore sessions on ALL pages
   useEffect(() => {
     const initializeAuth = async () => {
       console.log('🔑 AdminContext: Starting auth initialization...')
       
       try {
-        // Check if we're on an admin page or product page - restore auth on both
-        const currentPath = window.location.pathname
-        const isAdminPage = currentPath.startsWith('/admin/')
-        const isProductPage = currentPath.startsWith('/product/')
-        
-        if (!isAdminPage && !isProductPage) {
-          console.log('🔍 AdminContext: Not on admin or product page, skipping auth restoration')
-          setLoading(false)
-          setAuthResolved(true)
-          return
-        }
-        
-        // Initialize auth manager and check for valid tokens
+        // Initialize auth manager and check for valid tokens on ALL pages
         console.log('🔑 AdminContext: Calling authManager.initializeAuth()...')
         const authData = await authManager.initializeAuth()
         console.log('🔑 AdminContext: authManager.initializeAuth() returned:', authData)
@@ -49,9 +37,9 @@ export const AdminProvider = ({ children }) => {
           console.log('🔍 AdminContext: No valid admin auth found')
           console.log('🔍 AdminContext: authData was:', authData)
           
-          // If on admin page but no auth, redirect to login
-          // Don't redirect if on product page - allow viewing products without admin auth
-          if (isAdminPage && currentPath !== '/admin/login') {
+          // Only redirect if on protected admin page but no auth
+          const currentPath = window.location.pathname
+          if (currentPath.startsWith('/admin/') && currentPath !== '/admin/login') {
             console.log('🔄 AdminContext: Redirecting to admin login')
             window.location.replace('/admin/login')
             return
@@ -70,19 +58,25 @@ export const AdminProvider = ({ children }) => {
     initializeAuth()
   }, [])
 
-  // Cross-tab synchronization
+  // Cross-tab synchronization - Enhanced
   useEffect(() => {
     const handleStorageChange = (event) => {
+      console.log('🔄 AdminContext: Storage change detected:', event.key, event.newValue)
+      
       if (event.key === 'activeUserType' && event.storageArea === localStorage) {
         console.log('🔄 Active user type changed in another tab:', event.newValue)
         
         if (event.newValue === 'admin') {
           // Admin logged in from another tab - verify and update
+          console.log('🔄 Admin logged in from another tab, updating context')
           authManager.loadAuth('admin').then(authData => {
             if (authData) {
+              console.log('✅ Admin auth loaded from another tab')
               setAdmin(authData.user)
               setIsLoggedIn(true)
             }
+          }).catch(error => {
+            console.error('❌ Failed to load admin auth from another tab:', error)
           })
         } else if (event.newValue !== 'admin' && isLoggedIn) {
           // Different user type logged in, logout admin
@@ -96,6 +90,18 @@ export const AdminProvider = ({ children }) => {
           console.log('🔄 Admin token removed in another tab, logging out')
           setAdmin(null)
           setIsLoggedIn(false)
+        } else if (event.newValue && !event.oldValue && !isLoggedIn) {
+          // Admin token added in another tab
+          console.log('🔄 Admin token added in another tab, checking auth')
+          authManager.loadAuth('admin').then(authData => {
+            if (authData) {
+              console.log('✅ Admin auth restored from new token')
+              setAdmin(authData.user)
+              setIsLoggedIn(true)
+            }
+          }).catch(error => {
+            console.error('❌ Failed to restore admin auth from new token:', error)
+          })
         }
       }
     }

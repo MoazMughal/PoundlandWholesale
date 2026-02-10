@@ -3,6 +3,7 @@ import { useEffect, lazy, Suspense } from 'react'
 import MobileHeader from './components/MobileHeader'
 import CompactFooter from './components/CompactFooter'
 import WhatsAppFloat from './components/WhatsAppFloat'
+import ScrollToTop from './components/ScrollToTop'
 import ScrollToTopOnRouteChange from './components/ScrollToTopOnRouteChange'
 
 import ProtectedRoute from './components/ProtectedRoute'
@@ -225,6 +226,7 @@ function App() {
         </Suspense>
         </main>
         <CompactFooter />
+        <ScrollToTop />
         <WhatsAppFloat />
         </div>
         </Router>

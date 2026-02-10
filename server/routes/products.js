@@ -3929,44 +3929,173 @@ router.get('/admin/available', authenticateSeller, async (req, res) => {
       approvalStatus: 'approved'
     };
     
-    if (search) {
-      query.$text = { $search: search };
-    }
-    
-    if (category && category !== 'all') {
-      // Handle category filtering - support both exact match and case-insensitive
-      // Also handle URL-encoded category names (e.g., "party-accessories" -> "Party Accessories")
-      const categoryName = category.replace(/-/g, ' '); // Convert dashes to spaces
-      query.category = new RegExp(`^${categoryName}$`, 'i'); // Exact match, case-insensitive
-    }
-
     let products;
-    const totalProducts = await Product.countDocuments(query);
-
-    if (!category || category === 'all') {
-      // For "all" category, use aggregation pipeline for random sampling
-      const pipeline = [
-        { $match: query },
-        { $sample: { size: Math.min(parseInt(limit), totalProducts) } }
+    let totalProducts;
+    
+    if (search && search.trim()) {
+      // Enhanced search functionality with multiple fields and prioritization
+      const searchTerm = search.trim();
+      const searchRegex = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      
+      // Create multiple search conditions with different priorities
+      const searchConditions = [
+        // Priority 1: Exact ASIN match (highest priority)
+        { asin: { $regex: new RegExp(`^${searchTerm}$`, 'i') } },
+        
+        // Priority 2: Exact SKU match
+        { sku: { $regex: new RegExp(`^${searchTerm}$`, 'i') } },
+        
+        // Priority 3: ASIN starts with search term
+        { asin: { $regex: new RegExp(`^${searchTerm}`, 'i') } },
+        
+        // Priority 4: SKU starts with search term
+        { sku: { $regex: new RegExp(`^${searchTerm}`, 'i') } },
+        
+        // Priority 5: Product name starts with search term
+        { name: { $regex: new RegExp(`^${searchTerm}`, 'i') } },
+        
+        // Priority 6: ASIN contains search term
+        { asin: searchRegex },
+        
+        // Priority 7: SKU contains search term
+        { sku: searchRegex },
+        
+        // Priority 8: Product name contains search term
+        { name: searchRegex },
+        
+        // Priority 9: Brand contains search term
+        { brand: searchRegex },
+        
+        // Priority 10: Category contains search term
+        { category: searchRegex },
+        
+        // Priority 11: Description contains search term (if exists)
+        { description: searchRegex }
       ];
       
-      // If we need pagination for "all" category, we'll use a different approach
-      if (parseInt(page) > 1) {
-        // For pagination with random results, we'll use a seed-based approach
-        // This is a simplified version - for true random pagination, you'd need more complex logic
+      // Apply category filter if specified
+      if (category && category !== 'all') {
+        const categoryName = category.replace(/-/g, ' ');
+        query.category = new RegExp(`^${categoryName}$`, 'i');
+      }
+      
+      // Use aggregation pipeline for advanced search with scoring
+      const pipeline = [
+        {
+          $match: {
+            ...query,
+            $or: searchConditions
+          }
+        },
+        {
+          $addFields: {
+            searchScore: {
+              $sum: [
+                // Exact ASIN match (score: 100)
+                { $cond: [{ $regexMatch: { input: "$asin", regex: new RegExp(`^${searchTerm}$`, 'i') } }, 100, 0] },
+                
+                // Exact SKU match (score: 95)
+                { $cond: [{ $regexMatch: { input: "$sku", regex: new RegExp(`^${searchTerm}$`, 'i') } }, 95, 0] },
+                
+                // ASIN starts with (score: 90)
+                { $cond: [{ $regexMatch: { input: "$asin", regex: new RegExp(`^${searchTerm}`, 'i') } }, 90, 0] },
+                
+                // SKU starts with (score: 85)
+                { $cond: [{ $regexMatch: { input: "$sku", regex: new RegExp(`^${searchTerm}`, 'i') } }, 85, 0] },
+                
+                // Name starts with (score: 80)
+                { $cond: [{ $regexMatch: { input: "$name", regex: new RegExp(`^${searchTerm}`, 'i') } }, 80, 0] },
+                
+                // ASIN contains (score: 70)
+                { $cond: [{ $regexMatch: { input: "$asin", regex: searchRegex } }, 70, 0] },
+                
+                // SKU contains (score: 65)
+                { $cond: [{ $regexMatch: { input: "$sku", regex: searchRegex } }, 65, 0] },
+                
+                // Name contains (score: 60)
+                { $cond: [{ $regexMatch: { input: "$name", regex: searchRegex } }, 60, 0] },
+                
+                // Brand contains (score: 50)
+                { $cond: [{ $regexMatch: { input: "$brand", regex: searchRegex } }, 50, 0] },
+                
+                // Category contains (score: 40)
+                { $cond: [{ $regexMatch: { input: "$category", regex: searchRegex } }, 40, 0] },
+                
+                // Description contains (score: 30)
+                { $cond: [{ $regexMatch: { input: "$description", regex: searchRegex } }, 30, 0] },
+                
+                // Boost for Amazon's Choice products
+                { $cond: ["$isAmazonsChoice", 10, 0] },
+                
+                // Boost for products with images
+                { $cond: [{ $gt: [{ $size: { $ifNull: ["$images", []] } }, 0] }, 5, 0] }
+              ]
+            }
+          }
+        },
+        {
+          $sort: { 
+            searchScore: -1,  // Primary sort by relevance score
+            isAmazonsChoice: -1,  // Secondary sort by Amazon's Choice
+            createdAt: -1  // Tertiary sort by newest
+          }
+        },
+        {
+          $skip: (parseInt(page) - 1) * parseInt(limit)
+        },
+        {
+          $limit: parseInt(limit)
+        }
+      ];
+      
+      products = await Product.aggregate(pipeline);
+      
+      // Get total count for pagination
+      const countPipeline = [
+        {
+          $match: {
+            ...query,
+            $or: searchConditions
+          }
+        },
+        {
+          $count: "total"
+        }
+      ];
+      
+      const countResult = await Product.aggregate(countPipeline);
+      totalProducts = countResult.length > 0 ? countResult[0].total : 0;
+      
+    } else {
+      // No search term - use existing logic
+      if (category && category !== 'all') {
+        const categoryName = category.replace(/-/g, ' ');
+        query.category = new RegExp(`^${categoryName}$`, 'i');
+      }
+
+      totalProducts = await Product.countDocuments(query);
+
+      if (!category || category === 'all') {
+        // For "all" category, use aggregation pipeline for random sampling
+        const pipeline = [
+          { $match: query },
+          { $sample: { size: Math.min(parseInt(limit), totalProducts) } }
+        ];
+        
+        if (parseInt(page) > 1) {
+          products = await Product.find(query)
+            .sort({ _id: 1 })
+            .limit(parseInt(limit))
+            .skip((parseInt(page) - 1) * parseInt(limit));
+        } else {
+          products = await Product.aggregate(pipeline);
+        }
+      } else {
         products = await Product.find(query)
-          .sort({ _id: 1 }) // Consistent sorting
+          .sort({ createdAt: -1 })
           .limit(parseInt(limit))
           .skip((parseInt(page) - 1) * parseInt(limit));
-      } else {
-        products = await Product.aggregate(pipeline);
       }
-    } else {
-      // Use regular find for category-specific queries
-      products = await Product.find(query)
-        .sort({ createdAt: -1 })
-        .limit(parseInt(limit))
-        .skip((parseInt(page) - 1) * parseInt(limit));
     }
 
     res.json({
@@ -3974,10 +4103,109 @@ router.get('/admin/available', authenticateSeller, async (req, res) => {
       totalPages: Math.ceil(totalProducts / parseInt(limit)),
       currentPage: parseInt(page),
       totalProducts,
-      limit: parseInt(limit)
+      limit: parseInt(limit),
+      searchTerm: search || null
     });
   } catch (error) {
     console.error('Error fetching admin products:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Search suggestions endpoint for admin products
+router.get('/admin/search-suggestions', authenticateSeller, async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.length < 2) {
+      return res.json({ suggestions: [] });
+    }
+    
+    const searchTerm = q.trim();
+    const searchRegex = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    
+    // Get suggestions from different fields
+    const suggestions = await Product.aggregate([
+      {
+        $match: {
+          isAdminProduct: true,
+          status: 'active',
+          approvalStatus: 'approved',
+          $or: [
+            { asin: searchRegex },
+            { sku: searchRegex },
+            { name: searchRegex },
+            { brand: searchRegex }
+          ]
+        }
+      },
+      {
+        $project: {
+          suggestions: [
+            {
+              $cond: [
+                { $regexMatch: { input: "$asin", regex: searchRegex } },
+                { text: "$asin", type: "asin", score: 100 },
+                null
+              ]
+            },
+            {
+              $cond: [
+                { $regexMatch: { input: "$sku", regex: searchRegex } },
+                { text: "$sku", type: "sku", score: 95 },
+                null
+              ]
+            },
+            {
+              $cond: [
+                { $regexMatch: { input: "$name", regex: searchRegex } },
+                { text: "$name", type: "name", score: 80 },
+                null
+              ]
+            },
+            {
+              $cond: [
+                { $regexMatch: { input: "$brand", regex: searchRegex } },
+                { text: "$brand", type: "brand", score: 70 },
+                null
+              ]
+            }
+          ]
+        }
+      },
+      {
+        $unwind: "$suggestions"
+      },
+      {
+        $match: {
+          "suggestions": { $ne: null }
+        }
+      },
+      {
+        $group: {
+          _id: "$suggestions.text",
+          type: { $first: "$suggestions.type" },
+          score: { $first: "$suggestions.score" }
+        }
+      },
+      {
+        $sort: { score: -1, _id: 1 }
+      },
+      {
+        $limit: 8
+      },
+      {
+        $project: {
+          _id: 0,
+          text: "$_id",
+          type: 1
+        }
+      }
+    ]);
+    
+    res.json({ suggestions });
+  } catch (error) {
+    console.error('Error fetching search suggestions:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -4050,13 +4278,21 @@ router.get('/admin/all-seller-listings', authenticateAdmin, async (req, res) => 
     adminProductsWithSellers.forEach(product => {
       if (product.sellers && product.sellers.length > 0) {
         product.sellers.forEach(sellerEntry => {
+          console.log('🔍 Processing seller entry:', {
+            productName: product.name,
+            sellerId: sellerEntry.sellerId,
+            username: sellerEntry.username,
+            sellerName: sellerEntry.sellerName,
+            email: sellerEntry.email
+          });
+          
           allListings.push({
             ...product.toObject(),
             _id: `${product._id}_${sellerEntry.sellerId}`, // Unique ID for this seller listing
             originalProductId: product._id, // Keep reference to original product
             seller: {
               _id: sellerEntry.sellerId,
-              username: sellerEntry.sellerName || 'Unknown Seller',
+              username: sellerEntry.username || sellerEntry.sellerName || 'Unknown Seller',
               supplierId: sellerEntry.sellerId,
               whatsappNo: sellerEntry.whatsappNo,
               city: sellerEntry.city,

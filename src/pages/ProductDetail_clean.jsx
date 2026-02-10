@@ -3,7 +3,6 @@ import { useParams, useSearchParams, Link, useNavigate, useLocation } from 'reac
 import { completeProductsData, getProductById } from '../data/completeProducts'
 import { products } from '../data/allProducts'
 import { getImageUrl } from '../utils/imageImports'
-import ScrollToTop from '../components/ScrollToTop'
 import PaymentModal from '../components/PaymentModal'
 import ProductVariations from '../components/ProductVariations'
 import apiConfig from '../config/api.config'
@@ -5283,9 +5282,6 @@ const ProductDetail = () => {
           </div>
         </div>
       </section>
-
-      {/* Scroll to Top Button */}
-      <ScrollToTop />
 
       {/* Payment Modal */}
       <PaymentModal

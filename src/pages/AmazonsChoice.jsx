@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import ScrollToTop from '../components/ScrollToTop'
 import ProductCardSkeleton from '../components/ProductCardSkeleton'
 import SearchBar from '../components/SearchBar'
 import Breadcrumb from '../components/Breadcrumb'
@@ -956,7 +955,6 @@ const AmazonsChoice = () => {
         marginTop: '0px',
         width: '100%'
       }}>
-        <ScrollToTop />
         
         {/* Enhanced Loading Message */}
         <div style={{
@@ -1043,7 +1041,6 @@ const AmazonsChoice = () => {
         marginTop: '0px',
         width: '100%'
       }}>
-        <ScrollToTop />
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -1162,7 +1159,6 @@ const AmazonsChoice = () => {
         marginBottom: '0px',
         width: '100%'
       }}>
-        <ScrollToTop />
         <ProductionStatus />
 
         {/* SEO Header Section */}

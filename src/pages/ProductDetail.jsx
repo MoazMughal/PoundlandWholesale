@@ -3,7 +3,6 @@ import { useParams, useSearchParams, Link, useNavigate, useLocation } from 'reac
 import { completeProductsData, getProductById } from '../data/completeProducts'
 import { products } from '../data/allProducts'
 import { getImageUrl } from '../utils/imageImports'
-import ScrollToTop from '../components/ScrollToTop'
 import PaymentModal from '../components/PaymentModal'
 import PaymentUploadModal from '../components/PaymentUploadModal'
 import SellerInformation from '../components/SellerInformation'
@@ -3525,83 +3524,80 @@ _This quotation was generated from PoundlandWholesale.com_
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
                     border: '1px solid #ff9900',
                     borderRadius: '6px',
-                    padding: '6px 8px'
+                    padding: '8px'
                   }}>
-                    <div className="d-flex align-items-baseline gap-1 mb-1">
-                      <span className="fw-bold" style={{
-                        fontSize: '1rem', 
-                        color: '#B12704',
-                        fontWeight: '700',
-                        letterSpacing: '-0.3px'
-                      }}>
-                        {(() => {
-                          const lowestPrice = getLowestPrice();
-                          const shippingCost = parseFloat(product.shipping) || 0;
-                          if (shippingCost > 0) {
-                            const totalPrice = lowestPrice + shippingCost;
+                    {/* Main Price Display */}
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <div className="d-flex align-items-baseline gap-1">
+                        <span className="fw-bold" style={{
+                          fontSize: '1.1rem', 
+                          color: '#B12704',
+                          fontWeight: '700',
+                          letterSpacing: '-0.3px'
+                        }}>
+                          {(() => {
+                            const breakdown = getLowestPriceBreakdown();
+                            const basePrice = breakdown.price > 0 ? breakdown.price : parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+                            const shippingCost = breakdown.shipping > 0 ? breakdown.shipping : parseFloat(product.shipping) || 0;
+                            const totalPrice = basePrice + shippingCost;
                             return convertPrice(`£${totalPrice.toFixed(2)}`);
-                          } else {
-                            return convertPrice(`£${lowestPrice}`);
-                          }
-                        })()}
-                      </span>
+                          })()}
+                        </span>
+                        <span style={{fontSize: '0.65rem', color: '#565959', fontWeight: '500'}}>/Unit</span>
+                      </div>
                       {hasLowerSellerPrice() && (
                         <span style={{
-                          fontSize: '0.7rem',
+                          fontSize: '0.75rem',
                           color: '#999',
                           textDecoration: 'line-through',
-                          marginLeft: '4px',
                           fontWeight: '400'
                         }}>
                           {(() => {
                             const basePrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
                             const shippingCost = parseFloat(product.shipping) || 0;
-                            if (shippingCost > 0) {
-                              const totalPrice = basePrice + shippingCost;
-                              return convertPrice(`£${totalPrice.toFixed(2)}`);
-                            } else {
-                              return convertPrice(product.price);
-                            }
+                            const totalPrice = basePrice + shippingCost;
+                            return convertPrice(`£${totalPrice.toFixed(2)}`);
                           })()}
                         </span>
                       )}
-                      <span style={{fontSize: '0.6rem', color: '#565959', fontWeight: '500'}}>/Unit</span>
                     </div>
-                    {(() => {
-                      const breakdown = getLowestPriceBreakdown();
-                      const lowestPrice = getLowestPrice();
-                      
-                      console.log('🔍 Buy Box Breakdown Debug:', {
-                        breakdown,
-                        lowestPrice,
-                        price: breakdown.price,
-                        shipping: breakdown.shipping
-                      });
-                      
-                      // Get shipping cost from breakdown or product
-                      const shippingCost = breakdown.shipping > 0 ? breakdown.shipping : parseFloat(product.shipping) || 0;
-                      const basePrice = breakdown.price > 0 ? breakdown.price : (shippingCost > 0 ? lowestPrice - shippingCost : lowestPrice);
-                      
-                      // Always show breakdown with calculator icon and styling
-                      return (
-                        <div style={{
-                          fontSize: '0.7rem', 
-                          color: '#6b7280', 
-                          marginTop: '2px', 
-                          marginBottom: '4px',
-                          padding: '2px 4px',
-                          background: 'rgba(107, 114, 128, 0.1)',
-                          borderRadius: '3px',
-                          border: '1px solid rgba(107, 114, 128, 0.2)'
-                        }}>
-                          <i className="fas fa-calculator" style={{ fontSize: '0.6rem', marginRight: '4px' }}></i>
-                          £{Math.max(0, basePrice).toFixed(2)} + £{shippingCost.toFixed(2)} shipping
-                        </div>
-                      );
-                    })()}
-                    <small style={{fontSize: '0.6rem', color: '#565959', fontWeight: '500'}}>
+                    
+                    {/* Price Breakdown */}
+                    <div style={{
+                      fontSize: '0.7rem', 
+                      color: '#6b7280', 
+                      padding: '4px 6px',
+                      background: 'rgba(107, 114, 128, 0.08)',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(107, 114, 128, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}>
+                      <div className="d-flex align-items-center">
+                        <i className="fas fa-calculator" style={{ fontSize: '0.6rem', marginRight: '6px', color: '#6b7280' }}></i>
+                        <span>Price Breakdown:</span>
+                      </div>
+                      <span style={{ fontWeight: '600', whiteSpace: 'nowrap' }}>
+                        {(() => {
+                          const breakdown = getLowestPriceBreakdown();
+                          const basePrice = breakdown.price > 0 ? breakdown.price : parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+                          const shippingCost = breakdown.shipping > 0 ? breakdown.shipping : parseFloat(product.shipping) || 0;
+                          return `£${basePrice.toFixed(2)} + £${shippingCost.toFixed(2)} shipping`;
+                        })()}
+                      </span>
+                    </div>
+                    
+                    {/* DDP Notice */}
+                    <div style={{
+                      fontSize: '0.6rem', 
+                      color: '#565959', 
+                      fontWeight: '500',
+                      marginTop: '6px',
+                      textAlign: 'center'
+                    }}>
                       (DDP to Amazon Warehouse)
-                    </small>
+                    </div>
                   </div>
 
                   {/* Compact In Stock Status */}
@@ -5166,9 +5162,6 @@ _This quotation was generated from PoundlandWholesale.com_
           </div>
         </div>
       </section>
-
-      {/* Scroll to Top Button */}
-      <ScrollToTop />
 
       {/* Payment Modal */}
       <PaymentModal
