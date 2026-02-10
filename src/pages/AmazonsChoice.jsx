@@ -225,9 +225,9 @@ const AmazonsChoice = () => {
           width: fit-content !important;
         }
         
-        /* Deal container - Larger Font for better visibility */
+        /* Deal container - Smaller Font for mobile */
         .product-info > div:last-of-type > div {
-          font-size: 8px !important; /* Increased from 9px to 8px for mobile compatibility */
+          font-size: 6px !important; /* Decreased from 8px for mobile compatibility */
           font-weight: 700 !important;
           padding: 2px 4px !important;
           margin: 0px 0 !important;
@@ -239,16 +239,16 @@ const AmazonsChoice = () => {
           justify-content: space-between !important;
           align-items: center !important;
           gap: 4px !important; /* Reduced gap for mobile */
-          min-height: 22px !important; /* Increased height for larger font */
-          max-height: 24px !important;
+          min-height: 20px !important; /* Decreased height for smaller font */
+          max-height: 22px !important;
           box-shadow: 0 1px 3px rgba(255, 228, 181, 0.3) !important;
           visibility: visible !important;
           opacity: 1 !important;
         }
         
-        /* Deal Text - Larger Font for better visibility */
+        /* Deal Text - Smaller Font for mobile */
         .product-info span[style*="Deal"] {
-          font-size: 8px !important; /* Increased font size */
+          font-size: 6px !important; /* Decreased font size for mobile */
           font-weight: 700 !important;
           color: #ff6600 !important;
           white-space: nowrap !important;
@@ -258,9 +258,9 @@ const AmazonsChoice = () => {
           max-width: calc(100% - 40px) !important;
         }
         
-        /* Price in Deal Section - Slightly smaller font */
+        /* Price in Deal Section - Smaller font for mobile */
         .product-info span[style*="£"] {
-          font-size: 7px !important; /* Reduced font size for price value */
+          font-size: 6px !important; /* Decreased font size for price value */
           font-weight: 700 !important;
           color: #ff6600 !important;
           white-space: nowrap !important;
@@ -1941,7 +1941,7 @@ const AmazonsChoice = () => {
                       minWidth: 0 // Allow text to wrap if needed
                     }}>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '7in px' : '8px', // Increased font size for better visibility
+                        fontSize: windowWidth < 576 ? '6px' : '8px', // Decreased font size for mobile
                         color: '#cc3300', 
                         fontWeight: '700',
                         whiteSpace: 'nowrap',
@@ -1953,7 +1953,7 @@ const AmazonsChoice = () => {
                         💰 Deal of {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '7px' : '8px', // Slightly smaller font for the price value
+                        fontSize: windowWidth < 576 ? '6px' : '8px', // Decreased font size for mobile
                         fontWeight: '800', 
                         color: '#ff3300',
                         whiteSpace: 'nowrap',
