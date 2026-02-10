@@ -114,8 +114,8 @@ div[class*="enhanced-card"] {
   .product-image-container img,
   .product-card .product-image-container img,
   .enhanced-card .product-image-container img {
-    max-width: 80px !important;
-    max-height: 80px !important;
+    max-width: 100% !important; /* Full width for tablet - show complete image */
+    max-height: 100% !important; /* Full height for tablet - show complete image */
   }
 }
 
@@ -123,8 +123,8 @@ div[class*="enhanced-card"] {
   .product-image-container img,
   .product-card .product-image-container img,
   .enhanced-card .product-image-container img {
-    max-width: 100px !important;
-    max-height: 100px !important;
+    max-width: 100% !important; /* Full width for desktop - show complete image */
+    max-height: 100% !important; /* Full height for desktop - show complete image */
   }
 }
 
@@ -255,23 +255,23 @@ div[class*="enhanced-card"] {
 .enhanced-card .product-image {
   height: auto !important;
   width: auto !important;
-  max-width: 70px !important;
-  max-height: 70px !important;
+  max-width: 100% !important; /* Full width for mobile - show complete image */
+  max-height: 100% !important; /* Full height for mobile - show complete image */
 }
 
 @media (min-width: 577px) and (max-width: 768px) {
   .product-card .product-image,
   .enhanced-card .product-image {
-    max-width: 80px !important;
-    max-height: 80px !important;
+    max-width: 100% !important; /* Full width for tablet - show complete image */
+    max-height: 100% !important; /* Full height for tablet - show complete image */
   }
 }
 
 @media (min-width: 769px) {
   .product-card .product-image,
   .enhanced-card .product-image {
-    max-width: 100px !important;
-    max-height: 100px !important;
+    max-width: 100% !important; /* Full width for desktop - show complete image */
+    max-height: 100% !important; /* Full height for desktop - show complete image */
   }
 }
 

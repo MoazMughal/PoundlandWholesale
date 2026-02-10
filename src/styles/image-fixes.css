@@ -46,8 +46,8 @@
 }
 
 .product-image-container img {
-  max-width: 85%;
-  max-height: 85%;
+  max-width: 100%; /* Full width for better image display */
+  max-height: 100%; /* Full height for better image display */
   width: auto;
   height: auto;
   object-fit: contain;
@@ -63,8 +63,8 @@
   }
   
   .product-image-container img {
-    max-width: 70%;
-    max-height: 70%;
+    max-width: 100%; /* Full width for mobile - show complete image */
+    max-height: 100%; /* Full height for mobile - show complete image */
   }
   
   /* Ensure images are properly centered on mobile */

@@ -69,9 +69,10 @@ img[alt*="Product" i] {
 .product-detail-page .card-img-top {
   max-height: none !important;
   height: auto !important;
-  min-height: 180px !important;
+  min-height: 200px !important; /* Increased minimum height for better image display */
   object-fit: contain !important;
   background-color: #ffffff !important;
+  padding: 5px !important; /* Minimal padding for maximum image visibility */
 }
 
 /* Top deals and most popular sections - full size images */
@@ -79,9 +80,10 @@ img[alt*="Product" i] {
 .most-popular-section .card-img-top {
   max-height: none !important;
   height: auto !important;
-  min-height: 180px !important;
+  min-height: 200px !important; /* Increased minimum height for better image display */
   object-fit: contain !important;
   background-color: #ffffff !important;
+  padding: 5px !important; /* Minimal padding for maximum image visibility */
 }
 
 /* Main product image container - ensure no cropping */
@@ -89,13 +91,14 @@ img[alt*="Product" i] {
   overflow: visible !important;
 }
 
-/* Thumbnail images - ensure complete visibility */
+/* Thumbnail images - smaller and zoomed out */
 .product-detail-page .d-flex.gap-1 img {
   object-fit: contain !important;
   width: auto !important;
   height: auto !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
+  max-width: 90% !important; /* Zoom out thumbnails */
+  max-height: 90% !important; /* Zoom out thumbnails */
+  padding: 0px !important;
 }
 
 /* Global rule to prevent image cropping in product detail page */
@@ -119,13 +122,13 @@ img[alt*="Product" i] {
   transition: transform 0.3s ease !important;
 }
 
-/* Override any constraints on main product image - highest specificity */
+/* Override any constraints on main product image - zoomed out approach */
 .product-detail-page .col-12.col-lg-4 .position-relative img {
   padding: 0 !important;
   margin: 0 !important;
   border: none !important;
-  max-width: 85% !important;
-  max-height: 85% !important;
+  max-width: 85% !important; /* Zoom out - show more of the image from all sides */
+  max-height: none !important; /* Remove height constraint - let image show at natural size */
   width: auto !important;
   height: auto !important;
   object-fit: contain !important;
@@ -133,16 +136,32 @@ img[alt*="Product" i] {
   background-color: transparent !important;
 }
 
-/* Ensure main product image container doesn't constrain the image */
+/* Specific rules for ProductImage component in product detail page */
+.product-detail-page .position-relative img,
+.product-detail-page ProductImage img {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  background-color: transparent !important;
+}
+
+/* Ensure main product image container has proper spacing */
 .product-detail-page .col-12.col-lg-4 .position-relative {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  min-height: 400px !important;
-  max-height: none !important;
+  min-height: auto !important; /* Remove fixed height constraint */
+  max-height: none !important; /* Remove height limit */
+  height: auto !important; /* Let container adapt to image */
   width: 100% !important;
-  overflow: hidden !important;
-  padding: 30px !important;
+  overflow: visible !important; /* Prevent cropping */
+  padding: 20px !important; /* Increased padding for better spacing */
 }
 
 /* Related products images */
@@ -663,18 +682,22 @@ img[alt*="Product" i] {
   .product-detail-page .position-relative {
     min-height: 300px !important;
     max-height: 400px !important;
-    padding: 20px !important;
+    padding: 3px !important; /* Minimal padding for maximum image display */
+    overflow: visible !important; /* Prevent cropping */
   }
   
-  /* Main product image on mobile - zoomed out properly */
+  /* Main product image on mobile - full size display */
   .product-detail-page .position-relative img {
-    max-width: 80% !important;
-    max-height: 80% !important;
+    max-width: 100% !important; /* Full width for maximum image display */
+    max-height: 100% !important; /* Full height for maximum image display */
+    padding: 0 !important;
+    margin: 0 !important;
   }
   
   /* Card images on mobile */
   .product-detail-page .card-img-top {
-    min-height: 150px !important;
+    min-height: 180px !important; /* Increased for better visibility */
+    padding: 3px !important; /* Minimal padding for maximum image visibility */
   }
   
   /* Thumbnail images on mobile */
@@ -787,4 +810,97 @@ button[style*="background: linear-gradient"][style*="#1a1a1a"] * {
 .product-detail-page [style*="background: #f8f9fa"] .text-warning,
 .product-detail-page [style*="background: #ffffff"] .text-warning {
   color: var(--text-warning) !important;
+}
+
+/* Force ProductImage component to display at full size like Amazon's Choice page */
+.product-detail-page img[src*="cloudinary"],
+.product-detail-page img[src*="products"],
+.product-detail-page img[alt*="product" i],
+.product-detail-page img[alt*="Product" i] {
+  max-width: 100% !important; /* Full width for all devices - show complete image */
+  max-height: 100% !important; /* Full height for all devices - show complete image */
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  padding: 0px !important;
+  margin: 0 auto !important;
+  display: block !important;
+  background-color: transparent !important;
+  border: none !important;
+}
+
+/* Ensure no CSS overrides affect main product image */
+.product-detail-page .position-relative > img,
+.product-detail-page .card-img-top {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  padding: 0px !important;
+  margin: 0 auto !important;
+  background-color: transparent !important;
+}
+
+/* Remove any Bootstrap or framework constraints */
+.product-detail-page .img-fluid {
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
+
+/* CRITICAL: Override all possible image constraints - zoomed out approach */
+.product-detail-page img {
+  max-width: 85% !important; /* Zoom out - show complete image from all sides */
+  max-height: none !important; /* Remove height constraint - let images show at natural size */
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  padding: 0px !important;
+  margin: 0 auto !important;
+  display: block !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure container doesn't constrain images - more spacing */
+.product-detail-page .position-relative {
+  padding: 20px !important; /* More padding for better spacing around image */
+  overflow: visible !important;
+  height: auto !important; /* Let container adapt to image size */
+  min-height: auto !important; /* Remove fixed height constraints */
+  max-height: none !important; /* Remove height limits */
+}
+
+/* Mobile specific overrides - zoomed out */
+@media (max-width: 768px) {
+  .product-detail-page .position-relative {
+    padding: 15px !important; /* More padding on mobile for better spacing */
+    height: auto !important; /* Let container adapt to image */
+    min-height: auto !important; /* Remove fixed height */
+    max-height: none !important; /* Remove height limit */
+    overflow: visible !important; /* Prevent cropping */
+  }
+  
+  .product-detail-page img {
+    max-width: 80% !important; /* More zoomed out on mobile */
+    max-height: none !important; /* Remove height constraint on mobile */
+    padding: 0px !important;
+  }
+  
+  /* Thumbnail images on mobile - smaller */
+  .product-detail-page .d-flex.gap-1 > div {
+    min-width: 45px !important; /* Smaller on mobile */
+    min-height: 45px !important;
+    max-width: 55px !important;
+    max-height: 55px !important;
+  }
+  
+  .product-detail-page .d-flex.gap-1 img {
+    max-width: 85% !important; /* More zoomed out thumbnails on mobile */
+    max-height: 85% !important;
+  }
 }

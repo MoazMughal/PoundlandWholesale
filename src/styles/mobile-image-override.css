@@ -1,0 +1,115 @@
+/* Mobile Image Override - Highest Priority */
+
+/* Force large images on mobile with highest specificity */
+@media (max-width: 576px) {
+  /* Product cards - force larger images */
+  .product-card .product-image-container,
+  .enhanced-card .product-image-container,
+  #products-grid .product-card .product-image-container,
+  #products-grid .enhanced-card .product-image-container {
+    height: 160px !important;
+    min-height: 160px !important;
+    max-height: 160px !important;
+    padding: 4px !important;
+    background: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    margin: 0px !important; /* Remove all margins */
+    margin-bottom: 0px !important; /* Specifically remove bottom margin */
+  }
+  
+  /* Images - force full size */
+  .product-card .product-image-container img,
+  .enhanced-card .product-image-container img,
+  .product-card .enhanced-image,
+  .enhanced-card .enhanced-image,
+  .product-card .product-image,
+  .enhanced-card .product-image,
+  #products-grid .product-card img,
+  #products-grid .enhanced-card img {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    display: block !important;
+  }
+  
+  /* Product info - remove all spacing */
+  .product-card .product-info,
+  .enhanced-card .product-info,
+  #products-grid .product-card .product-info,
+  #products-grid .enhanced-card .product-info {
+    padding: 0px !important;
+    margin: 0px !important;
+    gap: 0px !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+  }
+  
+  /* Cards - compact but accommodate larger images */
+  .product-card,
+  .enhanced-card,
+  #products-grid .product-card,
+  #products-grid .enhanced-card {
+    min-height: 280px !important;
+    max-height: 300px !important;
+    padding: 4px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0px !important; /* Remove gap between image and content */
+  }
+  
+  /* Titles - optimized 2 line display with spacing */
+  .product-card h5,
+  .enhanced-card h5,
+  .product-info h5,
+  #products-grid .product-card h5,
+  #products-grid .enhanced-card h5 {
+    font-size: 9px !important; /* Slightly smaller for better fit */
+    line-height: 1.1 !important; /* Tighter line height */
+    height: 20px !important; /* Optimized for 2 lines */
+    overflow: hidden !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    margin: 0px !important; /* Remove all margins */
+    margin-bottom: 2px !important; /* Add small space after title */
+    padding: 0px !important; /* Remove all padding */
+  }
+  
+  /* Remove all spacing from all elements inside product cards */
+  .product-card *,
+  .enhanced-card *,
+  #products-grid .product-card *,
+  #products-grid .enhanced-card * {
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+  }
+  
+  /* Specifically target price and profit sections */
+  .product-card .product-info > div,
+  .enhanced-card .product-info > div {
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 577px) and (max-width: 768px) {
+  .product-card .product-image-container,
+  .enhanced-card .product-image-container {
+    height: 140px !important;
+    min-height: 140px !important;
+  }
+  
+  .product-card,
+  .enhanced-card {
+    min-height: 260px !important;
+    max-height: 280px !important;
+  }
+}

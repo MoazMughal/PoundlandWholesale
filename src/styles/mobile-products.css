@@ -55,12 +55,13 @@
     overflow: hidden;
     width: 100% !important;
     padding: 4px !important;
-    min-height: 220px !important;
+    min-height: 280px !important; /* Increased to accommodate larger images */
+    max-height: 300px !important; /* Controlled max height */
   }
 
   .product-image-container {
-    height: 120px !important;
-    min-height: 120px !important;
+    height: 160px !important; /* Significantly increased for larger images */
+    min-height: 160px !important;
     background: #ffffff !important;
     display: flex !important;
     align-items: center !important;
@@ -71,8 +72,8 @@
   
   .product-image-container img {
     display: block !important;
-    max-width: 100% !important;
-    max-height: 100% !important;
+    max-width: 100% !important; /* Full width for mobile - show complete image */
+    max-height: 100% !important; /* Full height for mobile - show complete image */
     width: auto !important;
     height: auto !important;
     object-fit: contain !important;
@@ -81,25 +82,28 @@
   }
 
   .product-info {
-    padding: 6px !important;
+    padding: 0px !important; /* Remove all padding */
     background: #ffffff !important;
     flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 3px !important;
+    gap: 0px !important; /* Remove all gaps */
+    margin: 0px !important; /* Remove all margins */
   }
 
   .product-title {
-    font-size: 11px !important;
-    line-height: 1.2 !important;
-    height: 26px !important;
+    font-size: 9px !important; /* Smaller font for better fit */
+    line-height: 1.1 !important; /* Tighter line height */
+    height: 20px !important; /* Optimized height for 2 lines */
     overflow: hidden !important;
     display: -webkit-box !important;
     -webkit-line-clamp: 2 !important;
     -webkit-box-orient: vertical !important;
     color: #111827 !important;
     font-weight: 700 !important;
-    margin-bottom: 3px !important;
+    margin: 0px !important; /* Remove all margins */
+    margin-bottom: 2px !important; /* Add small space after title */
+    padding: 0px !important; /* Remove all padding */
   }
 
   .rating-stars {

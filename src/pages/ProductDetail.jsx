@@ -2925,19 +2925,22 @@ _This quotation was generated from PoundlandWholesale.com_
             {/* Compact LEFT COLUMN - Product Images */}
             <div className="col-12 col-lg-4 order-1 order-lg-1">
               <div className="sticky-top" style={{top: '80px', zIndex: 10}}>
-                {/* Compact Main Image Container */}
+                {/* Zoomed Out Main Image Container */}
                 <div className="position-relative mb-2" style={{
                   background: '#ffffff', 
                   border: 'none',
                   borderRadius: '8px', 
-                  padding: '30px',
+                  padding: '20px', // Increased padding to create space around image
                   boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
                   transition: 'box-shadow 0.3s ease',
-                  minHeight: '400px',
+                  minHeight: 'auto', // Remove fixed height constraint
+                  maxHeight: 'none', // Remove height limit
+                  height: 'auto', // Let container adapt to image
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  overflow: 'hidden'
+                  overflow: 'visible', // Prevent cropping
+                  width: '100%'
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'}
                 onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)'}
@@ -2947,14 +2950,16 @@ _This quotation was generated from PoundlandWholesale.com_
                     alt={product.name} 
                     className="img-fluid"
                     style={{
-                      maxWidth: '85%',
-                      maxHeight: '85%',
+                      maxWidth: '85%', // Zoom out - show more of the image from all sides
+                      maxHeight: 'none', // Remove height constraint - let image show at natural size
                       width: 'auto',
                       height: 'auto',
                       objectFit: 'contain',
                       objectPosition: 'center',
-                      backgroundColor: 'transparent',
+                      padding: '0px',
+                      margin: '0 auto',
                       display: 'block',
+                      backgroundColor: 'transparent',
                       transition: 'transform 0.3s ease',
                       cursor: 'zoom-in'
                     }}
@@ -3028,18 +3033,20 @@ _This quotation was generated from PoundlandWholesale.com_
                   </div>
                 </div>
 
-                {/* Compact Thumbnail Images */}
+                {/* Smaller Thumbnail Images - Zoomed Out */}
                 <div className="d-flex gap-1 mb-2 overflow-auto pb-1" style={{maxWidth: '100%'}}>
                   {product.images && product.images.map((img, idx) => (
                     <div 
                       key={idx}
                       onClick={() => setSelectedImage(idx)}
                       style={{
-                        minWidth: '60px',
-                        height: '60px',
+                        minWidth: '50px', // Smaller thumbnails
+                        minHeight: '50px', // Smaller thumbnails
+                        maxWidth: '60px', // Smaller max size
+                        maxHeight: '60px', // Smaller max size
                         border: selectedImage === idx ? '2px solid #ff9900' : '1px solid #e1e5e9',
                         borderRadius: '6px',
-                        padding: '4px',
+                        padding: '1px', // Minimal padding for maximum image space
                         cursor: 'pointer',
                         background: '#fff',
                         transition: 'all 0.2s ease',
@@ -3047,7 +3054,8 @@ _This quotation was generated from PoundlandWholesale.com_
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        overflow: 'visible'
+                        overflow: 'visible', // Prevent cropping
+                        flexShrink: 0 // Prevent shrinking
                       }}
                       onMouseEnter={(e) => {
                         if (selectedImage !== idx) {
@@ -3068,14 +3076,15 @@ _This quotation was generated from PoundlandWholesale.com_
                         src={img}
                         alt={`${product.name} ${idx + 1}`}
                         style={{
-                          maxWidth: '100%', 
-                          maxHeight: '100%', 
+                          maxWidth: '90%', // Zoom out - show more of the image
+                          maxHeight: '90%', // Zoom out - show more of the image
                           width: 'auto',
                           height: 'auto',
-                          objectFit: 'contain',
+                          objectFit: 'contain', // Ensure full image visibility
                           objectPosition: 'center',
                           borderRadius: '4px',
-                          backgroundColor: '#ffffff'
+                          backgroundColor: '#ffffff',
+                          padding: '0px' // No padding on image itself
                         }}
                       />
                     </div>
@@ -4969,10 +4978,12 @@ _This quotation was generated from PoundlandWholesale.com_
                         className="card-img-top w-100" 
                         style={{
                           height: 'auto',
-                          minHeight: '180px',
+                          minHeight: '200px', // Increased for better image display
                           maxHeight: 'none',
+                          maxWidth: '100%', // Full width for all devices - show complete image
+                          width: 'auto',
                           objectFit: 'contain',
-                          padding: '10px',
+                          padding: '5px', // Reduced padding for larger image display
                           background: '#ffffff'
                         }} 
                       />
@@ -5023,10 +5034,12 @@ _This quotation was generated from PoundlandWholesale.com_
                         className="card-img-top w-100" 
                         style={{
                           height: 'auto',
-                          minHeight: '180px',
+                          minHeight: '200px', // Increased for better image display
                           maxHeight: 'none',
+                          maxWidth: '100%', // Full width for all devices - show complete image
+                          width: 'auto',
                           objectFit: 'contain',
-                          padding: '10px',
+                          padding: '5px', // Reduced padding for larger image display
                           background: '#ffffff'
                         }} 
                       />

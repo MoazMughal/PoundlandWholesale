@@ -2,7 +2,7 @@
 
 /* Ensure images load properly on mobile devices */
 @media (max-width: 768px) {
-  /* Amazon's Choice product grid images */
+  /* Amazon's Choice product grid images - LARGER IMAGES */
   .product-card .product-image-container {
     background: #fff !important;
     display: flex !important;
@@ -10,7 +10,10 @@
     justify-content: center !important;
     overflow: hidden !important;
     border-radius: 8px !important;
-    padding: 12px !important; /* Increased padding for better spacing */
+    padding: 8px !important; /* Reduced padding to give more space to image */
+    height: 160px !important; /* Significantly increased height */
+    min-height: 160px !important;
+    max-height: 160px !important;
   }
   
   .product-card .enhanced-image-container {
@@ -22,12 +25,24 @@
   }
   
   .product-card .enhanced-image {
-    max-width: 70% !important; /* Reduced from 100% to 70% for more zoom out */
-    max-height: 70% !important; /* Reduced from 100% to 70% for more zoom out */
+    max-width: 100% !important; /* Full width for mobile - show complete image */
+    max-height: 100% !important; /* Full height for mobile - show complete image */
     width: auto !important;
     height: auto !important;
     object-fit: contain !important;
     display: block !important;
+  }
+  
+  /* Override any conflicting styles */
+  .product-card .product-image-container img,
+  .enhanced-card .product-image-container img,
+  .product-image,
+  .enhanced-image {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
   }
   
   /* Product detail page images */
@@ -196,16 +211,16 @@
 /* Very small screens (phones in portrait) */
 @media (max-width: 480px) {
   .product-card .product-image-container {
-    height: 100px !important;
-    padding: 4px !important;
+    height: 160px !important; /* Consistent large height for images */
+    padding: 6px !important; /* Minimal padding for maximum image space */
   }
   
   .product-images .main-image {
-    height: 250px !important;
+    height: 300px !important; /* Increased for product detail pages */
   }
   
   .thumbnail-images .enhanced-image-container {
-    height: 60px !important;
+    height: 70px !important; /* Slightly increased thumbnail size */
   }
 }
 

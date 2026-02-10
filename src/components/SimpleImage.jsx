@@ -20,10 +20,10 @@ const SimpleImage = ({
       }}
       onLoad={onLoad}
       style={{
-        maxWidth: '90%', // Increased default size
-        maxHeight: '90%', // Increased default size
+        maxWidth: '100%', // Full width for better image display
+        maxHeight: '100%', // Full height for better image display
         objectFit: 'contain',
-        transform: 'scale(1.05)', // Added slight zoom by default
+        transform: 'scale(1)', // Removed zoom to show full image
         ...style
       }} 
     />
