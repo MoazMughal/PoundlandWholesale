@@ -959,57 +959,180 @@ const AmazonsChoice = () => {
         {/* Enhanced Loading Message */}
         <div style={{
           textAlign: 'center',
-          padding: windowWidth < 576 ? '30px 15px' : '40px 20px', // Adjusted for mobile
-          fontSize: windowWidth < 576 ? '16px' : '18px', // Smaller on mobile
-          color: '#ff6600',
-          background: 'linear-gradient(135deg, #fff8f5 0%, #ffede0 100%)', // Enhanced gradient
-          borderRadius: windowWidth < 576 ? '12px' : '15px', // Adjusted for mobile
-          border: '2px solid #ff6600',
-          boxShadow: '0 8px 25px rgba(255, 102, 0, 0.2)',
-          margin: windowWidth < 576 ? '15px 0' : '20px 0', // Adjusted margin
+          padding: windowWidth < 576 ? '25px 15px' : '35px 25px',
+          margin: windowWidth < 576 ? '15px 0 25px 0' : '20px 0 30px 0',
           position: 'relative',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          background: 'linear-gradient(135deg, #ff6600 0%, #ff8533 50%, #ffaa66 100%)',
+          borderRadius: windowWidth < 576 ? '16px' : '20px',
+          boxShadow: '0 12px 40px rgba(255, 102, 0, 0.25), 0 4px 15px rgba(255, 102, 0, 0.15)',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
         }}>
-          {/* Background decoration */}
+          {/* Animated background particles */}
           <div style={{
             position: 'absolute',
-            top: '-30%',
-            left: '-30%',
-            width: '60%',
-            height: '60%',
-            background: 'radial-gradient(circle, rgba(255, 102, 0, 0.05) 0%, transparent 70%)',
-            borderRadius: '50%',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: `
+              radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.08) 0%, transparent 50%),
+              radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.06) 0%, transparent 50%)
+            `,
+            animation: 'float 6s ease-in-out infinite',
             pointerEvents: 'none'
           }} />
           
-          <div style={{ position: 'relative', zIndex: 1 }}>
+          {/* Shimmer effect */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: '-100%',
+            width: '100%',
+            height: '100%',
+            background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent)',
+            animation: 'shimmer 2s infinite',
+            pointerEvents: 'none'
+          }} />
+          
+          <div style={{ position: 'relative', zIndex: 2 }}>
+            {/* Main loading icon with pulse animation */}
             <div style={{
-              fontSize: windowWidth < 576 ? '1.5rem' : '2rem', // Smaller on mobile
-              marginBottom: '15px',
-              animation: 'spin 2s linear infinite',
-              filter: 'drop-shadow(0 2px 4px rgba(255, 102, 0, 0.3))'
+              fontSize: windowWidth < 576 ? '2.5rem' : '3.5rem',
+              marginBottom: windowWidth < 576 ? '12px' : '18px',
+              display: 'inline-block',
+              animation: 'pulse 1.5s ease-in-out infinite, bounce 2s ease-in-out infinite',
+              filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2))'
             }}>
-              🔄
+              🛍️
             </div>
+            
+            {/* Loading dots animation */}
             <div style={{
-              fontWeight: '700',
-              textShadow: '0 2px 4px rgba(255, 102, 0, 0.3)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '4px',
+              marginBottom: windowWidth < 576 ? '15px' : '20px'
+            }}>
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: windowWidth < 576 ? '6px' : '8px',
+                    height: windowWidth < 576 ? '6px' : '8px',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    animation: `loadingDots 1.4s ease-in-out infinite`,
+                    animationDelay: `${i * 0.2}s`,
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                  }}
+                />
+              ))}
+            </div>
+            
+            {/* Main title */}
+            <div style={{
+              fontSize: windowWidth < 576 ? '1.1rem' : '1.4rem',
+              fontWeight: '800',
+              color: 'white',
+              textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
               letterSpacing: '0.5px',
-              marginBottom: '8px'
+              marginBottom: windowWidth < 576 ? '8px' : '12px',
+              lineHeight: '1.2'
             }}>
-              Loading Amazing Products...
+              Loading Amazing Products
             </div>
+            
+            {/* Subtitle with typewriter effect */}
             <div style={{
-              fontSize: windowWidth < 576 ? '11px' : '12px', // Smaller on mobile
-              marginTop: '8px',
-              color: '#cc3300',
-              fontWeight: '500',
-              opacity: 0.9
+              fontSize: windowWidth < 576 ? '0.85rem' : '1rem',
+              color: 'rgba(255, 255, 255, 0.95)',
+              fontWeight: '600',
+              textShadow: '0 1px 4px rgba(0, 0, 0, 0.2)',
+              opacity: 0.95,
+              animation: 'fadeInOut 3s ease-in-out infinite'
             }}>
-              Fetching the best deals for you!
+              Discovering the best deals just for you...
+            </div>
+            
+            {/* Progress bar */}
+            <div style={{
+              width: '100%',
+              height: '3px',
+              backgroundColor: 'rgba(255, 255, 255, 0.3)',
+              borderRadius: '2px',
+              marginTop: windowWidth < 576 ? '15px' : '20px',
+              overflow: 'hidden',
+              position: 'relative'
+            }}>
+              <div style={{
+                height: '100%',
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '2px',
+                animation: 'progressBar 2s ease-in-out infinite',
+                boxShadow: '0 0 8px rgba(255, 255, 255, 0.6)'
+              }} />
             </div>
           </div>
         </div>
+        
+        {/* Add CSS animations */}
+        <style jsx>{`
+          @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+          }
+          
+          @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-8px); }
+            60% { transform: translateY(-4px); }
+          }
+          
+          @keyframes loadingDots {
+            0%, 80%, 100% { 
+              transform: scale(0.8);
+              opacity: 0.5;
+            }
+            40% { 
+              transform: scale(1.2);
+              opacity: 1;
+            }
+          }
+          
+          @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+          }
+          
+          @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            33% { transform: translateY(-10px) rotate(1deg); }
+            66% { transform: translateY(5px) rotate(-1deg); }
+          }
+          
+          @keyframes fadeInOut {
+            0%, 100% { opacity: 0.95; }
+            50% { opacity: 0.7; }
+          }
+          
+          @keyframes progressBar {
+            0% { 
+              width: 0%;
+              left: 0%;
+            }
+            50% { 
+              width: 70%;
+              left: 15%;
+            }
+            100% { 
+              width: 0%;
+              left: 100%;
+            }
+          }
+        `}</style>
         
         {/* Skeleton Loaders Grid */}
         <div id="products-grid" style={{

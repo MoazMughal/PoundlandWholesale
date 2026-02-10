@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBuyer } from '../../context/BuyerContext';
+import { getApiUrl } from '../../utils/api';
 import '../../styles/BuyerDashboard.css';
 import '../../styles/dashboard-responsive.css';
 import '../../styles/mobile-dashboard.css';
@@ -42,7 +43,7 @@ const BuyerDashboard = () => {
       try {
         console.log('Dashboard: Making profile API call');
         // Fetch buyer profile
-        const profileResponse = await fetch('http://localhost:5000/api/buyer/profile', {
+        const profileResponse = await fetch(getApiUrl('buyer/profile'), {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -62,7 +63,7 @@ const BuyerDashboard = () => {
         }
 
         // Fetch dashboard stats
-        const statsResponse = await fetch('http://localhost:5000/api/buyer/dashboard/stats', {
+        const statsResponse = await fetch(getApiUrl('buyer/dashboard/stats'), {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -74,7 +75,7 @@ const BuyerDashboard = () => {
         }
 
         // Fetch unlocked suppliers
-        const suppliersResponse = await fetch('http://localhost:5000/api/buyer/unlocked-suppliers', {
+        const suppliersResponse = await fetch(getApiUrl('buyer/unlocked-suppliers'), {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -86,7 +87,7 @@ const BuyerDashboard = () => {
         }
 
         // Fetch payment history
-        const paymentsResponse = await fetch('http://localhost:5000/api/buyer/payment-history', {
+        const paymentsResponse = await fetch(getApiUrl('buyer/payment-history'), {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -127,47 +128,52 @@ const BuyerDashboard = () => {
       {/* Header */}
       <header className="buyer-dashboard-header" style={{
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '20px',
+        padding: '15px 20px',
         borderRadius: '12px',
-        marginBottom: '30px',
+        marginBottom: '25px',
         color: 'white',
         boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
       }}>
         <div className="dashboard-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px'}}>
           <div>
-            <h1 style={{fontSize: '1.8rem', margin: 0, marginBottom: '5px'}}>👋 Welcome, {buyer?.name || 'Buyer'}!</h1>
-            <p style={{fontSize: '0.9rem', margin: 0, opacity: 0.9}} className="text-break">{buyer?.email}</p>
+            <h1 style={{fontSize: '1.6rem', margin: 0, marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '10px', color: 'white'}}>
+              👋 Welcome, {buyer?.name || buyer?.firstName || buyer?.username || 'Buyer'}!
+            </h1>
+            <p style={{fontSize: '0.85rem', margin: 0, opacity: 0.9, marginLeft: '15px', color: 'white'}} className="text-break">{buyer?.email}</p>
           </div>
-          <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+          <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap', marginRight: '15px'}}>
             <button 
               onClick={() => navigate('/')}
               style={{
-                padding: '10px 20px',
+                padding: '8px 16px',
                 background: 'rgba(255,255,255,0.2)',
                 color: 'white',
                 border: '1px solid rgba(255,255,255,0.3)',
                 borderRadius: '8px',
-                fontSize: '0.9rem',
+                fontSize: '0.85rem',
                 fontWeight: '600',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
               }}
             >
-              🏠 <span className="mobile-hide">Home</span>
+              🏠 Home
             </button>
             <button 
               onClick={handleLogout}
               style={{
-                padding: '10px 20px',
+                padding: '8px 16px',
                 background: '#dc2626',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                fontSize: '0.9rem',
+                fontSize: '0.85rem',
                 fontWeight: '600',
                 cursor: 'pointer'
               }}
             >
-              <span className="mobile-hide">Logout</span><span className="mobile-show">Exit</span>
+              Logout
             </button>
           </div>
         </div>
@@ -176,62 +182,76 @@ const BuyerDashboard = () => {
       {/* Stats Cards */}
       <div className="buyer-stats-grid" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-        gap: '20px',
-        marginBottom: '30px'
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: '15px',
+        marginBottom: '25px'
       }}>
         <div className="buyer-stat-card" style={{
           background: 'white',
-          padding: '20px',
-          borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          border: '1px solid #e5e7eb'
+          padding: '15px',
+          borderRadius: '10px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          border: '1px solid #e5e7eb',
+          textAlign: 'center'
         }}>
-          <div className="stat-icon" style={{fontSize: '2rem', marginBottom: '10px'}}>🛒</div>
-          <h3 style={{fontSize: '1rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>Total Orders</h3>
-          <p className="stat-value" style={{fontSize: '2rem', fontWeight: '700', color: '#111827', margin: 0}}>{stats.totalOrders}</p>
+          <div className="stat-icon" style={{fontSize: '1.8rem', marginBottom: '8px'}}>🛒</div>
+          <h3 style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px', fontWeight: '500'}}>Total Orders</h3>
+          <p className="stat-value" style={{fontSize: '1.8rem', fontWeight: '700', color: '#111827', margin: 0}}>{stats.totalOrders}</p>
         </div>
 
         <div className="buyer-stat-card" style={{
           background: 'white',
-          padding: '20px',
-          borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          border: '1px solid #e5e7eb'
+          padding: '15px',
+          borderRadius: '10px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          border: '1px solid #e5e7eb',
+          textAlign: 'center'
         }}>
-          <div className="stat-icon" style={{fontSize: '2rem', marginBottom: '10px'}}>❤️</div>
-          <h3 style={{fontSize: '1rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>Favorites</h3>
-          <p className="stat-value" style={{fontSize: '2rem', fontWeight: '700', color: '#111827', margin: 0}}>{stats.totalFavorites}</p>
+          <div className="stat-icon" style={{fontSize: '1.8rem', marginBottom: '8px'}}>❤️</div>
+          <h3 style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px', fontWeight: '500'}}>Favorites</h3>
+          <p className="stat-value" style={{fontSize: '1.8rem', fontWeight: '700', color: '#111827', margin: 0}}>{stats.totalFavorites}</p>
         </div>
 
         <div className="buyer-stat-card" style={{
           background: 'white',
-          padding: '20px',
-          borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          border: '1px solid #e5e7eb'
+          padding: '15px',
+          borderRadius: '10px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          border: '1px solid #e5e7eb',
+          textAlign: 'center'
         }}>
-          <div className="stat-icon" style={{fontSize: '2rem', marginBottom: '10px'}}>🔓</div>
-          <h3 style={{fontSize: '1rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>Unlocked Suppliers</h3>
-          <p className="stat-value" style={{fontSize: '2rem', fontWeight: '700', color: '#111827', margin: 0}}>{unlockedSuppliers.length}</p>
+          <div className="stat-icon" style={{fontSize: '1.8rem', marginBottom: '8px'}}>🔓</div>
+          <h3 style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px', fontWeight: '500'}}>Unlocked Suppliers</h3>
+          <p className="stat-value" style={{fontSize: '1.8rem', fontWeight: '700', color: '#111827', margin: 0}}>{unlockedSuppliers.length}</p>
         </div>
 
         <div className="buyer-stat-card" style={{
           background: 'white',
-          padding: '20px',
-          borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          border: '1px solid #e5e7eb'
+          padding: '15px',
+          borderRadius: '10px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          border: '1px solid #e5e7eb',
+          textAlign: 'center'
         }}>
-          <div className="stat-icon" style={{fontSize: '2rem', marginBottom: '10px'}}>📊</div>
-          <h3 style={{fontSize: '1rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>Account Status</h3>
+          <div className="stat-icon" style={{fontSize: '1.8rem', marginBottom: '8px'}}>📊</div>
+          <h3 style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px', fontWeight: '500'}}>Account Status</h3>
           <p className="stat-value" style={{
-            fontSize: '1.2rem', 
+            fontSize: '1rem', 
             fontWeight: '700', 
             color: stats.status === 'active' ? '#059669' : '#dc2626', 
-            margin: 0
+            margin: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '5px'
           }}>
-            {stats.status === 'active' ? '✅ Active' : stats.status === 'inactive' ? '⏸️ Inactive' : '🚫 Suspended'}
+            {stats.status === 'active' ? (
+              <>✅ Active</>
+            ) : stats.status === 'inactive' ? (
+              <>⏸️ Inactive</>
+            ) : (
+              <>🚫 Suspended</>
+            )}
           </p>
         </div>
       </div>
@@ -239,39 +259,41 @@ const BuyerDashboard = () => {
       {/* Quick Actions */}
       <div style={{
         background: 'white',
-        padding: '25px',
-        borderRadius: '12px',
-        marginBottom: '30px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        padding: '20px',
+        borderRadius: '10px',
+        marginBottom: '25px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
         border: '1px solid #e5e7eb'
       }}>
-        <h2 style={{fontSize: '1.3rem', marginBottom: '20px', color: '#111827'}}>🚀 Quick Actions</h2>
-        <div style={{display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap'}}>
+        <h2 style={{fontSize: '1.1rem', marginBottom: '15px', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px'}}>
+          🚀 Quick Actions
+        </h2>
+        <div style={{display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap'}}>
           <button
             onClick={() => navigate('/buyer/edit-profile')}
             style={{
-              padding: '15px 30px',
+              padding: '12px 24px',
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
               border: 'none',
-              borderRadius: '12px',
-              fontSize: '1rem',
-              fontWeight: '700',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+              fontWeight: '600',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '10px',
-              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
-              transition: 'all 0.3s ease'
+              gap: '8px',
+              boxShadow: '0 3px 10px rgba(102, 126, 234, 0.3)',
+              transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-3px)'
-              e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.4)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.boxShadow = '0 5px 15px rgba(102, 126, 234, 0.4)'
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)'
+              e.currentTarget.style.boxShadow = '0 3px 10px rgba(102, 126, 234, 0.3)'
             }}
           >
             ✏️ Edit Profile
@@ -280,28 +302,28 @@ const BuyerDashboard = () => {
           <button
             onClick={() => navigate('/')}
             style={{
-              padding: '15px 30px',
+              padding: '12px 24px',
               background: 'linear-gradient(135deg, #ff9900 0%, #ff6600 100%)',
               color: 'white',
               border: 'none',
-              borderRadius: '12px',
-              fontSize: '1rem',
-              fontWeight: '700',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+              fontWeight: '600',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '10px',
-              boxShadow: '0 4px 12px rgba(255, 153, 0, 0.3)',
-              transition: 'all 0.3s ease'
+              gap: '8px',
+              boxShadow: '0 3px 10px rgba(255, 153, 0, 0.3)',
+              transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-3px)'
-              e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 153, 0, 0.4)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.boxShadow = '0 5px 15px rgba(255, 153, 0, 0.4)'
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.3)'
+              e.currentTarget.style.boxShadow = '0 3px 10px rgba(255, 153, 0, 0.3)'
             }}
           >
             🏆 View All Products
@@ -312,33 +334,35 @@ const BuyerDashboard = () => {
       {/* Account Info */}
       <div style={{
         background: 'white',
-        padding: '25px',
-        borderRadius: '12px',
-        marginBottom: '30px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        padding: '20px',
+        borderRadius: '10px',
+        marginBottom: '25px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
         border: '1px solid #e5e7eb'
       }}>
-        <h2 style={{fontSize: '1.3rem', marginBottom: '20px', color: '#111827'}}>👤 Account Information</h2>
-        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px'}}>
+        <h2 style={{fontSize: '1.1rem', marginBottom: '15px', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px'}}>
+          👤 Account Information
+        </h2>
+        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px'}}>
           <div>
-            <p style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>Email</p>
-            <p style={{fontSize: '1rem', fontWeight: '600', color: '#111827', margin: 0}}>{buyer?.email}</p>
+            <p style={{fontSize: '0.8rem', color: '#6b7280', margin: 0, marginBottom: '4px'}}>Email</p>
+            <p style={{fontSize: '0.9rem', fontWeight: '600', color: '#111827', margin: 0}}>{buyer?.email}</p>
           </div>
           <div>
-            <p style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>User Type</p>
-            <p style={{fontSize: '1rem', fontWeight: '600', color: '#111827', margin: 0, textTransform: 'capitalize'}}>
+            <p style={{fontSize: '0.8rem', color: '#6b7280', margin: 0, marginBottom: '4px'}}>User Type</p>
+            <p style={{fontSize: '0.9rem', fontWeight: '600', color: '#111827', margin: 0, textTransform: 'capitalize'}}>
               {buyer?.userType || 'Buyer'}
             </p>
           </div>
           <div>
-            <p style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>Member Since</p>
-            <p style={{fontSize: '1rem', fontWeight: '600', color: '#111827', margin: 0}}>
+            <p style={{fontSize: '0.8rem', color: '#6b7280', margin: 0, marginBottom: '4px'}}>Member Since</p>
+            <p style={{fontSize: '0.9rem', fontWeight: '600', color: '#111827', margin: 0}}>
               {stats.memberSince ? new Date(stats.memberSince).toLocaleDateString() : 'N/A'}
             </p>
           </div>
           <div>
-            <p style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px'}}>Last Login</p>
-            <p style={{fontSize: '1rem', fontWeight: '600', color: '#111827', margin: 0}}>
+            <p style={{fontSize: '0.8rem', color: '#6b7280', margin: 0, marginBottom: '4px'}}>Last Login</p>
+            <p style={{fontSize: '0.9rem', fontWeight: '600', color: '#111827', margin: 0}}>
               {stats.lastLogin ? new Date(stats.lastLogin).toLocaleString() : 'N/A'}
             </p>
           </div>
