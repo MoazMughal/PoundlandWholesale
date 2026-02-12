@@ -1521,13 +1521,11 @@ const AmazonsChoice = () => {
             const productUrl = `/product/${product.id}?${params.toString()}`
             
             return (
-            <a 
+            <div 
               key={product.id} 
-              href={productUrl}
               className="product-card enhanced-card"
               onClick={(e) => {
-                // For normal clicks, prevent default and use React Router
-                e.preventDefault()
+                // Navigate to product detail page
                 navigate(productUrl)
               }}
               style={{
@@ -2105,6 +2103,7 @@ const AmazonsChoice = () => {
                     {/* Basket button - Desktop: Orange Circle, Mobile: Rectangular */}
                     <button
                       onClick={(e) => {
+                        e.preventDefault()
                         e.stopPropagation()
                         addToBasket(product)
                       }}
@@ -2220,7 +2219,7 @@ const AmazonsChoice = () => {
                   </a>
                 </div>
               </div>
-            </a>
+            </div>
             )
           })}
           </div>

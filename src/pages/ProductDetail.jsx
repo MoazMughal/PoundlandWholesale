@@ -11,6 +11,7 @@ import { useCurrency } from '../context/CurrencyContext'
 import { useAdmin } from '../context/AdminContext'
 import { useBuyer } from '../context/BuyerContext'
 import { useSeller } from '../context/SellerContext'
+import { useBasket } from '../context/BasketContext'
 import '../styles/product-detail-compact.css'
 import '../styles/product-detail-enhanced.css'
 
@@ -95,6 +96,7 @@ const ProductDetail = () => {
   const { admin, isLoggedIn: isAdminLoggedIn } = useAdmin()
   const { buyer, isLoggedIn: isBuyerLoggedIn } = useBuyer()
   const { seller, isLoggedIn: isSellerLoggedIn } = useSeller()
+  const { addToBasket, isInBasket } = useBasket()
   const [relatedProducts, setRelatedProducts] = useState([])
   const [topDealsFromDB, setTopDealsFromDB] = useState([])
   const [mostPopularFromDB, setMostPopularFromDB] = useState([])
@@ -3780,9 +3782,13 @@ _This quotation was generated from PoundlandWholesale.com_
                       style={{
                         fontSize: '0.65rem', 
                         padding: '6px 10px',
-                        background: 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)',
+                        background: product && isInBasket(product.id || product._id) 
+                          ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
+                          : 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)',
                         color: '#ffffff !important',
-                        border: '1px solid #ff9900',
+                        border: product && isInBasket(product.id || product._id) 
+                          ? '1px solid #10b981' 
+                          : '1px solid #ff9900',
                         borderRadius: '6px',
                         fontWeight: '600',
                         letterSpacing: '0.2px',
@@ -3790,22 +3796,35 @@ _This quotation was generated from PoundlandWholesale.com_
                       }}
                       onClick={() => {
                         // Add to cart functionality
-                        alert('Add to cart functionality will be implemented soon!');
+                        if (product) {
+                          addToBasket(product);
+                        }
                       }}
                       onMouseEnter={(e) => {
-                        e.target.style.background = 'linear-gradient(135deg, #ff9900 0%, #ff7700 100%)';
-                        e.target.style.borderColor = '#ffffff';
+                        if (product && isInBasket(product.id || product._id)) {
+                          e.target.style.background = 'linear-gradient(135deg, #059669 0%, #047857 100%)';
+                          e.target.style.borderColor = '#10b981';
+                        } else {
+                          e.target.style.background = 'linear-gradient(135deg, #ff9900 0%, #ff7700 100%)';
+                          e.target.style.borderColor = '#ffffff';
+                        }
                         e.target.style.transform = 'translateY(-1px)';
                         e.target.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.35)';
                       }}
                       onMouseLeave={(e) => {
-                        e.target.style.background = 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)';
-                        e.target.style.borderColor = '#ff9900';
+                        if (product && isInBasket(product.id || product._id)) {
+                          e.target.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                          e.target.style.borderColor = '#10b981';
+                        } else {
+                          e.target.style.background = 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)';
+                          e.target.style.borderColor = '#ff9900';
+                        }
                         e.target.style.transform = 'translateY(0)';
                         e.target.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.25)';
                       }}
                     >
-                      <i className="fas fa-shopping-cart me-1"></i>Add to Cart
+                      <i className={product && isInBasket(product.id || product._id) ? 'fas fa-check me-1' : 'fas fa-shopping-cart me-1'}></i>
+                      {product && isInBasket(product.id || product._id) ? 'In Basket' : 'Add to Cart'}
                     </button>
                   </div>
 

@@ -36,6 +36,7 @@ const Approval = () => {
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [allProductsSelected, setAllProductsSelected] = useState(false); // Track if all products across pages are selected
   const [allProductIds, setAllProductIds] = useState([]); // Store all product IDs for bulk operations
+  const [lastRefreshTime, setLastRefreshTime] = useState(null);
 
   // ASIN search states for products without images
   const [asinInputs, setAsinInputs] = useState({}); // productId -> asin value
@@ -53,6 +54,16 @@ const Approval = () => {
       setTimeout(() => setShowSuccessToast(false), 5000);
     }
   }, [location.state, currentPage, pageSize, selectedCategory, sortBy, searchTerm]);
+
+  // Auto-refresh every 30 seconds to catch new products
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      console.log('🔄 Auto-refreshing pending products...');
+      fetchPendingProducts();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(intervalId);
+  }, [currentPage, pageSize, selectedCategory, sortBy, searchTerm]);
 
   // Fetch all categories on component mount
   useEffect(() => {
@@ -79,7 +90,7 @@ const Approval = () => {
         ...(selectedCategory !== 'all' && { category: selectedCategory })
       });
 
-      const response = await adminGet(getApiUrl(`products/pending-approval?${params}`));
+      const response = await adminGet(`products/pending-approval?${params}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -87,6 +98,9 @@ const Approval = () => {
         setFilteredProducts(data.products || []); // Since filtering is now server-side
         setTotalPages(data.pagination?.totalPages || 1);
         setTotalProducts(data.pagination?.totalProducts || 0);
+        setLastRefreshTime(new Date()); // Update last refresh time
+        
+        console.log(`✅ Loaded ${data.products?.length || 0} pending products (Total: ${data.pagination?.totalProducts || 0})`);
         
         // Fetch all available categories instead of just extracting from pending products
         await fetchAllCategories();
@@ -144,7 +158,7 @@ const Approval = () => {
     setProcessing(productId);
     
     try {
-      const response = await adminPost(getApiUrl(`products/${productId}/approval`), {
+      const response = await adminPost(`products/${productId}/approval`, {
         action, // 'approve' or 'disapprove'
         approvalStatus: action === 'approve' ? 'approved' : 'disapproved'
       });
@@ -222,7 +236,7 @@ const Approval = () => {
         ...(selectedCategory !== 'all' && { category: selectedCategory })
       });
 
-      const response = await adminGet(getApiUrl(`products/pending-approval?${params}`));
+      const response = await adminGet(`products/pending-approval?${params}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -393,7 +407,7 @@ const Approval = () => {
       
       // Process each product approval/disapproval
       const approvalPromises = productIds.map(productId => 
-        adminPost(getApiUrl(`products/${productId}/approval`), {
+        adminPost(`products/${productId}/approval`, {
           action: action, // 'approve' or 'disapprove'
           approvalStatus: action === 'approve' ? 'approved' : 'disapproved'
         })
@@ -802,6 +816,71 @@ const Approval = () => {
     );
   }
 
+  // Show message if no pending products
+  if (!loading && filteredProducts.length === 0 && !searchTerm && selectedCategory === 'all') {
+    return (
+      <div className="admin-product-form">
+        <header className="form-header">
+          <h1>✅ Product Approval</h1>
+          <button onClick={() => navigate('/admin/dashboard')} className="back-button">
+            ← Back to Dashboard
+          </button>
+        </header>
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '20px' }}>✅</div>
+          <h2 style={{ color: '#28a745', marginBottom: '10px' }}>No Pending Products</h2>
+          <p style={{ color: '#666', marginBottom: '20px' }}>
+            All products have been reviewed! There are no products waiting for approval.
+          </p>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button 
+              onClick={() => navigate('/admin/products')} 
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              📦 View All Products
+            </button>
+            <button 
+              onClick={() => navigate('/admin/add-product')} 
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              ➕ Add New Product
+            </button>
+            <button 
+              onClick={() => navigate('/admin/dashboard')} 
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              🏠 Back to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-product-form" style={{ position: 'relative' }}>
       {/* Refresh Overlay */}
@@ -829,8 +908,44 @@ const Approval = () => {
       )}
       
       <header className="form-header">
-        <h1>✅ Product Approval ({totalProducts} total products)</h1>
+        <div>
+          <h1>✅ Product Approval ({totalProducts} total products)</h1>
+          {lastRefreshTime && (
+            <p style={{ 
+              fontSize: '0.75rem', 
+              color: '#6c757d', 
+              margin: '4px 0 0 0',
+              fontWeight: 'normal'
+            }}>
+              Last refreshed: {lastRefreshTime.toLocaleTimeString()} (Auto-refresh every 30s)
+            </p>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            onClick={() => {
+              console.log('🔄 Manual refresh triggered');
+              fetchPendingProducts();
+              setSuccessMessage('🔄 Refreshing pending products...');
+              setShowSuccessToast(true);
+              setTimeout(() => setShowSuccessToast(false), 2000);
+            }}
+            disabled={loading}
+            style={{
+              padding: '8px 16px',
+              background: loading ? '#6c757d' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: '12px',
+              fontWeight: '600',
+              whiteSpace: 'nowrap'
+            }}
+            title="Refresh the list of pending products"
+          >
+            {loading ? '⏳ Loading...' : '🔄 Refresh'}
+          </button>
           <button
             onClick={handleFixPartyAccessoriesCategory}
             disabled={bulkProcessing}

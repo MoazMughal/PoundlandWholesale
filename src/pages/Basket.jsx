@@ -30,9 +30,11 @@ const Basket = () => {
     alert('Checkout functionality coming soon!')
   }
 
+  const totalItems = basket.reduce((sum, item) => sum + (item.quantity || 1), 0)
+
   if (basket.length === 0) {
     return (
-      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0px 20px' }}>
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
         <div style={{ textAlign: 'center', maxWidth: '400px' }}>
           <i className="fas fa-shopping-basket" style={{ fontSize: '80px', color: '#d1d5db', marginBottom: '20px' }}></i>
           <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '10px', color: '#111' }}>Your Basket is Empty</h2>
@@ -47,7 +49,7 @@ const Basket = () => {
               background: '#ff9900',
               color: '#fff',
               textDecoration: 'none',
-              borderRadius: '6px',
+              borderRadius: '8px',
               fontWeight: '600',
               fontSize: '14px'
             }}
@@ -61,309 +63,427 @@ const Basket = () => {
   }
 
   return (
-    <div className="basket-mobile mobile-padding" style={{ minHeight: '60vh', padding: '0px 15px', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '30px' }}>
-        <h1 className="mobile-spacing" style={{ fontSize: '28px', fontWeight: '700', marginBottom: '10px', color: '#111' }}>
-          <i className="fas fa-shopping-basket"></i> Shopping Basket
-        </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-          <span style={{ 
-            padding: '4px 12px', 
-            background: '#667eea', 
-            color: '#fff', 
-            borderRadius: '20px', 
-            fontSize: '12px', 
-            fontWeight: '600' 
-          }}>
-            {getUserTypeLabel()} Basket
-          </span>
-          <span style={{ color: '#6b7280', fontSize: '14px' }}>
-            {basket.length} {basket.length === 1 ? 'item' : 'items'}
-          </span>
+    <div style={{ background: '#f3f4f6', minHeight: '100vh', paddingBottom: '40px' }}>
+      {/* Amazon-style Header with Basket Icon */}
+      <div style={{ 
+        background: '#ffffff', 
+        borderBottom: '1px solid #e5e7eb',
+        padding: '20px 40px',
+        marginBottom: '20px'
+      }}>
+        <div style={{ maxWidth: '1500px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '15px' }}>
+          {/* Basket Icon with Count */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ position: 'relative' }}>
+              <i className="fas fa-shopping-basket" style={{ fontSize: '32px', color: '#232f3e' }}></i>
+              <span style={{
+                position: 'absolute',
+                top: '-8px',
+                right: '-8px',
+                background: '#ff9900',
+                color: '#fff',
+                borderRadius: '50%',
+                width: '24px',
+                height: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '12px',
+                fontWeight: '700',
+                border: '2px solid #fff'
+              }}>
+                {totalItems}
+              </span>
+            </div>
+            <div>
+              <h1 style={{ fontSize: '24px', fontWeight: '700', margin: 0, color: '#232f3e' }}>
+                Shopping Cart
+              </h1>
+              <button
+                onClick={() => setShowClearConfirm(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#007185',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  padding: 0,
+                  textDecoration: 'underline'
+                }}
+              >
+                Deselect all items
+              </button>
+            </div>
+          </div>
+          <div style={{ marginLeft: 'auto', fontSize: '14px', color: '#565959' }}>
+            Price
+          </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? '1fr' : '1fr 350px', gap: '20px' }}>
-        {/* Basket Items */}
-        <div>
-          {basket.map((item) => (
-            <div 
-              key={item.id}
-              className="basket-item mobile-spacing"
-              style={{
-                display: 'flex',
-                gap: '15px',
-                padding: '15px',
-                background: '#fff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                marginBottom: '15px'
-              }}
-            >
-              {/* Product Image */}
+      {/* Main Content */}
+      <div style={{ maxWidth: '1500px', margin: '0 auto', padding: '0 40px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 992 ? '1fr' : '2fr 1fr', gap: '30px', alignItems: 'start' }}>
+          
+          {/* Left: Cart Items */}
+          <div>
+            {basket.map((item, index) => (
               <div 
-                className="basket-item-image mobile-image-sm"
-                onClick={() => {
-                  const params = new URLSearchParams({
-                    name: item.name,
-                    img: item.image,
-                    price: item.price.replace(/[£$₨]/g, ''),
-                    rating: item.rating || 4.5,
-                    reviews: item.reviews || 0,
-                    category: item.category || 'General',
-                    brand: item.brand || '',
-                    discount: item.discount || 0
-                  })
-                  navigate(`/product/${item.id}?${params.toString()}`)
-                }}
+                key={item.id}
                 style={{
-                  width: '100px',
-                  height: '100px',
-                  flexShrink: 0,
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '6px',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: '#f8f9fa',
-                  cursor: 'pointer'
+                  background: '#ffffff',
+                  padding: '20px',
+                  marginBottom: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #ddd'
                 }}
               >
-                {item.image ? (
-                  <MobileImage
-                    src={item.image}
-                    alt={item.name}
-                    className="mobile-image"
-                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                    onError={() => {
-                      console.error('Image failed to load:', item.image);
-                    }}
-                  />
-                ) : (
-                  <img 
-                    className="mobile-image"
-                    src="https://via.placeholder.com/100x100?text=No+Image"
-                    alt="No image available"
-                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                  />
-                )}
-              </div>
-
-              {/* Product Details */}
-              <div className="basket-item-details" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <h3 
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      name: item.name,
-                      img: item.image,
-                      price: item.price.replace(/[£$₨]/g, ''),
-                      rating: item.rating || 4.5,
-                      reviews: item.reviews || 0,
-                      category: item.category || 'General',
-                      brand: item.brand || '',
-                      discount: item.discount || 0
-                    })
-                    navigate(`/product/${item.id}?${params.toString()}`)
-                  }}
-                  style={{ 
-                    fontSize: '14px', 
-                    fontWeight: '600', 
-                    color: '#111', 
-                    margin: 0,
-                    cursor: 'pointer',
-                    lineHeight: '1.4'
-                  }}
-                >
-                  {item.name}
-                </h3>
-
-                <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#10b981', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
-                  {(() => {
-                    // For products from AmazonsChoice that already have proper formatting, display as is
-                    if (typeof item.price === 'string' && item.price.includes('£') && currency === 'GBP') {
-                      console.log('Basket item price (direct display):', {
-                        itemName: item.name,
-                        originalPrice: item.price,
-                        displayPrice: item.price,
-                        currency: currency
-                      });
-                      return item.price;
-                    }
-                    
-                    // Otherwise use formatPrice for conversion
-                    const formatted = formatPrice(item.price);
-                    console.log('Basket item price (formatted):', {
-                      itemName: item.name,
-                      originalPrice: item.price,
-                      formattedPrice: formatted,
-                      currency: currency
-                    });
-                    return formatted;
-                  })()}
-                </div>
-
-                {/* Quantity Controls */}
-                <div className="quantity-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 'auto' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: '6px', overflow: 'hidden' }}>
-                    <button
-                      onClick={() => updateQuantity(item.id, (item.quantity || 1) - 1)}
-                      style={{
-                        padding: '6px 12px',
-                        background: '#f3f4f6',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '600'
-                      }}
-                    >
-                      -
-                    </button>
-                    <span style={{ padding: '6px 15px', fontSize: '1rem', fontWeight: '700', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
-                      {item.quantity || 1}
-                    </span>
-                    <button
-                      onClick={() => updateQuantity(item.id, (item.quantity || 1) + 1)}
-                      style={{
-                        padding: '6px 12px',
-                        background: '#f3f4f6',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '600'
-                      }}
-                    >
-                      +
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => removeFromBasket(item.id)}
-                    style={{
-                      padding: '6px 12px',
-                      background: '#fee2e2',
-                      color: '#dc2626',
-                      border: 'none',
-                      borderRadius: '6px',
+                <div style={{ display: 'flex', gap: '20px' }}>
+                  {/* Checkbox */}
+                  <input 
+                    type="checkbox" 
+                    defaultChecked 
+                    style={{ 
+                      width: '18px', 
+                      height: '18px', 
                       cursor: 'pointer',
-                      fontSize: '12px',
-                      fontWeight: '600'
+                      accentColor: '#ff9900',
+                      marginTop: '5px'
+                    }} 
+                  />
+
+                  {/* Product Image */}
+                  <div 
+                    onClick={() => {
+                      const params = new URLSearchParams({
+                        name: item.name,
+                        img: item.image,
+                        price: item.price.replace(/[£$₨]/g, ''),
+                        rating: item.rating || 4.5,
+                        reviews: item.reviews || 0,
+                        category: item.category || 'General',
+                        brand: item.brand || '',
+                        discount: item.discount || 0
+                      })
+                      navigate(`/product/${item.id}?${params.toString()}`)
+                    }}
+                    style={{
+                      width: '140px',
+                      height: '140px',
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: '#fff',
+                      cursor: 'pointer',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '4px',
+                      padding: '8px'
                     }}
                   >
-                    <i className="fas fa-trash"></i> Remove
-                  </button>
+                    {item.image ? (
+                      <MobileImage
+                        src={item.image}
+                        alt={item.name}
+                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <img 
+                        src="https://via.placeholder.com/140x140?text=No+Image"
+                        alt="No image available"
+                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Product Details */}
+                  <div style={{ flex: 1 }}>
+                    <h3 
+                      onClick={() => {
+                        const params = new URLSearchParams({
+                          name: item.name,
+                          img: item.image,
+                          price: item.price.replace(/[£$₨]/g, ''),
+                          rating: item.rating || 4.5,
+                          reviews: item.reviews || 0,
+                          category: item.category || 'General',
+                          brand: item.brand || '',
+                          discount: item.discount || 0
+                        })
+                        navigate(`/product/${item.id}?${params.toString()}`)
+                      }}
+                      style={{ 
+                        fontSize: '16px', 
+                        fontWeight: '400', 
+                        color: '#007185', 
+                        margin: '0 0 8px 0',
+                        cursor: 'pointer',
+                        lineHeight: '1.4'
+                      }}
+                    >
+                      {item.name}
+                    </h3>
+
+                    {item.stock && item.stock < 10 && (
+                      <p style={{ color: '#B12704', fontSize: '12px', margin: '4px 0' }}>
+                        Only {item.stock} left in stock.
+                      </p>
+                    )}
+
+                    {item.category && (
+                      <p style={{ color: '#565959', fontSize: '12px', margin: '4px 0' }}>
+                        Category: {item.category}
+                      </p>
+                    )}
+
+                    {/* Gift checkbox */}
+                    <div style={{ margin: '12px 0' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#565959', cursor: 'pointer' }}>
+                        <input type="checkbox" style={{ width: '14px', height: '14px' }} />
+                        This will be a gift <span style={{ color: '#007185', textDecoration: 'underline' }}>Learn more</span>
+                      </label>
+                    </div>
+
+                    {/* Item Package Quantity */}
+                    <div style={{ margin: '8px 0' }}>
+                      <span style={{ fontSize: '12px', color: '#565959' }}>
+                        Item Package Quantity: <strong>1</strong>
+                      </span>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px', flexWrap: 'wrap' }}>
+                      {/* Quantity Selector */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        background: '#f0f2f2',
+                        borderRadius: '8px',
+                        border: '1px solid #d5d9d9',
+                        overflow: 'hidden'
+                      }}>
+                        <button
+                          onClick={() => updateQuantity(item.id, Math.max(1, (item.quantity || 1) - 1))}
+                          style={{
+                            padding: '8px 12px',
+                            background: '#f0f2f2',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '16px',
+                            color: '#0f1111'
+                          }}
+                        >
+                          −
+                        </button>
+                        <span style={{ 
+                          padding: '8px 16px', 
+                          fontSize: '14px', 
+                          fontWeight: '600',
+                          background: '#fff',
+                          minWidth: '50px',
+                          textAlign: 'center'
+                        }}>
+                          {item.quantity || 1}
+                        </span>
+                        <button
+                          onClick={() => updateQuantity(item.id, (item.quantity || 1) + 1)}
+                          style={{
+                            padding: '8px 12px',
+                            background: '#f0f2f2',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '16px',
+                            color: '#0f1111'
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <span style={{ color: '#d5d9d9' }}>|</span>
+
+                      <button
+                        onClick={() => removeFromBasket(item.id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#007185',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          textDecoration: 'none',
+                          padding: 0
+                        }}
+                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                      >
+                        Delete
+                      </button>
+
+                      <span style={{ color: '#d5d9d9' }}>|</span>
+
+                      <button
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#007185',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          textDecoration: 'none',
+                          padding: 0
+                        }}
+                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                      >
+                        Save for later
+                      </button>
+
+                      <span style={{ color: '#d5d9d9' }}>|</span>
+
+                      <button
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#007185',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          textDecoration: 'none',
+                          padding: 0
+                        }}
+                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                      >
+                        See more like this
+                      </button>
+
+                      <span style={{ color: '#d5d9d9' }}>|</span>
+
+                      <button
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#007185',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          textDecoration: 'none',
+                          padding: 0
+                        }}
+                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                      >
+                        Share
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Price */}
+                  <div style={{ 
+                    fontSize: '18px', 
+                    fontWeight: '700', 
+                    color: '#0f1111',
+                    minWidth: '100px',
+                    textAlign: 'right'
+                  }}>
+                    {(() => {
+                      if (typeof item.price === 'string' && item.price.includes('£') && currency === 'GBP') {
+                        return item.price;
+                      }
+                      return formatPrice(item.price);
+                    })()}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          {/* Clear Basket Button */}
-          <button
-            onClick={() => setShowClearConfirm(true)}
-            style={{
-              padding: '10px 20px',
+            {/* Subtotal at bottom */}
+            <div style={{ 
+              textAlign: 'right', 
+              fontSize: '18px', 
+              padding: '20px',
               background: '#fff',
-              color: '#dc2626',
-              border: '1px solid #dc2626',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: '600',
-              marginTop: '10px'
-            }}
-          >
-            <i className="fas fa-trash-alt"></i> Clear Basket
-          </button>
-        </div>
+              borderRadius: '8px',
+              border: '1px solid #ddd'
+            }}>
+              <span style={{ color: '#0f1111' }}>
+                Subtotal ({totalItems} items): 
+              </span>
+              <span style={{ fontWeight: '700', color: '#0f1111', marginLeft: '8px' }}>
+                {(() => {
+                  const total = getBasketTotal();
+                  return currency === 'GBP' ? `£${total.toFixed(2)}` : formatPrice(total.toFixed(2));
+                })()}
+              </span>
+            </div>
+          </div>
 
-        {/* Order Summary */}
-        <div>
-          <div style={{
-            background: '#fff',
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
-            padding: '20px',
-            position: 'sticky',
-            top: '80px'
-          }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', color: '#111' }}>
-              Order Summary
-            </h3>
-
-            <div style={{ marginBottom: '15px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
-                <span style={{ color: '#6b7280' }}>Subtotal ({basket.reduce((sum, item) => sum + (item.quantity || 1), 0)} items)</span>
-                <span style={{ fontWeight: '700', fontSize: '1rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
-                  {(() => {
-                    const total = getBasketTotal();
-                    // If we're in GBP, format directly as GBP
-                    const formattedTotal = currency === 'GBP' ? `£${total.toFixed(2)}` : formatPrice(total.toFixed(2));
-                    console.log('Basket subtotal debug:', {
-                      rawTotal: total,
-                      formattedTotal: formattedTotal,
-                      currency: currency
-                    });
-                    return formattedTotal;
-                  })()}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
-                <span style={{ color: '#6b7280' }}>Shipping</span>
-                <span style={{ fontWeight: '600', color: '#10b981' }}>FREE</span>
-              </div>
-              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '10px', marginTop: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
-                  <span style={{ fontWeight: '700' }}>Total</span>
-                  <span style={{ fontWeight: '800', color: '#10b981', fontSize: '1.2rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
+          {/* Right: Sticky Sidebar */}
+          <div style={{ position: 'sticky', top: '20px' }}>
+            <div style={{
+              background: '#ffffff',
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              padding: '20px'
+            }}>
+              {/* Subtotal */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '18px', color: '#0f1111', marginBottom: '4px' }}>
+                  <span>Subtotal ({totalItems} items): </span>
+                  <span style={{ fontWeight: '700' }}>
                     {(() => {
                       const total = getBasketTotal();
-                      // If we're in GBP, format directly as GBP
-                      const formattedTotal = currency === 'GBP' ? `£${total.toFixed(2)}` : formatPrice(total.toFixed(2));
-                      console.log('Final basket total debug:', {
-                        rawTotal: total,
-                        formattedTotal: formattedTotal,
-                        currency: currency
-                      });
-                      return formattedTotal;
+                      return currency === 'GBP' ? `£${total.toFixed(2)}` : formatPrice(total.toFixed(2));
                     })()}
                   </span>
                 </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#565959', cursor: 'pointer', marginTop: '8px' }}>
+                  <input type="checkbox" style={{ width: '14px', height: '14px' }} />
+                  This order contains a gift
+                </label>
               </div>
+
+              {/* Proceed to Checkout Button */}
+              <button
+                onClick={handleCheckout}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: '#ffd814',
+                  color: '#0f1111',
+                  border: '1px solid #fcd200',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  marginBottom: '12px',
+                  boxShadow: '0 2px 5px rgba(213, 217, 217, 0.5)'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#f7ca00'
+                  e.target.style.borderColor = '#f2c200'
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#ffd814'
+                  e.target.style.borderColor = '#fcd200'
+                }}
+              >
+                Proceed to checkout
+              </button>
             </div>
 
-            <button
-              onClick={handleCheckout}
-              style={{
-                width: '100%',
-                padding: '12px',
-                background: '#ff9900',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                marginBottom: '10px'
-              }}
-            >
-              Proceed to Checkout
-            </button>
-
-            <Link
-              to="/"
-              style={{
-                display: 'block',
-                textAlign: 'center',
-                padding: '10px',
-                color: '#667eea',
-                textDecoration: 'none',
-                fontSize: '13px',
-                fontWeight: '600'
-              }}
-            >
-              Continue Shopping
-            </Link>
+            {/* Customers who shopped section */}
+            <div style={{
+              background: '#ffffff',
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              padding: '20px',
+              marginTop: '20px'
+            }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px', color: '#0f1111' }}>
+                Customers who shopped for items in your cart also shopped for:
+              </h3>
+              <div style={{ fontSize: '13px', color: '#565959' }}>
+                <p>Related products will appear here</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -371,45 +491,69 @@ const Basket = () => {
       {/* Clear Confirmation Modal */}
       {showClearConfirm && (
         <div 
-          className="modal show d-block" 
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}
           onClick={() => setShowClearConfirm(false)}
         >
           <div 
-            className="modal-dialog modal-dialog-centered"
+            style={{
+              background: '#fff',
+              borderRadius: '8px',
+              padding: '24px',
+              maxWidth: '400px',
+              width: '90%'
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Clear Basket?</h5>
-                <button 
-                  type="button" 
-                  className="btn-close"
-                  onClick={() => setShowClearConfirm(false)}
-                ></button>
-              </div>
-              <div className="modal-body">
-                <p>Are you sure you want to remove all items from your basket?</p>
-              </div>
-              <div className="modal-footer">
-                <button 
-                  type="button" 
-                  className="btn btn-secondary"
-                  onClick={() => setShowClearConfirm(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button" 
-                  className="btn btn-danger"
-                  onClick={() => {
-                    clearBasket()
-                    setShowClearConfirm(false)
-                  }}
-                >
-                  Clear Basket
-                </button>
-              </div>
+            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '12px', color: '#0f1111' }}>
+              Clear Basket?
+            </h3>
+            <p style={{ fontSize: '14px', color: '#565959', marginBottom: '20px' }}>
+              Are you sure you want to remove all items from your basket?
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={() => setShowClearConfirm(false)}
+                style={{
+                  padding: '8px 16px',
+                  background: '#fff',
+                  border: '1px solid #d5d9d9',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  color: '#0f1111'
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  clearBasket()
+                  setShowClearConfirm(false)
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: '#ffd814',
+                  border: '1px solid #fcd200',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  color: '#0f1111'
+                }}
+              >
+                Clear Basket
+              </button>
             </div>
           </div>
         </div>

@@ -1035,6 +1035,14 @@ router.get('/pending-approval', authenticateAdmin, async (req, res) => {
 
     // Build the query
     let query = { approvalStatus: 'pending' };
+    
+    console.log('🔍 Building pending products query with filters:', { 
+      page: pageNum, 
+      limit: limitNum, 
+      search, 
+      category, 
+      sortBy 
+    });
 
     // Add search filter
     if (search) {
@@ -1103,12 +1111,16 @@ router.get('/pending-approval', authenticateAdmin, async (req, res) => {
     const totalProducts = await Product.countDocuments(query);
     const totalPages = Math.ceil(totalProducts / limitNum);
 
+    console.log(`📊 Pending products query results: ${totalProducts} total products found`);
+
     // Get paginated products
     const pendingProducts = await Product.find(query)
       .sort(sortOptions)
       .skip(skip)
       .limit(limitNum)
       .lean();
+    
+    console.log(`📦 Returning ${pendingProducts.length} products for page ${pageNum}`);
     
     res.json({
       success: true,

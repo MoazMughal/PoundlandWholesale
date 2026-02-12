@@ -15,7 +15,7 @@ const EnhancedImage = ({
   eager = false, // Force eager loading
   showLoader = true
 }) => {
-  const [currentSrc, setCurrentSrc] = useState(placeholder || '');
+  const [currentSrc, setCurrentSrc] = useState(placeholder || null); // Changed to null to avoid empty src warning
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [loadAttempts, setLoadAttempts] = useState(0);
@@ -277,21 +277,23 @@ const EnhancedImage = ({
       )}
       
       {/* Main image */}
-      <img
-        src={currentSrc}
-        alt={alt}
-        className={`enhanced-image ${isLoading ? 'loading' : ''} ${hasError ? 'error' : ''}`}
-        style={imageStyle}
-        loading={eager ? 'eager' : 'lazy'}
-        decoding="async"
-        onError={(e) => {
-          // Final fallback if component's error handling fails
-          if (!e.target.dataset.finalFallback) {
-            e.target.dataset.finalFallback = 'true';
-            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
-          }
-        }}
-      />
+      {currentSrc && (
+        <img
+          src={currentSrc}
+          alt={alt}
+          className={`enhanced-image ${isLoading ? 'loading' : ''} ${hasError ? 'error' : ''}`}
+          style={imageStyle}
+          loading={eager ? 'eager' : 'lazy'}
+          decoding="async"
+          onError={(e) => {
+            // Final fallback if component's error handling fails
+            if (!e.target.dataset.finalFallback) {
+              e.target.dataset.finalFallback = 'true';
+              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+            }
+          }}
+        />
+      )}
       
       {/* Error state */}
       {hasError && !isLoading && (

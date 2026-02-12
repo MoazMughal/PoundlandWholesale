@@ -5,6 +5,7 @@ import { useSeller } from '../context/SellerContext';
 import { useBuyer } from '../context/BuyerContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
+import CurrencySelector from './CurrencySelector';
 
 import '../styles/mobile-header.css';
 

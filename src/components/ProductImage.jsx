@@ -12,7 +12,7 @@ const ProductImage = ({
   priority = false,
   loading = 'lazy' // Add loading prop
 }) => {
-  const [currentSrc, setCurrentSrc] = useState('');
+  const [currentSrc, setCurrentSrc] = useState(null); // Changed from '' to null to avoid empty src warning
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [showPlaceholder, setShowPlaceholder] = useState(true); // Show placeholder initially
@@ -213,7 +213,7 @@ const ProductImage = ({
         />
       )}
 
-      {!hasError ? (
+      {!hasError && currentSrc ? (
         <img 
           ref={imgRef}
           src={currentSrc}
@@ -239,7 +239,7 @@ const ProductImage = ({
             zIndex: 1
           }} 
         />
-      ) : (
+      ) : hasError ? (
         <div 
           style={{
             display: 'flex',
@@ -259,7 +259,7 @@ const ProductImage = ({
           <div style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.5 }}>📷</div>
           <div>Image not available</div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

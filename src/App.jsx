@@ -5,13 +5,14 @@ import CompactFooter from './components/CompactFooter'
 import WhatsAppFloat from './components/WhatsAppFloat'
 import ScrollToTop from './components/ScrollToTop'
 import ScrollToTopOnRouteChange from './components/ScrollToTopOnRouteChange'
+import BasketSidebar from './components/BasketSidebar'
 
 import ProtectedRoute from './components/ProtectedRoute'
 import { CurrencyProvider } from './context/CurrencyContext'
 import { SellerProvider } from './context/SellerContext'
 import { AdminProvider } from './context/AdminContext'
 import { BuyerProvider } from './context/BuyerContext'
-import { BasketProvider } from './context/BasketContext'
+import { BasketProvider, useBasket } from './context/BasketContext'
 import './App.css'
 import './styles/mobile-responsive.css'
 import './styles/enhanced-theme.css'
@@ -228,6 +229,7 @@ function App() {
         <CompactFooter />
         <ScrollToTop />
         <WhatsAppFloat />
+        <BasketSidebarWrapper />
         </div>
         </Router>
         </AdminProvider>
@@ -236,6 +238,12 @@ function App() {
       </BasketProvider>
     </CurrencyProvider>
   )
+}
+
+// Wrapper component to access basket context
+const BasketSidebarWrapper = () => {
+  const { isSidebarOpen, closeSidebar } = useBasket()
+  return <BasketSidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
 }
 
 export default App

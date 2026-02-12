@@ -13,6 +13,7 @@ export const useBasket = () => {
 export const BasketProvider = ({ children }) => {
   const [basket, setBasket] = useState([])
   const [userType, setUserType] = useState('guest') // 'buyer', 'seller', 'admin', 'guest'
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   // Determine user type and load basket from localStorage
   useEffect(() => {
@@ -62,6 +63,8 @@ export const BasketProvider = ({ children }) => {
         return [...prev, { ...product, quantity: 1, addedAt: Date.now() }]
       }
     })
+    // Open sidebar when item is added
+    setIsSidebarOpen(true)
   }
 
   const removeFromBasket = (productId) => {
@@ -119,6 +122,13 @@ export const BasketProvider = ({ children }) => {
     return basket.some(item => item.id === productId)
   }
 
+  const getTotalPrice = () => {
+    return getBasketTotal()
+  }
+
+  const openSidebar = () => setIsSidebarOpen(true)
+  const closeSidebar = () => setIsSidebarOpen(false)
+
   return (
     <BasketContext.Provider value={{
       basket,
@@ -129,7 +139,11 @@ export const BasketProvider = ({ children }) => {
       clearBasket,
       getBasketCount,
       getBasketTotal,
-      isInBasket
+      getTotalPrice,
+      isInBasket,
+      isSidebarOpen,
+      openSidebar,
+      closeSidebar
     }}>
       {children}
     </BasketContext.Provider>
