@@ -1523,13 +1523,8 @@ const AmazonsChoice = () => {
             return (
             <div 
               key={product.id} 
-              className="product-card enhanced-card"
-              onClick={(e) => {
-                // Navigate to product detail page
-                navigate(productUrl)
-              }}
+              className="product-card enhanced-card products-grid-item"
               style={{
-                cursor: 'pointer',
                 background: '#ffffff',
                 border: windowWidth < 576 ? '1px solid #ff6600' : '2px solid transparent',
                 borderRadius: windowWidth < 576 ? '8px' : '15px',
@@ -1540,11 +1535,10 @@ const AmazonsChoice = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 width: '100%',
-                minHeight: windowWidth < 576 ? '280px' : '240px', // Increased mobile card height to accommodate larger images
-                maxHeight: windowWidth < 576 ? '300px' : 'none', // Controlled max height on mobile
+                minHeight: windowWidth < 576 ? '280px' : '240px',
+                maxHeight: windowWidth < 576 ? '300px' : 'none',
                 boxSizing: 'border-box',
                 padding: windowWidth < 576 ? '6px' : '0px',
-                textDecoration: 'none',
                 color: 'inherit'
               }}
               onMouseEnter={(e) => {
@@ -1562,9 +1556,53 @@ const AmazonsChoice = () => {
                 }
               }}
             >
+              {/* Invisible link overlay for right-click "Open in new tab" functionality */}
+              <a
+                href={productUrl}
+                onClick={(e) => {
+                  e.preventDefault();
+                  // Check for Ctrl/Cmd key or middle mouse button to open in new tab
+                  if (e.ctrlKey || e.metaKey || e.button === 1) {
+                    window.open(productUrl, '_blank');
+                  } else {
+                    // Normal click - navigate in same tab
+                    navigate(productUrl);
+                  }
+                }}
+                onMouseDown={(e) => {
+                  // Handle middle mouse button click (button 1)
+                  if (e.button === 1) {
+                    e.preventDefault();
+                    window.open(productUrl, '_blank');
+                  }
+                }}
+                onAuxClick={(e) => {
+                  // Handle middle mouse button click (alternative event)
+                  if (e.button === 1) {
+                    e.preventDefault();
+                    window.open(productUrl, '_blank');
+                  }
+                }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 1,
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  cursor: 'pointer'
+                }}
+                aria-label={`View ${product.name}`}
+              />
+              
+              {/* Card content with higher z-index for interactive elements */}
+              <div style={{ position: 'relative', zIndex: 2, pointerEvents: 'none', flex: 1, display: 'flex', flexDirection: 'column' }}>
+              
               <div className="product-image-container" style={{
                 position: 'relative', 
-                height: windowWidth < 576 ? '160px' : '140px', // Significantly increased mobile height for larger images
+                height: windowWidth < 576 ? '160px' : '140px',
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center', 
@@ -2108,6 +2146,9 @@ const AmazonsChoice = () => {
                         addToBasket(product)
                       }}
                       style={{
+                        pointerEvents: 'auto', // Enable clicks on this button
+                        position: 'relative',
+                        zIndex: 3,
                         background: isInBasket(product.id) ? 
                           'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
                           'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
@@ -2171,12 +2212,15 @@ const AmazonsChoice = () => {
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
                     style={{
+                      pointerEvents: 'auto', // Enable clicks on this link
+                      position: 'relative',
+                      zIndex: 3,
                       background: 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)',
                       color: 'white',
                       border: '2px solid #ff6600',
-                      padding: windowWidth < 576 ? '2px 3px' : '3px 5px', // Reduced padding
-                      borderRadius: '4px', // Smaller border radius
-                      fontSize: windowWidth < 576 ? '6px' : '8px', // Smaller font for mobile
+                      padding: windowWidth < 576 ? '2px 3px' : '3px 5px',
+                      borderRadius: '4px',
+                      fontSize: windowWidth < 576 ? '6px' : '8px',
                       fontWeight: '700',
                       display: 'flex',
                       alignItems: 'center',
@@ -2219,6 +2263,7 @@ const AmazonsChoice = () => {
                   </a>
                 </div>
               </div>
+              </div> {/* Close the wrapper div with pointerEvents: 'none' */}
             </div>
             )
           })}

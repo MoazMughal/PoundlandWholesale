@@ -16,6 +16,8 @@ import '../styles/product-detail-compact.css'
 import '../styles/product-detail-enhanced.css'
 
 // Component to fetch and display linked product image
+import { ProductDetailSkeleton } from '../components/SkeletonLoaders'
+
 const LinkedProductImage = ({ productId }) => {
   const [imageUrl, setImageUrl] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -2798,14 +2800,82 @@ _This quotation was generated from PoundlandWholesale.com_
   if (loading) {
     console.log('Showing loading state')
     return (
-      <div className="container mt-5">
-        <div className="text-center py-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
+      <>
+        {/* Enhanced loading UI with skeleton */}
+        <div style={{
+          background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
+          minHeight: '100vh',
+          paddingTop: '20px',
+          paddingBottom: '40px'
+        }}>
+          {/* Loading header message */}
+          <div className="container mb-4">
+            <div style={{
+              textAlign: 'center',
+              padding: '20px',
+              background: 'linear-gradient(135deg, #ff6600 0%, #ff8533 100%)',
+              borderRadius: '16px',
+              boxShadow: '0 8px 24px rgba(255, 102, 0, 0.2)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {/* Shimmer effect */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: '-100%',
+                width: '100%',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent)',
+                animation: 'shimmer 2s infinite'
+              }} />
+              
+              <div style={{ position: 'relative', zIndex: 2 }}>
+                <div style={{
+                  fontSize: '2rem',
+                  marginBottom: '10px',
+                  display: 'inline-block',
+                  animation: 'bounce 2s ease-in-out infinite'
+                }}>
+                  📦
+                </div>
+                <div style={{
+                  fontSize: '1.2rem',
+                  fontWeight: '700',
+                  color: 'white',
+                  textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                }}>
+                  Loading Product Details...
+                </div>
+                <div style={{
+                  fontSize: '0.9rem',
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  marginTop: '5px'
+                }}>
+                  Preparing the best deal for you
+                </div>
+              </div>
+            </div>
           </div>
-          <p className="mt-3">Loading product details...</p>
+          
+          {/* Skeleton loader */}
+          <ProductDetailSkeleton />
         </div>
-      </div>
+        
+        {/* Add animations */}
+        <style jsx>{`
+          @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+          }
+          
+          @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+          }
+        `}</style>
+      </>
     )
   }
 
