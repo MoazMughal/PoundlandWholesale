@@ -1,0 +1,387 @@
+/* Admin Products Page - Mobile Responsive Fix */
+
+/* CRITICAL: Hide basket on ALL admin pages */
+.basket-sidebar,
+.basket-float,
+.cart-sidebar,
+.cart-float,
+[class*="basket-"],
+[class*="Basket"],
+[class*="cart-"],
+[id*="basket"],
+[id*="cart"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  /* Prevent horizontal scroll on page */
+  html {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+  
+  body {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Admin layout full width */
+  .admin-layout {
+    padding: 4px !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Admin products container */
+  .admin-products {
+    padding: 4px !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Header section */
+  .admin-products > div:first-child {
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  .admin-products > div:first-child h1 {
+    font-size: 1rem !important;
+    margin: 0 !important;
+  }
+  
+  .admin-products > div:first-child > div {
+    width: 100% !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+  
+  .admin-products > div:first-child button {
+    width: 100% !important;
+    padding: 8px !important;
+    font-size: 0.8rem !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Filters section */
+  .filters-section {
+    padding: 8px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  .filters-section > div {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    gap: 4px !important;
+  }
+  
+  .filters-section button {
+    font-size: 0.65rem !important;
+    padding: 4px 8px !important;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  
+  /* Search and filters */
+  .filters {
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  .filters input,
+  .filters select {
+    width: 100% !important;
+    font-size: 0.8rem !important;
+    padding: 8px !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Table info section */
+  .table-info {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+    padding: 8px !important;
+    font-size: 0.7rem !important;
+  }
+  
+  /* Products table container - CRITICAL */
+  .products-table {
+    display: block !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Table itself */
+  .products-table table {
+    min-width: 900px !important;
+    width: 900px !important;
+    display: table !important;
+    margin: 0 !important;
+    border-collapse: collapse !important;
+  }
+  
+  /* Table headers */
+  .products-table thead {
+    display: table-header-group !important;
+  }
+  
+  .products-table thead tr {
+    display: table-row !important;
+  }
+  
+  .products-table th {
+    display: table-cell !important;
+    font-size: 0.6rem !important;
+    padding: 6px 4px !important;
+    white-space: nowrap;
+    background: #dc2626 !important;
+    color: white !important;
+  }
+  
+  /* Table body */
+  .products-table tbody {
+    display: table-row-group !important;
+  }
+  
+  .products-table tbody tr {
+    display: table-row !important;
+  }
+  
+  .products-table tbody td {
+    display: table-cell !important;
+    font-size: 0.6rem !important;
+    padding: 6px 4px !important;
+    white-space: nowrap;
+    vertical-align: middle !important;
+  }
+  
+  /* Product name column - allow wrapping */
+  .products-table tbody td:nth-child(3) {
+    max-width: 120px;
+    white-space: normal !important;
+    word-wrap: break-word;
+  }
+  
+  /* Images */
+  .products-table td img {
+    max-width: 35px !important;
+    max-height: 35px !important;
+    display: block !important;
+  }
+  
+  /* Buttons */
+  .products-table button {
+    padding: 3px 5px !important;
+    font-size: 0.55rem !important;
+    white-space: nowrap;
+  }
+  
+  /* Hide mobile cards */
+  .mobile-product-cards {
+    display: none !important;
+  }
+  
+  /* Pagination */
+  .pagination {
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  .pagination button {
+    padding: 8px !important;
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Tablet styles */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .products-table table {
+    min-width: 1100px !important;
+  }
+  
+  .products-table th,
+  .products-table td {
+    font-size: 0.7rem !important;
+    padding: 6px 8px !important;
+  }
+}
+
+
+/* ========================================
+   EXCEL PRODUCTS PAGE - MOBILE RESPONSIVE
+   ======================================== */
+
+@media (max-width: 768px) {
+  /* Excel Products specific mobile styles */
+  .excel-products-container {
+    padding: 4px !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+  
+  /* Excel products table container - allow horizontal scroll */
+  .excel-products-table {
+    display: block !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+  }
+  
+  /* Excel table scroll wrapper - no scroll, let parent handle it */
+  .excel-table-scroll-wrapper {
+    display: block !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+  
+  /* Reduce table width for mobile - easier scrolling */
+  .excel-products-table table,
+  .excel-table-scroll-wrapper table {
+    min-width: 800px !important;
+    width: 800px !important;
+    display: table !important;
+    margin: 0 !important;
+  }
+  
+  /* Excel table headers */
+  .excel-products-table th,
+  .excel-table-scroll-wrapper th {
+    font-size: 0.6rem !important;
+    padding: 6px 4px !important;
+    white-space: nowrap;
+  }
+  
+  /* Excel table cells */
+  .excel-products-table td,
+  .excel-table-scroll-wrapper td {
+    font-size: 0.6rem !important;
+    padding: 6px 4px !important;
+    white-space: nowrap;
+  }
+  
+  /* Product name column - allow wrapping */
+  .excel-products-table tbody td:nth-child(2),
+  .excel-table-scroll-wrapper tbody td:nth-child(2) {
+    max-width: 120px;
+    white-space: normal !important;
+    word-wrap: break-word;
+  }
+  
+  /* Images in Excel table */
+  .excel-products-table .modern-image-container,
+  .excel-table-scroll-wrapper .modern-image-container {
+    width: 35px !important;
+    height: 35px !important;
+  }
+  
+  /* Buttons in Excel table */
+  .excel-products-table button,
+  .excel-table-scroll-wrapper button {
+    padding: 3px 5px !important;
+    font-size: 0.55rem !important;
+    white-space: nowrap;
+  }
+  
+  /* Status badges */
+  .excel-products-table .modern-status-badge,
+  .excel-table-scroll-wrapper .modern-status-badge {
+    font-size: 0.55rem !important;
+    padding: 3px 6px !important;
+  }
+  
+  /* Hide mobile cards - show table instead */
+  .mobile-excel-product-cards {
+    display: none !important;
+  }
+  
+  /* Modern header card mobile adjustments */
+  .modern-header-card {
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+  }
+  
+  .modern-header-card h1 {
+    font-size: 1rem !important;
+  }
+  
+  .modern-header-card p {
+    font-size: 0.7rem !important;
+  }
+  
+  /* Modern inputs and selects */
+  .modern-input,
+  .modern-select {
+    font-size: 0.75rem !important;
+    padding: 6px 10px !important;
+  }
+  
+  /* Modern buttons */
+  .modern-btn {
+    font-size: 0.7rem !important;
+    padding: 6px 12px !important;
+  }
+  
+  /* Pagination mobile */
+  .modern-pagination {
+    padding: 10px !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  
+  .modern-pagination-btn {
+    font-size: 0.7rem !important;
+    padding: 6px 10px !important;
+  }
+}
+
+/* Tablet styles for Excel Products */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .excel-products-table table,
+  .excel-table-scroll-wrapper table {
+    min-width: 1050px !important;
+  }
+  
+  .excel-products-table th,
+  .excel-products-table td,
+  .excel-table-scroll-wrapper th,
+  .excel-table-scroll-wrapper td {
+    font-size: 0.7rem !important;
+    padding: 6px 8px !important;
+  }
+}

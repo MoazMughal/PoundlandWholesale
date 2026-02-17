@@ -1,0 +1,294 @@
+/* ========================================
+   ADMIN TABLE FIX - Prevent Breaking on Scroll
+   ======================================== */
+
+/* CRITICAL: Desktop-first approach - Force table visibility on desktop */
+@media (min-width: 769px) {
+  .products-table,
+  .excel-products-table {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  .excel-table-scroll-wrapper {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  .mobile-product-cards,
+  .mobile-excel-product-cards {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+}
+
+/* CRITICAL: Ensure table structure stays intact */
+.products-table table,
+.excel-table-scroll-wrapper table,
+.excel-products-table table,
+.admin-products table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  display: table !important; /* Force table display */
+}
+
+.products-table thead,
+.excel-table-scroll-wrapper thead,
+.excel-products-table thead,
+.admin-products thead {
+  display: table-header-group !important;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.products-table tbody,
+.excel-table-scroll-wrapper tbody,
+.excel-products-table tbody,
+.admin-products tbody {
+  display: table-row-group !important; /* Force tbody display */
+}
+
+.products-table tr,
+.excel-table-scroll-wrapper tr,
+.excel-products-table tr,
+.admin-products tr {
+  display: table-row !important; /* Force row display */
+  height: auto !important;
+  min-height: 40px;
+}
+
+.products-table td,
+.excel-table-scroll-wrapper td,
+.excel-products-table td,
+.admin-products td {
+  display: table-cell !important; /* Force cell display */
+  padding: 6px 8px;
+  vertical-align: middle;
+  overflow: visible !important;
+}
+
+.products-table th,
+.excel-table-scroll-wrapper th,
+.excel-products-table th,
+.admin-products th {
+  display: table-cell !important; /* Force header cell display */
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+/* Remove any transforms or animations that might cause issues */
+.products-table tbody tr,
+.excel-table-scroll-wrapper tbody tr,
+.excel-products-table tbody tr,
+.admin-products tbody tr {
+  transform: none !important;
+  transition: background-color 0.2s ease;
+}
+
+/* Ensure hover states work */
+.products-table tbody tr:hover,
+.excel-table-scroll-wrapper tbody tr:hover,
+.excel-products-table tbody tr:hover,
+.admin-products tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Prevent any container from hiding overflow */
+.admin-products,
+.admin-products-page,
+.products-table-container,
+.products-table,
+.excel-products-container,
+.excel-products-table,
+.excel-table-scroll-wrapper {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: auto !important;
+}
+
+/* Ensure proper stacking context */
+.products-table,
+.excel-products-table,
+.excel-table-scroll-wrapper {
+  position: relative;
+  z-index: 1;
+}
+
+/* Fix for action buttons */
+.products-table td button,
+.excel-table-scroll-wrapper td button,
+.excel-products-table td button,
+.admin-products td button {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* Ensure images don't break layout */
+.products-table td img,
+.excel-table-scroll-wrapper td img,
+.excel-products-table td img,
+.admin-products td img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  /* Hide basket/cart on mobile admin pages */
+  .basket-sidebar,
+  .basket-float,
+  .cart-sidebar,
+  [class*="basket"],
+  [class*="Basket"],
+  [class*="cart-float"] {
+    display: none !important;
+  }
+  
+  /* Prevent horizontal scroll on body */
+  body {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+  
+  .admin-layout {
+    padding: 8px !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+  
+  .admin-container {
+    padding: 8px !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+  
+  /* Show tables with horizontal scroll on mobile */
+  .products-table,
+  .excel-products-table {
+    display: block !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+  }
+  
+  .excel-table-scroll-wrapper {
+    display: block !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+  }
+  
+  /* Ensure tables are wide enough to scroll */
+  .products-table table,
+  .excel-products-table table,
+  .excel-table-scroll-wrapper table {
+    min-width: 1000px !important;
+    width: 1000px !important;
+    display: table !important;
+    margin: 0 !important;
+  }
+  
+  /* Hide mobile cards - show table instead */
+  .mobile-product-cards,
+  .mobile-excel-product-cards {
+    display: none !important;
+  }
+  
+  /* Make table more readable on mobile */
+  .products-table th,
+  .products-table td,
+  .excel-products-table th,
+  .excel-products-table td,
+  .excel-table-scroll-wrapper th,
+  .excel-table-scroll-wrapper td {
+    font-size: 0.65rem !important;
+    padding: 6px 8px !important;
+    white-space: nowrap;
+  }
+  
+  /* Product name columns - allow some wrapping */
+  .products-table tbody td:nth-child(3),
+  .excel-products-table tbody td:nth-child(2) {
+    max-width: 150px;
+    white-space: normal !important;
+    font-size: 0.65rem !important;
+  }
+  
+  /* Smaller images on mobile */
+  .products-table td img,
+  .excel-products-table td img {
+    max-width: 40px !important;
+    max-height: 40px !important;
+  }
+  
+  /* Smaller buttons on mobile */
+  .products-table button,
+  .excel-products-table button {
+    padding: 4px 6px !important;
+    font-size: 0.6rem !important;
+    white-space: nowrap;
+  }
+  
+  /* Ensure table structure stays intact */
+  .products-table tbody tr,
+  .excel-products-table tbody tr,
+  .excel-table-scroll-wrapper tbody tr {
+    display: table-row !important;
+  }
+  
+  .products-table tbody td,
+  .excel-products-table tbody td,
+  .excel-table-scroll-wrapper tbody td {
+    display: table-cell !important;
+  }
+}
+
+/* Tablet responsive */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .products-table table,
+  .excel-products-table table,
+  .excel-table-scroll-wrapper table {
+    min-width: 1200px; /* Smaller for tablets */
+    font-size: 0.75rem;
+  }
+  
+  .products-table th,
+  .products-table td,
+  .excel-products-table th,
+  .excel-products-table td,
+  .excel-table-scroll-wrapper th,
+  .excel-table-scroll-wrapper td {
+    padding: 6px 8px !important;
+    font-size: 0.75rem !important;
+  }
+  
+  .products-table button,
+  .excel-products-table button,
+  .excel-table-scroll-wrapper button {
+    padding: 4px 8px !important;
+    font-size: 0.7rem !important;
+  }
+}
+
+/* Large desktop optimization */
+@media (min-width: 1400px) {
+  .products-table table,
+  .excel-products-table table {
+    min-width: 1500px;
+  }
+}
