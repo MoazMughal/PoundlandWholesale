@@ -2,6 +2,10 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import compression from 'compression';
+import helmet from 'helmet';
+import mongoSanitize from 'express-mongo-sanitize';
+import xss from 'xss-clean';
+import morgan from 'morgan';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -16,6 +20,8 @@ import easypaisaRoutes from './routes/easypaisa.js';
 import bulkUploadRoutes from './routes/bulk-upload-cloudinary.js';
 import cloudinaryTestRoutes from './routes/cloudinary-test.js';
 import imageTestRoutes from './routes/image-test.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import logger from './utils/logger.js';
 
 dotenv.config();
 
@@ -24,6 +30,40 @@ const app = express();
 // Get current directory for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// ============================================
+// SECURITY MIDDLEWARE (Applied First)
+// ============================================
+
+// 1. Helmet.js - Set secure HTTP headers
+// Using safe defaults that won't break frontend
+app.use(helmet({
+  contentSecurityPolicy: false, // Disabled to avoid breaking frontend
+  crossOriginEmbedderPolicy: false, // Disabled for Cloudinary images
+}));
+
+// 2. Request logging (Morgan + Winston)
+// Only log in development or if explicitly enabled
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_LOGGING === 'true') {
+  app.use(morgan('combined', { stream: logger.stream }));
+}
+
+// 3. NoSQL Injection Protection
+// Sanitize user input to prevent MongoDB operator injection
+app.use(mongoSanitize({
+  replaceWith: '_', // Replace prohibited characters with underscore
+  onSanitize: ({ req, key }) => {
+    logger.warn(`⚠️ Sanitized potentially malicious input: ${key} from IP: ${req.ip}`);
+  }
+}));
+
+// 4. XSS Protection
+// Clean user input from malicious scripts
+app.use(xss());
+
+// ============================================
+// STANDARD MIDDLEWARE
+// ============================================
 
 // Serve static files (uploaded images) for both development and production
 // Serve uploaded images from uploads directory
@@ -296,13 +336,26 @@ app.get('/api/test-db', async (req, res) => {
   }
 });
 
-// Serve sitemap.xml with proper headers (BEFORE static files and SPA fallback)
+// ============================================
+// SEO FILES - MUST BE BEFORE STATIC FILES AND SPA FALLBACK
+// ============================================
+
+// Serve sitemap.xml with proper headers for search engines
 app.get('/sitemap.xml', (req, res) => {
-  res.setHeader('Content-Type', 'application/xml');
-  res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+  // Log bot access for debugging
+  const userAgent = req.get('user-agent') || 'unknown';
+  if (userAgent.toLowerCase().includes('bot') || userAgent.toLowerCase().includes('crawler')) {
+    console.log(`🤖 Bot accessing sitemap: ${userAgent}`);
+  }
+  
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+  res.setHeader('X-Robots-Tag', 'noindex'); // Don't index the sitemap itself
+  res.setHeader('Access-Control-Allow-Origin', '*'); // Allow cross-origin access
+  
   res.sendFile(path.join(__dirname, '..', 'dist', 'sitemap.xml'), (err) => {
     if (err) {
-      console.error('Error serving sitemap.xml:', err);
+      console.error('❌ Error serving sitemap.xml:', err);
       res.status(404).send('Sitemap not found');
     }
   });
@@ -310,11 +363,19 @@ app.get('/sitemap.xml', (req, res) => {
 
 // Serve robots.txt with proper headers
 app.get('/robots.txt', (req, res) => {
-  res.setHeader('Content-Type', 'text/plain');
+  // Log bot access for debugging
+  const userAgent = req.get('user-agent') || 'unknown';
+  if (userAgent.toLowerCase().includes('bot') || userAgent.toLowerCase().includes('crawler')) {
+    console.log(`🤖 Bot accessing robots.txt: ${userAgent}`);
+  }
+  
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
   res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+  res.setHeader('Access-Control-Allow-Origin', '*'); // Allow cross-origin access
+  
   res.sendFile(path.join(__dirname, '..', 'dist', 'robots.txt'), (err) => {
     if (err) {
-      console.error('Error serving robots.txt:', err);
+      console.error('❌ Error serving robots.txt:', err);
       res.status(404).send('Robots.txt not found');
     }
   });
@@ -338,7 +399,20 @@ app.get('*', (req, res) => {
   });
 });
 
+// ============================================
+// ERROR HANDLING MIDDLEWARE (Must be last)
+// ============================================
+
+// Global error handler - catches all errors
+app.use(errorHandler);
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`🔒 Security features enabled: Helmet, Rate Limiting, XSS Protection, NoSQL Injection Protection`);
+  if (process.env.NODE_ENV === 'production') {
+    console.log(`🚀 Running in PRODUCTION mode`);
+  } else {
+    console.log(`🔧 Running in DEVELOPMENT mode`);
+  }
 });
