@@ -1916,7 +1916,7 @@ const AmazonsChoice = () => {
                   >
                     {(() => {
                       const perUnitPrice = product.rawPrice || 0;
-                      return `£${perUnitPrice.toFixed(2)}/unit`;
+                      return `${formatPrice(perUnitPrice)}/unit`;
                     })()}
                   </div>
                   
@@ -2133,7 +2133,7 @@ const AmazonsChoice = () => {
                           document.querySelectorAll('.custom-tooltip-profit').forEach(t => t.remove());
                         }}
                         >
-                          💰 £{profitPerUnit.toFixed(2)}/unit
+                          💰 {formatPrice(profitPerUnit)}/unit
                         </div>
                       </div>
                     );
@@ -2197,12 +2197,12 @@ const AmazonsChoice = () => {
                             const dealUnits = product.dealUnits || 1;
                             const totalPrice = unitPrice * dealUnits;
                             
-                            if (isNaN(totalPrice)) return product.price;
+                            if (isNaN(totalPrice)) return formatPrice(product.price);
                             
-                            // Always use GBP (£) currency
-                            return `£${totalPrice.toFixed(2)}`;
+                            // Use formatPrice to handle currency conversion
+                            return formatPrice(totalPrice);
                           } catch (error) {
-                            return product.price;
+                            return formatPrice(product.price);
                           }
                         })()}
                       </span>
@@ -2364,7 +2364,7 @@ const AmazonsChoice = () => {
                           whiteSpace: 'nowrap',
                           textAlign: 'right'
                         }}>
-                          £{totalProfit.toFixed(2)}
+                          {formatPrice(totalProfit)}
                         </span>
                       </div>
                     </div>

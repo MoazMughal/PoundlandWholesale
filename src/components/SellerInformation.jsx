@@ -12,6 +12,7 @@ const SellerInformation = ({
   const [newPrice, setNewPrice] = useState('');
   const [updating, setUpdating] = useState(false);
   const [unlisting, setUnlisting] = useState(false);
+  const [showAllSellers, setShowAllSellers] = useState(false);
 
   const handleUpdatePrice = async () => {
     if (!newPrice || newPrice <= 0) return;
@@ -176,6 +177,7 @@ const SellerInformation = ({
                       
                       return totalA - totalB;
                     })
+                    .slice(0, showAllSellers ? uniqueSellers.length : 1)
                     .map((sellerEntry, index) => {
                 const sellerPrice = parseFloat(sellerEntry.sellerPrice) || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
                 const sellerShipping = parseFloat(sellerEntry.sellerShipping) || 0;
@@ -240,7 +242,7 @@ const SellerInformation = ({
                       </div>
                     </div>
                     <div style={{fontSize: '0.7rem'}}>
-                      <strong>Contact:</strong> 
+                      <strong>Chat with Seller:</strong> 
                       <a 
                         href={`https://wa.me/${sellerEntry.whatsappNo?.replace(/[^0-9]/g, '')}`}
                         target="_blank"
@@ -252,17 +254,35 @@ const SellerInformation = ({
                       </a>
                     </div>
                     <div style={{fontSize: '0.7rem'}}>
-                      <strong>Status:</strong> 
-                      <span className="badge bg-success ms-1" style={{fontSize: '0.65rem'}}>
-                        {sellerEntry.verificationStatus}
-                      </span>
-                    </div>
-                    <div style={{fontSize: '0.7rem'}}>
                       <strong>Listed:</strong> {new Date(sellerEntry.listedAt).toLocaleDateString()}
                     </div>
                   </div>
                 );
               })}
+                  
+                  {/* See More Button */}
+                  {uniqueSellers.length > 1 && !showAllSellers && (
+                    <button
+                      onClick={() => setShowAllSellers(true)}
+                      className="btn btn-outline-success btn-sm w-100 mt-2"
+                      style={{fontSize: '0.7rem', padding: '6px 12px'}}
+                    >
+                      <i className="fas fa-chevron-down me-1"></i>
+                      See More ({uniqueSellers.length - 1} more seller{uniqueSellers.length - 1 > 1 ? 's' : ''})
+                    </button>
+                  )}
+                  
+                  {/* See Less Button */}
+                  {uniqueSellers.length > 1 && showAllSellers && (
+                    <button
+                      onClick={() => setShowAllSellers(false)}
+                      className="btn btn-outline-secondary btn-sm w-100 mt-2"
+                      style={{fontSize: '0.7rem', padding: '6px 12px'}}
+                    >
+                      <i className="fas fa-chevron-up me-1"></i>
+                      See Less
+                    </button>
+                  )}
                 </>
               );
             })()}
@@ -306,7 +326,7 @@ const SellerInformation = ({
                     <strong>Location:</strong> 📍 {sellerData.city}, {sellerData.country}
                   </div>
                   <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                    <strong>Contact:</strong> 
+                    <strong>Chat with Seller:</strong> 
                     <a 
                       href={`https://wa.me/${sellerData.whatsappNo?.replace(/[^0-9]/g, '')}`}
                       target="_blank"
@@ -316,12 +336,6 @@ const SellerInformation = ({
                       <i className="fab fa-whatsapp me-1"></i>
                       {sellerData.whatsappNo}
                     </a>
-                  </div>
-                  <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                    <strong>Status:</strong> 
-                    <span className="badge bg-success ms-1" style={{fontSize: '0.65rem'}}>
-                      {sellerData.verificationStatus}
-                    </span>
                   </div>
                 </div>
                 <div className="text-end">

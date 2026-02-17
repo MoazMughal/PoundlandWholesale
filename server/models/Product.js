@@ -82,6 +82,10 @@ const productSchema = new mongoose.Schema({
       type: Number,
       default: 0
     },
+    stock: { // Seller's stock quantity
+      type: Number,
+      default: 0
+    },
     listedAt: {
       type: Date,
       default: Date.now

@@ -5,7 +5,7 @@ import { getImageUrl } from '../utils/imageImports'
 
 const BasketSidebar = ({ isOpen, onClose }) => {
   const navigate = useNavigate()
-  const { basket, removeFromBasket, updateQuantity, getTotalPrice } = useBasket()
+  const { basket, removeFromBasket, updateQuantity, getTotalPrice, showAddedNotification, cancelAutoClose, resumeAutoClose } = useBasket()
   const { formatPrice } = useCurrency()
 
   const handleCheckout = () => {
@@ -15,6 +15,21 @@ const BasketSidebar = ({ isOpen, onClose }) => {
 
   return (
     <>
+      {/* Animation styles */}
+      <style>
+        {`
+          @keyframes slideDown {
+            from {
+              transform: translateY(-100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
       {/* Overlay */}
       {isOpen && (
         <div
@@ -35,6 +50,8 @@ const BasketSidebar = ({ isOpen, onClose }) => {
 
       {/* Sidebar */}
       <div
+        onMouseEnter={cancelAutoClose}
+        onMouseLeave={resumeAutoClose}
         style={{
           position: 'fixed',
           top: 0,
@@ -60,15 +77,42 @@ const BasketSidebar = ({ isOpen, onClose }) => {
             color: 'white',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            position: 'relative'
           }}
         >
+          {/* Added to Basket Notification */}
+          {showAddedNotification && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: '0',
+                right: '0',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: 'white',
+                padding: '12px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                fontSize: '0.875rem',
+                fontWeight: '600',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                animation: 'slideDown 0.3s ease-out',
+                zIndex: 10000
+              }}
+            >
+              <i className="fas fa-check-circle" style={{ fontSize: '1.25rem' }}></i>
+              <span>Added to basket!</span>
+            </div>
+          )}
+          
           <div>
-            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700' }}>
+            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: 'white' }}>
               <i className="fas fa-shopping-basket me-2"></i>
               Your Basket
             </h3>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', opacity: 0.9 }}>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', opacity: 0.9, color: 'white' }}>
               {basket.length} {basket.length === 1 ? 'item' : 'items'}
             </p>
           </div>

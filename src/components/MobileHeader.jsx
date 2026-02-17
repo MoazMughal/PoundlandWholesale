@@ -713,14 +713,19 @@ const MobileHeader = () => {
                 borderRadius: '4px'
               }}>
                 <img 
-                  src="https://flagcdn.com/w40/gb.png"
-                  alt="GBP"
+                  src={
+                    currency === 'GBP' ? 'https://flagcdn.com/w40/gb.png' :
+                    currency === 'PKR' ? 'https://flagcdn.com/w40/pk.png' :
+                    currency === 'USD' ? 'https://flagcdn.com/w40/us.png' :
+                    'https://flagcdn.com/w40/ae.png'
+                  }
+                  alt={currency}
                   style={{ width: '20px', height: '14px', objectFit: 'cover', borderRadius: '2px' }}
                 />
                 <i className="fas fa-chevron-down" style={{ fontSize: '8px', color: '#fff' }}></i>
               </div>
               <select 
-                value="GBP"
+                value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
                 style={{
                   position: 'absolute',
@@ -732,7 +737,10 @@ const MobileHeader = () => {
                   cursor: 'pointer'
                 }}
               >
-                <option value="GBP" style={{color: '#000'}}>GBP</option>
+                <option value="GBP" style={{color: '#000'}}>🇬🇧 GBP</option>
+                <option value="PKR" style={{color: '#000'}}>🇵🇰 PKR</option>
+                <option value="USD" style={{color: '#000'}}>🇺🇸 USD</option>
+                <option value="AED" style={{color: '#000'}}>🇦🇪 AED</option>
               </select>
             </div>
 
@@ -863,14 +871,19 @@ const MobileHeader = () => {
                   borderRadius: '3px'
                 }}>
                   <img 
-                    src="https://flagcdn.com/w40/gb.png"
-                    alt="GBP"
+                    src={
+                      currency === 'GBP' ? 'https://flagcdn.com/w40/gb.png' :
+                      currency === 'PKR' ? 'https://flagcdn.com/w40/pk.png' :
+                      currency === 'USD' ? 'https://flagcdn.com/w40/us.png' :
+                      'https://flagcdn.com/w40/ae.png'
+                    }
+                    alt={currency}
                     style={{ width: '20px', height: '14px', objectFit: 'cover', borderRadius: '2px' }}
                   />
                   <i className="fas fa-chevron-down" style={{ fontSize: '8px', color: '#fff' }}></i>
                 </div>
                 <select 
-                  value="GBP"
+                  value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
                   style={{
                     position: 'absolute',
@@ -882,7 +895,10 @@ const MobileHeader = () => {
                     cursor: 'pointer'
                   }}
                 >
-                  <option value="GBP">GBP</option>
+                  <option value="GBP">🇬🇧 GBP</option>
+                  <option value="PKR">🇵🇰 PKR</option>
+                  <option value="USD">🇺🇸 USD</option>
+                  <option value="AED">🇦🇪 AED</option>
                 </select>
               </div>
 

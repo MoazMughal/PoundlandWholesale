@@ -4,6 +4,7 @@ import EnhancedImage from '../../components/EnhancedImage';
 import '../../styles/AdminLayout.css';
 import '../../styles/enhanced-images.css';
 import '../../styles/mobile-image-optimization.css';
+import '../../styles/excel-tables-fix.css';
 
 const ExcelImport = () => {
   const navigate = useNavigate();
@@ -224,6 +225,69 @@ const ExcelImport = () => {
 
   return (
     <div className="admin-layout">
+      <style>{`
+        /* Fix table display issues for Excel Import */
+        .excel-import-table {
+          border-collapse: collapse !important;
+          table-layout: auto !important;
+          width: 100% !important;
+        }
+        
+        .excel-import-table thead {
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 100 !important;
+        }
+        
+        .excel-import-table thead th {
+          background: #f9fafb !important;
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 100 !important;
+          box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1) !important;
+        }
+        
+        .excel-import-table th,
+        .excel-import-table td {
+          vertical-align: middle !important;
+          height: auto !important;
+          max-height: none !important;
+          padding: 12px !important;
+          border-bottom: 1px solid #e5e7eb !important;
+        }
+        
+        .excel-import-table tr {
+          height: auto !important;
+          max-height: none !important;
+          min-height: 60px !important;
+        }
+        
+        .excel-import-table tbody tr {
+          background: white !important;
+        }
+        
+        .excel-import-table tbody tr:hover {
+          background: #f8fafc !important;
+        }
+        
+        /* Fix for scrolling issues */
+        .excel-import-table {
+          position: relative !important;
+        }
+        
+        /* Responsive styles */
+        @media (max-width: 768px) {
+          .excel-import-table {
+            display: block !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+          
+          .excel-import-table table {
+            min-width: 800px !important;
+          }
+        }
+      `}</style>
       <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{

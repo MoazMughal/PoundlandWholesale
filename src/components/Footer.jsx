@@ -52,6 +52,7 @@ const Footer = () => {
             <ul>
               <li><i className="fas fa-map-marker-alt me-2"></i> Dilawer Cheema Khurd, PK</li>
               <li><i className="fas fa-envelope me-2"></i> info@genericwholesale.pk</li>
+              <li><i className="fas fa-envelope me-2"></i> poundlandwholesale@gmail.com</li>
               <li><i className="fas fa-phone me-2"></i> +92-303-4928000</li>
             </ul>
           </div>

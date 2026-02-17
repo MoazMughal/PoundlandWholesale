@@ -332,9 +332,10 @@ const CompactFooter = () => {
               }}></div>
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '14px' }}>
+             
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <i className="fas fa-envelope" style={{ color: '#ff9900', fontSize: '14px', width: '16px' }}></i>
-                <span style={{ color: 'rgba(255,255,255,0.8)' }}>support@poundlandwholesale.com</span>
+                <span style={{ color: 'rgba(255,255,255,0.8)' }}>poundlandwholesale@gmail.com</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <i className="fas fa-phone" style={{ color: '#ff9900', fontSize: '14px', width: '16px' }}></i>

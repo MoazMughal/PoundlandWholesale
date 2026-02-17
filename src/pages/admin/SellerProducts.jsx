@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getApiUrl } from '../../utils/api'
+import SuccessToast from '../../components/Toast/SuccessToast'
 
 const AdminSellerProducts = () => {
   const navigate = useNavigate()
@@ -12,6 +13,8 @@ const AdminSellerProducts = () => {
   const [imageLoadingStates, setImageLoadingStates] = useState({})
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState('newest')
+  const [showSuccessToast, setShowSuccessToast] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
   useEffect(() => {
     // Load stats first, then products
@@ -26,6 +29,11 @@ const AdminSellerProducts = () => {
     
     // Then load products
     await fetchProducts()
+  }
+
+  const showSuccess = (message) => {
+    setSuccessMessage(message)
+    setShowSuccessToast(true)
   }
 
   const loadStats = async () => {
@@ -269,8 +277,6 @@ const AdminSellerProducts = () => {
   }
 
   const handleApprove = async (product) => {
-    if (!confirm('Are you sure you want to approve this listing request?')) return
-
     try {
       const token = localStorage.getItem('adminToken')
       
@@ -284,7 +290,7 @@ const AdminSellerProducts = () => {
         })
 
         if (response.ok) {
-          alert('✅ Listing request approved successfully! Product has been added to seller\'s inventory.')
+          showSuccess('Listing request approved successfully! Product has been added to seller\'s inventory.')
           // Smooth refresh - just update the specific product instead of full reload
           setProducts(prev => prev.filter(p => p._id !== product._id))
           // Update stats
@@ -307,7 +313,7 @@ const AdminSellerProducts = () => {
         })
 
         if (response.ok) {
-          alert('✅ Product approved successfully')
+          showSuccess('Product approved successfully!')
           // Smooth refresh - just update the specific product instead of full reload
           setProducts(prev => prev.filter(p => p._id !== product._id))
           // Update stats
@@ -1305,6 +1311,15 @@ const AdminSellerProducts = () => {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Success Toast */}
+      {showSuccessToast && (
+        <SuccessToast
+          message={successMessage}
+          onClose={() => setShowSuccessToast(false)}
+          duration={3000}
+        />
       )}
     </div>
   )

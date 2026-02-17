@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { completeProductsData, getProductById } from '../data/completeProducts'
 import { products } from '../data/allProducts'
@@ -6,6 +6,7 @@ import { getImageUrl } from '../utils/imageImports'
 import PaymentModal from '../components/PaymentModal'
 import PaymentUploadModal from '../components/PaymentUploadModal'
 import SellerInformation from '../components/SellerInformation'
+import ImageZoomModal from '../components/ImageZoomModal'
 import apiConfig from '../config/api.config'
 import { useCurrency } from '../context/CurrencyContext'
 import { useAdmin } from '../context/AdminContext'
@@ -94,7 +95,7 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true)
   const [selectedImage, setSelectedImage] = useState(0)
   // Use currency from context instead of local state
-  const { currency, currencyRates, currencySymbols } = useCurrency()
+  const { currency, currencyRates, currencySymbols, formatPrice } = useCurrency()
   const { admin, isLoggedIn: isAdminLoggedIn } = useAdmin()
   const { buyer, isLoggedIn: isBuyerLoggedIn } = useBuyer()
   const { seller, isLoggedIn: isSellerLoggedIn } = useSeller()
@@ -112,6 +113,7 @@ const ProductDetail = () => {
   const [currentSeller, setCurrentSeller] = useState(null)
   const [savingUnits, setSavingUnits] = useState(false) // Loading state for saving units
   const [quantity, setQuantity] = useState(1) // Set MOQ to 1
+  const [showZoomModal, setShowZoomModal] = useState(false)
 
   // Initialize quantity to 1 (MOQ) when product loads, but allow independent changes
   useEffect(() => {
@@ -120,6 +122,37 @@ const ProductDetail = () => {
       setQuantity(1);
     }
   }, [product]);
+
+  // Function to check if product is available for purchase
+  const hasStock = () => {
+    if (!product) return false;
+    
+    // Check if admin has stock
+    const adminStock = product.stock || 0;
+    
+    // Check if any seller has listed this product
+    const hasSellers = product.sellers && product.sellers.length > 0;
+    
+    // Logic:
+    // 1. If any seller has listed the product → Show quantity & Buy button (regardless of stock)
+    // 2. If admin has stock and no sellers → Show quantity & Buy button
+    // 3. If admin has NO stock and NO sellers → Show "Out of Stock"
+    const isAvailable = hasSellers || adminStock > 0;
+    
+    console.log('📦 Product Availability Check:', {
+      adminStock,
+      hasSellers,
+      sellersCount: product.sellers?.length || 0,
+      isAvailable,
+      logic: hasSellers 
+        ? 'Seller listed - showing as available' 
+        : adminStock > 0 
+          ? 'Admin has stock - showing as available'
+          : 'No sellers and no admin stock - out of stock'
+    });
+    
+    return isAvailable;
+  };
 
   const handleProductChange = (productId) => {
     // Navigate to the linked product with cache busting
@@ -620,11 +653,7 @@ _This quotation was generated from PoundlandWholesale.com_
         .map(p => ({
           id: p._id,
           name: p.name,
-          price: p.currency === 'GBP' ? `£${p.price}` : 
-                 p.currency === 'USD' ? `$${p.price}` :
-                 p.currency === 'AED' ? `د.إ${p.price}` :
-                 `₨${p.price}`,
-          image: p.images && p.images.length > 0 ? getImageUrl(p.images[0]) : '',
+          price: p.currency === 'GBP' ? `£${parseFloat(p.price || 0).toFixed(2)}` : p.currency === 'USD' ? `${parseFloat(p.price || 0).toFixed(2)}` : p.currency === 'AED' ? `د.إ${parseFloat(p.price || 0).toFixed(2)}` : `₨${parseFloat(p.price || 0).toFixed(2)}`, rawPrice: parseFloat(p.price || 0), image: p.images && p.images.length > 0 ? getImageUrl(p.images[0]) : '',
           rating: p.rating || 4.0,
           reviews: p.reviews || 0,
           category: p.category,
@@ -655,11 +684,7 @@ _This quotation was generated from PoundlandWholesale.com_
         .map(p => ({
           id: p._id,
           name: p.name,
-          price: p.currency === 'GBP' ? `£${p.price}` : 
-                 p.currency === 'USD' ? `$${p.price}` :
-                 p.currency === 'AED' ? `د.إ${p.price}` :
-                 `₨${p.price}`,
-          image: p.images && p.images.length > 0 ? getImageUrl(p.images[0]) : '',
+          price: p.currency === 'GBP' ? `£${parseFloat(p.price || 0).toFixed(2)}` : p.currency === 'USD' ? `${parseFloat(p.price || 0).toFixed(2)}` : p.currency === 'AED' ? `د.إ${parseFloat(p.price || 0).toFixed(2)}` : `₨${parseFloat(p.price || 0).toFixed(2)}`, rawPrice: parseFloat(p.price || 0), image: p.images && p.images.length > 0 ? getImageUrl(p.images[0]) : '',
           rating: p.rating || 4.0,
           reviews: p.reviews || 0,
           category: p.category,
@@ -2480,9 +2505,9 @@ _This quotation was generated from PoundlandWholesale.com_
 
   // Helper function to convert profit values based on data source
   const convertProfitValue = (value) => {
-    // Since you're saving data in GBP, always format as GBP with proper decimal precision
+    // Use formatPrice for currency conversion
     const numValue = safeNumber(value);
-    return `£${numValue.toFixed(2)}`;
+    return formatPrice(numValue);
   };
 
   // Check if platform data has actual values (not dummy/empty data)
@@ -3020,6 +3045,7 @@ _This quotation was generated from PoundlandWholesale.com_
                     src={product.images && product.images[selectedImage] ? product.images[selectedImage] : product.image} 
                     alt={product.name} 
                     className="img-fluid"
+                    onClick={() => setShowZoomModal(true)}
                     style={{
                       maxWidth: '85%', // Zoom out - show more of the image from all sides
                       maxHeight: 'none', // Remove height constraint - let image show at natural size
@@ -3054,6 +3080,45 @@ _This quotation was generated from PoundlandWholesale.com_
                       console.error('❌ Image failed to load:', e.target.src);
                     }}
                   />
+                  
+                  {/* Zoom Icon Indicator */}
+                  <div 
+                    className="position-absolute"
+                    style={{
+                      bottom: '10px',
+                      right: '10px',
+                      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                      color: 'white',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      backdropFilter: 'blur(4px)'
+                    }}
+                    onClick={() => setShowZoomModal(true)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="11" y1="8" x2="11" y2="14" />
+                      <line x1="8" y1="11" x2="14" y2="11" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    
+                  </div>
+                  
                   {/* Compact Badge */}
                   <div className="position-absolute top-0 start-0 m-1">
                     {(() => {
@@ -3297,7 +3362,7 @@ _This quotation was generated from PoundlandWholesale.com_
                             border: '1px solid rgba(107, 114, 128, 0.2)'
                           }}>
                             <i className="fas fa-calculator" style={{ fontSize: '0.7rem', marginRight: '6px' }}></i>
-                            {convertPrice(`£${breakdown.price.toFixed(2)}`)} + {convertPrice(`£${breakdown.shipping.toFixed(2)}`)} shipping
+                            {formatPrice(breakdown.price)} + {formatPrice(breakdown.shipping)} shipping
                           </div>
                         );
                       })()}
@@ -3329,7 +3394,7 @@ _This quotation was generated from PoundlandWholesale.com_
                                   // Use the saved Amazon per unit price from admin panel
                                   const amazonRRPPerUnit = parseFloat(amazonPlatform.perUnitPrice);
                                   console.log('🏷️ RRP Display - Using Amazon RRP per unit:', amazonRRPPerUnit);
-                                  return `£${amazonRRPPerUnit.toFixed(2)}`;
+                                  return formatPrice(amazonRRPPerUnit);
                                 }
                                 
                                 // Fallback to RRP platform if Amazon not found
@@ -3340,14 +3405,14 @@ _This quotation was generated from PoundlandWholesale.com_
                                 if (rrpPlatform && rrpPlatform.perUnitPrice) {
                                   const savedRRPPerUnit = parseFloat(rrpPlatform.perUnitPrice);
                                   console.log('🏷️ RRP Display - Using fallback RRP per unit:', savedRRPPerUnit);
-                                  return `£${savedRRPPerUnit.toFixed(2)}`;
+                                  return formatPrice(savedRRPPerUnit);
                                 }
                               }
                               
                               // Fallback to product.rrp if no saved platform data
-                              const fallbackRRP = parseFloat(product.rrp.replace(/[₨£$€Rs]/g, '')).toFixed(2);
+                              const fallbackRRP = parseFloat(product.rrp.replace(/[₨£$€Rs د.إ]/g, ''));
                               console.log('🏷️ RRP Display - Using fallback RRP:', fallbackRRP);
-                              return `£${fallbackRRP}`;
+                              return formatPrice(fallbackRRP);
                             })()}
                           </span>
                         </div>
@@ -3468,7 +3533,7 @@ _This quotation was generated from PoundlandWholesale.com_
                             color: '#232f3e',
                             letterSpacing: '0.2px'
                           }}>
-                            Amazon Average Monthly Sale Profit Calculation
+                            Amazon/Ebay Average Monthly Sale Profit Calculation
                           </span>
                           <button
                             onClick={() => {
@@ -3522,7 +3587,7 @@ _This quotation was generated from PoundlandWholesale.com_
                             // Use profitEvaluation productCost if available, otherwise calculate from price
                             if (product.profitEvaluation?.productCost) {
                               // Use the fixed productCost from evaluation (already calculated for dealUnits)
-                              return `£${product.profitEvaluation.productCost.toFixed(2)}`;
+                              return formatPrice(product.profitEvaluation.productCost);
                             }
                             
                             // Fallback calculation: dealUnits × unit price
@@ -3530,7 +3595,7 @@ _This quotation was generated from PoundlandWholesale.com_
                             const unitPrice = parseFloat(priceString.replace(/[₨£$€]/g, '').trim()) || 0;
                             const totalCost = unitPrice * (product.dealUnits || 200);
                             
-                            return `£${totalCost.toFixed(2)}`;
+                            return formatPrice(totalCost);
                           })()}</span>
                         </div>
                       </div>
@@ -3655,7 +3720,7 @@ _This quotation was generated from PoundlandWholesale.com_
                           const breakdown = getLowestPriceBreakdown();
                           const basePrice = breakdown.price > 0 ? breakdown.price : parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
                           const shippingCost = breakdown.shipping > 0 ? breakdown.shipping : parseFloat(product.shipping) || 0;
-                          return `£${basePrice.toFixed(2)} + £${shippingCost.toFixed(2)} shipping`;
+                          return `${formatPrice(basePrice)} + ${formatPrice(shippingCost)} shipping`;
                         })()}
                       </span>
                     </div>
@@ -3673,230 +3738,265 @@ _This quotation was generated from PoundlandWholesale.com_
                   </div>
 
                   {/* Compact In Stock Status */}
+                  {/* Stock Status Display */}
                   <div className="mb-2" style={{
-                    background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
-                    border: '1px solid #0ea5e9',
+                    background: hasStock() 
+                      ? 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)' 
+                      : 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                    border: hasStock() ? '1px solid #0ea5e9' : '1px solid #ef4444',
                     borderRadius: '6px',
                     padding: '6px 8px'
                   }}>
                     <div className="fw-bold d-flex align-items-center mb-1" style={{
                       fontSize: '0.7rem', 
-                      color: '#0369a1'
+                      color: hasStock() ? '#0369a1' : '#dc2626'
                     }}>
-                      <i className="fas fa-check-circle me-1" style={{color: '#059669', fontSize: '0.6rem'}}></i>
-                      In Stock & Ready to Ship
+                      <i className={`fas ${hasStock() ? 'fa-check-circle' : 'fa-times-circle'} me-1`} style={{color: hasStock() ? '#059669' : '#dc2626', fontSize: '0.6rem'}}></i>
+                      {hasStock() ? 'Available for Purchase' : 'Currently Out of Stock'}
                     </div>
-                    <small style={{fontSize: '0.6rem', color: '#0369a1', fontWeight: '500'}}>
-                      <i className="fas fa-shipping-fast me-1"></i>
-                      Delivery in 15 days to Amazon Warehouse
-                    </small>
+                    {hasStock() ? (
+                      <small style={{fontSize: '0.6rem', color: '#0369a1', fontWeight: '500'}}>
+                        <i className="fas fa-shipping-fast me-1"></i>
+                        {product.sellers && product.sellers.length > 0 
+                          ? `Listed by ${product.sellers.length} seller${product.sellers.length > 1 ? 's' : ''}`
+                          : 'Delivery in 15 days to Amazon Warehouse'
+                        }
+                      </small>
+                    ) : (
+                      <small style={{fontSize: '0.6rem', color: '#991b1b', fontWeight: '500'}}>
+                        <i className="fas fa-info-circle me-1"></i>
+                        Contact us for availability updates
+                      </small>
+                    )}
                   </div>
 
-                  {/* Compact Quantity Selector */}
-                  <div className="mb-2" style={{
-                    background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
-                    border: '1px solid #e1e5e9',
-                    borderRadius: '6px',
-                    padding: '8px'
-                  }}>
-                    <label className="form-label fw-bold mb-1" style={{
-                      fontSize: '0.7rem', 
-                      color: '#232f3e',
-                      letterSpacing: '0.2px'
-                    }}>Quantity:</label>
-                    <div className="d-flex align-items-center gap-1 mb-1">
-                      <button
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        style={{
-                          background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                          border: '1px solid #e1e5e9',
-                          borderRadius: '4px',
-                          width: '24px',
-                          height: '24px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          fontSize: '0.8rem',
-                          fontWeight: '600',
-                          color: '#232f3e'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.borderColor = '#ff9900';
-                          e.target.style.transform = 'scale(1.05)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.borderColor = '#e1e5e9';
-                          e.target.style.transform = 'scale(1)';
-                        }}
-                      >
-                        −
-                      </button>
-                      <input 
-                        type="number" 
-                        className="form-control text-center" 
-                        style={{
-                          fontSize: '0.8rem', 
-                          color: '#232f3e', 
-                          backgroundColor: '#ffffff', 
-                          border: '1px solid #e1e5e9',
-                          borderRadius: '4px',
-                          fontWeight: '700',
-                          maxWidth: '80px', // Increased width from 60px to 80px
-                          padding: '4px',
-                          height: '24px',
-                          fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-                        }}
-                        value={quantity}
-                        min="1"
-                        step="1"
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Allow user to type freely, including clearing the field
-                          if (value === '' || value === '0') {
-                            setQuantity('');
-                          } else {
-                            setQuantity(parseInt(value));
-                          }
-                        }}
-                        onBlur={(e) => {
-                          // Ensure value is at least 1 when user leaves the field
-                          const value = parseInt(e.target.value);
-                          if (isNaN(value) || value < 1) {
-                            setQuantity(1);
-                          }
-                          // Reset styling
-                          e.target.style.borderColor = '#e1e5e9';
-                          e.target.style.boxShadow = 'none';
-                        }}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = '#ff9900';
-                          e.target.style.boxShadow = '0 0 0 2px rgba(255, 153, 0, 0.1)';
-                        }}
-                        placeholder="1"
-                      />
-                      <button
-                        onClick={() => setQuantity(quantity + 1)}
-                        style={{
-                          background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                          border: '1px solid #e1e5e9',
-                          borderRadius: '4px',
-                          width: '24px',
-                          height: '24px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          fontSize: '0.8rem',
-                          fontWeight: '600',
-                          color: '#232f3e'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.borderColor = '#ff9900';
-                          e.target.style.transform = 'scale(1.05)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.borderColor = '#e1e5e9';
-                          e.target.style.transform = 'scale(1)';
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                    <small style={{
-                      fontSize: '0.6rem', 
-                      color: '#565959',
-                      fontWeight: '500'
-                    }}>
-                      <i className="fas fa-info-circle me-1"></i>
-                      MOQ: 1 unit • Changes affect Platform Comparison gross profit
-                    </small>
-                  </div>
+                  {/* Stock Status Check */}
+                  {hasStock() ? (
+                    <>
+                      {/* Compact Quantity Selector */}
+                      <div className="mb-2" style={{
+                        background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
+                        border: '1px solid #e1e5e9',
+                        borderRadius: '6px',
+                        padding: '8px'
+                      }}>
+                        <label className="form-label fw-bold mb-1" style={{
+                          fontSize: '0.7rem', 
+                          color: '#232f3e',
+                          letterSpacing: '0.2px'
+                        }}>Quantity:</label>
+                        <div className="d-flex align-items-center gap-1 mb-1">
+                          <button
+                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                            style={{
+                              background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                              border: '1px solid #e1e5e9',
+                              borderRadius: '4px',
+                              width: '24px',
+                              height: '24px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              fontSize: '0.8rem',
+                              fontWeight: '600',
+                              color: '#232f3e'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.borderColor = '#ff9900';
+                              e.target.style.transform = 'scale(1.05)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.borderColor = '#e1e5e9';
+                              e.target.style.transform = 'scale(1)';
+                            }}
+                          >
+                            −
+                          </button>
+                          <input 
+                            type="number" 
+                            className="form-control text-center" 
+                            style={{
+                              fontSize: '0.8rem', 
+                              color: '#232f3e', 
+                              backgroundColor: '#ffffff', 
+                              border: '1px solid #e1e5e9',
+                              borderRadius: '4px',
+                              fontWeight: '700',
+                              maxWidth: '80px',
+                              padding: '4px',
+                              height: '24px',
+                              fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+                            }}
+                            value={quantity}
+                            min="1"
+                            step="1"
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || value === '0') {
+                                setQuantity('');
+                              } else {
+                                setQuantity(parseInt(value));
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const value = parseInt(e.target.value);
+                              if (isNaN(value) || value < 1) {
+                                setQuantity(1);
+                              }
+                              e.target.style.borderColor = '#e1e5e9';
+                              e.target.style.boxShadow = 'none';
+                            }}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = '#ff9900';
+                              e.target.style.boxShadow = '0 0 0 2px rgba(255, 153, 0, 0.1)';
+                            }}
+                            placeholder="1"
+                          />
+                          <button
+                            onClick={() => setQuantity(quantity + 1)}
+                            style={{
+                              background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                              border: '1px solid #e1e5e9',
+                              borderRadius: '4px',
+                              width: '24px',
+                              height: '24px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              fontSize: '0.8rem',
+                              fontWeight: '600',
+                              color: '#232f3e'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.borderColor = '#ff9900';
+                              e.target.style.transform = 'scale(1.05)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.borderColor = '#e1e5e9';
+                              e.target.style.transform = 'scale(1)';
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <small style={{
+                          fontSize: '0.6rem', 
+                          color: '#565959',
+                          fontWeight: '500'
+                        }}>
+                          <i className="fas fa-info-circle me-1"></i>
+                          MOQ: 1 unit • Changes affect Platform Comparison gross profit
+                        </small>
+                      </div>
 
-                  {/* Compact Buy Now Button */}
-                  <div className="d-grid gap-1 mb-2">
-                    <button 
-                      className="enhanced-btn" 
-                      style={{
-                        fontSize: '0.7rem', 
-                        padding: '8px 12px',
-                        background: 'linear-gradient(135deg, #ff9900 0%, #ff7700 100%)',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontWeight: '700',
-                        letterSpacing: '0.3px',
-                        boxShadow: '0 2px 6px rgba(255, 153, 0, 0.25)',
-                        position: 'relative',
-                        overflow: 'hidden'
-                      }}
-                      onClick={() => {
-                        handleBuyNow();
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.transform = 'translateY(-1px)';
-                        e.target.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.35)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.transform = 'translateY(0)';
-                        e.target.style.boxShadow = '0 2px 6px rgba(255, 153, 0, 0.25)';
-                      }}
-                    >
-                      <i className="fas fa-bolt me-1"></i>Buy Now - <span style={{fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>{quantity || 1}</span> Units
-                    </button>
-                    
-                    <button 
-                      className="enhanced-btn" 
-                      style={{
-                        fontSize: '0.65rem', 
-                        padding: '6px 10px',
-                        background: product && isInBasket(product.id || product._id) 
-                          ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
-                          : 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)',
-                        color: '#ffffff !important',
-                        border: product && isInBasket(product.id || product._id) 
-                          ? '1px solid #10b981' 
-                          : '1px solid #ff9900',
-                        borderRadius: '6px',
-                        fontWeight: '600',
-                        letterSpacing: '0.2px',
-                        boxShadow: '0 2px 6px rgba(35, 47, 62, 0.25)'
-                      }}
-                      onClick={() => {
-                        // Add to cart functionality
-                        if (product) {
-                          addToBasket(product);
-                        }
-                      }}
-                      onMouseEnter={(e) => {
-                        if (product && isInBasket(product.id || product._id)) {
-                          e.target.style.background = 'linear-gradient(135deg, #059669 0%, #047857 100%)';
-                          e.target.style.borderColor = '#10b981';
-                        } else {
-                          e.target.style.background = 'linear-gradient(135deg, #ff9900 0%, #ff7700 100%)';
-                          e.target.style.borderColor = '#ffffff';
-                        }
-                        e.target.style.transform = 'translateY(-1px)';
-                        e.target.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.35)';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (product && isInBasket(product.id || product._id)) {
-                          e.target.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-                          e.target.style.borderColor = '#10b981';
-                        } else {
-                          e.target.style.background = 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)';
-                          e.target.style.borderColor = '#ff9900';
-                        }
-                        e.target.style.transform = 'translateY(0)';
-                        e.target.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.25)';
-                      }}
-                    >
-                      <i className={product && isInBasket(product.id || product._id) ? 'fas fa-check me-1' : 'fas fa-shopping-cart me-1'}></i>
-                      {product && isInBasket(product.id || product._id) ? 'In Basket' : 'Add to Cart'}
-                    </button>
-                  </div>
+                      {/* Compact Buy Now Button */}
+                      <div className="d-grid gap-1 mb-2">
+                        <button 
+                          className="enhanced-btn" 
+                          style={{
+                            fontSize: '0.7rem', 
+                            padding: '8px 12px',
+                            background: 'linear-gradient(135deg, #ff9900 0%, #ff7700 100%)',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: '700',
+                            letterSpacing: '0.3px',
+                            boxShadow: '0 2px 6px rgba(255, 153, 0, 0.25)',
+                            position: 'relative',
+                            overflow: 'hidden'
+                          }}
+                          onClick={() => {
+                            handleBuyNow();
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.transform = 'translateY(-1px)';
+                            e.target.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.35)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.transform = 'translateY(0)';
+                            e.target.style.boxShadow = '0 2px 6px rgba(255, 153, 0, 0.25)';
+                          }}
+                        >
+                          <i className="fas fa-bolt me-1"></i>Buy Now - <span style={{fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>{quantity || 1}</span> Units
+                        </button>
+                        
+                        <button 
+                          className="enhanced-btn" 
+                          style={{
+                            fontSize: '0.65rem', 
+                            padding: '6px 10px',
+                            background: product && isInBasket(product.id || product._id) 
+                              ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
+                              : 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)',
+                            color: '#ffffff !important',
+                            border: product && isInBasket(product.id || product._id) 
+                              ? '1px solid #10b981' 
+                              : '1px solid #ff9900',
+                            borderRadius: '6px',
+                            fontWeight: '600',
+                            letterSpacing: '0.2px',
+                            boxShadow: '0 2px 6px rgba(35, 47, 62, 0.25)'
+                          }}
+                          onClick={() => {
+                            // Add to cart functionality
+                            if (product) {
+                              addToBasket(product);
+                            }
+                          }}
+                          onMouseEnter={(e) => {
+                            if (product && isInBasket(product.id || product._id)) {
+                              e.target.style.background = 'linear-gradient(135deg, #059669 0%, #047857 100%)';
+                              e.target.style.borderColor = '#10b981';
+                            } else {
+                              e.target.style.background = 'linear-gradient(135deg, #ff9900 0%, #ff7700 100%)';
+                              e.target.style.borderColor = '#ffffff';
+                            }
+                            e.target.style.transform = 'translateY(-1px)';
+                            e.target.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.35)';
+                          }}
+                          onMouseLeave={(e) => {
+                            if (product && isInBasket(product.id || product._id)) {
+                              e.target.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                              e.target.style.borderColor = '#10b981';
+                            } else {
+                              e.target.style.background = 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)';
+                              e.target.style.borderColor = '#ff9900';
+                            }
+                            e.target.style.transform = 'translateY(0)';
+                            e.target.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.25)';
+                          }}
+                        >
+                          <i className={product && isInBasket(product.id || product._id) ? 'fas fa-check me-1' : 'fas fa-shopping-cart me-1'}></i>
+                          {product && isInBasket(product.id || product._id) ? 'In Basket' : 'Add to Cart'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    /* Out of Stock Message */
+                    <div className="mb-2" style={{
+                      background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+                      border: '1px solid #ef4444',
+                      borderRadius: '6px',
+                      padding: '12px',
+                      textAlign: 'center'
+                    }}>
+                      <div className="fw-bold d-flex align-items-center justify-content-center mb-1" style={{
+                        fontSize: '0.8rem', 
+                        color: '#dc2626'
+                      }}>
+                        <i className="fas fa-exclamation-circle me-2" style={{fontSize: '1rem'}}></i>
+                        Out of Stock
+                      </div>
+                      <small style={{fontSize: '0.65rem', color: '#991b1b', fontWeight: '500'}}>
+                        This product is currently unavailable. Please check back later or contact us for more information.
+                      </small>
+                    </div>
+                  )}
 
                   <hr />
 
@@ -3917,17 +4017,9 @@ _This quotation was generated from PoundlandWholesale.com_
                     onRefreshProduct={refreshProductData}
                   />
 
-                  <hr />
+                  
 
-                  {/* Total Sales */}
-                </div>
-                  <div className="text-center">
-                    <div className="fw-bold mb-1" style={{fontSize: '0.8rem', color: '#1f2937'}}>Total Sales</div>
-                    <div className="fw-bold" style={{fontSize: '1.1rem', color: '#2563eb'}}>
-                      {product.monthlyOrders}
-                    </div>
-                    <small style={{fontSize: '0.7rem', color: '#6b7280'}}>units sold this month</small>
-                  </div>
+                 
 
                 </div>
               </div>
@@ -3976,15 +4068,25 @@ _This quotation was generated from PoundlandWholesale.com_
                       )}
                       <small className="d-block mb-3" style={{color: '#6b7280'}}>ex. VAT</small>
                       <div className="d-grid">
-                        <button 
-                          className="btn btn-danger"
-                          style={{backgroundColor: '#dc2626', borderColor: '#dc2626', color: '#ffffff'}}
-                          onClick={() => {
-                            handleBuyNow();
-                          }}
-                        >
-                          <i className="fas fa-bolt me-1"></i>Buy Now
-                        </button>
+                        {hasStock() ? (
+                          <button 
+                            className="btn btn-danger"
+                            style={{backgroundColor: '#dc2626', borderColor: '#dc2626', color: '#ffffff'}}
+                            onClick={() => {
+                              handleBuyNow();
+                            }}
+                          >
+                            <i className="fas fa-bolt me-1"></i>Buy Now
+                          </button>
+                        ) : (
+                          <button 
+                            className="btn btn-secondary"
+                            style={{backgroundColor: '#6b7280', borderColor: '#6b7280', color: '#ffffff', cursor: 'not-allowed'}}
+                            disabled
+                          >
+                            <i className="fas fa-times-circle me-1"></i>Out of Stock
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -4034,14 +4136,24 @@ _This quotation was generated from PoundlandWholesale.com_
                         </div>
                         <div className="col-6">
                           <div className="d-grid gap-1">
-                            <button 
-                              className="btn btn-danger btn-sm"
-                              onClick={() => {
-                                handleBuyNow();
-                              }}
-                            >
-                              <i className="fas fa-bolt me-1"></i>Buy Now
-                            </button>
+                            {hasStock() ? (
+                              <button 
+                                className="btn btn-danger btn-sm"
+                                onClick={() => {
+                                  handleBuyNow();
+                                }}
+                              >
+                                <i className="fas fa-bolt me-1"></i>Buy Now
+                              </button>
+                            ) : (
+                              <button 
+                                className="btn btn-secondary btn-sm"
+                                style={{cursor: 'not-allowed'}}
+                                disabled
+                              >
+                                <i className="fas fa-times-circle me-1"></i>Out of Stock
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -4168,18 +4280,18 @@ _This quotation was generated from PoundlandWholesale.com_
                                       {platform.name}
                                     </td>
                                     <td className="fw-bold text-primary py-2 px-2 text-center" style={{fontSize: '0.8rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
-                                      £{safeNumber(perUnitPrice).toFixed(2)}
+                                      {formatPrice(safeNumber(perUnitPrice))}
                                     </td>
                                     <td className="fw-bold text-danger py-2 px-2 text-center" style={{fontSize: '0.8rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
-                                      £{safeNumber(productCostGBP).toFixed(2)}
+                                      {formatPrice(safeNumber(productCostGBP))}
                                     </td>
                                     <td className="fw-bold py-2 px-2 text-center" style={{fontSize: '0.8rem', color: '#2d3748', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
                                       ✕ {platformUnits}
                                     </td>
                                     <td className="fw-bold py-2 px-2 text-center" style={{fontSize: '0.8rem', color: '#059669', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
-                                      = £{safeNumber(totalGrossProfit).toFixed(2)}
+                                      = {formatPrice(safeNumber(totalGrossProfit))}
                                       <div style={{fontSize: '0.6rem', color: '#666', marginTop: '2px', fontStyle: 'italic'}}>
-                                        (£{safeNumber(perUnitPrice).toFixed(2)} - £{safeNumber(productCostGBP).toFixed(2)}) × {platformUnits}
+                                        ({formatPrice(safeNumber(perUnitPrice))} - {formatPrice(safeNumber(productCostGBP))}) × {platformUnits}
                                       </div>
                                     </td>
                                     <td className="py-2 px-2 text-center">
@@ -4235,7 +4347,7 @@ _This quotation was generated from PoundlandWholesale.com_
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Profit per Unit</div>
                                   <div className="fw-bold text-success" style={{fontSize: '1rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
-                                    £{safeNumber(product.profitCalculations.profitPerUnit).toFixed(2)}
+                                    {formatPrice(safeNumber(product.profitCalculations.profitPerUnit))}
                                   </div>
                                 </div>
                               </div>
@@ -4243,7 +4355,7 @@ _This quotation was generated from PoundlandWholesale.com_
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Monthly Profit</div>
                                   <div className="fw-bold text-primary" style={{fontSize: '1rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
-                                    £{(() => {
+                                    {formatPrice((() => {
                                       const monthlyValue = product.evaluation?.monthlyProfit || product.profitCalculations?.monthlyProfit || (product.profitCalculations?.profitPerUnit * 30) || 0;
                                       console.log('📊 Monthly Profit Display Debug:', {
                                         evaluationMonthly: product.evaluation?.monthlyProfit,
@@ -4251,8 +4363,8 @@ _This quotation was generated from PoundlandWholesale.com_
                                         fallbackCalculation: product.profitCalculations?.profitPerUnit * 30,
                                         finalValue: monthlyValue
                                       });
-                                      return safeNumber(monthlyValue).toFixed(2);
-                                    })()}
+                                      return safeNumber(monthlyValue);
+                                    })())}
                                   </div>
                                 </div>
                               </div>
@@ -4260,7 +4372,7 @@ _This quotation was generated from PoundlandWholesale.com_
                                 <div className="bg-white rounded p-2">
                                   <div className="text-muted mb-1" style={{fontSize: '0.7rem'}}>Yearly Profit</div>
                                   <div className="fw-bold text-warning" style={{fontSize: '1rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>
-                                    £{(() => {
+                                    {formatPrice((() => {
                                       // PRIORITY 1: Auto-calculate yearly profit based on platform units
                                       const platformData = calculatePlatformData();
                                       const profitPerUnit = product.profitCalculations?.profitPerUnit || product.evaluation?.netProfit || 0;
@@ -4283,21 +4395,21 @@ _This quotation was generated from PoundlandWholesale.com_
                                             profitPerUnit: profitPerUnit,
                                             units: units,
                                             yearlyProfit: yearlyProfit,
-                                            formula: `${units} × £${profitPerUnit.toFixed(2)} = £${yearlyProfit.toFixed(2)}`
+                                            formula: `${units} × ${profitPerUnit.toFixed(2)} = ${yearlyProfit.toFixed(2)}`
                                           });
-                                          return safeNumber(yearlyProfit).toFixed(2);
+                                          return safeNumber(yearlyProfit);
                                         }
                                       }
                                       
                                       // PRIORITY 2: Use saved yearly profit values
                                       if (product.evaluation?.yearlyProfit && product.evaluation.yearlyProfit > 0) {
                                         console.log('📊 Using Saved Evaluation Yearly Profit:', product.evaluation.yearlyProfit);
-                                        return safeNumber(product.evaluation.yearlyProfit).toFixed(2);
+                                        return safeNumber(product.evaluation.yearlyProfit);
                                       }
                                       
                                       if (product.profitCalculations?.yearlyProfit && product.profitCalculations.yearlyProfit > 0) {
                                         console.log('📊 Using Saved Calculations Yearly Profit:', product.profitCalculations.yearlyProfit);
-                                        return safeNumber(product.profitCalculations.yearlyProfit).toFixed(2);
+                                        return safeNumber(product.profitCalculations.yearlyProfit);
                                       }
                                       
                                       // PRIORITY 3: Fallback calculation (365 days)
@@ -4306,14 +4418,14 @@ _This quotation was generated from PoundlandWholesale.com_
                                         console.log('📊 Using Fallback Calculation (365 days):', {
                                           profitPerUnit: profitPerUnit,
                                           fallbackYearly: fallbackYearly,
-                                          formula: `${profitPerUnit.toFixed(2)} × 365 = £${fallbackYearly.toFixed(2)}`
+                                          formula: `${profitPerUnit.toFixed(2)} × 365 = ${fallbackYearly.toFixed(2)}`
                                         });
-                                        return safeNumber(fallbackYearly).toFixed(2);
+                                        return safeNumber(fallbackYearly);
                                       }
                                       
                                       console.log('❌ No valid data for yearly profit calculation');
-                                      return '0.00';
-                                    })()}
+                                      return 0;
+                                    })())}
                                   </div>
                                 </div>
                               </div>
@@ -5076,7 +5188,7 @@ _This quotation was generated from PoundlandWholesale.com_
                     <div className="card-body p-2">
                       <h6 className="card-title" style={{fontSize: '0.75rem', fontWeight: '600', color: '#2d3748', height: '32px', overflow: 'hidden', lineHeight: '1.3', marginBottom: '4px'}}>{deal.name}</h6>
                       <div className="d-flex justify-content-between align-items-center mb-1">
-                        <span className="text-primary fw-bold" style={{fontSize: '0.85rem'}}>{deal.price}</span>
+                        <span className="text-primary fw-bold" style={{fontSize: '0.85rem'}}>{formatPrice(deal.rawPrice || 0)}</span>
                         <div className="text-warning" style={{fontSize: '0.65rem'}}>
                           {[...Array(5)].map((_, i) => (
                             <i key={i} className={`${i < Math.floor(deal.rating) ? 'fas' : 'far'} fa-star`}></i>
@@ -5132,7 +5244,7 @@ _This quotation was generated from PoundlandWholesale.com_
                     <div className="card-body p-2">
                       <h6 className="card-title" style={{fontSize: '0.75rem', fontWeight: '600', color: '#2d3748', height: '32px', overflow: 'hidden', lineHeight: '1.3', marginBottom: '4px'}}>{popular.name}</h6>
                       <div className="d-flex justify-content-between align-items-center mb-1">
-                        <span className="text-primary fw-bold" style={{fontSize: '0.85rem'}}>{popular.price}</span>
+                        <span className="text-primary fw-bold" style={{fontSize: '0.85rem'}}>{formatPrice(popular.rawPrice || 0)}</span>
                         <div className="text-warning" style={{fontSize: '0.65rem'}}>
                           {[...Array(5)].map((_, i) => (
                             <i key={i} className={`${i < Math.floor(popular.rating) ? 'fas' : 'far'} fa-star`}></i>
@@ -5248,6 +5360,7 @@ _This quotation was generated from PoundlandWholesale.com_
               </div>
               </div>
             )}
+            </div>
           </div>
         </div>
       </section>
@@ -5376,6 +5489,16 @@ _This quotation was generated from PoundlandWholesale.com_
             </div>
           </div>
         </div>
+      )}
+
+      {/* Image Zoom Modal */}
+      {product && (
+        <ImageZoomModal
+          isOpen={showZoomModal}
+          onClose={() => setShowZoomModal(false)}
+          images={product.images || [product.image]}
+          initialIndex={selectedImage}
+        />
       )}
     </div>
   )

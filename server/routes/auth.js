@@ -17,6 +17,13 @@ import {
   identifyContactMethod 
 } from '../services/otp.js';
 import { sendPasswordResetEmail, sendEmailOTP } from '../services/email.js';
+import { authLimiter, passwordResetLimiter } from '../middleware/rateLimiter.js';
+import { 
+  validateLogin, 
+  validateSendOTP, 
+  validateVerifyOTP,
+  validatePasswordReset 
+} from '../middleware/validation.js';
 
 const router = express.Router();
 
@@ -39,7 +46,8 @@ router.get('/server-session', (req, res) => {
 });
 
 // POST /auth/login - Admin login with username/email and password
-router.post('/login', async (req, res) => {
+// Apply rate limiting and validation
+router.post('/login', authLimiter, validateLogin, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -115,7 +123,8 @@ router.post('/login', async (req, res) => {
 });
 
 // POST /auth/send-otp - Send OTP via email or WhatsApp
-router.post('/send-otp', async (req, res) => {
+// Apply rate limiting and validation
+router.post('/send-otp', authLimiter, validateSendOTP, async (req, res) => {
   try {
     const { identifier, userType } = req.body;
 
@@ -261,7 +270,8 @@ router.post('/send-otp', async (req, res) => {
 });
 
 // POST /auth/verify-otp - Verify OTP
-router.post('/verify-otp', async (req, res) => {
+// Apply rate limiting and validation
+router.post('/verify-otp', authLimiter, validateVerifyOTP, async (req, res) => {
   try {
     const { identifier, otp, userType } = req.body;
 
@@ -477,7 +487,8 @@ router.post('/reset-password', async (req, res) => {
 // ============================================
 
 // POST /auth/forgot-password - Send password reset link via email
-router.post('/forgot-password', async (req, res) => {
+// Apply stricter rate limiting for password reset
+router.post('/forgot-password', passwordResetLimiter, validatePasswordReset, async (req, res) => {
   try {
     const { email, userType } = req.body;
 

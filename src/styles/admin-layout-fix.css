@@ -1,0 +1,251 @@
+/* ========================================
+   ADMIN LAYOUT ARCHITECTURE FIX
+   Root Cause: Nested scroll containers + conflicting height calculations
+   Solution: Single scroll container with proper layout hierarchy
+   ======================================== */
+
+/* 1️⃣ GLOBAL LAYOUT RESET - Remove all conflicting scroll containers */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* Prevent body scroll */
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* Prevent root scroll */
+}
+
+.App {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Prevent App scroll */
+}
+
+/* 2️⃣ ADMIN LAYOUT STRUCTURE - Single scroll container */
+.admin-layout {
+  width: 100%;
+  height: 100vh; /* Full viewport height */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* No scroll on layout wrapper */
+  background-color: #f8fafc;
+  position: relative;
+}
+
+/* 3️⃣ ADMIN CONTENT WRAPPER - This is the ONLY scroll container */
+.admin-content-wrapper {
+  flex: 1;
+  width: 100%;
+  overflow-y: auto; /* SINGLE vertical scroll */
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+/* 4️⃣ TABLE CONTAINERS - No nested scrolling */
+.products-table-container,
+.excel-products-container,
+.admin-products,
+.admin-products-page {
+  width: 100%;
+  overflow: visible !important; /* Remove nested scroll */
+  height: auto !important; /* Let content determine height */
+  max-height: none !important; /* Remove height restrictions */
+}
+
+/* 5️⃣ TABLE WRAPPER - No scroll, just contain */
+.products-table,
+.excel-table-wrapper {
+  width: 100%;
+  overflow: visible !important; /* No nested scroll */
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+/* 6️⃣ TABLE ELEMENT - Natural flow */
+.products-table table,
+.excel-table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto; /* Let table size naturally */
+}
+
+/* 7️⃣ TABLE ROWS - Stable height */
+.products-table tbody tr,
+.excel-table-wrapper tbody tr {
+  height: auto;
+  min-height: 40px;
+}
+
+.products-table td,
+.excel-table-wrapper td {
+  padding: 6px 8px;
+  vertical-align: middle;
+  white-space: nowrap; /* Prevent text wrapping that causes layout shift */
+}
+
+/* 8️⃣ FIXED HEADER - Sticky positioning */
+.products-table thead,
+.excel-table-wrapper thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(135deg, #ff6600 0%, #dc2626 100%);
+}
+
+.products-table th,
+.excel-table-wrapper th {
+  padding: 8px 10px;
+  font-weight: 700;
+  color: white;
+  white-space: nowrap;
+}
+
+/* 9️⃣ SCROLLBAR STYLING - Clean appearance */
+.admin-content-wrapper::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.admin-content-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.admin-content-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 6px;
+  border: 2px solid #f1f5f9;
+}
+
+.admin-content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* 🔟 REMOVE ALL NESTED OVERFLOW PROPERTIES */
+.admin-products *:not(.admin-content-wrapper),
+.admin-products-page *:not(.admin-content-wrapper),
+.excel-products-container *:not(.admin-content-wrapper) {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+/* 1️⃣1️⃣ PAGINATION - Fixed at bottom */
+.pagination-container {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  padding: 12px;
+  border-top: 1px solid #e5e7eb;
+  z-index: 5;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
+}
+
+/* 1️⃣2️⃣ MODAL FIX - Prevent scroll issues */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  overflow-y: auto;
+  background: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+  margin: 20px auto;
+}
+
+/* 1️⃣3️⃣ MOBILE RESPONSIVE */
+@media (max-width: 768px) {
+  .admin-layout {
+    height: 100vh;
+    height: -webkit-fill-available; /* iOS fix */
+  }
+  
+  .admin-content-wrapper {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .products-table,
+  .excel-table-wrapper {
+    overflow-x: auto !important; /* Allow horizontal scroll on mobile */
+  }
+  
+  .products-table table,
+  .excel-table-wrapper table {
+    min-width: 800px; /* Ensure table doesn't collapse */
+  }
+}
+
+/* 1️⃣4️⃣ PREVENT LAYOUT SHIFT ON SCROLL */
+.products-table tbody,
+.excel-table-wrapper tbody {
+  will-change: auto; /* Prevent GPU acceleration issues */
+}
+
+/* 1️⃣5️⃣ ENSURE PROPER STACKING CONTEXT */
+.admin-layout {
+  isolation: isolate; /* Create new stacking context */
+}
+
+/* 1️⃣6️⃣ FIX WHITE SPACE ISSUE */
+.admin-content-wrapper > * {
+  margin-bottom: 0 !important;
+}
+
+.admin-content-wrapper > *:last-child {
+  padding-bottom: 20px; /* Add padding instead of margin */
+}
+
+/* 1️⃣7️⃣ CRITICAL: Override any conflicting styles */
+.admin-products.admin-products-page,
+.excel-products-page {
+  height: auto !important;
+  min-height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding: 12px;
+}
+
+/* 1️⃣8️⃣ TABLE CELL CONTENT STABILITY */
+.products-table td > *,
+.excel-table-wrapper td > * {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 1️⃣9️⃣ IMAGE CONTAINER FIX */
+.products-table td img,
+.excel-table-wrapper td img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* 2️⃣0️⃣ LOADING STATE */
+.admin-content-wrapper.loading {
+  overflow: hidden;
+}
+
+/* ========================================
+   DEBUGGING HELPERS (Remove in production)
+   ======================================== */
+/* Uncomment to debug scroll containers
+.admin-layout { outline: 3px solid red !important; }
+.admin-content-wrapper { outline: 3px solid blue !important; }
+.products-table-container { outline: 3px solid green !important; }
+.products-table { outline: 3px solid yellow !important; }
+*/

@@ -14,6 +14,8 @@ export const BasketProvider = ({ children }) => {
   const [basket, setBasket] = useState([])
   const [userType, setUserType] = useState('guest') // 'buyer', 'seller', 'admin', 'guest'
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [showAddedNotification, setShowAddedNotification] = useState(false)
+  const [autoCloseTimer, setAutoCloseTimer] = useState(null)
 
   // Determine user type and load basket from localStorage
   useEffect(() => {
@@ -63,8 +65,35 @@ export const BasketProvider = ({ children }) => {
         return [...prev, { ...product, quantity: 1, addedAt: Date.now() }]
       }
     })
-    // Open sidebar when item is added
+    
+    // Show sidebar with "Added to basket" notification
     setIsSidebarOpen(true)
+    setShowAddedNotification(true)
+    
+    // Auto-close entire sidebar after 2 seconds (unless mouse is hovering)
+    const timer = setTimeout(() => {
+      setIsSidebarOpen(false)
+      setShowAddedNotification(false)
+    }, 2000)
+    
+    setAutoCloseTimer(timer)
+  }
+  
+  const cancelAutoClose = () => {
+    if (autoCloseTimer) {
+      clearTimeout(autoCloseTimer)
+      setAutoCloseTimer(null)
+    }
+  }
+  
+  const resumeAutoClose = () => {
+    // When mouse leaves, start a new 2-second timer
+    const timer = setTimeout(() => {
+      setIsSidebarOpen(false)
+      setShowAddedNotification(false)
+    }, 2000)
+    
+    setAutoCloseTimer(timer)
   }
 
   const removeFromBasket = (productId) => {
@@ -143,7 +172,10 @@ export const BasketProvider = ({ children }) => {
       isInBasket,
       isSidebarOpen,
       openSidebar,
-      closeSidebar
+      closeSidebar,
+      showAddedNotification,
+      cancelAutoClose,
+      resumeAutoClose
     }}>
       {children}
     </BasketContext.Provider>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiUrl } from '../../utils/api';
 import '../../styles/AdminLayout.css';
+import '../../styles/excel-tables-fix.css';
 
 // Add some inline styles for better table interaction
 const tableRowStyle = {
@@ -668,6 +669,63 @@ const ExcelManager = () => {
   return (
     <>
       <style>{`
+        /* Fix table display issues for Excel Manager */
+        .excel-table table,
+        .image-uploads-table {
+          border-collapse: collapse !important;
+          table-layout: auto !important;
+          width: 100% !important;
+        }
+        
+        .excel-table thead,
+        .image-uploads-table thead {
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 100 !important;
+        }
+        
+        .excel-table thead th,
+        .image-uploads-table thead th {
+          background: #f8fafc !important;
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 100 !important;
+          box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1) !important;
+        }
+        
+        .excel-table th,
+        .excel-table td,
+        .image-uploads-table th,
+        .image-uploads-table td {
+          vertical-align: middle !important;
+          height: auto !important;
+          max-height: none !important;
+          border-bottom: 1px solid #e5e7eb !important;
+        }
+        
+        .excel-table tr,
+        .image-uploads-table tr {
+          height: auto !important;
+          max-height: none !important;
+          min-height: 40px !important;
+        }
+        
+        .excel-table tbody tr,
+        .image-uploads-table tbody tr {
+          background: white !important;
+        }
+        
+        .excel-table tbody tr:hover,
+        .image-uploads-table tbody tr:hover {
+          background: #f8fafc !important;
+        }
+        
+        /* Fix for scrolling issues */
+        .excel-table,
+        .image-uploads-table {
+          position: relative !important;
+        }
+        
         /* Responsive Styles for Excel Manager */
         @media (max-width: 768px) {
           .admin-layout {
@@ -1309,7 +1367,7 @@ const ExcelManager = () => {
             {imageUploads.length > 0 && (
               <div style={{ overflowX: 'auto' }}>
                 <table className="image-uploads-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                  <thead>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc' }}>
                     <tr style={{ background: '#f8fafc' }}>
                       <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: '600', fontSize: '0.8rem' }}>ZIP File</th>
                       <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: '600', fontSize: '0.8rem' }}>Images</th>
@@ -1466,7 +1524,7 @@ const ExcelManager = () => {
               {/* Desktop Table View */}
               <div className="excel-table" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                <thead>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc' }}>
                   <tr style={{ background: '#f8fafc' }}>
                     <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: '600', fontSize: '0.8rem' }}>File Name</th>
                     <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: '600', fontSize: '0.8rem' }}>Status</th>

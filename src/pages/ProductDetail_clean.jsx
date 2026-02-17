@@ -4206,15 +4206,14 @@ const ProductDetail = () => {
                     )}
                   </div>
 
-                  <hr />
+                  <hr style={{margin: '12px 0'}} />
 
                   {/* Total Sales */}
-                  <div className="text-center">
+                  <div className="text-center" style={{marginBottom: '12px'}}>
                     <div className="fw-bold mb-1" style={{fontSize: '0.8rem', color: '#1f2937'}}>Total Sales</div>
                     <div className="fw-bold" style={{fontSize: '1.1rem', color: '#2563eb'}}>
                       {product.monthlyOrders}
                     </div>
-                    <small style={{fontSize: '0.7rem', color: '#6b7280'}}>units sold this month</small>
                   </div>
 
                 </div>

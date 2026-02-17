@@ -18,12 +18,76 @@ img[alt*="Product" i] {
   background-color: #ffffff !important;
 }
 
+/* CRITICAL FIX: Prevent table breaking on scroll */
 .admin-products {
   padding: 8px;
   max-width: 1600px;
   margin: 0 auto;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   min-height: 100vh;
+  overflow: visible !important; /* Allow natural scrolling */
+}
+
+.admin-products.admin-products-page {
+  overflow: visible !important;
+  height: auto !important;
+  min-height: auto !important;
+  max-height: none !important;
+}
+
+.products-table-container {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.products-table {
+  background: white;
+  border-radius: 12px;
+  overflow: visible !important; /* CRITICAL: No nested scroll */
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  height: auto !important;
+  max-height: none !important;
+}
+
+.products-table table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed; /* Prevent column width changes */
+}
+
+.products-table tbody tr {
+  height: auto !important;
+  min-height: 40px;
+  display: table-row !important; /* Ensure rows display correctly */
+}
+
+.products-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  transition: background 0.2s ease;
+  font-size: 0.75rem;
+  overflow: visible !important; /* Allow content to show */
+  display: table-cell !important; /* Ensure cells display correctly */
+}
+
+.products-table th {
+  background: linear-gradient(135deg, #ff6600 0%, #dc2626 100%);
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 700;
+  color: white;
+  border-bottom: none;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .page-header {
@@ -104,38 +168,6 @@ img[alt*="Product" i] {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.products-table {
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-}
-
-.products-table table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.products-table th {
-  background: linear-gradient(135deg, #ff6600 0%, #dc2626 100%);
-  padding: 8px 10px;
-  text-align: left;
-  font-weight: 700;
-  color: white;
-  border-bottom: none;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.products-table td {
-  padding: 6px 8px;
-  border-bottom: 1px solid #f1f5f9;
-  vertical-align: middle;
-  transition: background 0.2s ease;
-  font-size: 0.75rem;
 }
 
 .products-table tr:hover td {

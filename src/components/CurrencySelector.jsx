@@ -1,7 +1,7 @@
 import { useCurrency } from '../context/CurrencyContext';
 
 const CurrencySelector = ({ position = 'fixed', style = {} }) => {
-  const { currency, setCurrency } = useCurrency();
+  const { currency, setCurrency, currencyFlags } = useCurrency();
 
   const defaultStyle = position === 'fixed' ? {
     position: 'fixed',
@@ -37,10 +37,10 @@ const CurrencySelector = ({ position = 'fixed', style = {} }) => {
           minWidth: '110px'
         }}
       >
-        <option value="PKR">Rs (PKR)</option>
-        <option value="USD">$ (USD)</option>
-        <option value="GBP">£ (GBP)</option>
-        <option value="AED">د.إ (AED)</option>
+        <option value="GBP">{currencyFlags?.GBP || '🇬🇧'} £ (GBP)</option>
+        <option value="PKR">{currencyFlags?.PKR || '🇵🇰'} Rs (PKR)</option>
+        <option value="USD">{currencyFlags?.USD || '🇺🇸'} $ (USD)</option>
+        <option value="AED">{currencyFlags?.AED || '🇦🇪'} د.إ (AED)</option>
       </select>
     </div>
   );
