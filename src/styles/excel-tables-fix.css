@@ -1,0 +1,284 @@
+/* 
+ * COMPREHENSIVE FIX FOR ALL EXCEL TABLES
+ * This CSS fixes layout breaking issues after scrolling in:
+ * - ExcelImport.jsx (pending products table)
+ * - ExcelManager.jsx (uploads and image uploads tables)
+ * - ExcelProducts.jsx (products table)
+ */
+
+/* ============================================
+   COMMON TABLE FIXES FOR ALL EXCEL PAGES
+   ============================================ */
+
+/* Base table container - NO nested scrolling */
+.excel-import-table,
+.excel-table,
+.image-uploads-table,
+.excel-products-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  table-layout: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Table wrapper - NO overflow on container */
+.excel-import-table,
+.excel-table,
+.image-uploads-table,
+.excel-products-table {
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Table scroll wrapper for horizontal scrolling only */
+.table-scroll-wrapper,
+.excel-table-scroll-wrapper {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  width: 100% !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Sticky headers for all tables */
+.excel-import-table thead,
+.excel-table thead,
+.image-uploads-table thead,
+.excel-products-table thead {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
+  background: #f8fafc !important;
+}
+
+.excel-import-table thead tr,
+.excel-table thead tr,
+.image-uploads-table thead tr,
+.excel-products-table thead tr {
+  background: #f8fafc !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+.excel-import-table thead th,
+.excel-table thead th,
+.image-uploads-table thead th,
+.excel-products-table thead th {
+  background: #f8fafc !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
+  padding: 10px 12px !important;
+  text-align: left !important;
+  font-weight: 600 !important;
+  font-size: 0.8rem !important;
+  color: #374151 !important;
+  border-bottom: 2px solid #e5e7eb !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  height: auto !important;
+  line-height: 1.4 !important;
+}
+
+/* Table body - consistent spacing */
+.excel-import-table tbody,
+.excel-table tbody,
+.image-uploads-table tbody,
+.excel-products-table tbody {
+  background: white !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+.excel-import-table tbody tr,
+.excel-table tbody tr,
+.image-uploads-table tbody tr,
+.excel-products-table tbody tr {
+  background: white !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  transition: background-color 0.15s ease !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+.excel-import-table tbody tr:hover,
+.excel-table tbody tr:hover,
+.image-uploads-table tbody tr:hover,
+.excel-products-table tbody tr:hover {
+  background: #f9fafb !important;
+}
+
+/* Table cells - NO inline padding, let CSS control */
+.excel-import-table tbody td,
+.excel-table tbody td,
+.image-uploads-table tbody td,
+.excel-products-table tbody td {
+  padding: 10px 12px !important;
+  vertical-align: middle !important;
+  font-size: 0.85rem !important;
+  color: #374151 !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  line-height: 1.4 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  white-space: nowrap !important;
+}
+
+/* Allow wrapping for specific content */
+.excel-import-table tbody td:nth-child(3),
+.excel-table tbody td:nth-child(1),
+.excel-products-table tbody td:nth-child(2) {
+  white-space: normal !important;
+  max-width: 300px !important;
+}
+
+/* Converted row styling for ExcelProducts */
+.excel-products-table tbody tr.converted-row {
+  background: #f0fdf4 !important;
+}
+
+.excel-products-table tbody tr.converted-row:hover {
+  background: #dcfce7 !important;
+}
+
+/* ============================================
+   RESPONSIVE STYLES
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Hide tables on mobile */
+  .excel-import-table,
+  .excel-table,
+  .image-uploads-table,
+  .excel-products-table {
+    display: none !important;
+  }
+  
+  /* Show mobile card views instead */
+  .mobile-excel-product-cards,
+  .mobile-upload-cards {
+    display: block !important;
+  }
+}
+
+@media (min-width: 769px) {
+  /* Hide mobile views on desktop */
+  .mobile-excel-product-cards,
+  .mobile-upload-cards {
+    display: none !important;
+  }
+}
+
+/* ============================================
+   SPECIFIC FIXES FOR EACH PAGE
+   ============================================ */
+
+/* ExcelImport - Pending Products Table */
+.excel-import-table {
+  min-width: 1000px !important;
+}
+
+/* ExcelManager - Uploads Tables */
+.excel-table,
+.image-uploads-table {
+  min-width: 900px !important;
+}
+
+/* ExcelProducts - Main Products Table */
+.excel-products-table {
+  min-width: 1200px !important;
+}
+
+/* ============================================
+   PREVENT LAYOUT BREAKING
+   ============================================ */
+
+/* Ensure no element causes spacing issues */
+.excel-import-table *,
+.excel-table *,
+.image-uploads-table *,
+.excel-products-table * {
+  box-sizing: border-box !important;
+}
+
+/* Remove any margin/padding that might cause issues */
+.excel-import-table tbody tr,
+.excel-table tbody tr,
+.image-uploads-table tbody tr,
+.excel-products-table tbody tr {
+  margin: 0 !important;
+}
+
+.excel-import-table tbody td,
+.excel-table tbody td,
+.image-uploads-table tbody td,
+.excel-products-table tbody td {
+  margin: 0 !important;
+}
+
+/* Ensure images don't break layout */
+.excel-import-table img,
+.excel-table img,
+.image-uploads-table img,
+.excel-products-table img {
+  display: block !important;
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* ============================================
+   SCROLLING OPTIMIZATION
+   ============================================ */
+
+/* Smooth scrolling */
+.excel-import-table,
+.excel-table,
+.image-uploads-table,
+.excel-products-table {
+  scroll-behavior: smooth !important;
+}
+
+/* Prevent scroll jank */
+.excel-import-table thead,
+.excel-table thead,
+.image-uploads-table thead,
+.excel-products-table thead {
+  will-change: transform !important;
+}
+
+/* ============================================
+   CRITICAL: OVERRIDE ALL INLINE STYLES
+   ============================================ */
+
+/* Force consistent padding on all cells */
+.excel-import-table td[style*="padding"],
+.excel-table td[style*="padding"],
+.image-uploads-table td[style*="padding"],
+.excel-products-table td[style*="padding"] {
+  padding: 10px 12px !important;
+}
+
+/* Force consistent vertical alignment */
+.excel-import-table td[style*="vertical"],
+.excel-table td[style*="vertical"],
+.image-uploads-table td[style*="vertical"],
+.excel-products-table td[style*="vertical"] {
+  vertical-align: middle !important;
+}
+
+/* Force auto height on all rows */
+.excel-import-table tr[style*="height"],
+.excel-table tr[style*="height"],
+.image-uploads-table tr[style*="height"],
+.excel-products-table tr[style*="height"] {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}

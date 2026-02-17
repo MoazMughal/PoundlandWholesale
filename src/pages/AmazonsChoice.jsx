@@ -99,7 +99,7 @@ const AmazonsChoice = () => {
           display: flex !important;
           flex-direction: column !important;
           background: white !important;
-          border: 2px solid #ff6600 !important;
+          border: 2px solid #1a1a1a !important;
           border-radius: 8px !important;
           padding: 4px !important;
           min-height: 280px !important; /* Reduced from 220px for more compact cards */
@@ -180,15 +180,15 @@ const AmazonsChoice = () => {
           margin: 0 !important;
           border-radius: 2px !important; /* Smaller radius */
           text-align: center !important;
-          background: #fff8dc !important;
-          color: #ff6600 !important;
-          border: 0.5px solid #ffe4b5 !important;
+          background: #f5f5f5 !important;
+          color: #1a1a1a !important;
+          border: 0.5px solid #d0d0d0 !important;
           min-width: 60px !important; /* Reduced min width */
           max-width: 80px !important; /* Reduced max width */
           display: block !important;
           visibility: visible !important;
           opacity: 1 !important;
-          box-shadow: 0 1px 2px rgba(255, 228, 181, 0.2) !important;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
           width: fit-content !important;
         }
         
@@ -211,13 +211,13 @@ const AmazonsChoice = () => {
           margin: 0 !important;
           border-radius: 2px !important;
           text-align: center !important;
-          background: #fff8dc !important;
-          color: #ff6600 !important;
-          border: 1px solid #ffe4b5 !important;
+          background: #f5f5f5 !important;
+          color: #1a1a1a !important;
+          border: 1px solid #d0d0d0 !important;
           min-width: 50px !important; /* Reduced min width */
           max-width: 70px !important; /* Reduced max width */
           white-space: nowrap !important;
-          box-shadow: 0 1px 2px rgba(255, 228, 181, 0.2) !important;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
           display: block !important;
           visibility: visible !important;
           opacity: 1 !important;
@@ -231,16 +231,16 @@ const AmazonsChoice = () => {
           padding: 2px 4px !important;
           margin: 0px 0 !important;
           border-radius: 3px !important;
-          background: #fff8dc !important;
-          color: #ff6600 !important;
-          border: 1px solid #ffe4b5 !important;
+          background: #f5f5f5 !important;
+          color: #1a1a1a !important;
+          border: 1px solid #d0d0d0 !important;
           display: flex !important;
           justify-content: space-between !important;
           align-items: center !important;
           gap: 4px !important; /* Reduced gap for mobile */
           min-height: 20px !important; /* Decreased height for smaller font */
           max-height: 22px !important;
-          box-shadow: 0 1px 3px rgba(255, 228, 181, 0.3) !important;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
           visibility: visible !important;
           opacity: 1 !important;
         }
@@ -249,7 +249,7 @@ const AmazonsChoice = () => {
         .product-info span[style*="Deal"] {
           font-size: 6px !important; /* Decreased font size for mobile */
           font-weight: 700 !important;
-          color: #ff6600 !important;
+          color: #1a1a1a !important;
           white-space: nowrap !important;
           overflow: hidden !important;
           text-overflow: ellipsis !important;
@@ -261,7 +261,7 @@ const AmazonsChoice = () => {
         .product-info span[style*="£"] {
           font-size: 6px !important; /* Decreased font size for price value */
           font-weight: 700 !important;
-          color: #ff6600 !important;
+          color: #1a1a1a !important;
           white-space: nowrap !important;
           min-width: 30px !important; /* Increased min-width */
           text-align: left !important;
@@ -1546,6 +1546,12 @@ const AmazonsChoice = () => {
                   e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
                   e.currentTarget.style.boxShadow = '0 20px 40px rgba(255, 102, 0, 0.25)';
                   e.currentTarget.style.borderColor = '#ff6600';
+                  // Show verify button
+                  const verifyBtn = e.currentTarget.querySelector('.verify-amazon-btn');
+                  if (verifyBtn) {
+                    verifyBtn.style.opacity = '1';
+                    verifyBtn.style.pointerEvents = 'auto';
+                  }
                 }
               }}
               onMouseLeave={(e) => {
@@ -1553,6 +1559,12 @@ const AmazonsChoice = () => {
                   e.currentTarget.style.transform = 'translateY(0) scale(1)';
                   e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 102, 0, 0.15)';
                   e.currentTarget.style.borderColor = 'transparent';
+                  // Hide verify button
+                  const verifyBtn = e.currentTarget.querySelector('.verify-amazon-btn');
+                  if (verifyBtn) {
+                    verifyBtn.style.opacity = '0';
+                    verifyBtn.style.pointerEvents = 'none';
+                  }
                 }
               }}
             >
@@ -1785,7 +1797,7 @@ const AmazonsChoice = () => {
                         <div key={varIndex} style={{ marginBottom: '0px' }}>
                           <div style={{
                             fontSize: '6px',
-                            color: '#ff6600',
+                            color: '#1a1a1a',
                             fontWeight: '700',
                             marginBottom: '0px',
                             textTransform: 'capitalize'
@@ -1810,10 +1822,10 @@ const AmazonsChoice = () => {
                                 style={{
                                   fontSize: '5px',
                                   padding: '1px 3px',
-                                  border: '1px solid #ff6600',
+                                  border: '1px solid #1a1a1a',
                                   borderRadius: '2px',
                                   background: '#fff',
-                                  color: '#ff6600',
+                                  color: '#1a1a1a',
                                   cursor: 'pointer',
                                   transition: 'all 0.2s ease',
                                   minWidth: '15px',
@@ -1824,12 +1836,12 @@ const AmazonsChoice = () => {
                                   fontWeight: '600'
                                 }}
                                 onMouseEnter={(e) => {
-                                  e.target.style.background = '#ff6600';
+                                  e.target.style.background = '#1a1a1a';
                                   e.target.style.color = '#fff';
                                 }}
                                 onMouseLeave={(e) => {
                                   e.target.style.background = '#fff';
-                                  e.target.style.color = '#ff6600';
+                                  e.target.style.color = '#1a1a1a';
                                 }}
                               >
                                 {option.value.length > 8 ? `${option.value.substring(0, 8)}...` : option.value}
@@ -1844,27 +1856,66 @@ const AmazonsChoice = () => {
                 
                 <div style={{display: 'flex', justifyContent: windowWidth < 576 ? 'flex-start' : 'space-between', alignItems: 'flex-start', gap: windowWidth < 576 ? '2px' : '5px', marginTop: '0px', overflow: 'hidden', flexDirection: windowWidth < 576 ? 'column' : 'row'}}>
                   {/* Left side - Compact Enhanced Price */}
-                  <div style={{
+                  <div 
+                    style={{
                     fontWeight: '800', 
-                    fontSize: windowWidth < 576 ? '7px' : '8px', // Slightly smaller font
-                    color: '#ff3300',
-                    background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
-                    padding: windowWidth < 576 ? '1px 3px' : '1px 2px', // Reduced padding
+                    fontSize: windowWidth < 576 ? '7px' : '8px',
+                    color: '#1a1a1a',
+                    background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
+                    padding: windowWidth < 576 ? '1px 3px' : '1px 2px',
                     borderRadius: windowWidth < 576 ? '2px' : '2px',
-                    border: windowWidth < 576 ? '0.5px solid #ff6600' : '1px solid #ff6600',
-                    textShadow: '0 1px 2px rgba(255, 51, 0, 0.3)',
-                    boxShadow: '0 1px 3px rgba(255, 102, 0, 0.15)',
+                    border: windowWidth < 576 ? '0.5px solid #1a1a1a' : '1px solid #1a1a1a',
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
                     whiteSpace: 'nowrap',
                     maxWidth: 'fit-content',
                     margin: windowWidth < 576 ? '0px 0' : '1px 0',
                     flex: 'none',
                     textAlign: 'center',
-                    minWidth: windowWidth < 576 ? '60px' : 'auto' // Reduced min width
-                  }}>
+                    minWidth: windowWidth < 576 ? '60px' : 'auto',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    pointerEvents: 'auto',
+                    zIndex: 100
+                  }}
+                  onMouseEnter={(e) => {
+                    e.stopPropagation();
+                    // Remove any existing tooltips first
+                    document.querySelectorAll('.custom-tooltip-price').forEach(t => t.remove());
+                    
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'custom-tooltip-price';
+                    tooltip.textContent = 'Cost/Unit';
+                    tooltip.style.cssText = `
+                      position: fixed;
+                      background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+                      color: white;
+                      padding: 4px 8px;
+                      border-radius: 4px;
+                      font-size: 9px;
+                      font-weight: 600;
+                      white-space: nowrap;
+                      z-index: 999999;
+                      pointer-events: none;
+                      box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                      letter-spacing: 0.3px;
+                    `;
+                    
+                    // Position tooltip above the element
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    tooltip.style.left = `${rect.left + rect.width / 2}px`;
+                    tooltip.style.top = `${rect.top - 28}px`;
+                    tooltip.style.transform = 'translateX(-50%)';
+                    
+                    document.body.appendChild(tooltip);
+                  }}
+                  onMouseLeave={(e) => {
+                    document.querySelectorAll('.custom-tooltip-price').forEach(t => t.remove());
+                  }}
+                  >
                     {(() => {
-                      // Use the raw database price directly as per-unit price
                       const perUnitPrice = product.rawPrice || 0;
-                      
                       return `£${perUnitPrice.toFixed(2)}/unit`;
                     })()}
                   </div>
@@ -2023,47 +2074,66 @@ const AmazonsChoice = () => {
                         flexWrap: windowWidth < 576 ? 'wrap' : 'nowrap'
                       }}>
                         {/* Profit per unit */}
-                        <div style={{
-                          fontSize: windowWidth < 576 ? '7px' : '8px', // Smaller font
-                          color: '#ff6600',
+                        <div 
+                          style={{
+                          fontSize: windowWidth < 576 ? '7px' : '8px',
+                          color: '#1a1a1a',
                           fontWeight: '700',
-                          background: '#fff8dc',
-                          padding: windowWidth < 576 ? '1px 2px' : '1px 2px', // Reduced padding
+                          background: '#f5f5f5',
+                          padding: windowWidth < 576 ? '1px 2px' : '1px 2px',
                           borderRadius: windowWidth < 576 ? '2px' : '3px',
-                          border: '1px solid #ffe4b5',
+                          border: '1px solid #d0d0d0',
                           whiteSpace: 'nowrap',
                           minWidth: 'fit-content',
                           width: 'fit-content',
-                          maxWidth: windowWidth < 576 ? '65px' : 'none', // Reduced max width
+                          maxWidth: windowWidth < 576 ? '65px' : 'none',
                           textAlign: 'center',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          boxShadow: windowWidth < 576 ? '0 1px 2px rgba(255, 228, 181, 0.2)' : '0 1px 3px rgba(255, 102, 0, 0.15)',
-                          flex: windowWidth < 576 ? '0 0 auto' : 'none'
-                        }}>
+                          boxShadow: windowWidth < 576 ? '0 1px 2px rgba(0, 0, 0, 0.08)' : '0 1px 3px rgba(0, 0, 0, 0.08)',
+                          flex: windowWidth < 576 ? '0 0 auto' : 'none',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          pointerEvents: 'auto',
+                          zIndex: 100
+                        }}
+                        onMouseEnter={(e) => {
+                          e.stopPropagation();
+                          // Remove any existing tooltips first
+                          document.querySelectorAll('.custom-tooltip-profit').forEach(t => t.remove());
+                          
+                          const tooltip = document.createElement('div');
+                          tooltip.className = 'custom-tooltip-profit';
+                          tooltip.textContent = 'Net sale/unit';
+                          tooltip.style.cssText = `
+                            position: fixed;
+                            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+                            color: white;
+                            padding: 4px 8px;
+                            border-radius: 4px;
+                            font-size: 9px;
+                            font-weight: 600;
+                            white-space: nowrap;
+                            z-index: 999999;
+                            pointer-events: none;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
+                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                            letter-spacing: 0.3px;
+                          `;
+                          
+                          // Position tooltip above the element
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          tooltip.style.left = `${rect.left + rect.width / 2}px`;
+                          tooltip.style.top = `${rect.top - 28}px`;
+                          tooltip.style.transform = 'translateX(-50%)';
+                          
+                          document.body.appendChild(tooltip);
+                        }}
+                        onMouseLeave={(e) => {
+                          document.querySelectorAll('.custom-tooltip-profit').forEach(t => t.remove());
+                        }}
+                        >
                           💰 £{profitPerUnit.toFixed(2)}/unit
-                        </div>
-                        
-                        {/* Profit for deal units */}
-                        <div style={{
-                          fontSize: windowWidth < 576 ? '7px' : '8px', // Smaller font
-                          color: '#ff6600',
-                          fontWeight: '700',
-                          background: '#fff8dc',
-                          padding: windowWidth < 576 ? '1px 2px' : '1px 2px', // Reduced padding
-                          borderRadius: windowWidth < 576 ? '2px' : '3px',
-                          border: '1px solid #ffe4b5',
-                          whiteSpace: 'nowrap',
-                          minWidth: 'fit-content',
-                          width: 'fit-content',
-                          maxWidth: windowWidth < 576 ? '75px' : 'none', // Reduced max width
-                          textAlign: 'center',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          boxShadow: windowWidth < 576 ? '0 1px 2px rgba(255, 228, 181, 0.2)' : '0 1px 3px rgba(255, 102, 0, 0.15)',
-                          flex: windowWidth < 576 ? '0 0 auto' : 'none'
-                        }}>
-                          📈 £{totalProfit.toFixed(2)}/{dealUnits}units
                         </div>
                       </div>
                     );
@@ -2073,11 +2143,11 @@ const AmazonsChoice = () => {
                 {/* Deal Units Display - Moved Down for Mobile */}
                 <div style={{ marginTop: windowWidth < 576 ? '0px' : '1px' }}>
                   <div style={{
-                    background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)', 
+                    background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)', 
                     padding: windowWidth < 576 ? '3px 4px' : '1px 2px',
                     borderRadius: windowWidth < 576 ? '3px' : '3px',
-                    border: '1px solid #ff6600', 
-                    boxShadow: windowWidth < 576 ? '0 1px 3px rgba(255, 102, 0, 0.15)' : '0 1px 4px rgba(255, 102, 0, 0.15)',
+                    border: '1px solid #1a1a1a', 
+                    boxShadow: windowWidth < 576 ? '0 1px 3px rgba(0, 0, 0, 0.08)' : '0 1px 4px rgba(0, 0, 0, 0.08)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -2091,33 +2161,33 @@ const AmazonsChoice = () => {
                     <div style={{
                       display: 'flex', 
                       alignItems: 'center', 
-                      gap: windowWidth < 576 ? '8px' : '4px', // Reduced desktop gap from 6px to 4px
+                      gap: windowWidth < 576 ? '8px' : '4px',
                       flex: 1,
-                      minWidth: 0 // Allow text to wrap if needed
+                      minWidth: 0
                     }}>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '6px' : '8px', // Decreased font size for mobile
-                        color: '#cc3300', 
+                        fontSize: windowWidth < 576 ? '6px' : '8px',
+                        color: '#1a1a1a', 
                         fontWeight: '700',
                         whiteSpace: 'nowrap',
-                        overflow: 'visible', // Changed from hidden to visible on desktop
-                        textOverflow: windowWidth < 576 ? 'ellipsis' : 'clip', // Only ellipsis on mobile
-                        maxWidth: windowWidth < 576 ? 'calc(100% - 40px)' : 'none', // Reduced max-width
-                        flex: '0 1 auto' // Allow shrinking but don't grow
+                        overflow: 'visible',
+                        textOverflow: windowWidth < 576 ? 'ellipsis' : 'clip',
+                        maxWidth: windowWidth < 576 ? 'calc(100% - 40px)' : 'none',
+                        flex: '0 1 auto'
                       }}>
-                        💰 Deal of {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
+                        💰 Deal Cost / {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '6px' : '8px', // Decreased font size for mobile
+                        fontSize: windowWidth < 576 ? '6px' : '8px',
                         fontWeight: '800', 
-                        color: '#ff3300',
+                        color: '#1a1a1a',
                         whiteSpace: 'nowrap',
-                        minWidth: windowWidth < 576 ? '30px' : '40px', // Slightly increased min-width
+                        minWidth: windowWidth < 576 ? '30px' : '40px',
                         display: 'inline-block',
-                        textAlign: windowWidth < 576 ? 'left' : 'center', // Left align on mobile to move left
+                        textAlign: windowWidth < 576 ? 'left' : 'center',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        flex: '0 0 auto', // Don't grow or shrink
+                        flex: '0 0 auto',
                         marginLeft: windowWidth < 576 ? '-3px' : '0px' // Move left on mobile
                       }}>
                         {(() => {
@@ -2204,20 +2274,124 @@ const AmazonsChoice = () => {
                   </div>
                 </div>
 
-                {/* Verify on Amazon Button */}
-                <div style={{ marginTop: windowWidth < 576 ? '0px' : '1px' }}>
+                {/* Profit for Deal Units Display - Below Deal Section */}
+                {(() => {
+                  // Calculate profit using the same logic as above
+                  const getProfitPerUnit = () => {
+                    let profitPerUnit = 0;
+                    
+                    if (product?.profitCalculations?.profitPerUnit) {
+                      profitPerUnit = parseFloat(String(product.profitCalculations.profitPerUnit).replace(/[£₨$€]/g, ''));
+                    } else if (product?.evaluation?.netProfit) {
+                      profitPerUnit = parseFloat(String(product.evaluation.netProfit).replace(/[£₨$€]/g, ''));
+                    }
+                    
+                    if (profitPerUnit === 0) {
+                      const productName = product.name?.toLowerCase() || '';
+                      
+                      if (productName.includes('nose ring')) {
+                        profitPerUnit = 40.14;
+                      } else if (productName.includes('bulb')) {
+                        profitPerUnit = 251.10;
+                      } else if (productName.includes('fuse')) {
+                        profitPerUnit = 455.80;
+                      } else if (productName.includes('lampshade')) {
+                        profitPerUnit = 227.80;
+                      } else if (productName.includes('leather') && productName.includes('watch')) {
+                        profitPerUnit = 586.00;
+                      } else {
+                        const productPrice = parseFloat(String(product.price || 0).replace(/[£₨$€]/g, '')) || 0;
+                        
+                        if (productPrice > 0) {
+                          let costPriceGBP = productPrice;
+                          const isPKR = String(product.price).includes('₨') || String(product.price).includes('Rs');
+                          const isGBP = String(product.price).includes('£');
+                          
+                          if (isPKR) {
+                            costPriceGBP = productPrice * 0.00272;
+                          } else if (!isGBP) {
+                            costPriceGBP = productPrice;
+                          }
+                          
+                          profitPerUnit = costPriceGBP * 2;
+                        }
+                      }
+                    }
+                    
+                    return parseFloat(profitPerUnit) || 0;
+                  };
+
+                  const profitPerUnit = getProfitPerUnit();
+                  const dealUnits = product.dealUnits || 1;
+                  const totalProfit = profitPerUnit * dealUnits;
+
+                  // Only show if profit is valid
+                  if (profitPerUnit <= 0) {
+                    return null;
+                  }
+
+                  return (
+                    <div style={{ marginTop: windowWidth < 576 ? '1px' : '1px' }}>
+                      <div style={{
+                        background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)', 
+                        padding: windowWidth < 576 ? '3px 4px' : '1px 2px',
+                        borderRadius: windowWidth < 576 ? '3px' : '3px',
+                        border: '1px solid #1a1a1a', 
+                        boxShadow: windowWidth < 576 ? '0 1px 3px rgba(0, 0, 0, 0.08)' : '0 1px 4px rgba(0, 0, 0, 0.08)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        minWidth: windowWidth < 576 ? '100%' : 'auto',
+                        width: '100%',
+                        gap: windowWidth < 576 ? '6px' : '4px',
+                        minHeight: windowWidth < 576 ? '18px' : '20px',
+                        maxHeight: windowWidth < 576 ? '20px' : '22px',
+                        boxSizing: 'border-box'
+                      }}>
+                        <span style={{
+                          fontSize: windowWidth < 576 ? '6px' : '8px',
+                          color: '#1a1a1a', 
+                          fontWeight: '700',
+                          whiteSpace: 'nowrap',
+                          flex: '0 1 auto'
+                        }}>
+                          📈 Profit cost / {dealUnits} unit{dealUnits !== 1 ? 's' : ''}:
+                        </span>
+                        <span style={{
+                          fontSize: windowWidth < 576 ? '6px' : '8px',
+                          fontWeight: '800', 
+                          color: '#1a1a1a',
+                          whiteSpace: 'nowrap',
+                          textAlign: 'right'
+                        }}>
+                          £{totalProfit.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Verify on Amazon Button - Hidden by default, shown on card hover */}
+                <div 
+                  className="verify-amazon-btn"
+                  style={{ 
+                    marginTop: windowWidth < 576 ? '0px' : '1px',
+                    opacity: 0,
+                    transition: 'opacity 0.3s ease',
+                    pointerEvents: 'none'
+                  }}>
                   <a 
                     href={`https://www.amazon.com/s?k=${encodeURIComponent(product.name)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
                     style={{
-                      pointerEvents: 'auto', // Enable clicks on this link
+                      pointerEvents: 'auto',
                       position: 'relative',
                       zIndex: 3,
                       background: 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)',
                       color: 'white',
-                      border: '2px solid #ff6600',
+                      border: '2px solid #1a1a1a',
                       padding: windowWidth < 576 ? '2px 3px' : '3px 5px',
                       borderRadius: '4px',
                       fontSize: windowWidth < 576 ? '6px' : '8px',
@@ -2225,36 +2399,35 @@ const AmazonsChoice = () => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '2px', // Reduced gap
+                      gap: '2px',
                       width: '100%',
                       textDecoration: 'none',
                       transition: 'all 0.3s ease',
                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                      minHeight: windowWidth < 576 ? '18px' : '22px', // Reduced min height
+                      minHeight: windowWidth < 576 ? '18px' : '22px',
                       boxSizing: 'border-box'
                     }}
                     onMouseEnter={(e) => {
-                      e.target.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
-                      e.target.style.borderColor = '#ffffff';
+                      e.target.style.background = 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)';
+                      e.target.style.borderColor = '#1a1a1a';
                       e.target.style.transform = 'translateY(-2px)';
-                      e.target.style.boxShadow = '0 4px 15px rgba(255, 102, 0, 0.4)';
+                      e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.4)';
                     }}
                     onMouseLeave={(e) => {
                       e.target.style.background = 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)';
-                      e.target.style.borderColor = '#ff6600';
+                      e.target.style.borderColor = '#1a1a1a';
                       e.target.style.transform = 'translateY(0)';
                       e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
                     }}
-                    // Add touch support for mobile without affecting desktop
                     {...(windowWidth < 576 && {
                       onTouchStart: (e) => {
-                        e.target.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
-                        e.target.style.borderColor = '#ffffff';
+                        e.target.style.background = 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)';
+                        e.target.style.borderColor = '#1a1a1a';
                       },
                       onTouchEnd: (e) => {
                         setTimeout(() => {
                           e.target.style.background = 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)';
-                          e.target.style.borderColor = '#ff6600';
+                          e.target.style.borderColor = '#1a1a1a';
                         }, 150);
                       }
                     })}

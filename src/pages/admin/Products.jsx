@@ -10,6 +10,9 @@ import CategoryManagementModal from '../../components/CategoryManagementModal';
 import BulkOperationsModal from '../../components/BulkOperationsModal';
 import '../../styles/AdminProducts.css';
 import '../../styles/AdminLayout.css';
+import '../../styles/admin-table-fix.css';
+import '../../styles/admin-table-force-fix.css';
+import '../../styles/admin-products-mobile.css';
 
 // Helper function to get current product's variation value
 const getCurrentProductVariationValue = (product, variationType) => {
@@ -2868,96 +2871,393 @@ const AdminProducts = () => {
   return (
     <>
       <style>{`
+        /* CRITICAL: Force table to always show on desktop */
+        @media (min-width: 769px) {
+          .admin-products .products-table,
+          .products-table {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+          }
+          
+          .admin-products .mobile-product-cards,
+          .mobile-product-cards {
+            display: none !important;
+          }
+        }
+        
+        /* CRITICAL FIX: Force table display properties with highest specificity */
+        .admin-products table,
+        .admin-products .products-table table,
+        .products-table table {
+          display: table !important;
+          width: 100% !important;
+          table-layout: fixed !important;
+          border-collapse: collapse !important;
+        }
+        
+        .admin-products thead,
+        .admin-products .products-table thead,
+        .products-table thead {
+          display: table-header-group !important;
+        }
+        
+        .admin-products tbody,
+        .admin-products .products-table tbody,
+        .products-table tbody {
+          display: table-row-group !important;
+        }
+        
+        .admin-products tbody tr,
+        .admin-products .products-table tbody tr,
+        .products-table tbody tr {
+          display: table-row !important;
+          height: auto !important;
+          min-height: 40px !important;
+        }
+        
+        .admin-products td,
+        .admin-products .products-table td,
+        .products-table td {
+          display: table-cell !important;
+          padding: 6px 8px !important;
+          vertical-align: middle !important;
+        }
+        
+        .admin-products th,
+        .admin-products .products-table th,
+        .products-table th {
+          display: table-cell !important;
+          padding: 8px 10px !important;
+          vertical-align: middle !important;
+        }
+        
+        /* CRITICAL FIX: Remove all nested overflow and height constraints */
+        .admin-products.admin-products-page {
+          overflow: visible !important;
+          height: auto !important;
+          min-height: auto !important;
+          max-height: none !important;
+        }
+        
+        .products-table-container {
+          overflow: visible !important;
+          height: auto !important;
+          max-height: none !important;
+        }
+        
+        .products-table {
+          overflow: visible !important;
+          height: auto !important;
+          max-height: none !important;
+        }
+        
+        .products-table table {
+          width: 100%;
+          table-layout: fixed;
+          border-collapse: collapse;
+          min-width: 1400px;
+        }
+        
+        /* Column widths - Optimized for better readability */
+        .products-table th:nth-child(1),
+        .products-table td:nth-child(1) { width: 40px; min-width: 40px; } /* Checkbox */
+        .products-table th:nth-child(2),
+        .products-table td:nth-child(2) { width: 60px; min-width: 60px; } /* Image */
+        .products-table th:nth-child(3),
+        .products-table td:nth-child(3) { width: 300px; min-width: 300px; } /* Product Name - WIDER */
+        .products-table th:nth-child(4),
+        .products-table td:nth-child(4) { width: 110px; min-width: 110px; } /* ASIN */
+        .products-table th:nth-child(5),
+        .products-table td:nth-child(5) { width: 110px; min-width: 110px; } /* SKU */
+        .products-table th:nth-child(6),
+        .products-table td:nth-child(6) { width: 120px; min-width: 120px; } /* Category */
+        .products-table th:nth-child(7),
+        .products-table td:nth-child(7) { width: 80px; min-width: 80px; } /* Price */
+        .products-table th:nth-child(8),
+        .products-table td:nth-child(8) { width: 80px; min-width: 80px; } /* Shipping */
+        .products-table th:nth-child(9),
+        .products-table td:nth-child(9) { width: 70px; min-width: 70px; } /* Stock */
+        .products-table th:nth-child(10),
+        .products-table td:nth-child(10) { width: 90px; min-width: 90px; } /* Status */
+        .products-table th:nth-child(11),
+        .products-table td:nth-child(11) { width: 100px; min-width: 100px; } /* Sellers */
+        .products-table th:nth-child(12),
+        .products-table td:nth-child(12) { width: 280px; min-width: 280px; } /* Actions */
+        
+        /* Allow product names to wrap - no horizontal scrolling needed */
+        .products-table tbody td:nth-child(3) {
+          white-space: normal !important;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          line-height: 1.4;
+          padding: 8px 12px !important;
+        }
+        
+        .products-table tbody td:nth-child(3) .product-name {
+          white-space: normal !important;
+          line-height: 1.4;
+          overflow: visible;
+          text-overflow: clip;
+          display: block !important;
+        }
+        
+        .products-table tbody tr {
+          height: auto !important;
+          min-height: 40px;
+        }
+        
+        .products-table td {
+          padding: 6px 8px;
+          vertical-align: middle;
+          overflow: visible !important;
+        }
+        
         /* Responsive Styles for Admin Products Page */
         @media (max-width: 768px) {
+          /* Hide basket sidebar on mobile */
+          .basket-sidebar,
+          .basket-float,
+          [class*="basket"],
+          [class*="Basket"] {
+            display: none !important;
+          }
+          
+          /* Full width for admin products */
           .admin-products {
-            padding: 0 !important;
+            padding: 8px !important;
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
           }
           
           /* Header responsive */
           .admin-products > div:first-child {
             flex-direction: column !important;
             gap: 10px !important;
-            padding: 10px !important;
+            padding: 12px !important;
+            width: 100% !important;
+          }
+          
+          .admin-products > div:first-child h1 {
+            font-size: 1.1rem !important;
+            width: 100% !important;
           }
           
           .admin-products > div:first-child > div:last-child {
             width: 100% !important;
             flex-direction: column !important;
+            gap: 8px !important;
           }
           
           .admin-products > div:first-child button {
             width: 100% !important;
-            padding: 8px 12px !important;
-            font-size: 0.8rem !important;
+            padding: 10px 12px !important;
+            font-size: 0.85rem !important;
           }
           
           /* Categories responsive */
           .filters-section {
-            padding: 8px !important;
+            padding: 10px !important;
+            overflow-x: auto;
+            width: 100% !important;
+            -webkit-overflow-scrolling: touch;
           }
           
           .filters-section > div {
-            flex-wrap: wrap !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            gap: 6px !important;
           }
           
           .filters-section button {
-            font-size: 0.6rem !important;
-            padding: 3px 6px !important;
+            font-size: 0.7rem !important;
+            padding: 6px 10px !important;
+            white-space: nowrap;
+            flex-shrink: 0;
           }
           
           /* Search and filters */
           .filters {
             flex-direction: column !important;
-            gap: 8px !important;
+            gap: 10px !important;
+            padding: 10px !important;
+            width: 100% !important;
           }
           
           .filters input,
           .filters select {
             width: 100% !important;
-            font-size: 0.75rem !important;
+            font-size: 0.85rem !important;
+            padding: 10px !important;
+            box-sizing: border-box !important;
           }
           
-          /* Table responsive - hide on mobile, show cards */
+          /* Table info section */
+          .table-info {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 8px !important;
+            padding: 10px !important;
+          }
+          
+          /* Show table with horizontal scroll on mobile */
           .products-table {
+            display: block !important;
+            overflow-x: auto !important;
+            overflow-y: visible !important;
+            -webkit-overflow-scrolling: touch;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          
+          /* Keep table visible but scrollable */
+          .products-table table {
+            min-width: 1000px !important;
+            width: 1000px !important;
+            display: table !important;
+            margin: 0 !important;
+          }
+          
+          /* Hide mobile cards - show table instead */
+          .mobile-product-cards {
             display: none !important;
           }
           
-          .mobile-product-cards {
-            display: block !important;
+          /* Make table more readable on mobile */
+          .products-table th,
+          .products-table td {
+            font-size: 0.65rem !important;
+            padding: 6px 8px !important;
+            white-space: nowrap;
+          }
+          
+          /* Product name column - allow some wrapping on mobile */
+          .products-table tbody td:nth-child(3) {
+            max-width: 150px;
+            white-space: normal !important;
+            font-size: 0.65rem !important;
+          }
+          
+          /* Smaller images on mobile */
+          .products-table td img {
+            max-width: 40px !important;
+            max-height: 40px !important;
+          }
+          
+          /* Smaller buttons on mobile */
+          .products-table button {
+            padding: 4px 6px !important;
+            font-size: 0.6rem !important;
+            white-space: nowrap;
+          }
+          
+          /* Ensure table cells don't break */
+          .products-table tbody tr {
+            display: table-row !important;
+          }
+          
+          .products-table tbody td {
+            display: table-cell !important;
+          }
+          
+          /* Pagination responsive */
+          .pagination {
+            flex-direction: column !important;
+            gap: 10px !important;
+            padding: 12px !important;
+            width: 100% !important;
+          }
+          
+          .pagination button {
+            padding: 8px 12px !important;
+            font-size: 0.8rem !important;
+            width: 100% !important;
           }
           
           /* Profit modal responsive */
           .profit-modal-content {
             width: 95% !important;
+            max-width: 95% !important;
             max-height: 90vh !important;
             padding: 15px !important;
+            margin: 10px !important;
           }
           
           .profit-modal-content h4 {
-            font-size: 0.9rem !important;
+            font-size: 1rem !important;
           }
           
-          .profit-modal-content input {
-            font-size: 0.8rem !important;
-            padding: 8px !important;
+          .profit-modal-content input,
+          .profit-modal-content select {
+            font-size: 0.85rem !important;
+            padding: 10px !important;
+          }
+          
+          .profit-modal-content button {
+            padding: 10px !important;
+            font-size: 0.85rem !important;
           }
         }
         
+        /* Tablet styles */
         @media (min-width: 769px) and (max-width: 1024px) {
-          /* Tablet styles */
           .admin-products {
-            font-size: 0.8rem !important;
+            padding: 12px !important;
+          }
+          
+          .products-table table {
+            min-width: 1200px;
+            font-size: 0.75rem;
           }
           
           .products-table th,
           .products-table td {
-            padding: 3px 6px !important;
-            font-size: 0.65rem !important;
+            padding: 6px 8px !important;
+            font-size: 0.75rem !important;
+          }
+          
+          /* Adjust column widths for tablets */
+          .products-table th:nth-child(3),
+          .products-table td:nth-child(3) { width: 250px; min-width: 250px; }
+          
+          .products-table th:nth-child(12),
+          .products-table td:nth-child(12) { width: 240px; min-width: 240px; }
+          
+          /* Smaller buttons on tablets */
+          .products-table button {
+            padding: 4px 8px !important;
+            font-size: 0.7rem !important;
           }
         }
         
+        /* Large desktop optimization */
+        @media (min-width: 1400px) {
+          .products-table table {
+            min-width: 1500px;
+          }
+          
+          /* Wider product name column on large screens */
+          .products-table th:nth-child(3),
+          .products-table td:nth-child(3) { width: 350px; min-width: 350px; }
+          
+          .products-table th:nth-child(12),
+          .products-table td:nth-child(12) { width: 320px; min-width: 320px; }
+        }
+        
+        /* Desktop - Force table visibility */
         @media (min-width: 769px) {
+          /* Force table to show on desktop */
+          .products-table {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+          }
+          
           .mobile-product-cards {
             display: none !important;
           }
@@ -3024,7 +3324,7 @@ const AdminProducts = () => {
         }
       `}</style>
       
-      <div className="admin-products admin-products-page" style={{ fontSize: '0.85rem', width: '100%', margin: 0, padding: 0, overflowX: 'hidden' }}>
+      <div className="admin-products admin-products-page" style={{ fontSize: '0.85rem', width: '100%', margin: 0, padding: 0 }}>
       
       {/* Header Section */}
       <div style={{
@@ -3781,7 +4081,13 @@ const AdminProducts = () => {
               </thead>
               <tbody>
                 {filteredProducts.map(product => (
-                  <tr key={product._id} style={{ borderBottom: '1px solid #e5e7eb', background: selectedProducts.has(product._id) ? '#f0f9ff' : 'transparent' }}>
+                  <tr key={product._id} style={{ 
+                    borderBottom: '1px solid #e5e7eb', 
+                    background: selectedProducts.has(product._id) ? '#f0f9ff' : 'transparent',
+                    display: 'table-row',
+                    height: 'auto',
+                    minHeight: '40px'
+                  }}>
                     <td style={{ padding: '4px 8px', textAlign: 'center' }}>
                       <input
                         type="checkbox"
