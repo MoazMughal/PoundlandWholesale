@@ -20,6 +20,7 @@ import easypaisaRoutes from './routes/easypaisa.js';
 import bulkUploadRoutes from './routes/bulk-upload-cloudinary.js';
 import cloudinaryTestRoutes from './routes/cloudinary-test.js';
 import imageTestRoutes from './routes/image-test.js';
+import webhookRoutes from './routes/webhooks.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import logger from './utils/logger.js';
 
@@ -183,6 +184,9 @@ app.use('/api/easypaisa', easypaisaRoutes);
 app.use('/api/bulk-upload', bulkUploadRoutes);
 app.use('/api/cloudinary-test', cloudinaryTestRoutes);
 app.use('/api/image-test', imageTestRoutes);
+
+// Webhook routes - non-intrusive, async logging only
+app.use('/api/webhook', webhookRoutes);
 
 // Server startup time for restart detection
 const serverStartTime = Date.now();

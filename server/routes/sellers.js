@@ -2,11 +2,14 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import Seller from '../models/Seller.js';
 import { authenticateAdmin, authenticateSeller } from '../middleware/auth.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
+import { validateSellerRegister } from '../middleware/validation.js';
 
 const router = express.Router();
 
 // Seller Registration
-router.post('/register', async (req, res) => {
+// Apply rate limiting and validation
+router.post('/register', authLimiter, validateSellerRegister, async (req, res) => {
   try {
     const { username, email, password, whatsappNo, country, city, productCategory } = req.body;
 
@@ -56,6 +59,22 @@ router.post('/register', async (req, res) => {
     });
 
     await seller.save();
+
+    // Optional webhook trigger - non-blocking, won't affect registration
+    setImmediate(async () => {
+      try {
+        const WebhookLogger = (await import('../services/webhookLogger.js')).default;
+        await WebhookLogger.logUserRegistration('seller', {
+          _id: seller._id,
+          email: seller.email,
+          username: seller.username,
+          country: seller.country,
+          createdAt: seller.createdAt
+        });
+      } catch (webhookError) {
+        // Silent fail - webhook should never break registration
+      }
+    });
 
     res.status(201).json({
       message: 'Registration successful! You can now login to your account.',
@@ -1294,9 +1313,14 @@ router.put('/update-inventory/:productId', authenticateSeller, async (req, res) 
       });
     }
 
-    // Update stock (this affects the whole product, not individual sellers)
+    // Update the seller's specific stock in the sellers array
     if (stock !== undefined) {
-      product.stock = parseInt(stock);
+      product.sellers[sellerIndex].stock = parseInt(stock);
+      console.log('✅ Updated seller stock in sellers array:', {
+        sellerUsername: product.sellers[sellerIndex].username,
+        oldStock: product.sellers[sellerIndex].stock,
+        newStock: parseInt(stock)
+      });
     }
 
     // Also update the primary sellerInfo if this seller is the primary seller
@@ -1318,21 +1342,23 @@ router.put('/update-inventory/:productId', authenticateSeller, async (req, res) 
       sellerId: req.seller._id,
       sellerUsername: req.seller.username,
       newSellerPrice: product.sellers[sellerIndex].sellerPrice,
-      newStock: product.stock,
+      newSellerStock: product.sellers[sellerIndex].stock,
       totalSellers: product.sellers.length
     });
 
     res.json({
       success: true,
-      message: 'Your price updated successfully',
+      message: 'Your inventory updated successfully',
       product: {
         _id: product._id,
         sellerPrice: product.sellers[sellerIndex].sellerPrice,
-        stock: product.stock
+        sellerStock: product.sellers[sellerIndex].stock,
+        sellerShipping: product.sellers[sellerIndex].sellerShipping
       },
       sellerInfo: {
         username: product.sellers[sellerIndex].username,
-        sellerPrice: product.sellers[sellerIndex].sellerPrice
+        sellerPrice: product.sellers[sellerIndex].sellerPrice,
+        stock: product.sellers[sellerIndex].stock
       }
     });
   } catch (error) {

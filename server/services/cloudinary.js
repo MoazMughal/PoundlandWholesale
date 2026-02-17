@@ -47,6 +47,23 @@ export const uploadToCloudinary = async (imagePath, publicId, folder = 'products
     });
 
     console.log(`✅ Successfully uploaded to Cloudinary: ${result.secure_url}`);
+    
+    // Optional webhook trigger - non-blocking
+    setImmediate(async () => {
+      try {
+        const WebhookLogger = (await import('./webhookLogger.js')).default;
+        await WebhookLogger.logCloudinary('upload', {
+          public_id: result.public_id,
+          secure_url: result.secure_url,
+          format: result.format,
+          resource_type: result.resource_type,
+          bytes: result.bytes
+        });
+      } catch (webhookError) {
+        // Silent fail - webhook should never break upload
+      }
+    });
+    
     return result;
   } catch (error) {
     console.error(`❌ Cloudinary upload failed for ${publicId}:`, error.message);

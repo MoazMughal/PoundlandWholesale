@@ -7,6 +7,8 @@ import Buyer from '../models/Buyer.js';
 import { authenticateBuyer } from '../middleware/auth.js';
 import { processCardPaymentWithPaymob } from '../services/paymob.js';
 import { sendWhatsAppOTP, generateOTP, validatePhoneNumber } from '../services/whatsapp.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
+import { validateBuyerRegister } from '../middleware/validation.js';
 
 const router = express.Router();
 
@@ -52,7 +54,8 @@ const upload = multer({
 });
 
 // Register new buyer
-router.post('/register', async (req, res) => {
+// Apply rate limiting and validation
+router.post('/register', authLimiter, validateBuyerRegister, async (req, res) => {
   try {
     const { firstName, lastName, email, password, userType, phone, whatsappNo } = req.body;
 
@@ -96,6 +99,23 @@ router.post('/register', async (req, res) => {
     });
 
     await buyer.save();
+
+    // Optional webhook trigger - non-blocking, won't affect registration
+    setImmediate(async () => {
+      try {
+        const WebhookLogger = (await import('../services/webhookLogger.js')).default;
+        await WebhookLogger.logUserRegistration('buyer', {
+          _id: buyer._id,
+          email: buyer.email,
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
+          userType: buyer.userType,
+          createdAt: buyer.createdAt
+        });
+      } catch (webhookError) {
+        // Silent fail - webhook should never break registration
+      }
+    });
 
     const token = jwt.sign(
       { id: buyer._id, role: 'buyer' },

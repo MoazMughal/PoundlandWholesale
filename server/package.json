@@ -12,7 +12,9 @@
     "migrate-excel-manager": "node scripts/migrate-excel-manager-to-cloudinary.js",
     "migrate-complete": "node scripts/complete-cloudinary-migration.js",
     "env:dev": "node switch-environment.js development",
-    "env:prod": "node switch-environment.js production"
+    "env:prod": "node switch-environment.js production",
+    "test:webhooks": "node test-webhooks.js",
+    "test:cloudinary": "node test-cloudinary.js"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
