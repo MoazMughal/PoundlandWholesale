@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useBasket } from '../context/BasketContext'
 import { useCurrency } from '../context/CurrencyContext'
@@ -12,6 +12,38 @@ const Basket = () => {
   const { basket, userType, removeFromBasket, updateQuantity, clearBasket, getBasketTotal } = useBasket()
   const { formatPrice, currency } = useCurrency()
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [localBasket, setLocalBasket] = useState(basket)
+  const [basketUpdated, setBasketUpdated] = useState(false)
+
+  // Update local basket whenever context basket changes
+  useEffect(() => {
+    console.log('🔄 Basket updated:', basket)
+    setLocalBasket(basket)
+    
+    // Show update notification briefly
+    if (basket.length > 0) {
+      setBasketUpdated(true)
+      setTimeout(() => setBasketUpdated(false), 2000)
+    }
+  }, [basket])
+
+  // Also listen to localStorage changes (for cross-tab sync)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === `basket_${userType}`) {
+        console.log('📦 Basket changed in localStorage')
+        try {
+          const newBasket = JSON.parse(e.newValue || '[]')
+          setLocalBasket(newBasket)
+        } catch (error) {
+          console.error('Error parsing basket from localStorage:', error)
+        }
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [userType])
 
   const getUserTypeLabel = () => {
     switch (userType) {
@@ -22,17 +54,241 @@ const Basket = () => {
     }
   }
 
-  const handleCheckout = () => {
-    if (basket.length === 0) {
+  const handleCheckout = async () => {
+    console.log('\n🛒 ========== CHECKOUT STARTED ==========')
+    console.log('📦 Local Basket:', localBasket)
+    console.log(`   Total products in basket: ${localBasket.length}`)
+    localBasket.forEach((item, idx) => {
+      const itemId = item.id || item._id
+      console.log(`   ${idx + 1}. ${item.name} (ID: ${itemId}, Qty: ${item.quantity || 1})`)
+    })
+    console.log('==========================================\n')
+    
+    if (localBasket.length === 0) {
       alert('Your basket is empty')
       return
     }
-    alert('Checkout functionality coming soon!')
+
+    // Get user information
+    const buyerToken = localStorage.getItem('buyerToken')
+    const sellerToken = localStorage.getItem('sellerToken')
+    const adminToken = localStorage.getItem('adminToken')
+    
+    if (!buyerToken && !sellerToken && !adminToken) {
+      alert('Please login to proceed with checkout')
+      navigate('/login')
+      return
+    }
+
+    try {
+      // Fetch full product details for all basket items to get seller information
+      const productsWithSellers = await Promise.all(
+        localBasket.map(async (item) => {
+          try {
+            const itemId = item.id || item._id
+            console.log(`📡 Fetching product data for: ${item.name} (ID: ${itemId})`)
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/products/public/${itemId}`)
+            if (response.ok) {
+              const productData = await response.json()
+              console.log(`✅ Product data received for ${item.name}:`, productData)
+              return {
+                ...item,
+                sellers: productData.sellers || [],
+                sellerInfo: productData.sellerInfo
+              }
+            }
+            console.log(`⚠️ Failed to fetch product data for ${item.name}`)
+            return item
+          } catch (error) {
+            console.error(`❌ Error fetching product ${item.name}:`, error)
+            return item
+          }
+        })
+      )
+
+      // Group products by seller WhatsApp number
+      const sellerGroups = {}
+      let productsWithoutSeller = []
+
+      console.log('🔍 Starting to group products by seller...')
+      console.log('📦 Products with sellers data:', productsWithSellers)
+
+      productsWithSellers.forEach((product, index) => {
+        console.log(`\n--- Processing Product ${index + 1}: ${product.name} ---`)
+        let sellerWhatsApp = null
+        let sellerName = 'Seller'
+
+        // Check if product has sellers array
+        if (product.sellers && product.sellers.length > 0) {
+          console.log(`✅ Product has ${product.sellers.length} seller(s) in array`)
+          // Get the seller with the lowest price
+          const lowestSeller = product.sellers.reduce((lowest, current) => {
+            const currentTotal = (parseFloat(current.sellerPrice) || 0) + (parseFloat(current.sellerShipping) || 0)
+            const lowestTotal = (parseFloat(lowest.sellerPrice) || 0) + (parseFloat(lowest.sellerShipping) || 0)
+            return currentTotal < lowestTotal ? current : lowest
+          })
+          
+          sellerWhatsApp = lowestSeller.whatsappNo
+          sellerName = lowestSeller.username || 'Seller'
+          console.log(`📱 Selected seller: ${sellerName} (${sellerWhatsApp})`)
+        } 
+        // Check if product has sellerInfo
+        else if (product.sellerInfo && product.sellerInfo.whatsappNo) {
+          console.log('✅ Product has sellerInfo')
+          sellerWhatsApp = product.sellerInfo.whatsappNo
+          sellerName = product.sellerInfo.username || 'Seller'
+          console.log(`📱 Seller from sellerInfo: ${sellerName} (${sellerWhatsApp})`)
+        } else {
+          console.log('❌ No seller information found for this product')
+        }
+
+        if (sellerWhatsApp) {
+          if (!sellerGroups[sellerWhatsApp]) {
+            console.log(`🆕 Creating new group for seller: ${sellerName}`)
+            sellerGroups[sellerWhatsApp] = {
+              sellerName,
+              products: []
+            }
+          } else {
+            console.log(`➕ Adding to existing group for seller: ${sellerName}`)
+          }
+          sellerGroups[sellerWhatsApp].products.push(product)
+        } else {
+          console.log('⚠️ Adding to products without seller list')
+          productsWithoutSeller.push(product)
+        }
+      })
+
+      console.log('\n📊 Final Grouping Results:')
+      console.log(`Total seller groups: ${Object.keys(sellerGroups).length}`)
+      console.log('Seller groups:', sellerGroups)
+      console.log(`Products without seller: ${productsWithoutSeller.length}`)
+      console.log('---\n')
+
+      // Get user information
+      let userName = 'User'
+      let userEmail = ''
+      let userPhone = ''
+      let userType = 'Guest'
+
+      if (buyerToken) {
+        const buyerData = JSON.parse(localStorage.getItem('buyer') || '{}')
+        userName = buyerData.name || 
+                   (buyerData.firstName && buyerData.lastName ? `${buyerData.firstName} ${buyerData.lastName}` : '') ||
+                   buyerData.email?.split('@')[0] || 
+                   'Buyer'
+        userEmail = buyerData.email || ''
+        userPhone = buyerData.phone || buyerData.whatsappNo || ''
+        userType = 'Buyer'
+      } else if (sellerToken) {
+        const sellerData = JSON.parse(localStorage.getItem('seller') || '{}')
+        userName = sellerData.username || sellerData.businessName || sellerData.name || 'Seller'
+        userEmail = sellerData.email || ''
+        userPhone = sellerData.whatsappNo || ''
+        userType = 'Seller'
+      } else if (adminToken) {
+        const adminData = JSON.parse(localStorage.getItem('admin') || '{}')
+        userName = adminData.username || adminData.name || 'Admin'
+        userEmail = adminData.email || ''
+        userType = 'Admin'
+      }
+
+      // If there are products without sellers, ask if they want to contact admin
+      if (productsWithoutSeller.length > 0 && Object.keys(sellerGroups).length === 0) {
+        const contactAdmin = window.confirm(
+          `⚠️ The selected products don't have seller information.\n\nWould you like to send a quotation request to the Admin?`
+        )
+        
+        if (contactAdmin) {
+          alert('🚧 Admin quotation feature is under maintenance. Please try again later or contact support.')
+          return
+        } else {
+          return
+        }
+      }
+
+      // Send quotations to each seller
+      let quotationsSent = 0
+      console.log(`\n🚀 Starting to send quotations to ${Object.keys(sellerGroups).length} seller(s)...`)
+      
+      for (const [whatsappNo, group] of Object.entries(sellerGroups)) {
+        const { sellerName, products } = group
+        console.log(`\n📤 Preparing quotation for: ${sellerName} (${whatsappNo})`)
+        console.log(`   Products: ${products.length}`)
+
+        // Calculate total for this seller
+        let sellerTotal = 0
+        const productsList = products.map(product => {
+          const quantity = product.quantity || 1
+          const priceStr = typeof product.price === 'string' ? product.price : String(product.price)
+          const price = parseFloat(priceStr.replace(/[£$₨€]/g, '').replace('د.إ', '').replace('Rs', '').trim()) || 0
+          const subtotal = price * quantity
+          sellerTotal += subtotal
+
+          return `• ${product.name}\n  Qty: ${quantity} × ${formatPrice(price)} = ${formatPrice(subtotal)}`
+        }).join('\n\n')
+
+        // Format WhatsApp message
+        const message = `
+🛍️ *BULK QUOTATION REQUEST*
+
+📦 *Products (${products.length} items):*
+${productsList}
+
+💰 *Total Amount: ${formatPrice(sellerTotal)}*
+
+👤 *Buyer Information:*
+• Name: ${userName}
+• Type: ${userType}
+• Email: ${userEmail}
+${userPhone ? `• Phone: ${userPhone}` : ''}
+
+📝 *Message:*
+Hello ${sellerName}, I'm interested in purchasing these products from my basket. Please confirm availability and provide further details.
+
+---
+_This quotation was generated from PoundlandWholesale.com_
+        `.trim()
+
+        // Clean WhatsApp number
+        const cleanWhatsApp = whatsappNo.replace(/[^0-9+]/g, '')
+        console.log(`   Cleaned WhatsApp: ${cleanWhatsApp}`)
+        
+        // Create WhatsApp URL
+        const whatsappUrl = `https://wa.me/${cleanWhatsApp}?text=${encodeURIComponent(message)}`
+        console.log(`   Opening WhatsApp tab in ${quotationsSent * 500}ms...`)
+        
+        // Open WhatsApp in new tab with a small delay between each
+        setTimeout(() => {
+          console.log(`✅ Opening WhatsApp for ${sellerName}`)
+          window.open(whatsappUrl, '_blank')
+        }, quotationsSent * 500) // 500ms delay between each window
+        
+        quotationsSent++
+      }
+
+      console.log(`\n✅ Total quotations sent: ${quotationsSent}`)
+
+      if (quotationsSent > 0) {
+        alert(`✅ Quotation requests sent to ${quotationsSent} seller${quotationsSent > 1 ? 's' : ''}!\n\nPlease check your browser for the WhatsApp tabs.`)
+      }
+
+      // If there are products without sellers but some with sellers, notify user
+      if (productsWithoutSeller.length > 0 && quotationsSent > 0) {
+        setTimeout(() => {
+          alert(`⚠️ Note: ${productsWithoutSeller.length} product${productsWithoutSeller.length > 1 ? 's' : ''} in your basket don't have seller information and were not included in the quotation.`)
+        }, 1000)
+      }
+
+    } catch (error) {
+      console.error('Error processing checkout:', error)
+      alert('❌ An error occurred while processing your request. Please try again.')
+    }
   }
 
-  const totalItems = basket.reduce((sum, item) => sum + (item.quantity || 1), 0)
+  const totalItems = localBasket.reduce((sum, item) => sum + (item.quantity || 1), 0)
 
-  if (basket.length === 0) {
+  if (localBasket.length === 0) {
     return (
       <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
         <div style={{ textAlign: 'center', maxWidth: '400px' }}>
@@ -63,7 +319,46 @@ const Basket = () => {
   }
 
   return (
-    <div style={{ background: '#f3f4f6', minHeight: '100vh', paddingBottom: '40px' }}>
+    <>
+      {/* Animation styles */}
+      <style>
+        {`
+          @keyframes slideInRight {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
+      
+      <div style={{ background: '#f3f4f6', minHeight: '100vh', paddingBottom: '40px' }}>
+      {/* Update Notification */}
+      {basketUpdated && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+          color: 'white',
+          padding: '12px 24px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+          zIndex: 10000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          animation: 'slideInRight 0.3s ease-out'
+        }}>
+          <i className="fas fa-check-circle" style={{ fontSize: '1.25rem' }}></i>
+          <span style={{ fontWeight: '600' }}>Basket updated!</span>
+        </div>
+      )}
+      
       {/* Amazon-style Header with Basket Icon */}
       <div style={{ 
         background: '#ffffff', 
@@ -127,9 +422,11 @@ const Basket = () => {
           
           {/* Left: Cart Items */}
           <div>
-            {basket.map((item, index) => (
+            {localBasket.map((item, index) => {
+              const itemId = item.id || item._id
+              return (
               <div 
-                key={item.id}
+                key={itemId}
                 style={{
                   background: '#ffffff',
                   padding: '20px',
@@ -165,7 +462,7 @@ const Basket = () => {
                         brand: item.brand || '',
                         discount: item.discount || 0
                       })
-                      navigate(`/product/${item.id}?${params.toString()}`)
+                      navigate(`/product/${itemId}?${params.toString()}`)
                     }}
                     style={{
                       width: '140px',
@@ -210,7 +507,7 @@ const Basket = () => {
                           brand: item.brand || '',
                           discount: item.discount || 0
                         })
-                        navigate(`/product/${item.id}?${params.toString()}`)
+                        navigate(`/product/${itemId}?${params.toString()}`)
                       }}
                       style={{ 
                         fontSize: '16px', 
@@ -263,7 +560,7 @@ const Basket = () => {
                         overflow: 'hidden'
                       }}>
                         <button
-                          onClick={() => updateQuantity(item.id, Math.max(1, (item.quantity || 1) - 1))}
+                          onClick={() => updateQuantity(itemId, Math.max(1, (item.quantity || 1) - 1))}
                           style={{
                             padding: '8px 12px',
                             background: '#f0f2f2',
@@ -286,7 +583,7 @@ const Basket = () => {
                           {item.quantity || 1}
                         </span>
                         <button
-                          onClick={() => updateQuantity(item.id, (item.quantity || 1) + 1)}
+                          onClick={() => updateQuantity(itemId, (item.quantity || 1) + 1)}
                           style={{
                             padding: '8px 12px',
                             background: '#f0f2f2',
@@ -303,7 +600,7 @@ const Basket = () => {
                       <span style={{ color: '#d5d9d9' }}>|</span>
 
                       <button
-                        onClick={() => removeFromBasket(item.id)}
+                        onClick={() => removeFromBasket(itemId)}
                         style={{
                           background: 'none',
                           border: 'none',
@@ -392,7 +689,8 @@ const Basket = () => {
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
 
             {/* Subtotal at bottom */}
             <div style={{ 
@@ -561,6 +859,7 @@ const Basket = () => {
 
       <ScrollToTop />
     </div>
+    </>
   )
 }
 

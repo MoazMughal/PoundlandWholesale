@@ -438,13 +438,15 @@ _This quotation was generated from PoundlandWholesale.com_
 
   // Function to refresh product data (for seller price updates)
   const refreshProductData = async () => {
+    console.log('🔄 Refreshing product data...')
     try {
       const cacheBuster = new Date().getTime();
       const sellerToken = localStorage.getItem('sellerToken');
       let apiEndpoint = `products/public/${id}?_=${cacheBuster}`;
       let headers = {
         'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
+        'Pragma': 'no-cache',
+        'Expires': '0'
       };
       
       if (sellerToken) {
@@ -452,30 +454,40 @@ _This quotation was generated from PoundlandWholesale.com_
         headers.Authorization = `Bearer ${sellerToken}`;
       }
       
+      console.log(`📡 Fetching fresh data from: ${apiEndpoint}`)
       const response = await fetch(apiConfig.getApiUrl(apiEndpoint), {
-        cache: 'no-cache',
+        cache: 'no-store',
         headers
       });
 
       if (response.ok) {
         const dbProduct = await response.json();
+        console.log('✅ Fresh product data received:', dbProduct)
+        console.log('   - Sellers array:', dbProduct.sellers)
+        console.log('   - SellerInfo:', dbProduct.sellerInfo)
         
         // Update the product state with fresh data, preserving existing structure
         setProduct(prevProduct => ({
           ...prevProduct,
           sellers: dbProduct.sellers || [],
           sellerInfo: dbProduct.sellerInfo,
-          seller: dbProduct.seller
+          sellerData: dbProduct.sellerData,
+          seller: dbProduct.seller,
+          // Update any other seller-related fields
+          price: dbProduct.price || prevProduct.price,
+          shipping: dbProduct.shipping || prevProduct.shipping
         }));
         
-        console.log('✅ Product data refreshed successfully');
+        console.log('✅ Product state updated with fresh data')
+      } else {
+        console.error('❌ Failed to refresh product data:', response.status)
       }
     } catch (error) {
-      console.error('❌ Error refreshing product data:', error);
+      console.error('❌ Error refreshing product data:', error)
     }
-  };
+  }
 
-  // Function to handle seller price updates
+  // Function to handle seller price updates  // Function to handle seller price updates
   const handleUpdateSellerPrice = async (newPrice) => {
     try {
       const token = localStorage.getItem('sellerToken');

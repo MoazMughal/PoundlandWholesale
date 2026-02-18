@@ -8,11 +8,14 @@ import { getApiUrl } from '../../utils/api';
 import CategoryVisibilityToggle from '../../components/CategoryVisibilityToggle';
 import CategoryManagementModal from '../../components/CategoryManagementModal';
 import BulkOperationsModal from '../../components/BulkOperationsModal';
+import ProductTableSkeleton from '../../components/ProductTableSkeleton';
 import '../../styles/AdminProducts.css';
 import '../../styles/AdminLayout.css';
 import '../../styles/admin-table-fix.css';
 import '../../styles/admin-table-force-fix.css';
 import '../../styles/admin-products-mobile.css';
+import '../../styles/admin-products-responsive.css';
+import '../../styles/skeleton-loader.css';
 
 // Helper function to get current product's variation value
 const getCurrentProductVariationValue = (product, variationType) => {
@@ -949,6 +952,11 @@ const AdminProducts = () => {
   const [categories, setCategories] = useState([
     // Categories will be loaded from API
   ]);
+  
+  // Add flags to prevent duplicate fetches
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+  const isFetchingRef = useRef(false);
+  const lastFetchParamsRef = useRef(null);
 
   const formatPrice = (price, shipping = 0) => {
     const basePrice = parseFloat(price || 0);
@@ -1184,15 +1192,21 @@ const AdminProducts = () => {
     });
   }, [location.pathname, location.search, location.state?.category]);
 
-  // Initial load on component mount
+  // Initial load on component mount - ONLY ONCE
   useEffect(() => {
-    console.log('🚀 Component mounted, loading initial data...');
-    fetchCategories();
-    fetchProducts(1); // Direct call to load products initially
-  }, []);
+    if (!hasInitiallyLoaded) {
+      console.log('🚀 Component mounted, loading initial data...');
+      fetchCategories();
+      fetchProducts(1);
+      setHasInitiallyLoaded(true);
+    }
+  }, [hasInitiallyLoaded]);
 
-  // Handle search and filter changes
+  // Handle search and filter changes - DEBOUNCED
   useEffect(() => {
+    // Skip if this is the initial load
+    if (!hasInitiallyLoaded) return;
+    
     // Only clear cache if search or category filters actually changed
     const hasSearchChanged = search !== '';
     const hasCategoryChanged = filters.category !== '';
@@ -1213,12 +1227,21 @@ const AdminProducts = () => {
     }
     
     setCurrentPage(1); // Reset to first page when filters change
-    fetchProducts(1);
-  }, [search, filters]);
+    
+    // Debounce the fetch to prevent rapid successive calls
+    const timeoutId = setTimeout(() => {
+      fetchProducts(1);
+    }, 300); // 300ms debounce
+    
+    return () => clearTimeout(timeoutId);
+  }, [search, filters.category, filters.status, filters.isAmazonsChoice]);
 
   // Handle page changes - only fetch if page actually changed
   useEffect(() => {
-    if (currentPage > 1 && !loading) { // Only fetch if not initial load and not already loading
+    // Skip if this is the initial load or if we're already on page 1
+    if (!hasInitiallyLoaded || currentPage === 1) return;
+    
+    if (!loading) {
       fetchProducts(currentPage);
     }
   }, [currentPage]);
@@ -1236,31 +1259,34 @@ const AdminProducts = () => {
   // Refresh products when page becomes visible (e.g., returning from edit page)
   // Only refresh if data is stale (more than 5 minutes old)
   useEffect(() => {
-    let lastRefreshTime = 0;
+    let lastRefreshTime = Date.now(); // Initialize with current time
     const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && hasInitiallyLoaded) {
         const now = Date.now();
         if (now - lastRefreshTime > REFRESH_INTERVAL) {
           console.log('🔄 Page visible after 5+ minutes, refreshing products...');
           fetchProducts(currentPage);
           lastRefreshTime = now;
+        } else {
+          console.log('⏸️ Page visible but data is fresh, skipping refresh...');
         }
       }
     };
 
     const handleFocus = () => {
-      const now = Date.now();
-      if (now - lastRefreshTime > REFRESH_INTERVAL) {
-        console.log('🔄 Window focused after 5+ minutes, refreshing products...');
-        fetchProducts(currentPage);
-        lastRefreshTime = now;
+      if (hasInitiallyLoaded) {
+        const now = Date.now();
+        if (now - lastRefreshTime > REFRESH_INTERVAL) {
+          console.log('🔄 Window focused after 5+ minutes, refreshing products...');
+          fetchProducts(currentPage);
+          lastRefreshTime = now;
+        } else {
+          console.log('⏸️ Window focused but data is fresh, skipping refresh...');
+        }
       }
     };
-
-    // Set initial refresh time
-    lastRefreshTime = Date.now();
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
@@ -1269,7 +1295,7 @@ const AdminProducts = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, []); // Remove currentPage dependency to prevent excessive re-renders
+  }, [hasInitiallyLoaded, currentPage]);
 
   const fetchCategories = async () => {
     try {
@@ -1341,7 +1367,21 @@ const AdminProducts = () => {
   }, [products]);
 
   const fetchProducts = async (page = currentPage) => {
+    // Prevent duplicate fetches
+    if (isFetchingRef.current) {
+      console.log('⏸️ Fetch already in progress, skipping...');
+      return;
+    }
+    
+    // Check if we're fetching the same data
+    const fetchParams = JSON.stringify({ page, search, filters });
+    if (lastFetchParamsRef.current === fetchParams && products.length > 0) {
+      console.log('✅ Data already loaded with same parameters, skipping fetch...');
+      return;
+    }
+    
     try {
+      isFetchingRef.current = true;
       setLoading(true);
       
       // Clean up any invalid tokens first
@@ -1352,6 +1392,7 @@ const AdminProducts = () => {
         alert('❌ Authentication token is invalid. Please log in again.');
         navigate('/admin/login');
         setLoading(false);
+        isFetchingRef.current = false;
         return;
       }
 
@@ -1360,9 +1401,9 @@ const AdminProducts = () => {
         ...(filters.category && { category: filters.category }),
         ...(filters.status && { status: filters.status }),
         ...(filters.isAmazonsChoice && { isAmazonsChoice: 'true' }),
-        excludeSellerCopies: 'true', // Re-enable with improved server-side filtering
-        limit: productsPerPage.toString(), // Use productsPerPage instead of hardcoded 50
-        page: page.toString() // Add pagination
+        excludeSellerCopies: 'true',
+        limit: productsPerPage.toString(),
+        page: page.toString()
       });
 
       const useFastEndpoint = !search && !filters.category && !filters.status && !filters.isAmazonsChoice;
@@ -1398,13 +1439,19 @@ const AdminProducts = () => {
       const totalPagesCalc = Math.ceil((data.total || data.products.length) / productsPerPage);
       setTotalPages(totalPagesCalc);
       
+      // Store the fetch parameters
+      lastFetchParamsRef.current = fetchParams;
+      
+      console.log('✅ Products loaded successfully:', data.products.length);
+      
     } catch (error) {
       console.error('❌ Error fetching products:', error);
       alert('Failed to fetch products. Please check console for details.');
-      setProducts([]); // Reset products on error
-      setFilteredProducts([]); // Reset filtered products on error
+      setProducts([]);
+      setFilteredProducts([]);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
@@ -3917,25 +3964,42 @@ const AdminProducts = () => {
       </div>
 
       {loading ? (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '400px',
-          flexDirection: 'column',
-          gap: '15px'
+        <div className="loading-container" style={{
+          background: 'white',
+          borderRadius: '8px',
+          padding: '20px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          overflow: 'hidden'
         }}>
+          <div className="loading-message" style={{
+            textAlign: 'center',
+            padding: '20px 0',
+            marginBottom: '20px'
+          }}>
+            <div className="spinner" style={{
+              display: 'inline-block',
+              width: '40px',
+              height: '40px',
+              border: '4px solid #f3f4f6',
+              borderTopColor: '#007bff',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite',
+              marginBottom: '16px'
+            }}></div>
+            <p style={{ margin: '8px 0', fontWeight: '500', color: '#374151', fontSize: '1rem' }}>
+              Loading products{filters.category ? ` in ${categories.find(c => c.value === filters.category)?.label}` : ''}
+              {filters.isAmazonsChoice ? ` (Amazon's Choice)` : ''}...
+            </p>
+            <small style={{ display: 'block', marginTop: '8px', color: '#9ca3af', fontSize: '0.875rem' }}>
+              Please wait while we fetch your data
+            </small>
+          </div>
           <div style={{
-            width: '50px',
-            height: '50px',
-            border: '5px solid #f3f3f3',
-            borderTop: '5px solid #667eea',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }}></div>
-          <div style={{ fontSize: '1rem', color: '#666' }}>
-            Loading products{filters.category ? ` in ${categories.find(c => c.value === filters.category)?.label}` : ''}
-            {filters.isAmazonsChoice ? ` (Amazon's Choice)` : ''}...
+            width: '100%',
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch'
+          }}>
+            <ProductTableSkeleton rows={10} />
           </div>
           <style>{`
             @keyframes spin {
@@ -3943,6 +4007,59 @@ const AdminProducts = () => {
               100% { transform: rotate(360deg); }
             }
           `}</style>
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="empty-state" style={{
+          textAlign: 'center',
+          padding: '60px 20px',
+          background: 'white',
+          borderRadius: '8px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div className="empty-state-icon" style={{
+            fontSize: '4rem',
+            marginBottom: '16px',
+            opacity: 0.5
+          }}>📦</div>
+          <h3 style={{
+            fontSize: '1.25rem',
+            marginBottom: '8px',
+            color: '#374151',
+            fontWeight: '600'
+          }}>No Products Found</h3>
+          <p style={{
+            fontSize: '0.95rem',
+            marginBottom: '24px',
+            color: '#6b7280'
+          }}>
+            {search ? `No products match "${search}"` : 
+             filters.category ? `No products in ${categories.find(c => c.value === filters.category)?.label}` :
+             filters.isAmazonsChoice ? "No Amazon's Choice products found" :
+             'No products available'}
+          </p>
+          {(search || filters.category || filters.isAmazonsChoice) && (
+            <button
+              onClick={() => {
+                setSearch('');
+                setFilters({ category: '', status: '', isAmazonsChoice: false });
+              }}
+              style={{
+                padding: '12px 24px',
+                fontSize: '1rem',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'background 0.2s ease',
+                fontWeight: '500'
+              }}
+              onMouseOver={(e) => e.target.style.background = '#0056b3'}
+              onMouseOut={(e) => e.target.style.background = '#007bff'}
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
       ) : (
         <div className="products-table-container">

@@ -13,6 +13,21 @@ const SellerInformation = ({
   const [updating, setUpdating] = useState(false);
   const [unlisting, setUnlisting] = useState(false);
   const [showAllSellers, setShowAllSellers] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (!onRefreshProduct) return;
+    
+    setRefreshing(true);
+    try {
+      await onRefreshProduct();
+      // Show a brief success message
+      setTimeout(() => setRefreshing(false), 1000);
+    } catch (error) {
+      console.error('Error refreshing:', error);
+      setRefreshing(false);
+    }
+  };
 
   const handleUpdatePrice = async () => {
     if (!newPrice || newPrice <= 0) return;
@@ -129,9 +144,32 @@ const SellerInformation = ({
 
   return (
     <div className="mb-2">
-      <h3 className="fw-bold mb-2" style={{fontSize: '0.85rem', color: '#1f2937'}}>
-        Seller Information
-      </h3>
+      <div className="d-flex justify-content-between align-items-center mb-2">
+        <h3 className="fw-bold mb-0" style={{fontSize: '0.85rem', color: '#1f2937'}}>
+          Seller Information
+        </h3>
+        {onRefreshProduct && (
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="btn btn-sm btn-outline-primary"
+            style={{fontSize: '0.65rem', padding: '2px 8px'}}
+            title="Refresh seller information"
+          >
+            {refreshing ? (
+              <>
+                <i className="fas fa-spinner fa-spin me-1"></i>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-sync-alt me-1"></i>
+                Refresh
+              </>
+            )}
+          </button>
+        )}
+      </div>
       
       {/* Show seller information to everyone - ONLY show sellers array if it exists, otherwise show legacy seller info */}
       {product.sellers && product.sellers.length > 0 ? (

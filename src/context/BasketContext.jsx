@@ -50,19 +50,38 @@ export const BasketProvider = ({ children }) => {
   }, [basket, userType])
 
   const addToBasket = (product) => {
+    console.log('🛒 Adding to basket:', product)
+    console.log('   Product ID:', product.id || product._id)
+    console.log('   Product Name:', product.name)
+    
     setBasket(prev => {
-      const existingIndex = prev.findIndex(item => item.id === product.id)
+      console.log('   Current basket:', prev)
+      
+      // Check both id and _id fields for matching
+      const productId = product.id || product._id
+      const existingIndex = prev.findIndex(item => {
+        const itemId = item.id || item._id
+        return itemId === productId
+      })
+      
+      console.log('   Existing index:', existingIndex)
+      
       if (existingIndex >= 0) {
         // Update quantity if product already exists
+        console.log('   ✅ Product exists, incrementing quantity')
         const updated = [...prev]
         updated[existingIndex] = {
           ...updated[existingIndex],
           quantity: (updated[existingIndex].quantity || 1) + 1
         }
+        console.log('   Updated basket:', updated)
         return updated
       } else {
         // Add new product
-        return [...prev, { ...product, quantity: 1, addedAt: Date.now() }]
+        console.log('   ✅ New product, adding to basket')
+        const newBasket = [...prev, { ...product, quantity: 1, addedAt: Date.now() }]
+        console.log('   New basket:', newBasket)
+        return newBasket
       }
     })
     
@@ -97,19 +116,32 @@ export const BasketProvider = ({ children }) => {
   }
 
   const removeFromBasket = (productId) => {
-    setBasket(prev => prev.filter(item => item.id !== productId))
+    console.log('🗑️ Removing from basket, ID:', productId)
+    setBasket(prev => {
+      const filtered = prev.filter(item => {
+        const itemId = item.id || item._id
+        return itemId !== productId
+      })
+      console.log('   Basket after removal:', filtered)
+      return filtered
+    })
   }
 
   const updateQuantity = (productId, quantity) => {
+    console.log('🔢 Updating quantity, ID:', productId, 'New quantity:', quantity)
     if (quantity <= 0) {
       removeFromBasket(productId)
       return
     }
     setBasket(prev => {
       const updated = [...prev]
-      const index = updated.findIndex(item => item.id === productId)
+      const index = updated.findIndex(item => {
+        const itemId = item.id || item._id
+        return itemId === productId
+      })
       if (index >= 0) {
         updated[index] = { ...updated[index], quantity }
+        console.log('   Updated item:', updated[index])
       }
       return updated
     })
@@ -148,7 +180,10 @@ export const BasketProvider = ({ children }) => {
   }
 
   const isInBasket = (productId) => {
-    return basket.some(item => item.id === productId)
+    return basket.some(item => {
+      const itemId = item.id || item._id
+      return itemId === productId
+    })
   }
 
   const getTotalPrice = () => {

@@ -1035,14 +1035,6 @@ router.get('/pending-approval', authenticateAdmin, async (req, res) => {
 
     // Build the query
     let query = { approvalStatus: 'pending' };
-    
-    console.log('🔍 Building pending products query with filters:', { 
-      page: pageNum, 
-      limit: limitNum, 
-      search, 
-      category, 
-      sortBy 
-    });
 
     // Add search filter
     if (search) {
@@ -1111,16 +1103,12 @@ router.get('/pending-approval', authenticateAdmin, async (req, res) => {
     const totalProducts = await Product.countDocuments(query);
     const totalPages = Math.ceil(totalProducts / limitNum);
 
-    console.log(`📊 Pending products query results: ${totalProducts} total products found`);
-
     // Get paginated products
     const pendingProducts = await Product.find(query)
       .sort(sortOptions)
       .skip(skip)
       .limit(limitNum)
       .lean();
-    
-    console.log(`📦 Returning ${pendingProducts.length} products for page ${pageNum}`);
     
     res.json({
       success: true,
@@ -1987,7 +1975,8 @@ router.get('/public/:id', async (req, res) => {
     }
     
     const product = await Product.findById(id)
-      .populate('seller', 'username email supplierId whatsappNo city country verificationStatus');
+      .populate('seller', 'username email supplierId whatsappNo city country verificationStatus')
+      .populate('sellers.sellerId', 'username whatsappNo city country verificationStatus businessName');
     
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
@@ -2001,23 +1990,29 @@ router.get('/public/:id', async (req, res) => {
     // Include seller info - always populate for seller object, cache for performance
     let productData = product.toObject();
     
-    console.log('🔍 Public product endpoint - seller data debug:', {
-      productId: id,
-      productName: product.name,
-      hasLegacySeller: !!product.seller,
-      hasSellersArray: !!(product.sellers && product.sellers.length > 0),
-      sellersCount: product.sellers?.length || 0,
-      sellersData: product.sellers?.map(s => ({ id: s.sellerId, username: s.username })) || []
-    });
-    
     // Handle sellers array (multiple sellers who listed this admin product)
+    // IMPORTANT: Merge cached data with fresh data from populated sellerId
     if (productData.sellers && productData.sellers.length > 0) {
-      // For public access, show all sellers but hide sensitive info like emails
       productData.sellers = productData.sellers.map(seller => {
+        // If sellerId is populated, use fresh data from Seller model
+        if (seller.sellerId && typeof seller.sellerId === 'object') {
+          return {
+            sellerId: seller.sellerId._id,
+            username: seller.sellerId.username || seller.username,
+            whatsappNo: seller.sellerId.whatsappNo || seller.whatsappNo, // Use fresh WhatsApp from Seller model
+            city: seller.sellerId.city || seller.city,
+            country: seller.sellerId.country || seller.country,
+            businessName: seller.sellerId.businessName || seller.businessName,
+            sellerPrice: seller.sellerPrice,
+            sellerShipping: seller.sellerShipping,
+            listedAt: seller.listedAt,
+            verificationStatus: seller.sellerId.verificationStatus
+          };
+        }
+        // Fallback to cached data if sellerId not populated
         const { email, transactionId, paymentMethod, notes, ...publicSellerInfo } = seller;
         return publicSellerInfo;
       });
-      console.log(`✅ Public endpoint: Showing ${productData.sellers.length} sellers`);
     }
     
     // Always populate seller info if seller exists (for admin and seller access)
@@ -3026,8 +3021,6 @@ router.get('/admin/categories-with-profit', authenticateAdmin, async (req, res) 
   try {
     const { excludeId } = req.query;
     
-    console.log('🔍 Fetching categories with profit data, excluding:', excludeId);
-    
     // Build aggregation pipeline to find categories with profit data
     const pipeline = [
       {
@@ -3118,8 +3111,6 @@ router.get('/admin/category/:category/with-profit', authenticateAdmin, async (re
   try {
     const { category } = req.params;
     const { excludeId, exactMatch = 'true' } = req.query;
-    
-    console.log('🔍 Fetching products with profit data from category:', category, 'exactMatch:', exactMatch, 'excluding:', excludeId);
     
     // Build query to find products with profit data
     let query = {

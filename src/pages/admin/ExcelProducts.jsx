@@ -216,7 +216,7 @@ const ExcelProducts = () => {
         const checks = [];
         
         if (product.asin && product.asin.trim()) {
-          const asinResponse = await fetch(`http://localhost:5000/api/products/check-asin/${product.asin}`, {
+          const asinResponse = await fetch(getApiUrl(`products/check-asin/${product.asin}`), {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (asinResponse.ok) {
@@ -228,7 +228,7 @@ const ExcelProducts = () => {
         }
         
         if (product.sku && product.sku.trim()) {
-          const skuResponse = await fetch(`http://localhost:5000/api/products/check-sku/${product.sku}`, {
+          const skuResponse = await fetch(getApiUrl(`products/check-sku/${product.sku}`), {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (skuResponse.ok) {
@@ -484,7 +484,7 @@ const ExcelProducts = () => {
       const issues = [];
       
       if (product.asin && product.asin.trim()) {
-        const asinResponse = await fetch(`http://localhost:5000/api/products/check-asin/${product.asin}`, {
+        const asinResponse = await fetch(getApiUrl(`products/check-asin/${product.asin}`), {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (asinResponse.ok) {
@@ -495,7 +495,7 @@ const ExcelProducts = () => {
         }
       }
       
-      const skuResponse = await fetch(`http://localhost:5000/api/products/check-sku/${product.sku}`, {
+      const skuResponse = await fetch(getApiUrl(`products/check-sku/${product.sku}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (skuResponse.ok) {
@@ -521,7 +521,9 @@ const ExcelProducts = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin-excel/single-convert-to-approval`, {
+      console.log('🔄 Converting product to approval:', { productId, productName });
+      
+      const response = await fetch(getApiUrl('admin-excel/single-convert-to-approval'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -530,7 +532,9 @@ const ExcelProducts = () => {
         body: JSON.stringify({ productId })
       });
 
+      console.log('📡 Response status:', response.status);
       const result = await response.json();
+      console.log('📦 Response data:', result);
       
       if (result.success) {
         alert(`✅ ${result.message}\n\n📋 Product ID: ${result.productId}\n⏳ The product is now in the approval queue!`);
@@ -545,11 +549,26 @@ const ExcelProducts = () => {
           });
         }
       } else {
-        alert(`❌ Failed to convert product: ${result.message}`);
+        console.error('❌ Conversion failed:', result);
+        
+        // Check if ASIN/SKU already exists
+        if (result.shouldNavigateToApproval && result.existingProductId) {
+          const goToApproval = confirm(`⚠️ ${result.message}\n\nThis product already exists in the system.\n\nWould you like to view it in the approval page?`);
+          if (goToApproval) {
+            navigate('/admin/approval', {
+              state: { 
+                message: `Product with ${result.message.includes('ASIN') ? 'ASIN' : 'SKU'} already exists`,
+                highlightProductId: result.existingProductId
+              }
+            });
+          }
+        } else {
+          alert(`❌ Failed to convert product: ${result.message || 'Unknown error'}`);
+        }
       }
     } catch (error) {
-      console.error('Error converting product:', error);
-      alert('❌ Failed to convert product');
+      console.error('❌ Error converting product:', error);
+      alert(`❌ Failed to convert product: ${error.message}`);
     }
   };
 

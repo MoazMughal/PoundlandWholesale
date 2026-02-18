@@ -4251,7 +4251,10 @@ router.post('/single-convert-to-approval', authenticateAdmin, async (req, res) =
   try {
     const { productId } = req.body;
     
+    console.log('🔄 Single convert to approval request:', { productId });
+    
     if (!productId) {
+      console.error('❌ Product ID is missing');
       return res.status(400).json({
         success: false,
         message: 'Product ID is required'
@@ -4259,16 +4262,26 @@ router.post('/single-convert-to-approval', authenticateAdmin, async (req, res) =
     }
 
     // Find the Excel product
+    console.log('🔍 Finding Excel product:', productId);
     const excelProduct = await ExcelProduct.findById(productId);
     if (!excelProduct) {
+      console.error('❌ Excel product not found:', productId);
       return res.status(404).json({
         success: false,
         message: 'Excel product not found'
       });
     }
 
+    console.log('✅ Found Excel product:', {
+      name: excelProduct.name,
+      sku: excelProduct.sku,
+      asin: excelProduct.asin,
+      isConverted: excelProduct.isConverted
+    });
+
     // Check if product has SKU
     if (!excelProduct.sku || excelProduct.sku.trim() === '') {
+      console.error('❌ SKU is missing');
       return res.status(400).json({
         success: false,
         message: 'SKU is required for conversion'
@@ -4277,30 +4290,41 @@ router.post('/single-convert-to-approval', authenticateAdmin, async (req, res) =
 
     // Check if already converted
     if (excelProduct.isConverted && excelProduct.mainProductId) {
+      console.error('❌ Product already converted:', excelProduct.mainProductId);
       return res.status(400).json({
         success: false,
-        message: 'Product is already converted'
+        message: 'Product is already converted',
+        existingProductId: excelProduct.mainProductId
       });
     }
 
     // Check for duplicate ASIN/SKU in existing products
+    console.log('🔍 Checking for duplicate ASIN/SKU...');
     if (excelProduct.asin && excelProduct.asin.trim()) {
       const existingAsin = await Product.findOne({ asin: excelProduct.asin.toUpperCase() });
       if (existingAsin) {
+        console.error('❌ ASIN already exists:', excelProduct.asin, 'Product ID:', existingAsin._id);
         return res.status(400).json({
           success: false,
-          message: `ASIN ${excelProduct.asin} already exists in the system`
+          message: `ASIN ${excelProduct.asin} already exists in the system`,
+          existingProductId: existingAsin._id,
+          shouldNavigateToApproval: true
         });
       }
     }
 
     const existingSku = await Product.findOne({ sku: excelProduct.sku.toUpperCase() });
     if (existingSku) {
+      console.error('❌ SKU already exists:', excelProduct.sku, 'Product ID:', existingSku._id);
       return res.status(400).json({
         success: false,
-        message: `SKU ${excelProduct.sku} already exists in the system`
+        message: `SKU ${excelProduct.sku} already exists in the system`,
+        existingProductId: existingSku._id,
+        shouldNavigateToApproval: true
       });
     }
+
+    console.log('✅ No duplicates found, proceeding with conversion...');
 
     // Get website categories for smart matching
     const websiteCategories = await Product.distinct('category', { 
