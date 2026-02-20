@@ -16,6 +16,8 @@ import '../../styles/admin-table-force-fix.css';
 import '../../styles/admin-products-mobile.css';
 import '../../styles/admin-products-responsive.css';
 import '../../styles/admin-products-full-responsive.css';
+import '../../styles/admin-complete-responsive.css';
+import '../../styles/admin-table-mobile-force.css'; // MUST LOAD LAST - highest priority
 import '../../styles/skeleton-loader.css';
 
 // Smart Image Component - Fetches from Cloudinary or existing products
@@ -2524,19 +2526,20 @@ const AdminProducts = () => {
             display: block !important;
             overflow-x: auto !important;
             overflow-y: visible !important;
-            -webkit-overflow-scrolling: touch;
+            -webkit-overflow-scrolling: touch !important;
             width: 100% !important;
             max-width: 100vw !important;
             margin: 0 !important;
             padding: 0 !important;
           }
           
-          /* Keep table visible but scrollable */
+          /* Keep table visible but scrollable - MATCH inline style */
           .products-table table {
-            min-width: 1000px !important;
-            width: 1000px !important;
+            min-width: 1200px !important;
+            width: 1200px !important;
             display: table !important;
             margin: 0 !important;
+            table-layout: fixed !important;
           }
           
           /* Hide mobile cards - show table instead */
@@ -2549,14 +2552,53 @@ const AdminProducts = () => {
           .products-table td {
             font-size: 0.65rem !important;
             padding: 6px 8px !important;
-            white-space: nowrap;
+            white-space: nowrap !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
           }
+          
+          /* Force specific column widths on mobile - total 1200px */
+          .products-table th:nth-child(1),
+          .products-table td:nth-child(1) { width: 40px !important; min-width: 40px !important; } /* Checkbox */
+          
+          .products-table th:nth-child(2),
+          .products-table td:nth-child(2) { width: 60px !important; min-width: 60px !important; } /* Image */
+          
+          .products-table th:nth-child(3),
+          .products-table td:nth-child(3) { width: 200px !important; min-width: 200px !important; } /* Product */
+          
+          .products-table th:nth-child(4),
+          .products-table td:nth-child(4) { width: 100px !important; min-width: 100px !important; } /* ASIN */
+          
+          .products-table th:nth-child(5),
+          .products-table td:nth-child(5) { width: 100px !important; min-width: 100px !important; } /* SKU */
+          
+          .products-table th:nth-child(6),
+          .products-table td:nth-child(6) { width: 120px !important; min-width: 120px !important; } /* Category */
+          
+          .products-table th:nth-child(7),
+          .products-table td:nth-child(7) { width: 80px !important; min-width: 80px !important; } /* Price */
+          
+          .products-table th:nth-child(8),
+          .products-table td:nth-child(8) { width: 80px !important; min-width: 80px !important; } /* Shipping */
+          
+          .products-table th:nth-child(9),
+          .products-table td:nth-child(9) { width: 70px !important; min-width: 70px !important; } /* Stock */
+          
+          .products-table th:nth-child(10),
+          .products-table td:nth-child(10) { width: 90px !important; min-width: 90px !important; } /* Status */
+          
+          .products-table th:nth-child(11),
+          .products-table td:nth-child(11) { width: 100px !important; min-width: 100px !important; } /* Sellers */
+          
+          .products-table th:nth-child(12),
+          .products-table td:nth-child(12) { width: 160px !important; min-width: 160px !important; } /* Actions */
           
           /* Product name column - allow some wrapping on mobile */
           .products-table tbody td:nth-child(3) {
-            max-width: 150px;
             white-space: normal !important;
             font-size: 0.65rem !important;
+            line-height: 1.3 !important;
           }
           
           /* Smaller images on mobile */
@@ -3431,7 +3473,12 @@ const AdminProducts = () => {
           )}
         </div>
       ) : (
-        <div className="products-table-container">
+        <div className="products-table-container" style={{
+          width: '100%',
+          display: 'block',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch'
+        }}>
           {/* Category Header */}
           {(filters.category || filters.isAmazonsChoice) && (
             <div style={{
@@ -3539,8 +3586,15 @@ const AdminProducts = () => {
             </span>
           </div>
 
-          <div className="products-table" style={{ fontSize: '0.8rem' }}>
-            <table style={{ width: '100%' }}>
+          <div className="products-table" style={{ 
+            fontSize: '0.8rem',
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            width: '100%',
+            display: 'block',
+            position: 'relative'
+          }}>
+            <table style={{ width: '100%', minWidth: '1200px', display: 'table' }}>
               <thead>
                 <tr style={{ background: '#dc2626' }}>
                   <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', width: '40px', color: 'white' }}>

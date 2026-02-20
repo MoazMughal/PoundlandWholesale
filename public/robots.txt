@@ -31,7 +31,7 @@ Allow: /faq
 Allow: /product/
 
 # Sitemap location
-Sitemap: https://poundlandwholesale.com/sitemap.xml
+Sitemap: https://poundlandwholesale.com/sitemap-v2.xml
 
 # Crawl delay (helps prevent server overload)
 Crawl-delay: 1

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mobile Table Scroll Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: Arial, sans-serif;
+      overflow-x: hidden;
+      overflow-y: auto;
+      width: 100%;
+      max-width: 100vw;
+    }
+    
+    .container {
+      padding: 10px;
+      overflow-x: hidden;
+      width: 100%;
+      max-width: 100vw;
+    }
+    
+    .table-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      background: white;
+      border: 2px solid #ff9800;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    
+    .table-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+    }
+    
+    table {
+      min-width: 1200px;
+      width: 1200px;
+      border-collapse: collapse;
+      display: table;
+    }
+    
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    
+    th {
+      background: #ff9800;
+      color: white;
+      font-weight: bold;
+    }
+    
+    tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+    
+    .scroll-indicator {
+      text-align: center;
+      padding: 10px;
+      background: #ff9800;
+      color: white;
+      font-weight: bold;
+      margin-top: 10px;
+      border-radius: 8px;
+      animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    /* Visible scrollbar */
+    .table-container::-webkit-scrollbar,
+    .table-wrapper::-webkit-scrollbar {
+      height: 12px;
+    }
+    
+    .table-container::-webkit-scrollbar-track,
+    .table-wrapper::-webkit-scrollbar-track {
+      background: #f3f4f6;
+      border-radius: 6px;
+    }
+    
+    .table-container::-webkit-scrollbar-thumb,
+    .table-wrapper::-webkit-scrollbar-thumb {
+      background: #ff9800;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 style="margin-bottom: 20px; color: #333;">Mobile Table Scroll Test</h1>
+    
+    <div class="table-container">
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>☑️</th>
+              <th>Image</th>
+              <th>Product</th>
+              <th>ASIN</th>
+              <th>SKU</th>
+              <th>Category</th>
+              <th>Price</th>
+              <th>Shipping</th>
+              <th>Stock</th>
+              <th>Status</th>
+              <th>Sellers</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>☑️</td>
+              <td>🖼️</td>
+              <td>Sample Product Name</td>
+              <td>B07ABC123</td>
+              <td>SKU-001</td>
+              <td>Electronics</td>
+              <td>£19.99</td>
+              <td>£2.50</td>
+              <td>50</td>
+              <td>Active</td>
+              <td>3</td>
+              <td>Edit | Delete | View</td>
+            </tr>
+            <tr>
+              <td>☑️</td>
+              <td>🖼️</td>
+              <td>Another Product</td>
+              <td>B07XYZ789</td>
+              <td>SKU-002</td>
+              <td>Home & Garden</td>
+              <td>£29.99</td>
+              <td>£3.00</td>
+              <td>25</td>
+              <td>Active</td>
+              <td>5</td>
+              <td>Edit | Delete | View</td>
+            </tr>
+            <tr>
+              <td>☑️</td>
+              <td>🖼️</td>
+              <td>Third Product Example</td>
+              <td>B08DEF456</td>
+              <td>SKU-003</td>
+              <td>Fashion</td>
+              <td>£15.99</td>
+              <td>£1.50</td>
+              <td>100</td>
+              <td>Active</td>
+              <td>2</td>
+              <td>Edit | Delete | View</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="scroll-indicator">
+        👉 SWIPE LEFT/RIGHT TO SEE ALL COLUMNS 👈
+      </div>
+    </div>
+    
+    <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px;">
+      <h3 style="color: #1976d2; margin-bottom: 10px;">Test Instructions:</h3>
+      <ol style="color: #333; line-height: 1.8;">
+        <li>Open this file on your mobile device</li>
+        <li>Try swiping left/right on the table</li>
+        <li>You should see all 12 columns</li>
+        <li>The scrollbar should be visible at the bottom</li>
+        <li>The orange indicator should pulse</li>
+      </ol>
+    </div>
+  </div>
+</body>
+</html>

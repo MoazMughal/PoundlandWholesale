@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <!-- Homepage - Amazon's Choice Products -->
+  <url>
+    <loc>https://poundlandwholesale.com/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <lastmod>2024-12-15</lastmod>
+    <image:image>
+      <image:loc>https://poundlandwholesale.com/New%20logo.jpeg</image:loc>
+      <image:title>Poundland Wholesale Logo</image:title>
+    </image:image>
+  </url>
+  
+  <!-- Main Public Pages -->
+  <url>
+    <loc>https://poundlandwholesale.com/about-us</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <lastmod>2024-12-15</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://poundlandwholesale.com/basket</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+    <lastmod>2024-12-15</lastmod>
+  </url>
+  
+  <!-- Onboarding Page -->
+  <url>
+    <loc>https://poundlandwholesale.com/join-now</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <lastmod>2024-12-15</lastmod>
+  </url>
+  
+  <!-- Legal Pages -->
+  <url>
+    <loc>https://poundlandwholesale.com/terms-of-service</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <lastmod>2024-12-15</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://poundlandwholesale.com/privacy-policy</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <lastmod>2024-12-15</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://poundlandwholesale.com/help-center</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <lastmod>2024-12-15</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://poundlandwholesale.com/faq</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <lastmod>2024-12-15</lastmod>
+  </url>
+</urlset>
