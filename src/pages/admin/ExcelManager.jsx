@@ -902,6 +902,23 @@ const ExcelManager = () => {
               ← Back to Products
             </button>
             <button
+              onClick={() => navigate('/admin/approval')}
+              style={{
+                background: stats?.approvalCount > 0 ? 'rgba(245, 158, 11, 0.3)' : 'rgba(255, 255, 255, 0.2)',
+                border: stats?.approvalCount > 0 ? '1px solid rgba(245, 158, 11, 0.5)' : '1px solid rgba(255, 255, 255, 0.3)',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: '6px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                position: 'relative'
+              }}
+            >
+              📋 Approval {stats?.approvalCount > 0 && `(${stats.approvalCount})`}
+            </button>
+            <button
               onClick={() => navigate('/admin/excel-import')}
               style={{
                 background: 'rgba(255, 255, 255, 0.2)',
@@ -990,6 +1007,36 @@ const ExcelManager = () => {
               <div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#333' }}>{stats.convertedProducts}</div>
                 <div style={{ fontSize: '0.75rem', color: '#666' }}>Listed</div>
+              </div>
+            </div>
+            <div style={{
+              background: 'white',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              minWidth: '140px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onClick={() => navigate('/admin/approval')}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            }}
+            >
+              <div style={{ fontSize: '1.2rem' }}>📋</div>
+              <div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: stats.approvalCount > 0 ? '#f59e0b' : '#333' }}>
+                  {stats.approvalCount || 0}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#666' }}>In Approval</div>
               </div>
             </div>
             <div style={{

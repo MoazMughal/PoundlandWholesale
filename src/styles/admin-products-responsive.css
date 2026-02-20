@@ -4,7 +4,7 @@
 .admin-products-page {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: visible; /* CHANGED: Allow horizontal scroll for table */
   padding: 16px;
   box-sizing: border-box;
 }

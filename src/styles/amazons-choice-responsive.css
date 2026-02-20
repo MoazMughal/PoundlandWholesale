@@ -3,6 +3,40 @@
 /* This file provides responsive styles for Amazon Choice products */
 /* Main responsive styles are handled in mobile-improvements.css */
 
+/* PKR Currency Symbol - Smaller Font Size using ::first-letter pseudo-element */
+/* Target elements that display prices with Rs symbol */
+
+/* Product card price displays */
+.product-info div[style*="fontWeight"],
+.product-info > div > div {
+  position: relative;
+}
+
+/* Make Rs symbol smaller in all price displays */
+/* This targets the beginning of text content that starts with Rs */
+.product-card [style*="fontWeight"]:not(button):not(a),
+.enhanced-card [style*="fontWeight"]:not(button):not(a),
+.product-info div {
+  /* Use a wrapper approach - the Rs will be styled via inline styles in the component */
+}
+
+/* Specific targeting for PKR prices - make first 2-3 characters smaller */
+@supports (font-variant-numeric: tabular-nums) {
+  /* Modern browsers - use font features */
+  .product-info div[style*="fontWeight"]::first-letter {
+    font-size: 0.75em;
+  }
+}
+
+/* Mobile specific - make PKR symbol even more compact */
+@media (max-width: 576px) {
+  /* Target price containers that likely contain Rs */
+  .product-info > div[style*="flexDirection: column"] > div,
+  .product-info > div:last-of-type > div {
+    /* Prices will be handled with inline styling */
+  }
+}
+
 @media (min-width: 769px) {
   /* Desktop specific styles */
   .amazons-choice-desktop {

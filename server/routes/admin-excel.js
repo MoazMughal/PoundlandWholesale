@@ -1909,6 +1909,9 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
     const totalExcelProducts = await ExcelProduct.countDocuments();
     const convertedProducts = await ExcelProduct.countDocuments({ isConverted: true });
     const pendingProducts = await ExcelProduct.countDocuments({ status: 'pending' });
+    
+    // Count products in approval queue (from main Product model)
+    const approvalCount = await Product.countDocuments({ approvalStatus: 'pending' });
 
     const recentUploads = await ExcelUpload.find({ isActive: true })
       .sort({ uploadedAt: -1 })
@@ -1923,6 +1926,7 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
         totalExcelProducts,
         convertedProducts,
         pendingProducts,
+        approvalCount,
         recentUploads
       }
     });

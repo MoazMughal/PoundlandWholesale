@@ -97,6 +97,8 @@ export const CurrencyProvider = ({ children }) => {
     }
     
     const convertedPrice = convertPrice(price);
+    
+    // Return string with currency symbol (CSS will handle the styling)
     return `${currencySymbols[currency]}${convertedPrice}`;
   };
 

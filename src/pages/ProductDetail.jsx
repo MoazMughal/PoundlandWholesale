@@ -3584,13 +3584,13 @@ _This quotation was generated from PoundlandWholesale.com_
                         <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                           <span style={{color: '#565959'}}>💰 Profit/unit:</span>
                           <span style={{color: '#059669', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
-                            £{safeNumber(product.profitCalculations.profitPerUnit).toFixed(2)}
+                            {formatPrice(safeNumber(product.profitCalculations.profitPerUnit))}
                           </span>
                         </div>
                         <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                           <span style={{color: '#565959'}}>📈 Profit/{product.dealUnits || 200}:</span>
                           <span style={{color: '#059669', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
-                            £{(product.profitEvaluation?.netProfit ? product.profitEvaluation.netProfit : (safeNumber(product.profitCalculations.profitPerUnit) * (product.dealUnits || 200))).toFixed(2)}
+                            {formatPrice(product.profitEvaluation?.netProfit ? product.profitEvaluation.netProfit : (safeNumber(product.profitCalculations.profitPerUnit) * (product.dealUnits || 200)))}
                           </span>
                         </div>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>

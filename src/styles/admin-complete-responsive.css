@@ -1,0 +1,183 @@
+/* ADMIN PRODUCTS - COMPLETE RESPONSIVE FIX */
+/* This file has HIGHEST PRIORITY - loads last to override all other styles */
+
+/* ============================================
+   CRITICAL: REMOVE ALL overflow-x: hidden
+   ============================================ */
+
+/* Force all parent containers to allow horizontal scroll */
+.admin-layout,
+.admin-content-wrapper,
+.admin-products,
+.admin-products-container,
+.products-section {
+  overflow-x: visible !important;
+  overflow-y: auto !important;
+}
+
+/* ============================================
+   TABLE CONTAINER - ENABLE HORIZONTAL SCROLL
+   ============================================ */
+
+.products-table-container,
+.products-table,
+.table-container {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  width: 100% !important;
+  display: block !important;
+}
+
+/* ============================================
+   TABLE - FORCE MINIMUM WIDTH FOR SCROLL
+   ============================================ */
+
+.products-table table,
+table.products-table {
+  min-width: 950px !important;
+  width: 100% !important;
+  table-layout: auto !important;
+}
+
+/* ============================================
+   MOBILE SPECIFIC FIXES (< 768px)
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Hide basket sidebar on mobile to prevent layout issues */
+  .basket-sidebar {
+    display: none !important;
+  }
+  
+  /* Ensure body and html don't prevent scrolling */
+  body, html {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+  
+  /* Admin layout - single scroll container */
+  .admin-layout {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    height: 100vh !important;
+  }
+  
+  /* Content wrapper - allow vertical scroll only */
+  .admin-content-wrapper {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    flex: 1 !important;
+  }
+  
+  /* Products container - allow horizontal scroll */
+  .admin-products {
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    padding: 8px !important;
+  }
+  
+  /* Table container - CRITICAL: Enable horizontal scroll */
+  .products-table-container,
+  .products-table {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Table - Force minimum width to trigger scroll */
+  .products-table table {
+    min-width: 950px !important;
+    width: 950px !important;
+  }
+  
+  /* Scroll indicator */
+  .products-table::after {
+    content: '← Swipe left/right to see all columns →' !important;
+    display: block !important;
+    text-align: center !important;
+    padding: 8px !important;
+    font-size: 0.7rem !important;
+    color: #666 !important;
+    background: #f9fafb !important;
+    border-top: 1px solid #e5e7eb !important;
+  }
+  
+  /* Header actions - stack vertically */
+  .dashboard-header {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  
+  .header-actions {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 6px !important;
+  }
+  
+  .header-actions button {
+    width: 100% !important;
+    font-size: 0.75rem !important;
+    padding: 8px !important;
+  }
+  
+  /* Categories - horizontal scroll */
+  .categories-filter {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    white-space: nowrap !important;
+  }
+  
+  /* Table cells - smaller font */
+  .products-table th,
+  .products-table td {
+    font-size: 0.6rem !important;
+    padding: 4px 6px !important;
+  }
+  
+  /* Images - smaller on mobile */
+  .products-table img {
+    width: 35px !important;
+    height: 35px !important;
+  }
+  
+  /* Compact footer on mobile */
+  footer {
+    padding: 10px !important;
+    font-size: 0.65rem !important;
+  }
+}
+
+/* ============================================
+   TABLET SPECIFIC (768px - 1024px)
+   ============================================ */
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .products-table table {
+    min-width: 950px !important;
+  }
+  
+  .products-table th,
+  .products-table td {
+    font-size: 0.7rem !important;
+    padding: 6px 8px !important;
+  }
+}
+
+/* ============================================
+   DESKTOP (> 1024px)
+   ============================================ */
+
+@media (min-width: 1024px) {
+  /* Normal table display on desktop */
+  .products-table table {
+    width: 100% !important;
+    min-width: auto !important;
+  }
+  
+  /* Remove scroll indicator on desktop */
+  .products-table::after {
+    display: none !important;
+  }
+}

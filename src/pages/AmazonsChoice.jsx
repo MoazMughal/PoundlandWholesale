@@ -27,6 +27,7 @@ import '../styles/image-fixes.css'
 import '../styles/production-optimizations.css'
 import '../styles/compact-cards.css'
 import '../styles/mobile-image-override.css' // New override file for mobile images
+import '../styles/amazons-choice-responsive.css' // Currency symbol styling
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
@@ -531,6 +532,24 @@ const AmazonsChoice = () => {
   const { formatPrice } = useCurrency()
   const { addToBasket, isInBasket } = useBasket()
   const { isLoggedIn: isAdminContextLoggedIn } = useAdmin()
+
+  // Helper function to format price with smaller Rs symbol
+  const formatPriceWithSmallRs = (price) => {
+    const formattedPrice = formatPrice(price);
+    
+    // If price starts with Rs, wrap it in a span with smaller font
+    if (typeof formattedPrice === 'string' && formattedPrice.startsWith('Rs')) {
+      const priceValue = formattedPrice.substring(2); // Remove 'Rs' prefix
+      return (
+        <>
+          <span style={{ fontSize: '0.7em', fontWeight: '600' }}>Rs</span>
+          {priceValue}
+        </>
+      );
+    }
+    
+    return formattedPrice;
+  };
 
   // Add loaded class to cards after component mounts to enable transitions
   useEffect(() => {
@@ -2166,7 +2185,7 @@ const AmazonsChoice = () => {
                       minWidth: 0
                     }}>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '6px' : '8px',
+                        fontSize: windowWidth < 576 ? '6px' : '7px', // Increased for better readability
                         color: '#1a1a1a', 
                         fontWeight: '700',
                         whiteSpace: 'nowrap',
@@ -2178,7 +2197,7 @@ const AmazonsChoice = () => {
                         💰 Deal Cost / {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '6px' : '8px',
+                        fontSize: windowWidth < 576 ? '6px' : '7px', // Increased for better readability
                         fontWeight: '800', 
                         color: '#1a1a1a',
                         whiteSpace: 'nowrap',
@@ -2197,12 +2216,44 @@ const AmazonsChoice = () => {
                             const dealUnits = product.dealUnits || 1;
                             const totalPrice = unitPrice * dealUnits;
                             
-                            if (isNaN(totalPrice)) return formatPrice(product.price);
+                            if (isNaN(totalPrice)) {
+                              const formatted = formatPrice(product.price);
+                              if (typeof formatted === 'string' && formatted.startsWith('Rs')) {
+                                const priceValue = formatted.substring(2);
+                                return (
+                                  <>
+                                    <span style={{ fontSize: '0.7em' }}>Rs</span>
+                                    {priceValue}
+                                  </>
+                                );
+                              }
+                              return formatted;
+                            }
                             
                             // Use formatPrice to handle currency conversion
-                            return formatPrice(totalPrice);
+                            const formatted = formatPrice(totalPrice);
+                            if (typeof formatted === 'string' && formatted.startsWith('Rs')) {
+                              const priceValue = formatted.substring(2);
+                              return (
+                                <>
+                                  <span style={{ fontSize: '0.7em' }}>Rs</span>
+                                  {priceValue}
+                                </>
+                              );
+                            }
+                            return formatted;
                           } catch (error) {
-                            return formatPrice(product.price);
+                            const formatted = formatPrice(product.price);
+                            if (typeof formatted === 'string' && formatted.startsWith('Rs')) {
+                              const priceValue = formatted.substring(2);
+                              return (
+                                <>
+                                  <span style={{ fontSize: '0.7em' }}>Rs</span>
+                                  {priceValue}
+                                </>
+                              );
+                            }
+                            return formatted;
                           }
                         })()}
                       </span>
@@ -2349,7 +2400,7 @@ const AmazonsChoice = () => {
                         boxSizing: 'border-box'
                       }}>
                         <span style={{
-                          fontSize: windowWidth < 576 ? '6px' : '8px',
+                          fontSize: windowWidth < 576 ? '6px' : '7px', // Increased for better readability
                           color: '#1a1a1a', 
                           fontWeight: '700',
                           whiteSpace: 'nowrap',
@@ -2358,13 +2409,25 @@ const AmazonsChoice = () => {
                           📈 Profit cost / {dealUnits} unit{dealUnits !== 1 ? 's' : ''}:
                         </span>
                         <span style={{
-                          fontSize: windowWidth < 576 ? '6px' : '8px',
+                          fontSize: windowWidth < 576 ? '6px' : '7px', // Increased for better readability
                           fontWeight: '800', 
                           color: '#1a1a1a',
                           whiteSpace: 'nowrap',
                           textAlign: 'right'
                         }}>
-                          {formatPrice(totalProfit)}
+                          {(() => {
+                            const formatted = formatPrice(totalProfit);
+                            if (typeof formatted === 'string' && formatted.startsWith('Rs')) {
+                              const priceValue = formatted.substring(2);
+                              return (
+                                <>
+                                  <span style={{ fontSize: '0.7em' }}>Rs</span>
+                                  {priceValue}
+                                </>
+                              );
+                            }
+                            return formatted;
+                          })()}
                         </span>
                       </div>
                     </div>
