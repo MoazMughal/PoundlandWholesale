@@ -9,12 +9,15 @@ const ListedProducts = () => {
   const [products, setProducts] = useState([]);
   const [pageLoading, setPageLoading] = useState(false);
   const [counts, setCounts] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('approved');
   const [editingCell, setEditingCell] = useState(null); // Track which cell is being edited (productId-field)
   const [editValues, setEditValues] = useState({}); // Store edit values
   const [updatingProducts, setUpdatingProducts] = useState(new Set()); // Track which products are being updated
   const [retryCount, setRetryCount] = useState(0);
   const [showRetryButton, setShowRetryButton] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 50; // Fixed at 50 items per page
 
   useEffect(() => {
     // Wait for authentication to be resolved before checking login status
@@ -28,7 +31,12 @@ const ListedProducts = () => {
     }
     
     loadProducts();
-  }, [isLoggedIn, seller, navigate, activeTab, authResolved, loading]);
+  }, [isLoggedIn, seller, navigate, activeTab, authResolved, loading, currentPage]);
+
+  // Reset to page 1 when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   const loadProducts = async (isRetry = false) => {
     try {
@@ -47,9 +55,9 @@ const ListedProducts = () => {
       
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout (increased from 10s)
       
-      const response = await fetch(getApiUrl(`products/seller/listed-products?limit=50${statusParam}`), {
+      const response = await fetch(getApiUrl(`products/seller/listed-products?limit=${itemsPerPage}&page=${currentPage}${statusParam}`), {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -62,6 +70,7 @@ const ListedProducts = () => {
       if (response.ok) {
         setProducts(data.products || []);
         setCounts(data.counts || { total: 0, pending: 0, approved: 0, rejected: 0 });
+        setTotalPages(data.totalPages || 1);
         setRetryCount(0); // Reset retry count on success
         // Products loaded successfully
       } else {
@@ -374,16 +383,12 @@ const ListedProducts = () => {
       <ul className="nav nav-tabs mb-3">
         <li className="nav-item">
           <button 
-            className={`nav-link ${activeTab === 'all' ? 'active' : ''}`}
-            onClick={() => setActiveTab('all')}
-          >
-            All Products ({counts.total})
-          </button>
-        </li>
-        <li className="nav-item">
-          <button 
             className={`nav-link ${activeTab === 'approved' ? 'active' : ''}`}
             onClick={() => setActiveTab('approved')}
+            style={{ 
+              color: '#212529',
+              fontWeight: activeTab === 'approved' ? 'bold' : '600'
+            }}
           >
             Approved ({counts.approved})
           </button>
@@ -392,8 +397,24 @@ const ListedProducts = () => {
           <button 
             className={`nav-link ${activeTab === 'pending' ? 'active' : ''}`}
             onClick={() => setActiveTab('pending')}
+            style={{ 
+              color: '#212529',
+              fontWeight: activeTab === 'pending' ? 'bold' : '600'
+            }}
           >
             Pending ({counts.pending})
+          </button>
+        </li>
+        <li className="nav-item">
+          <button 
+            className={`nav-link ${activeTab === 'all' ? 'active' : ''}`}
+            onClick={() => setActiveTab('all')}
+            style={{ 
+              color: '#212529',
+              fontWeight: activeTab === 'all' ? 'bold' : '600'
+            }}
+          >
+            All Products ({counts.total})
           </button>
         </li>
         {counts.rejected > 0 && (
@@ -401,6 +422,10 @@ const ListedProducts = () => {
             <button 
               className={`nav-link ${activeTab === 'rejected' ? 'active' : ''}`}
               onClick={() => setActiveTab('rejected')}
+              style={{ 
+                color: '#212529',
+                fontWeight: activeTab === 'rejected' ? 'bold' : '600'
+              }}
             >
               Rejected ({counts.rejected})
             </button>
@@ -768,6 +793,99 @@ const ListedProducts = () => {
           )}
         </div>
       </div>
+
+      {/* Pagination */}
+      {!pageLoading && products.length > 0 && totalPages > 1 && (
+        <div className="d-flex justify-content-center align-items-center gap-2 mt-3 flex-wrap">
+          {/* Previous Button */}
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="btn btn-sm btn-outline-primary"
+            style={{
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              opacity: currentPage === 1 ? 0.5 : 1
+            }}
+          >
+            ← Prev
+          </button>
+
+          {/* Page Numbers */}
+          {(() => {
+            const pages = [];
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            
+            if (endPage - startPage < maxVisible - 1) {
+              startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            // First page + ellipsis
+            if (startPage > 1) {
+              pages.push(
+                <button
+                  key={1}
+                  onClick={() => setCurrentPage(1)}
+                  className="btn btn-sm btn-outline-primary"
+                >
+                  1
+                </button>
+              );
+              if (startPage > 2) {
+                pages.push(<span key="ellipsis1" className="px-2">...</span>);
+              }
+            }
+
+            // Page numbers
+            for (let i = startPage; i <= endPage; i++) {
+              pages.push(
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i)}
+                  className={`btn btn-sm ${currentPage === i ? 'btn-primary' : 'btn-outline-primary'}`}
+                  style={{
+                    fontWeight: currentPage === i ? 'bold' : 'normal'
+                  }}
+                >
+                  {i}
+                </button>
+              );
+            }
+
+            // Ellipsis + last page
+            if (endPage < totalPages) {
+              if (endPage < totalPages - 1) {
+                pages.push(<span key="ellipsis2" className="px-2">...</span>);
+              }
+              pages.push(
+                <button
+                  key={totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  className="btn btn-sm btn-outline-primary"
+                >
+                  {totalPages}
+                </button>
+              );
+            }
+
+            return pages;
+          })()}
+
+          {/* Next Button */}
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="btn btn-sm btn-outline-primary"
+            style={{
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              opacity: currentPage === totalPages ? 0.5 : 1
+            }}
+          >
+            Next →
+          </button>
+        </div>
+      )}
     </div>
   );
 };

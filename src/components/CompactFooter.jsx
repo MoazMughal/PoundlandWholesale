@@ -368,7 +368,7 @@ const CompactFooter = () => {
           <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
             <span style={{ color: 'rgba(255,255,255,0.8)', fontWeight: '500', fontSize: '14px' }}>Follow Us:</span>
             <a 
-              href="https://facebook.com" 
+              href="https://www.facebook.com/share/1AfLdYF6NU/" 
               target="_blank" 
               rel="noopener noreferrer" 
               style={{ 
@@ -385,20 +385,23 @@ const CompactFooter = () => {
                 textDecoration: 'none'
               }} 
               onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#ff9900';
+                e.target.style.backgroundColor = '#1877f2';
                 e.target.style.color = '#fff';
                 e.target.style.transform = 'translateY(-3px)';
+                e.target.style.boxShadow = '0 4px 12px rgba(24, 119, 242, 0.4)';
               }} 
               onMouseLeave={(e) => {
                 e.target.style.backgroundColor = 'rgba(255,255,255,0.1)';
                 e.target.style.color = 'rgba(255,255,255,0.8)';
                 e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = 'none';
               }}
+              title="Follow us on Facebook"
             >
-              <i className="fab fa-facebook"></i>
+              <i className="fab fa-facebook-f"></i>
             </a>
             <a 
-              href="https://twitter.com" 
+              href="https://x.com/PoundlandW47056" 
               target="_blank" 
               rel="noopener noreferrer" 
               style={{ 
@@ -415,20 +418,23 @@ const CompactFooter = () => {
                 textDecoration: 'none'
               }} 
               onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#ff9900';
+                e.target.style.backgroundColor = '#000000';
                 e.target.style.color = '#fff';
                 e.target.style.transform = 'translateY(-3px)';
+                e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
               }} 
               onMouseLeave={(e) => {
                 e.target.style.backgroundColor = 'rgba(255,255,255,0.1)';
                 e.target.style.color = 'rgba(255,255,255,0.8)';
                 e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = 'none';
               }}
+              title="Follow us on X (Twitter)"
             >
-              <i className="fab fa-twitter"></i>
+              <i className="fab fa-x-twitter"></i>
             </a>
             <a 
-              href="https://instagram.com" 
+              href="https://www.instagram.com/poundlandwholesale/" 
               target="_blank" 
               rel="noopener noreferrer" 
               style={{ 
@@ -445,47 +451,20 @@ const CompactFooter = () => {
                 textDecoration: 'none'
               }} 
               onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#ff9900';
+                e.target.style.background = 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)';
                 e.target.style.color = '#fff';
                 e.target.style.transform = 'translateY(-3px)';
+                e.target.style.boxShadow = '0 4px 12px rgba(225, 48, 108, 0.4)';
               }} 
               onMouseLeave={(e) => {
-                e.target.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                e.target.style.background = 'rgba(255,255,255,0.1)';
                 e.target.style.color = 'rgba(255,255,255,0.8)';
                 e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = 'none';
               }}
+              title="Follow us on Instagram"
             >
               <i className="fab fa-instagram"></i>
-            </a>
-            <a 
-              href="https://linkedin.com" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              style={{ 
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '40px',
-                height: '40px',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.8)',
-                borderRadius: '50%',
-                fontSize: '18px',
-                transition: 'all 0.3s ease',
-                textDecoration: 'none'
-              }} 
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#ff9900';
-                e.target.style.color = '#fff';
-                e.target.style.transform = 'translateY(-3px)';
-              }} 
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                e.target.style.color = 'rgba(255,255,255,0.8)';
-                e.target.style.transform = 'translateY(0)';
-              }}
-            >
-              <i className="fab fa-linkedin"></i>
             </a>
           </div>
           

@@ -427,10 +427,19 @@ router.post('/payment', authenticateSeller, async (req, res) => {
 // Get payment history
 router.get('/payments', authenticateSeller, async (req, res) => {
   try {
-    const seller = await Seller.findById(req.seller._id).select('paymentHistory');
-    res.json(seller.paymentHistory);
+    const seller = await Seller.findById(req.seller._id)
+      .select('paymentHistory')
+      .lean()
+      .maxTimeMS(5000);
+    
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found', paymentHistory: [] });
+    }
+    
+    res.json(seller.paymentHistory || []);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Get payments error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message, paymentHistory: [] });
   }
 });
 
@@ -1013,54 +1022,168 @@ router.post('/list-admin-product', authenticateSeller, async (req, res) => {
 });
 
 // Admin routes for product listing requests
+
+// Fast stats endpoint - optimized for quick counts
+router.get('/admin/listing-stats', authenticateAdmin, async (req, res) => {
+  try {
+    // Import Product model
+    const Product = (await import('../models/Product.js')).default;
+    
+    // SIMPLE & FAST: Count directly without aggregation (works on all Mongoose versions)
+    const [sellersWithPending, sellersWithRejected, approvedSellerProducts, adminProductsWithSellers] = await Promise.all([
+      // Count sellers with pending requests
+      Seller.find({ 'productListingRequests.status': 'pending_approval' })
+        .select('productListingRequests')
+        .lean()
+        .maxTimeMS(10000),
+      
+      // Count sellers with rejected requests
+      Seller.find({ 'productListingRequests.status': 'rejected' })
+        .select('productListingRequests')
+        .lean()
+        .maxTimeMS(10000),
+      
+      // Count approved seller products
+      Product.countDocuments({ 
+        isAdminProduct: false, 
+        approvalStatus: 'approved' 
+      }).maxTimeMS(10000),
+      
+      // Count admin products with sellers
+      Product.countDocuments({
+        isAdminProduct: true,
+        'sellers.0': { $exists: true }
+      }).maxTimeMS(10000)
+    ]);
+    
+    // Count pending requests
+    let pendingCount = 0;
+    sellersWithPending.forEach(seller => {
+      if (seller.productListingRequests) {
+        pendingCount += seller.productListingRequests.filter(req => req.status === 'pending_approval').length;
+      }
+    });
+    
+    // Count rejected requests
+    let rejectedCount = 0;
+    sellersWithRejected.forEach(seller => {
+      if (seller.productListingRequests) {
+        rejectedCount += seller.productListingRequests.filter(req => req.status === 'rejected').length;
+      }
+    });
+    
+    const approvedCount = approvedSellerProducts + adminProductsWithSellers;
+    
+    res.json({
+      success: true,
+      stats: {
+        pending: pendingCount,
+        rejected: rejectedCount,
+        approved: approvedCount,
+        total: pendingCount + rejectedCount + approvedCount
+      }
+    });
+  } catch (error) {
+    console.error('Get listing stats error:', error);
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message,
+      stats: { pending: 0, rejected: 0, approved: 0, total: 0 }
+    });
+  }
+});
+
 router.get('/admin/listing-requests', authenticateAdmin, async (req, res) => {
   try {
-    const { page = 1, limit = 20, status = 'pending_approval' } = req.query;
+    const { page = 1, limit = 10, status = 'pending_approval' } = req.query; // Increased to 10
     
     // Import Product model
     const Product = (await import('../models/Product.js')).default;
     
-    // Find all sellers with listing requests
+    // OPTIMIZED: Find sellers with requests in one query with pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
     const sellers = await Seller.find({
       'productListingRequests.status': status
-    });
+    })
+      .select('username email productListingRequests verificationStatus')
+      .lean()
+      .maxTimeMS(15000);
     
-    // Extract and flatten all requests with product details
+    // Extract and flatten all requests
     const allRequests = [];
-    for (const seller of sellers) {
-      for (const request of seller.productListingRequests.filter(r => r.status === status)) {
-        // Fetch the admin product to get shipping information
-        const adminProduct = await Product.findById(request.productId);
-        
-        allRequests.push({
-          ...request.toObject(),
-          sellerId: seller._id,
-          sellerUsername: seller.username,
-          sellerEmail: seller.email,
-          sellerVerificationStatus: seller.verificationStatus,
-          productShipping: adminProduct?.shipping || 0 // Add admin product shipping
-        });
+    const productIds = new Set();
+    
+    sellers.forEach(seller => {
+      if (seller.productListingRequests) {
+        seller.productListingRequests
+          .filter(r => r.status === status)
+          .forEach(request => {
+            allRequests.push({
+              ...request,
+              _id: request._id,
+              sellerId: seller._id,
+              sellerUsername: seller.username,
+              sellerEmail: seller.email,
+              sellerVerificationStatus: seller.verificationStatus
+            });
+            if (request.productId) {
+              productIds.add(request.productId.toString());
+            }
+          });
       }
-    }
+    });
     
     // Sort by submission date (newest first)
     allRequests.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
     
-    // Paginate
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + parseInt(limit);
-    const paginatedRequests = allRequests.slice(startIndex, endIndex);
+    // Paginate BEFORE fetching product details
+    const paginatedRequests = allRequests.slice(skip, skip + parseInt(limit));
+    
+    // BATCH FETCH: Get product details only for paginated items
+    const paginatedProductIds = paginatedRequests.map(r => r.productId).filter(Boolean);
+    
+    const products = await Product.find({ _id: { $in: paginatedProductIds } })
+      .select('name images shipping price')
+      .lean()
+      .maxTimeMS(10000);
+    
+    // Create product map for quick lookup
+    const productMap = {};
+    products.forEach(p => {
+      productMap[p._id.toString()] = p;
+    });
+    
+    // Enrich requests with product details
+    const enrichedRequests = paginatedRequests.map(request => {
+      const product = productMap[request.productId?.toString()];
+      return {
+        ...request,
+        productName: request.productName || product?.name || 'Unknown Product',
+        productImage: product?.images?.[0] || null,
+        productShipping: product?.shipping || 0,
+        images: product?.images || []
+      };
+    });
     
     res.json({
       success: true,
-      requests: paginatedRequests,
-      totalRequests: allRequests.length,
-      totalPages: Math.ceil(allRequests.length / limit),
+      requests: enrichedRequests,
+      total: allRequests.length,
+      totalPages: Math.ceil(allRequests.length / parseInt(limit)),
       currentPage: parseInt(page)
     });
   } catch (error) {
-    console.error('Get listing requests error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('❌ Get listing requests error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error', 
+      error: error.message,
+      requests: [],
+      total: 0,
+      totalPages: 0,
+      currentPage: 1
+    });
   }
 });
 
@@ -1093,13 +1216,24 @@ router.put('/admin/listing-requests/:sellerId/:requestId/approve', authenticateA
       return res.status(404).json({ message: 'Admin product not found' });
     }
     
-    // Check if seller is already listed (safety check)
+    // Check if seller is already listed
     const alreadyListed = adminProduct.sellers?.some(
       sellerEntry => sellerEntry.sellerId.toString() === sellerId
     );
     
     if (alreadyListed) {
-      return res.status(400).json({ message: 'Seller is already listed on this product' });
+      // If already listed, just update the request status to approved
+      request.status = 'approved';
+      request.approvedAt = new Date();
+      request.approvedBy = req.admin._id;
+      await seller.save();
+      
+      return res.json({
+        success: true,
+        message: 'Seller was already listed. Request marked as approved.',
+        request: request,
+        productName: adminProduct.name
+      });
     }
     
     // Add seller to product
@@ -1149,13 +1283,6 @@ router.put('/admin/listing-requests/:sellerId/:requestId/approve', authenticateA
     request.approvedBy = req.admin._id;
     
     await seller.save();
-    
-    console.log('✅ Product listing request approved:', {
-      sellerId,
-      requestId,
-      productId: request.productId,
-      adminId: req.admin._id
-    });
     
     res.json({
       success: true,
@@ -1619,12 +1746,21 @@ router.get('/admin/seller/:sellerId', authenticateAdmin, async (req, res) => {
 // Get seller's product listing requests
 router.get('/listing-requests', authenticateSeller, async (req, res) => {
   try {
-    const seller = await Seller.findById(req.seller._id).select('productListingRequests');
+    const seller = await Seller.findById(req.seller._id)
+      .select('productListingRequests')
+      .lean()
+      .maxTimeMS(5000);
+    
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found', requests: [] });
+    }
+    
     res.json({
       requests: seller.productListingRequests || []
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Get listing requests error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message, requests: [] });
   }
 });
 

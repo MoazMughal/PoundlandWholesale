@@ -15,20 +15,39 @@ const AdminSellerProducts = () => {
   const [sortBy, setSortBy] = useState('newest')
   const [showSuccessToast, setShowSuccessToast] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalProducts, setTotalProducts] = useState(0)
+  const productsPerPage = 20 // Reduced from 50 to 20 for faster loading on M0 cluster
 
   useEffect(() => {
-    // Load stats first, then products
+    // Reset to page 1 when filter changes
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+    } else {
+      // Load stats first, then products
+      loadStatsAndProducts()
+    }
+  }, [filter]) // Only depend on filter
+  
+  useEffect(() => {
+    // Load products when page changes and scroll to top
     loadStatsAndProducts()
-  }, [filter])
+    
+    // Scroll to top of page smoothly
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [currentPage]) // Separate effect for page changes
 
   const loadStatsAndProducts = async () => {
     setLoading(true)
     
-    // Load stats first for immediate feedback
-    await loadStats()
-    
-    // Then load products
-    await fetchProducts()
+    // Load stats and products in parallel for better performance
+    await Promise.all([
+      loadStats(),
+      fetchProducts()
+    ])
   }
 
   const showSuccess = (message) => {
@@ -40,47 +59,63 @@ const AdminSellerProducts = () => {
     try {
       const token = localStorage.getItem('adminToken')
       
-      // Load all stats in parallel for better performance
-      const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
-        fetch(getApiUrl(`sellers/admin/listing-requests?status=pending_approval&limit=1000`), {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(getApiUrl(`products/admin/all-seller-listings?status=approved&limit=1000`), {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(getApiUrl(`sellers/admin/listing-requests?status=rejected&limit=1000`), {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-      ])
+      // FIX: Use new fast stats endpoint instead of loading full data
+      const fetchWithTimeout = (url, options, timeout = 45000) => {
+        return Promise.race([
+          fetch(url, options),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), timeout)
+          )
+        ]);
+      };
       
-      const [pendingData, approvedData, rejectedData] = await Promise.all([
-        pendingRes.ok ? pendingRes.json() : { requests: [] },
-        approvedRes.ok ? approvedRes.json() : { products: [] },
-        rejectedRes.ok ? rejectedRes.json() : { requests: [] }
-      ])
-      
-      const newStats = {
-        pending: pendingData.requests?.length || 0,
-        approved: approvedData.products?.length || 0,
-        rejected: rejectedData.requests?.length || 0,
-        total: (pendingData.requests?.length || 0) + (approvedData.products?.length || 0) + (rejectedData.requests?.length || 0)
+      try {
+        // Use the new optimized stats endpoint
+        const statsRes = await fetchWithTimeout(getApiUrl(`sellers/admin/listing-stats`), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          setStats(data.stats);
+        } else {
+          // Fallback to default stats
+          setStats({ pending: 0, approved: 0, rejected: 0, total: 0 });
+        }
+      } catch (error) {
+        console.error('Error loading stats:', error);
+        // Set default stats on error
+        setStats({ pending: 0, approved: 0, rejected: 0, total: 0 });
       }
       
-      setStats(newStats)
-      setStatsLoading(false)
+      setStatsLoading(false);
     } catch (error) {
-      console.error('Error loading stats:', error)
-      setStatsLoading(false)
+      console.error('Error loading stats:', error);
+      setStatsLoading(false);
+      // Set default stats on error
+      setStats({ pending: 0, approved: 0, rejected: 0, total: 0 });
     }
   }
 
   const fetchProducts = async () => {
+    setLoading(true); // Always set loading at start
+    
     try {
       const token = localStorage.getItem('adminToken')
       
+      // FIX: Increased timeout to 60 seconds for slow M0 cluster
+      const fetchWithTimeout = (url, options, timeout = 60000) => {
+        return Promise.race([
+          fetch(url, options),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), timeout)
+          )
+        ]);
+      };
+      
       if (filter === 'pending') {
         // For pending, fetch listing requests instead of products
-        const response = await fetch(getApiUrl(`sellers/admin/listing-requests?status=pending_approval&limit=1000`), {
+        const response = await fetchWithTimeout(getApiUrl(`sellers/admin/listing-requests?status=pending_approval&limit=${productsPerPage}&page=${currentPage}`), {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -88,14 +123,19 @@ const AdminSellerProducts = () => {
 
         if (response.ok) {
           const data = await response.json()
+          
+          // Update pagination info
+          setTotalPages(data.totalPages || 1)
+          setTotalProducts(data.total || data.requests.length)
+          
           // Transform listing requests to look like products for display
           const transformedRequests = await Promise.all(data.requests.map(async (request) => {
             // Fetch admin product to get images - but don't block on this
             let adminProductImages = [];
             try {
-              const adminProductResponse = await fetch(getApiUrl(`products/public/${request.productId}`), {
+              const adminProductResponse = await fetchWithTimeout(getApiUrl(`products/public/${request.productId}`), {
                 headers: { 'Authorization': `Bearer ${token}` }
-              });
+              }, 10000); // Shorter timeout for image fetching
               if (adminProductResponse.ok) {
                 const adminProductData = await adminProductResponse.json();
                 adminProductImages = adminProductData.images || [];
@@ -111,7 +151,7 @@ const AdminSellerProducts = () => {
               shipping: request.sellerShipping || 0,
               currency: 'GBP',
               approvalStatus: 'pending',
-              images: adminProductImages, // Include admin product images
+              images: adminProductImages,
               seller: {
                 _id: request.sellerId,
                 username: request.sellerUsername,
@@ -131,7 +171,7 @@ const AdminSellerProducts = () => {
         }
       } else if (filter === 'rejected') {
         // For rejected, fetch rejected listing requests
-        const response = await fetch(getApiUrl(`sellers/admin/listing-requests?status=rejected&limit=1000`), {
+        const response = await fetchWithTimeout(getApiUrl(`sellers/admin/listing-requests?status=rejected&limit=${productsPerPage}&page=${currentPage}`), {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -139,13 +179,18 @@ const AdminSellerProducts = () => {
 
         if (response.ok) {
           const data = await response.json()
+          
+          // Update pagination info
+          setTotalPages(data.totalPages || 1)
+          setTotalProducts(data.total || data.requests.length)
+          
           const transformedRequests = await Promise.all(data.requests.map(async (request) => {
             // Fetch admin product to get images - but don't block on this
             let adminProductImages = [];
             try {
-              const adminProductResponse = await fetch(getApiUrl(`products/public/${request.productId}`), {
+              const adminProductResponse = await fetchWithTimeout(getApiUrl(`products/public/${request.productId}`), {
                 headers: { 'Authorization': `Bearer ${token}` }
-              });
+              }, 10000);
               if (adminProductResponse.ok) {
                 const adminProductData = await adminProductResponse.json();
                 adminProductImages = adminProductData.images || [];
@@ -162,7 +207,7 @@ const AdminSellerProducts = () => {
               currency: 'GBP',
               approvalStatus: 'rejected',
               rejectionReason: request.rejectionReason,
-              images: adminProductImages, // Include admin product images
+              images: adminProductImages,
               seller: {
                 _id: request.sellerId,
                 username: request.sellerUsername,
@@ -181,8 +226,12 @@ const AdminSellerProducts = () => {
         }
       } else {
         // For approved and all, fetch actual products
-        const params = new URLSearchParams({ status: filter === 'all' ? 'approved' : filter, limit: 1000 })
-        const response = await fetch(getApiUrl(`products/admin/all-seller-listings?${params}`), {
+        const params = new URLSearchParams({ 
+          status: filter === 'all' ? 'approved' : filter, 
+          limit: productsPerPage,
+          page: currentPage
+        })
+        const response = await fetchWithTimeout(getApiUrl(`products/admin/all-seller-listings?${params}`), {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -190,6 +239,11 @@ const AdminSellerProducts = () => {
 
         if (response.ok) {
           const data = await response.json()
+          
+          // Update pagination info
+          setTotalPages(data.totalPages || 1)
+          setTotalProducts(data.total || data.products.length)
+          
           console.log('🔍 Approved products data:', data.products.slice(0, 3).map(p => ({
             name: p.name,
             listingType: p.listingType,
@@ -198,10 +252,16 @@ const AdminSellerProducts = () => {
             sellerEmail: p.sellerEmail
           })))
           setProducts(data.products)
+        } else if (response.status === 504) {
+          // Handle timeout error silently - just show empty state
+          console.error('Request timeout - query took too long')
+          setProducts([])
         }
       }
     } catch (error) {
       console.error('Error fetching products:', error)
+      // Don't show alert, just log and show empty state
+      setProducts([])
     } finally {
       setLoading(false)
     }
@@ -914,6 +974,76 @@ const AdminSellerProducts = () => {
             }
           }
           
+          /* Pagination Styles */
+          .pagination-section {
+            background: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+          }
+          
+          .pagination-info {
+            font-size: 0.85rem !important;
+          }
+          
+          .pagination-controls .btn {
+            min-width: 36px !important;
+            height: 36px !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 6px !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+          }
+          
+          .pagination-controls .btn:disabled {
+            opacity: 0.4 !important;
+            cursor: not-allowed !important;
+          }
+          
+          .pagination-controls .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            border: none !important;
+            color: white !important;
+          }
+          
+          .pagination-controls .btn-outline-primary {
+            background: white !important;
+            border: 1px solid #e2e8f0 !important;
+            color: #667eea !important;
+          }
+          
+          .pagination-controls .btn-outline-primary:hover:not(:disabled) {
+            background: #f7fafc !important;
+            border-color: #667eea !important;
+            transform: translateY(-1px) !important;
+          }
+          
+          .items-per-page .form-select {
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 6px !important;
+            font-size: 0.85rem !important;
+            padding: 4px 8px !important;
+            cursor: pointer !important;
+          }
+          
+          .items-per-page .form-select:focus {
+            border-color: #667eea !important;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1) !important;
+            outline: none !important;
+          }
+          
+          @media (max-width: 1200px) {
+            .product-card {
+              height: 220px !important;
+            }
+            .product-title {
+              font-size: 0.7rem !important;
+            }
+          }
+          
           @media (max-width: 768px) {
             .admin-seller-products-page {
               padding: 4px !important;
@@ -957,6 +1087,37 @@ const AdminSellerProducts = () => {
             .filter-buttons .btn {
               font-size: 0.7rem !important;
               padding: 5px 10px !important;
+            }
+            
+            /* Pagination Mobile */
+            .pagination-section {
+              padding: 12px !important;
+            }
+            
+            .pagination-section .d-flex {
+              flex-direction: column !important;
+              gap: 12px !important;
+            }
+            
+            .pagination-info {
+              text-align: center !important;
+              width: 100% !important;
+            }
+            
+            .pagination-controls {
+              justify-content: center !important;
+              width: 100% !important;
+            }
+            
+            .pagination-controls .btn {
+              min-width: 32px !important;
+              height: 32px !important;
+              font-size: 0.8rem !important;
+            }
+            
+            .items-per-page {
+              justify-content: center !important;
+              width: 100% !important;
             }
           }
           
@@ -1309,6 +1470,146 @@ const AdminSellerProducts = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {!loading && filteredAndSortedProducts.length > 0 && totalPages > 1 && (
+        <div className="pagination-section bg-white rounded-3 shadow-sm p-3 mt-3">
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            {/* Page Info */}
+            <div className="pagination-info text-muted">
+              <small>
+                Showing <strong>{((currentPage - 1) * productsPerPage) + 1}</strong> to{' '}
+                <strong>{Math.min(currentPage * productsPerPage, totalProducts)}</strong> of{' '}
+                <strong>{totalProducts}</strong> products
+              </small>
+            </div>
+
+            {/* Pagination Buttons */}
+            <div className="pagination-controls d-flex align-items-center gap-2">
+              {/* First Page */}
+              <button
+                className="btn btn-sm btn-outline-primary"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1 || loading}
+                title="First Page"
+              >
+                <i className="fas fa-angle-double-left"></i>
+              </button>
+
+              {/* Previous Page */}
+              <button
+                className="btn btn-sm btn-outline-primary"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1 || loading}
+                title="Previous Page"
+              >
+                <i className="fas fa-angle-left"></i>
+              </button>
+
+              {/* Page Numbers */}
+              <div className="d-flex gap-1">
+                {(() => {
+                  const pages = [];
+                  const maxVisible = 5;
+                  let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                  let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                  
+                  // Adjust start if we're near the end
+                  if (endPage - startPage < maxVisible - 1) {
+                    startPage = Math.max(1, endPage - maxVisible + 1);
+                  }
+
+                  // Add first page and ellipsis if needed
+                  if (startPage > 1) {
+                    pages.push(
+                      <button
+                        key={1}
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => setCurrentPage(1)}
+                        disabled={loading}
+                      >
+                        1
+                      </button>
+                    );
+                    if (startPage > 2) {
+                      pages.push(<span key="ellipsis-start" className="px-2">...</span>);
+                    }
+                  }
+
+                  // Add visible page numbers
+                  for (let i = startPage; i <= endPage; i++) {
+                    pages.push(
+                      <button
+                        key={i}
+                        className={`btn btn-sm ${i === currentPage ? 'btn-primary' : 'btn-outline-primary'}`}
+                        onClick={() => setCurrentPage(i)}
+                        disabled={loading}
+                      >
+                        {i}
+                      </button>
+                    );
+                  }
+
+                  // Add ellipsis and last page if needed
+                  if (endPage < totalPages) {
+                    if (endPage < totalPages - 1) {
+                      pages.push(<span key="ellipsis-end" className="px-2">...</span>);
+                    }
+                    pages.push(
+                      <button
+                        key={totalPages}
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={loading}
+                      >
+                        {totalPages}
+                      </button>
+                    );
+                  }
+
+                  return pages;
+                })()}
+              </div>
+
+              {/* Next Page */}
+              <button
+                className="btn btn-sm btn-outline-primary"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages || loading}
+                title="Next Page"
+              >
+                <i className="fas fa-angle-right"></i>
+              </button>
+
+              {/* Last Page */}
+              <button
+                className="btn btn-sm btn-outline-primary"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages || loading}
+                title="Last Page"
+              >
+                <i className="fas fa-angle-double-right"></i>
+              </button>
+            </div>
+
+            {/* Items Per Page Selector */}
+            <div className="items-per-page d-flex align-items-center gap-2">
+              <small className="text-muted">Items per page:</small>
+              <select
+                className="form-select form-select-sm"
+                style={{width: 'auto'}}
+                value={productsPerPage}
+                disabled
+                title="Items per page (fixed at 50 for optimal performance)"
+              >
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
           </div>
         </div>
       )}

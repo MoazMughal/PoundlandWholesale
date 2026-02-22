@@ -15,6 +15,7 @@ const Approval = () => {
   const [processing, setProcessing] = useState(null);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success', 'info', 'warning', 'error'
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Pagination states
@@ -38,6 +39,14 @@ const Approval = () => {
   const [allProductIds, setAllProductIds] = useState([]); // Store all product IDs for bulk operations
   const [lastRefreshTime, setLastRefreshTime] = useState(null);
 
+  // Helper function to show toast notifications
+  const showToast = (message, type = 'success', duration = 3000) => {
+    setSuccessMessage(message);
+    setToastType(type);
+    setShowSuccessToast(true);
+    setTimeout(() => setShowSuccessToast(false), duration);
+  };
+
   // ASIN search states for products without images
   const [asinInputs, setAsinInputs] = useState({}); // productId -> asin value
   const [fetchingAsins, setFetchingAsins] = useState(new Set()); // productIds currently fetching
@@ -56,14 +65,18 @@ const Approval = () => {
   }, [location.state, currentPage, pageSize, selectedCategory, sortBy, searchTerm]);
 
   // Auto-refresh every 30 seconds to catch new products
+  // FIXED: Removed dependencies to prevent multiple intervals from stacking
   useEffect(() => {
     const intervalId = setInterval(() => {
       console.log('🔄 Auto-refreshing pending products...');
-      fetchPendingProducts();
+      // Only refresh if not currently processing or loading
+      if (!loading && !processing && !bulkProcessing) {
+        fetchPendingProducts();
+      }
     }, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(intervalId);
-  }, [currentPage, pageSize, selectedCategory, sortBy, searchTerm]);
+  }, []); // Empty dependency array - only create interval once
 
   // Fetch all categories on component mount
   useEffect(() => {
@@ -169,8 +182,12 @@ const Approval = () => {
         
         // Show success message
         const actionText = action === 'approve' ? 'approved' : 'disapproved';
-        setSuccessMessage(`✅ Product ${actionText} successfully! Page will refresh in 1.5 seconds...`);
-        setShowSuccessToast(true);
+        const emoji = action === 'approve' ? '✅' : '❌';
+        showToast(
+          `Product ${actionText} successfully! Page will refresh in 1.5 seconds...`,
+          action === 'approve' ? 'success' : 'info',
+          1500
+        );
         setIsRefreshing(true);
         
         // Refresh the page to load fresh data
@@ -283,9 +300,7 @@ const Approval = () => {
       setShowBulkActions(allIds.length > 0);
       
       if (allIds.length > 0) {
-        setSuccessMessage(`Selected all ${allIds.length} products across all pages!`);
-        setShowSuccessToast(true);
-        setTimeout(() => setShowSuccessToast(false), 3000);
+        showToast(`Selected all ${allIds.length} products across all pages!`, 'info', 3000);
       }
     } catch (error) {
       console.error('Error selecting all products:', error);
@@ -341,33 +356,26 @@ const Approval = () => {
       if (response.ok) {
         const data = await response.json();
         
-        // Update local state
-        setPendingProducts(prev => 
-          prev.map(product => 
-            selectedProducts.has(product._id) 
-              ? { ...product, category: targetCategory }
-              : product
-          )
-        );
-        
-        // If it's a new category, add it to the categories list
-        if (bulkTargetCategory.startsWith('NEW:') && !categories.includes(targetCategory)) {
-          setCategories(prev => [...prev, targetCategory].sort());
-        }
-        
-        // Clear cache and selection
+        // Clear cache
         cacheManager.clearAll();
-        clearSelection();
-        setBulkTargetCategory('');
         
         const isNewCategory = bulkTargetCategory.startsWith('NEW:');
         const movedCount = data.updatedCount || data.movedCount || productIds.length;
-        setSuccessMessage(
+        
+        // Show success message
+        showToast(
           `Successfully moved ${movedCount} products to "${targetCategory}" category!` +
-          (isNewCategory ? ' (New category created)' : '')
+          (isNewCategory ? ' (New category created)' : '') +
+          ' Page will refresh in 2 seconds...',
+          'success',
+          2000
         );
-        setShowSuccessToast(true);
-        setTimeout(() => setShowSuccessToast(false), 3000);
+        setIsRefreshing(true);
+        
+        // Reload page to show updated categories and products
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
       } else {
         let errorMessage = 'Failed to move products';
         
@@ -433,8 +441,7 @@ const Approval = () => {
         
         message += ' Page will refresh in 2 seconds...';
         
-        setSuccessMessage(message);
-        setShowSuccessToast(true);
+        showToast(message, action === 'approve' ? 'success' : 'info', 2000);
         setIsRefreshing(true);
         
         // Refresh the page to load fresh data
@@ -946,23 +953,7 @@ const Approval = () => {
           >
             {loading ? '⏳ Loading...' : '🔄 Refresh'}
           </button>
-          <button
-            onClick={handleFixPartyAccessoriesCategory}
-            disabled={bulkProcessing}
-            style={{
-              padding: '8px 16px',
-              background: bulkProcessing ? '#6c757d' : '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: bulkProcessing ? 'not-allowed' : 'pointer',
-              fontSize: '12px',
-              fontWeight: '600',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {bulkProcessing ? '⏳ Fixing...' : '🔧 Fix Party Category'}
-          </button>
+          
           <button 
             onClick={() => navigate('/admin/products')} 
             className="back-btn"
@@ -2327,113 +2318,217 @@ const Approval = () => {
         </div>
       )}
 
-      {/* Success Toast Notification */}
+      {/* Enhanced Success Toast Notification */}
       {showSuccessToast && (
         <div style={{
           position: 'fixed',
           top: '20px',
           right: '20px',
-          background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+          background: toastType === 'success' 
+            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+            : toastType === 'info'
+            ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
+            : toastType === 'warning'
+            ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+            : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
           color: 'white',
           padding: '20px 25px',
-          borderRadius: '12px',
-          boxShadow: '0 8px 32px rgba(40, 167, 69, 0.3)',
+          borderRadius: '16px',
+          boxShadow: toastType === 'success'
+            ? '0 10px 40px rgba(16, 185, 129, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+            : toastType === 'info'
+            ? '0 10px 40px rgba(59, 130, 246, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+            : toastType === 'warning'
+            ? '0 10px 40px rgba(245, 158, 11, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+            : '0 10px 40px rgba(239, 68, 68, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)',
           zIndex: 9999,
-          minWidth: '350px',
-          maxWidth: '500px',
-          animation: 'slideInRight 0.5s ease-out',
+          minWidth: '380px',
+          maxWidth: '520px',
+          animation: 'slideInRight 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
           border: '2px solid rgba(255, 255, 255, 0.2)',
           backdropFilter: 'blur(10px)'
         }}>
           <div style={{
             display: 'flex',
-            alignItems: 'center',
-            gap: '15px'
+            alignItems: 'flex-start',
+            gap: '16px'
           }}>
+            {/* Icon */}
             <div style={{
-              background: 'rgba(255, 255, 255, 0.2)',
-              borderRadius: '50%',
-              width: '50px',
-              height: '50px',
+              background: 'rgba(255, 255, 255, 0.25)',
+              borderRadius: '12px',
+              width: '56px',
+              height: '56px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '24px',
-              animation: 'bounce 0.6s ease-in-out'
+              fontSize: '28px',
+              animation: 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+              flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
             }}>
-              ✅
+              {toastType === 'success' ? '✅' : 
+               toastType === 'info' ? 'ℹ️' : 
+               toastType === 'warning' ? '⚠️' : '❌'}
             </div>
-            <div style={{ flex: 1 }}>
+            
+            {/* Content */}
+            <div style={{ flex: 1, paddingTop: '4px' }}>
               <h3 style={{
-                margin: '0 0 5px 0',
+                margin: '0 0 8px 0',
                 fontSize: '18px',
-                fontWeight: 'bold',
-                textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                fontWeight: '700',
+                textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                letterSpacing: '0.3px'
               }}>
-                Success!
+                {toastType === 'success' ? 'Success!' : 
+                 toastType === 'info' ? 'Information' : 
+                 toastType === 'warning' ? 'Warning' : 'Error'}
               </h3>
               <p style={{
                 margin: 0,
                 fontSize: '14px',
-                opacity: 0.9,
-                lineHeight: '1.4'
+                opacity: 0.95,
+                lineHeight: '1.5',
+                fontWeight: '400'
               }}>
                 {successMessage}
               </p>
+              
+              {/* Progress bar for auto-dismiss */}
+              {!isRefreshing && (
+                <div style={{
+                  marginTop: '12px',
+                  height: '3px',
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: '2px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    height: '100%',
+                    background: 'rgba(255, 255, 255, 0.8)',
+                    animation: 'progressBar 3s linear',
+                    borderRadius: '2px'
+                  }} />
+                </div>
+              )}
             </div>
+            
+            {/* Close button */}
             <button
               onClick={() => setShowSuccessToast(false)}
               style={{
                 background: 'rgba(255, 255, 255, 0.2)',
                 border: 'none',
                 color: 'white',
-                borderRadius: '50%',
-                width: '30px',
-                height: '30px',
+                borderRadius: '8px',
+                width: '32px',
+                height: '32px',
                 cursor: 'pointer',
-                fontSize: '16px',
+                fontSize: '18px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                flexShrink: 0,
+                fontWeight: 'bold'
               }}
               onMouseOver={(e) => {
-                e.target.style.background = 'rgba(255, 255, 255, 0.3)';
-                e.target.style.transform = 'scale(1.1)';
+                e.target.style.background = 'rgba(255, 255, 255, 0.35)';
+                e.target.style.transform = 'scale(1.1) rotate(90deg)';
               }}
               onMouseOut={(e) => {
                 e.target.style.background = 'rgba(255, 255, 255, 0.2)';
-                e.target.style.transform = 'scale(1)';
+                e.target.style.transform = 'scale(1) rotate(0deg)';
               }}
             >
               ×
             </button>
           </div>
+          
+          {/* Refreshing indicator */}
+          {isRefreshing && (
+            <div style={{
+              marginTop: '12px',
+              padding: '10px',
+              background: 'rgba(255, 255, 255, 0.15)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontSize: '13px',
+              fontWeight: '500'
+            }}>
+              <div style={{
+                width: '16px',
+                height: '16px',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
+                borderTopColor: 'white',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite'
+              }} />
+              Refreshing page...
+            </div>
+          )}
         </div>
       )}
 
-      {/* CSS Animations */}
+      {/* Enhanced CSS Animations */}
       <style>{`
         @keyframes slideInRight {
           from {
-            transform: translateX(100%);
+            transform: translateX(120%) scale(0.9);
             opacity: 0;
           }
           to {
-            transform: translateX(0);
+            transform: translateX(0) scale(1);
             opacity: 1;
           }
         }
 
-        @keyframes bounce {
-          0%, 20%, 50%, 80%, 100% {
-            transform: translateY(0);
+        @keyframes bounceIn {
+          0% {
+            transform: scale(0);
+            opacity: 0;
           }
-          40% {
-            transform: translateY(-10px);
+          50% {
+            transform: scale(1.15);
           }
-          60% {
-            transform: translateY(-5px);
+          70% {
+            transform: scale(0.95);
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+
+        @keyframes progressBar {
+          from {
+            width: 100%;
+          }
+          to {
+            width: 0%;
+          }
+        }
+
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        /* Mobile responsive toast */
+        @media (max-width: 768px) {
+          div[style*="position: fixed"][style*="top: 20px"] {
+            top: 10px !important;
+            right: 10px !important;
+            left: 10px !important;
+            min-width: auto !important;
+            max-width: none !important;
           }
         }
       `}</style>

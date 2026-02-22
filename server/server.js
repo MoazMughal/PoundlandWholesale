@@ -1,3 +1,4 @@
+import dns from 'dns';
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -25,6 +26,12 @@ import { errorHandler } from './middleware/errorHandler.js';
 import logger from './utils/logger.js';
 
 dotenv.config();
+
+// ============================================
+// FIX: Force IPv4 DNS resolution to prevent IPv6 timeout issues with MongoDB Atlas
+// ============================================
+dns.setDefaultResultOrder('ipv4first');
+console.log('🔧 DNS configured to prefer IPv4 (fixes MongoDB Atlas timeout issues)');
 
 const app = express();
 
@@ -100,13 +107,14 @@ app.use(express.urlencoded({ extended: true, limit: '1gb' }));
 // Only show essential connection info in production
 
 // Connection options optimized for Atlas free tier and production
+// FIX: Increased timeouts to prevent MongoNetworkTimeoutError
 const mongoOptions = {
   maxPoolSize: process.env.NODE_ENV === 'production' ? 5 : 10, // Smaller pool for free tier
   minPoolSize: 1,
   maxIdleTimeMS: 30000,
-  serverSelectionTimeoutMS: 20000, // Increased for production
-  socketTimeoutMS: 60000, // Increased for production
-  connectTimeoutMS: 20000, // Increased for production
+  serverSelectionTimeoutMS: 30000, // Increased from 20s to 30s
+  socketTimeoutMS: 45000, // Increased from 60s to 45s (optimal for Atlas)
+  connectTimeoutMS: 30000, // Increased from 20s to 30s
   heartbeatFrequencyMS: 10000,
   family: 4, // Use IPv4
   retryWrites: true,
