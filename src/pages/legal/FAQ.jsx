@@ -139,17 +139,14 @@ const FAQ = () => {
             </div>
           ))}
 
-          {/* Contact Section */}
+          {/* Help Section */}
           <div className="card bg-light mt-5">
             <div className="card-body text-center">
               <h4>Still have questions?</h4>
-              <p className="text-muted">Our support team is here to help you 24/7</p>
+              <p className="text-muted">Visit our Help Center for more information</p>
               <div className="row justify-content-center">
                 <div className="col-md-6">
-                  <Link to="/contact" className="btn btn-primary me-3">
-                    <i className="fas fa-envelope me-1"></i>Contact Support
-                  </Link>
-                  <Link to="/help-center" className="btn btn-outline-primary">
+                  <Link to="/help-center" className="btn btn-primary">
                     <i className="fas fa-life-ring me-1"></i>Help Center
                   </Link>
                 </div>

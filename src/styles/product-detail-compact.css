@@ -122,18 +122,19 @@ img[alt*="Product" i] {
   transition: transform 0.3s ease !important;
 }
 
-/* Override any constraints on main product image - zoomed out approach */
+/* Override any constraints on main product image - zoomed out for better display */
 .product-detail-page .col-12.col-lg-4 .position-relative img {
   padding: 0 !important;
-  margin: 0 !important;
+  margin: 0 auto !important;
   border: none !important;
-  max-width: 85% !important; /* Zoom out - show more of the image from all sides */
-  max-height: none !important; /* Remove height constraint - let image show at natural size */
-  width: auto !important;
-  height: auto !important;
+  max-width: 85% !important; /* Zoom out - show more space around product */
+  max-height: 450px !important; /* Reasonable max height */
+  width: auto !important; /* Auto width to maintain aspect ratio */
+  height: auto !important; /* Auto height to maintain aspect ratio */
   object-fit: contain !important;
   object-position: center !important;
   background-color: transparent !important;
+  display: block !important;
 }
 
 /* Specific rules for ProductImage component in product detail page */
@@ -850,11 +851,11 @@ button[style*="background: linear-gradient"][style*="#1a1a1a"] * {
   object-fit: contain !important;
 }
 
-/* CRITICAL: Override all possible image constraints - zoomed out approach */
-.product-detail-page img {
-  max-width: 85% !important; /* Zoom out - show complete image from all sides */
-  max-height: none !important; /* Remove height constraint - let images show at natural size */
-  width: auto !important;
+/* CRITICAL: Main product image display - show full image */
+.product-detail-page .col-12.col-lg-4 .position-relative > img {
+  max-width: 100% !important; /* Full container width */
+  max-height: 500px !important; /* Reasonable max height */
+  width: auto !important; /* Auto width maintains aspect ratio */
   height: auto !important;
   object-fit: contain !important;
   object-position: center !important;
@@ -866,28 +867,28 @@ button[style*="background: linear-gradient"][style*="#1a1a1a"] * {
   box-sizing: border-box !important;
 }
 
-/* Ensure container doesn't constrain images - more spacing */
-.product-detail-page .position-relative {
-  padding: 20px !important; /* More padding for better spacing around image */
-  overflow: visible !important;
-  height: auto !important; /* Let container adapt to image size */
-  min-height: auto !important; /* Remove fixed height constraints */
-  max-height: none !important; /* Remove height limits */
+/* Ensure container doesn't constrain images */
+.product-detail-page .col-12.col-lg-4 .position-relative {
+  padding: 15px !important;
+  overflow: hidden !important;
+  height: auto !important;
+  min-height: 300px !important;
+  max-height: 550px !important;
 }
 
-/* Mobile specific overrides - zoomed out */
+/* Mobile specific overrides */
 @media (max-width: 768px) {
-  .product-detail-page .position-relative {
-    padding: 15px !important; /* More padding on mobile for better spacing */
-    height: auto !important; /* Let container adapt to image */
-    min-height: auto !important; /* Remove fixed height */
-    max-height: none !important; /* Remove height limit */
-    overflow: visible !important; /* Prevent cropping */
+  .product-detail-page .col-12.col-lg-4 .position-relative {
+    padding: 10px !important;
+    height: auto !important;
+    min-height: 250px !important;
+    max-height: 400px !important;
+    overflow: hidden !important;
   }
   
-  .product-detail-page img {
-    max-width: 80% !important; /* More zoomed out on mobile */
-    max-height: none !important; /* Remove height constraint on mobile */
+  .product-detail-page .col-12.col-lg-4 .position-relative > img {
+    max-width: 100% !important;
+    max-height: 380px !important;
     padding: 0px !important;
   }
   
@@ -903,4 +904,59 @@ button[style*="background: linear-gradient"][style*="#1a1a1a"] * {
     max-width: 85% !important; /* More zoomed out thumbnails on mobile */
     max-height: 85% !important;
   }
+}
+
+
+/* ========================================
+   FINAL OVERRIDE - HIGHEST PRIORITY
+   Main Product Image Display Fix
+   ======================================== */
+
+/* Target the main product image specifically with highest specificity */
+.product-detail-page .col-12.col-lg-4.order-1.order-lg-1 .sticky-top .position-relative.mb-2 > img.img-fluid {
+  max-width: 85% !important;
+  max-height: 450px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  display: block !important;
+}
+
+/* Ensure the container allows full image display */
+.product-detail-page .col-12.col-lg-4.order-1.order-lg-1 .sticky-top .position-relative.mb-2 {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 300px !important;
+  max-height: 550px !important;
+  overflow: hidden !important;
+}
+
+/* Mobile override */
+@media (max-width: 768px) {
+  .product-detail-page .col-12.col-lg-4.order-1.order-lg-1 .sticky-top .position-relative.mb-2 > img.img-fluid {
+    max-height: 400px !important;
+  }
+  
+  .product-detail-page .col-12.col-lg-4.order-1.order-lg-1 .sticky-top .position-relative.mb-2 {
+    min-height: 250px !important;
+    max-height: 450px !important;
+  }
+}
+
+
+/* Ultra-specific rule for main product image - ABSOLUTE PRIORITY */
+img.main-product-image-full.img-fluid {
+  max-width: 85% !important;
+  max-height: 450px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  display: block !important;
 }

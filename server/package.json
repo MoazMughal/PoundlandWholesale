@@ -11,6 +11,7 @@
     "migrate-cloudinary": "node scripts/migrate-to-cloudinary.js",
     "migrate-excel-manager": "node scripts/migrate-excel-manager-to-cloudinary.js",
     "migrate-complete": "node scripts/complete-cloudinary-migration.js",
+    "generate-sitemap": "node scripts/generate-sitemap.js",
     "env:dev": "node switch-environment.js development",
     "env:prod": "node switch-environment.js production",
     "test:webhooks": "node test-webhooks.js",

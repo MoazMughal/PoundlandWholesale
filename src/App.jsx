@@ -32,7 +32,6 @@ import './styles/compact-cards.css'
 // Lazy load pages for better performance
 const AmazonsChoice = lazy(() => import('./pages/AmazonsChoice'))
 const Basket = lazy(() => import('./pages/Basket'))
-const Categories = lazy(() => import('./pages/Categories'))
 const AboutUs = lazy(() => import('./pages/AboutUs'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
 const ForgotPasswordToken = lazy(() => import('./pages/ForgotPasswordToken'))
@@ -136,7 +135,6 @@ function App() {
           <Route path="/" element={<AmazonsChoice />} />
           <Route path="/basket" element={<Basket />} />
           <Route path="/about-us" element={<AboutUs />} />
-          <Route path="/categories" element={<Categories />} />
           {/* Legacy routes - redirect to new auth system */}
           <Route path="/login" element={<AuthLanding />} />
           <Route path="/register" element={<AuthLanding />} />
@@ -217,9 +215,6 @@ function App() {
               </a>
               <a href="/about-us" style={{color: '#667eea', textDecoration: 'none', padding: '10px 20px', border: '2px solid #667eea', borderRadius: '5px', transition: 'all 0.3s'}}>
                 ℹ️ About Us
-              </a>
-              <a href="/categories" style={{color: '#667eea', textDecoration: 'none', padding: '10px 20px', border: '2px solid #667eea', borderRadius: '5px', transition: 'all 0.3s'}}>
-                📂 Categories
               </a>
             </div>
           </div>} />

@@ -772,64 +772,7 @@ const SellerDashboard = () => {
         </div>
       </div>
 
-      {/* Payment History - Improved */}
-      <div className="row g-4 mb-4">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header bg-light">
-              <h5 className="mb-0"><i className="fas fa-history me-2"></i>Payment History</h5>
-            </div>
-            <div className="card-body">
-              {paymentHistory.length === 0 ? (
-                <div className="text-center py-4">
-                  <i className="fas fa-credit-card fa-3x text-muted mb-3"></i>
-                  <p className="text-muted mb-0">No payment history available.</p>
-                  <small className="text-muted">Your payment transactions will appear here.</small>
-                </div>
-              ) : (
-                <div className="table-responsive">
-                  <table className="table table-hover">
-                    <thead className="table-light">
-                      <tr>
-                        <th>Date</th>
-                        <th>Amount</th>
-                        <th>Purpose</th>
-                        <th>Details</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paymentHistory.map((payment, index) => (
-                        <tr key={index}>
-                          <td>{new Date(payment.paymentDate).toLocaleDateString()}</td>
-                          <td className="fw-bold">£{payment.amount}</td>
-                          <td>
-                            <span className="badge bg-light text-dark">
-                              {payment.purpose.replace('_', ' ').toUpperCase()}
-                            </span>
-                          </td>
-                          <td>
-                            {payment.purpose === 'product_listing' && payment.productName ? (
-                              <small className="text-muted">{payment.productName}</small>
-                            ) : (
-                              <small className="text-muted">-</small>
-                            )}
-                          </td>
-                          <td>
-                            <span className={`badge bg-${payment.status === 'completed' ? 'success' : 'warning'}`}>
-                              {payment.status.toUpperCase()}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+    
 
       {/* Product Listing Section - Improved */}
       <div className="row mb-4">

@@ -562,7 +562,7 @@ const SellerProductsSimple = () => {
                     </td>
                     <td style={{ padding: '10px' }}>
                       <div className="product-name" style={{ fontWeight: '500', fontSize: '14px', marginBottom: '4px' }}>
-                        {product.name.length > 60 ? product.name.substring(0, 60) + '...' : product.name}
+                        {product.name.length > 150 ? product.name.substring(0, 150) + '...' : product.name}
                       </div>
                       <div style={{ fontSize: '11px', color: '#666' }}>
                         {new Date(product.createdAt).toLocaleDateString()}

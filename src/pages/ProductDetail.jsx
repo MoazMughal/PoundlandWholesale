@@ -3033,21 +3033,21 @@ _This quotation was generated from PoundlandWholesale.com_
             {/* Compact LEFT COLUMN - Product Images */}
             <div className="col-12 col-lg-4 order-1 order-lg-1">
               <div className="sticky-top" style={{top: '80px', zIndex: 10}}>
-                {/* Zoomed Out Main Image Container */}
+                {/* Main Image Container - Full Display */}
                 <div className="position-relative mb-2" style={{
                   background: '#ffffff', 
                   border: 'none',
                   borderRadius: '8px', 
-                  padding: '20px', // Increased padding to create space around image
+                  padding: '15px', // Moderate padding for clean look
                   boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
                   transition: 'box-shadow 0.3s ease',
-                  minHeight: 'auto', // Remove fixed height constraint
-                  maxHeight: 'none', // Remove height limit
+                  minHeight: '300px', // Minimum height for consistency
+                  maxHeight: '550px', // Maximum height to prevent too large
                   height: 'auto', // Let container adapt to image
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  overflow: 'visible', // Prevent cropping
+                  overflow: 'hidden', // Prevent overflow but maintain aspect ratio
                   width: '100%'
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'}
@@ -3056,36 +3056,49 @@ _This quotation was generated from PoundlandWholesale.com_
                   <img 
                     src={product.images && product.images[selectedImage] ? product.images[selectedImage] : product.image} 
                     alt={product.name} 
-                    className="img-fluid"
+                    className="img-fluid main-product-image-full"
                     onClick={() => setShowZoomModal(true)}
                     style={{
-                      maxWidth: '85%', // Zoom out - show more of the image from all sides
-                      maxHeight: 'none', // Remove height constraint - let image show at natural size
-                      width: 'auto',
-                      height: 'auto',
-                      objectFit: 'contain',
-                      objectPosition: 'center',
-                      padding: '0px',
-                      margin: '0 auto',
-                      display: 'block',
+                      maxWidth: '85% !important', // Zoom out - show more space around product
+                      maxHeight: '450px !important', // Slightly reduced max height
+                      width: 'auto !important', // Auto width to maintain aspect ratio
+                      height: 'auto !important', // Auto height to maintain aspect ratio
+                      objectFit: 'contain !important', // Contain entire image without cropping
+                      objectPosition: 'center !important',
+                      padding: '0px !important',
+                      margin: '0 auto !important',
+                      display: 'block !important',
                       backgroundColor: 'transparent',
                       transition: 'transform 0.3s ease',
                       cursor: 'zoom-in'
                     }}
                     onMouseEnter={(e) => {
                       e.target.style.transform = 'scale(1.05)';
+                      // Force correct sizing on hover
+                      e.target.style.maxWidth = '85%';
+                      e.target.style.width = 'auto';
+                      e.target.style.height = 'auto';
                     }}
                     onMouseLeave={(e) => {
                       e.target.style.transform = 'scale(1)';
                     }}
                     onLoad={(e) => {
+                      // Force correct sizing when image loads
+                      e.target.style.maxWidth = '85%';
+                      e.target.style.maxHeight = '450px';
+                      e.target.style.width = 'auto';
+                      e.target.style.height = 'auto';
+                      e.target.style.objectFit = 'contain';
+                      
                       console.log('🖼️ Image loaded:', {
                         src: e.target.src,
                         naturalWidth: e.target.naturalWidth,
                         naturalHeight: e.target.naturalHeight,
                         displayWidth: e.target.offsetWidth,
                         displayHeight: e.target.offsetHeight,
-                        objectFit: window.getComputedStyle(e.target).objectFit
+                        objectFit: window.getComputedStyle(e.target).objectFit,
+                        computedWidth: window.getComputedStyle(e.target).width,
+                        computedMaxWidth: window.getComputedStyle(e.target).maxWidth
                       });
                     }}
                     onError={(e) => {

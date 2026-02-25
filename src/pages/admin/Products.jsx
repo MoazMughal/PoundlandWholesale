@@ -3586,14 +3586,41 @@ const AdminProducts = () => {
             </span>
           </div>
 
-          <div className="products-table" style={{ 
+          <div className="products-table products-table-wrapper" style={{ 
             fontSize: '0.8rem',
-            overflowX: 'auto',
+            overflowX: 'scroll',
+            overflowY: 'visible',
             WebkitOverflowScrolling: 'touch',
             width: '100%',
+            maxWidth: '100%',
             display: 'block',
             position: 'relative'
           }}>
+            <style>{`
+              .products-table-wrapper {
+                overflow-x: scroll !important;
+                overflow-y: visible !important;
+                -webkit-overflow-scrolling: touch !important;
+                width: 100% !important;
+                max-width: 100% !important;
+              }
+              
+              @media (max-width: 768px) {
+                .products-table-wrapper {
+                  overflow-x: scroll !important;
+                  -webkit-overflow-scrolling: touch !important;
+                }
+                .products-table-wrapper table {
+                  min-width: 900px !important;
+                }
+              }
+              
+              @media (max-width: 480px) {
+                .products-table-wrapper table {
+                  min-width: 800px !important;
+                }
+              }
+            `}</style>
             <table style={{ width: '100%', minWidth: '1200px', display: 'table' }}>
               <thead>
                 <tr style={{ background: '#dc2626' }}>
