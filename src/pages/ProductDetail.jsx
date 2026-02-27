@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { completeProductsData, getProductById } from '../data/completeProducts'
 import { products } from '../data/allProducts'
@@ -723,7 +723,7 @@ _This quotation was generated from PoundlandWholesale.com_
     }
   };
 
-  // Fetch seller information
+  // Fetch Retion
   const fetchSellerInfo = async (sellerId) => {
     console.log('🔍 fetchSellerInfo called with:', {
       sellerId,
@@ -3348,12 +3348,24 @@ _This quotation was generated from PoundlandWholesale.com_
                           letterSpacing: '-0.5px',
                           fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                         }}>
-                          {(() => {
-                            const breakdown = getLowestPriceBreakdown();
-                            return convertPrice(`£${breakdown.total.toFixed(2)}`);
-                          })()}
+                          {hasStock() ? (
+                            <>
+                              {(() => {
+                                const breakdown = getLowestPriceBreakdown();
+                                return convertPrice(`£${breakdown.total.toFixed(2)}`);
+                              })()}
+                            </>
+                          ) : (
+                            <span style={{
+                              color: '#dc3545',
+                              fontWeight: '600',
+                              fontSize: '1.1rem'
+                            }}>
+                              Out of Stock
+                            </span>
+                          )}
                         </span>
-                        {hasLowerSellerPrice() && (
+                        {hasStock() && hasLowerSellerPrice() && (
                           <span style={{
                             fontSize: '0.9rem',
                             color: '#999',
@@ -3364,14 +3376,16 @@ _This quotation was generated from PoundlandWholesale.com_
                             {convertTotalPrice(product.price, product.shipping)}
                           </span>
                         )}
-                        <span className="text-muted" style={{
-                          fontSize: '0.75rem',
-                          fontWeight: '500'
-                        }}>/Unit (DDP to Amazon Warehouse)</span>
+                        {hasStock() && (
+                          <span className="text-muted" style={{
+                            fontSize: '0.75rem',
+                            fontWeight: '500'
+                          }}>/Unit (DDP to Amazon Warehouse)</span>
+                        )}
                       </div>
                       
-                      {/* Price Breakdown - Always show */}
-                      {(() => {
+                      {/* Price Breakdown - Only show if in stock */}
+                      {hasStock() && (() => {
                         const breakdown = getLowestPriceBreakdown();
                         
                         // Always show breakdown with calculator icon and styling
@@ -3387,13 +3401,18 @@ _This quotation was generated from PoundlandWholesale.com_
                             border: '1px solid rgba(107, 114, 128, 0.2)'
                           }}>
                             <i className="fas fa-calculator" style={{ fontSize: '0.7rem', marginRight: '6px' }}></i>
-                            {formatPrice(breakdown.price)} + {formatPrice(breakdown.shipping)} shipping
+                            {/* Hide shipping if currency is PKR (regardless of login status) */}
+                            {currency === 'PKR'
+                              ? formatPrice(breakdown.price)
+                              : `${formatPrice(breakdown.price)} + ${formatPrice(breakdown.shipping)} shipping`
+                            }
                           </div>
                         );
                       })()}
                       
-                      {/* Enhanced RRP and Save Section */}
-                      <div className="d-flex gap-3 align-items-center flex-wrap">
+                      {/* Enhanced RRP and Save Section - Only show if in stock */}
+                      {hasStock() && (
+                        <div className="d-flex gap-3 align-items-center flex-wrap">
                         <div className="d-flex align-items-center gap-1">
                           <small className="text-muted" style={{fontSize: '0.65rem', fontWeight: '500'}}>RRP:</small>
                           <span className="fw-bold text-primary" style={{
@@ -3527,6 +3546,7 @@ _This quotation was generated from PoundlandWholesale.com_
                           </span>
                         </div>
                       </div>
+                      )}
                     </div>
 
                     {/* Compact Right side - Profit Information */}
@@ -3681,7 +3701,8 @@ _This quotation was generated from PoundlandWholesale.com_
                     }}>Purchase Details</h3>
                   </div>
                   
-                  {/* Compact Price in Buy Box */}
+                  {/* Compact Price in Buy Box - Only show if in stock */}
+                  {hasStock() && (
                   <div className="mb-2" style={{
                     background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
                     border: '1px solid #ff9900',
@@ -3745,6 +3766,12 @@ _This quotation was generated from PoundlandWholesale.com_
                           const breakdown = getLowestPriceBreakdown();
                           const basePrice = breakdown.price > 0 ? breakdown.price : parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
                           const shippingCost = breakdown.shipping > 0 ? breakdown.shipping : parseFloat(product.shipping) || 0;
+                          
+                          // Hide shipping if currency is PKR (regardless of login status)
+                          if (currency === 'PKR') {
+                            return `${formatPrice(basePrice)}`;
+                          }
+                          
                           return `${formatPrice(basePrice)} + ${formatPrice(shippingCost)} shipping`;
                         })()}
                       </span>
@@ -3761,6 +3788,7 @@ _This quotation was generated from PoundlandWholesale.com_
                       (DDP to Amazon Warehouse)
                     </div>
                   </div>
+                  )}
 
                   {/* Compact In Stock Status */}
                   {/* Stock Status Display */}
@@ -4196,7 +4224,8 @@ _This quotation was generated from PoundlandWholesale.com_
           <div className="row mt-4">
             <div className="col-12">
               
-              {/* Platform Comparison and Profit Evaluation Side by Side */}
+              {/* Platform Comparison and Profit Evaluation Side by Side - Only show if in stock */}
+              {hasStock() && (
               <div className="row g-3">
                 {/* Platform Pricing Table - Left Side */}
                 {(hasValidPlatformData() || product?.forceShowPlatforms || (product?.platforms && product.platforms.length > 0)) && (
@@ -4533,6 +4562,7 @@ _This quotation was generated from PoundlandWholesale.com_
                   </div>
                 )}
               </div>
+              )}
 
               {/* Platform Verify Buttons - Below Main Sections */}
               <div className="card border-0 shadow-sm rounded-3 mb-3" style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}}>
@@ -4687,7 +4717,6 @@ _This quotation was generated from PoundlandWholesale.com_
               </div>
             </div>
           </div>
-
 
 
           {/* Additional Sections Below */}

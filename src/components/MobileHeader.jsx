@@ -904,7 +904,7 @@ const MobileHeader = () => {
 
               {!userInfo ? (
                 <>
-                  <Link to="/login/buyer" style={{
+                  <Link to="/auth" style={{
                     fontSize: '9px',
                     color: '#fff',
                     textDecoration: 'none',
@@ -916,7 +916,7 @@ const MobileHeader = () => {
                   }}>
                     <i className="fas fa-user"></i> Login
                   </Link>
-                  <Link to="/register/buyer" style={{
+                  <Link to="/join-now" style={{
                     fontSize: '9px',
                     color: '#fff',
                     textDecoration: 'none',

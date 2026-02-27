@@ -44,13 +44,142 @@ const AdminDashboard = () => {
   const { logout: adminLogout } = useAdmin();
 
   useEffect(() => {
-    fetchStats();
-    fetchRecentProducts();
-    fetchAllProducts();
-    fetchAmazonsChoice();
-    fetchSellers();
-    fetchPendingApprovals();
-    fetchPendingListingRequests();
+    // Fetch all data in parallel for better performance
+    const fetchAllData = async () => {
+      try {
+        const [
+          statsRes,
+          recentRes,
+          allProductsRes,
+          sellersRes,
+          pendingApprovalsRes,
+          pendingListingRes
+        ] = await Promise.allSettled([
+          adminGet(getApiUrl('dashboard/stats')),
+          adminGet(getApiUrl('products?limit=5&sortBy=createdAt&order=desc')),
+          adminGet(getApiUrl('products/admin/fast')),
+          adminGet(getApiUrl('sellers?status=all&limit=20')),
+          adminGet(getApiUrl('products/pending-approval')),
+          adminGet(getApiUrl('sellers/admin/listing-requests?status=pending_approval&limit=1000'))
+        ]);
+
+        // Process stats
+        if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
+          try {
+            const data = await statsRes.value.json();
+            console.log('📊 Stats data:', data);
+            setStats(data);
+          } catch (err) {
+            console.error('Error parsing stats:', err);
+            setStats({
+              products: { total: 0, active: 0, inactive: 0 },
+              sellers: { total: 0, verified: 0, pending: 0, approved: 0 },
+              verifications: { pending: 0 },
+              sellerListings: { total: 0 },
+              buyers: { total: 0, active: 0 }
+            });
+          }
+        } else {
+          console.error('Stats request failed:', statsRes.status === 'fulfilled' ? statsRes.value.status : statsRes.reason);
+          setStats({
+            products: { total: 0, active: 0, inactive: 0 },
+            sellers: { total: 0, verified: 0, pending: 0, approved: 0 },
+            verifications: { pending: 0 },
+            sellerListings: { total: 0 },
+            buyers: { total: 0, active: 0 }
+          });
+        }
+
+        // Process recent products
+        if (recentRes.status === 'fulfilled' && recentRes.value.ok) {
+          try {
+            const data = await recentRes.value.json();
+            console.log('📦 Recent products:', data.products?.length);
+            setRecentProducts(data.products || []);
+          } catch (err) {
+            console.error('Error parsing recent products:', err);
+          }
+        }
+
+        // Process all products and Amazon's Choice
+        if (allProductsRes.status === 'fulfilled' && allProductsRes.value.ok) {
+          try {
+            const data = await allProductsRes.value.json();
+            console.log('📦 All products:', data.products?.length);
+            setAllProducts(data.products || []);
+            
+            // Calculate categories
+            const categoryCount = {};
+            (data.products || []).forEach(product => {
+              const cat = product.category || 'Uncategorized';
+              categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+            });
+            setCategories(categoryCount);
+            
+            // Filter Amazon's Choice products
+            const amazonProducts = (data.products || []).filter(p => p.isAmazonsChoice);
+            console.log('🏆 Amazon\'s Choice products:', amazonProducts.length);
+            setAmazonsChoice(amazonProducts);
+          } catch (err) {
+            console.error('Error parsing all products:', err);
+          }
+        }
+
+        // Process sellers
+        if (sellersRes.status === 'fulfilled' && sellersRes.value.ok) {
+          try {
+            const data = await sellersRes.value.json();
+            console.log('👥 Sellers:', data.sellers?.length);
+            setSellers(data.sellers || []);
+          } catch (err) {
+            console.error('Error parsing sellers:', err);
+          }
+        }
+
+        // Process pending approvals
+        if (pendingApprovalsRes.status === 'fulfilled' && pendingApprovalsRes.value.ok) {
+          try {
+            const data = await pendingApprovalsRes.value.json();
+            console.log('✅ Pending approvals:', data.products?.length);
+            setPendingApprovals(data.products?.length || 0);
+          } catch (err) {
+            console.error('Error parsing pending approvals:', err);
+            setPendingApprovals(0);
+          }
+        } else {
+          setPendingApprovals(0);
+        }
+
+        // Process pending listing requests
+        if (pendingListingRes.status === 'fulfilled' && pendingListingRes.value.ok) {
+          try {
+            const data = await pendingListingRes.value.json();
+            console.log('📋 Pending listing requests:', data.requests?.length);
+            setPendingListingRequests(data.requests?.length || 0);
+          } catch (err) {
+            console.error('Error parsing pending listing requests:', err);
+            setPendingListingRequests(0);
+          }
+        } else {
+          setPendingListingRequests(0);
+        }
+
+      } catch (error) {
+        console.error('❌ Error fetching dashboard data:', error);
+        // Set default values on error
+        setStats({
+          products: { total: 0, active: 0, inactive: 0 },
+          sellers: { total: 0, verified: 0, pending: 0, approved: 0 },
+          verifications: { pending: 0 },
+          sellerListings: { total: 0 },
+          buyers: { total: 0, active: 0 }
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAllData();
   }, []);
 
   // Set currency to GBP for admin dashboard (only once on mount)
@@ -75,15 +204,12 @@ const AdminDashboard = () => {
       setStats(data);
     } catch (error) {
       console.error('Error fetching stats:', error);
-      // Set default stats if API fails to prevent blank dashboard
       setStats({
         products: { total: 0, active: 0, inactive: 0 },
         sellers: { total: 0, verified: 0, pending: 0 },
         verifications: { pending: 0 },
         sellerListings: { total: 0 }
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -99,7 +225,7 @@ const AdminDashboard = () => {
 
   const fetchAllProducts = async () => {
     try {
-      const response = await adminGet(getApiUrl('products/admin/fast')); // Use fast endpoint
+      const response = await adminGet(getApiUrl('products/admin/fast'));
       const data = await response.json();
       setAllProducts(data.products);
       
@@ -110,6 +236,10 @@ const AdminDashboard = () => {
         categoryCount[cat] = (categoryCount[cat] || 0) + 1;
       });
       setCategories(categoryCount);
+      
+      // Also update Amazon's Choice when fetching all products
+      const amazonProducts = data.products.filter(p => p.isAmazonsChoice);
+      setAmazonsChoice(amazonProducts);
     } catch (error) {
       console.error('Error fetching all products:', error);
     }
@@ -117,7 +247,7 @@ const AdminDashboard = () => {
 
   const fetchAmazonsChoice = async () => {
     try {
-      const response = await adminGet(getApiUrl('products/admin/fast')); // Use fast endpoint
+      const response = await adminGet(getApiUrl('products/admin/fast'));
       const data = await response.json();
       const amazonProducts = data.products.filter(p => p.isAmazonsChoice);
       setAmazonsChoice(amazonProducts);
@@ -537,7 +667,23 @@ const AdminDashboard = () => {
     navigate(`/product/${product._id}?${params.toString()}`);
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="loading" style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        gap: '20px'
+      }}>
+        <div className="spinner-border" role="status" style={{width: '3rem', height: '3rem'}}>
+          <span className="visually-hidden">Loading...</span>
+        </div>
+        <div style={{fontSize: '1.2rem', color: '#666'}}>Loading Dashboard...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-dashboard compact">
@@ -575,203 +721,7 @@ const AdminDashboard = () => {
         </div>
       </header>
 
-      {/* Search Section - Top Priority */}
-      <div className="search-section" style={{
-        background: 'white',
-        padding: '12px',
-        borderRadius: '8px',
-        marginBottom: '10px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-      }}>
-        <div className="section-header compact" style={{cursor: 'pointer', marginBottom: '10px'}} onClick={() => toggleSection('search')}>
-          <h2>
-            <span style={{marginRight: '8px'}}>{expandedSections.search ? '▼' : '▶'}</span>
-            🔍 Search & Update Products
-            <span style={{fontSize: '0.8rem', color: '#666', fontWeight: 'normal', marginLeft: '10px'}}>
-              (💰 Price/Stock = Price & Stock only | 📝 Details = Everything except Price & Stock)
-            </span>
-          </h2>
-        </div>
 
-        {expandedSections.search && (
-          <>
-            <div style={{marginBottom: '10px'}}>
-              <input
-                type="text"
-                placeholder="🔍 Search by product name, category, ID..."
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 16px',
-                  fontSize: '0.95rem',
-                  border: '2px solid #e0e0e0',
-                  borderRadius: '8px',
-                  outline: 'none',
-                  transition: 'border-color 0.3s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
-              />
-            </div>
-
-            {searchQuery && (
-              <div style={{marginTop: '15px'}}>
-                <p style={{marginBottom: '10px', color: '#666', fontSize: '0.9rem'}}>
-                  Found {searchResults.length} product(s)
-                </p>
-                
-                {searchResults.length > 0 && (
-                  <div className="products-table compact" style={{maxHeight: '500px', overflowY: 'auto'}}>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Product Name</th>
-                          <th>Category</th>
-                          <th>Price (Rs)</th>
-                          <th>Stock</th>
-                          <th>Status</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {searchResults.map(product => (
-                          <tr key={product._id}>
-                            <td className="product-name">
-                              <span 
-                                onClick={() => handleProductClick(product)}
-                                style={{
-                                  cursor: 'pointer',
-                                  color: '#667eea',
-                                  textDecoration: 'underline'
-                                }}
-                                title="Click to view product details"
-                              >
-                                {product.name}
-                              </span>
-                              {product.isAmazonsChoice && <span className="badge-mini">🏆</span>}
-                              {product.isBestSeller && <span className="badge-mini">🔥</span>}
-                            </td>
-                            <td><span className="category-badge">{product.category}</span></td>
-                            <td className="price">
-                              {editingProduct?.id === product._id ? (
-                                <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                                  <span style={{fontSize: '0.85rem', color: '#666'}}>Rs</span>
-                                  <input 
-                                    type="number" 
-                                    value={editingProduct.price}
-                                    onChange={(e) => setEditingProduct({...editingProduct, price: e.target.value})}
-                                    style={{width: '80px', padding: '4px', border: '2px solid #667eea', borderRadius: '4px'}}
-                                    placeholder={currencySymbols[currency]}
-                                  />
-                                </div>
-                              ) : (
-                                formatPrice(product.price)
-                              )}
-                            </td>
-                            <td className="stock">
-                              {editingProduct?.id === product._id ? (
-                                <input 
-                                  type="number" 
-                                  value={editingProduct.stock}
-                                  onChange={(e) => setEditingProduct({...editingProduct, stock: e.target.value, quantity: e.target.value})}
-                                  style={{width: '60px', padding: '4px', border: '2px solid #667eea', borderRadius: '4px'}}
-                                />
-                              ) : (
-                                product.stock
-                              )}
-                            </td>
-                            <td>
-                              <span className={`status-badge ${product.status}`}>{product.status}</span>
-                            </td>
-                            <td className="actions">
-                              {editingProduct?.id === product._id ? (
-                                <>
-                                  <button 
-                                    onClick={() => updateProduct(product._id)} 
-                                    style={{
-                                      background: '#28a745',
-                                      color: 'white',
-                                      border: 'none',
-                                      padding: '6px 12px',
-                                      borderRadius: '4px',
-                                      cursor: 'pointer',
-                                      marginRight: '5px',
-                                      fontSize: '0.85rem'
-                                    }}
-                                  >
-                                    ✅ Update
-                                  </button>
-                                  <button 
-                                    onClick={cancelEditing} 
-                                    style={{
-                                      background: '#6c757d',
-                                      color: 'white',
-                                      border: 'none',
-                                      padding: '6px 12px',
-                                      borderRadius: '4px',
-                                      cursor: 'pointer',
-                                      fontSize: '0.85rem'
-                                    }}
-                                  >
-                                    ❌ Cancel
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <button 
-                                    onClick={() => startEditing(product)} 
-                                    style={{
-                                      background: '#667eea',
-                                      color: 'white',
-                                      border: 'none',
-                                      padding: '6px 12px',
-                                      borderRadius: '4px',
-                                      cursor: 'pointer',
-                                      marginRight: '5px',
-                                      fontSize: '0.85rem'
-                                    }}
-                                    title="Edit Price & Stock only"
-                                  >
-                                    💰 Price/Stock
-                                  </button>
-                                  <button 
-                                    onClick={() => startFullEditing(product)} 
-                                    style={{
-                                      background: '#28a745',
-                                      color: 'white',
-                                      border: 'none',
-                                      padding: '6px 12px',
-                                      borderRadius: '4px',
-                                      cursor: 'pointer',
-                                      marginRight: '5px',
-                                      fontSize: '0.85rem'
-                                    }}
-                                    title="Edit all product details except Price & Stock"
-                                  >
-                                    📝 Details
-                                  </button>
-                                  <button 
-                                    onClick={() => quickDeleteProduct(product._id)} 
-                                    className="delete-btn" 
-                                    title="Delete"
-                                  >
-                                    🗑️
-                                  </button>
-                                </>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
 
       <div className="stats-overview">
         <div className="stats-grid-enhanced">
@@ -781,7 +731,7 @@ const AdminDashboard = () => {
               <div className="stat-label-enhanced">Total Products</div>
               <div className="stat-value-enhanced">{allProducts.length}</div>
               <div className="stat-change-enhanced">
-                <span>↑</span> {stats?.products.active || 0} Active
+                {stats?.products.active || 0} Active
               </div>
             </div>
           </div>
@@ -801,7 +751,7 @@ const AdminDashboard = () => {
               <div className="stat-label-enhanced">Sellers</div>
               <div className="stat-value-enhanced">{stats?.sellers.total || 0}</div>
               <div className="stat-change-enhanced">
-                <span>↑</span> {stats?.sellers.approved || 0} Approved
+                {stats?.sellers.approved || 0} Approved
               </div>
             </div>
           </div>
@@ -811,8 +761,8 @@ const AdminDashboard = () => {
             <div className="stat-content-enhanced">
               <div className="stat-label-enhanced">Verifications</div>
               <div className="stat-value-enhanced">{stats?.verifications?.pending || 0}</div>
-              <div className="stat-change-enhanced negative">
-                <span>⏳</span> Pending
+              <div className="stat-change-enhanced">
+                Pending
               </div>
             </div>
           </div>
@@ -823,7 +773,7 @@ const AdminDashboard = () => {
               <div className="stat-label-enhanced">Buyers</div>
               <div className="stat-value-enhanced">{stats?.buyers?.total || 0}</div>
               <div className="stat-change-enhanced">
-                <span>↑</span> {stats?.buyers?.active || 0} Active
+                {stats?.buyers?.active || 0} Active
               </div>
             </div>
           </div>
@@ -834,17 +784,6 @@ const AdminDashboard = () => {
               <div className="stat-label-enhanced">Categories</div>
               <div className="stat-value-enhanced">{Object.keys(categories).length}</div>
               <div className="stat-change-enhanced">Product Types</div>
-            </div>
-          </div>
-
-          <div className="stat-card-enhanced buyers" onClick={() => navigate('/admin/payment-verifications')}>
-            <div className="stat-icon-enhanced">💰</div>
-            <div className="stat-content-enhanced">
-              <div className="stat-label-enhanced">Payment Verifications</div>
-              <div className="stat-value-enhanced">{stats?.paymentVerifications?.pending || 0}</div>
-              <div className="stat-change-enhanced">
-                <span>⏳</span> Pending Review
-              </div>
             </div>
           </div>
         </div>
@@ -1106,17 +1045,11 @@ const AdminDashboard = () => {
         <button onClick={() => navigate('/admin/sellers')} className="tool-btn">
           👥 Sellers ({stats?.sellers.total || 0})
         </button>
-        <button onClick={() => navigate('/admin/seller-management')} className="tool-btn success">
-          🏪 Seller Management
-        </button>
         <button onClick={() => navigate('/admin/seller-products')} className="tool-btn warning">
           📋 Seller Products
         </button>
         <button onClick={() => navigate('/admin/seller-verifications')} className="tool-btn info">
           🆔 Seller Verifications ({stats?.verifications?.pending || 0} pending)
-        </button>
-        <button onClick={() => navigate('/admin/listing-requests')} className="tool-btn warning">
-          📋 Listing Requests ({pendingListingRequests} pending)
         </button>
         <button onClick={() => navigate('/admin/seller-listings')} className="tool-btn success" style={{color: 'black'}}>
           📋 Seller Listings ({stats?.sellerListings?.total || 0} total)

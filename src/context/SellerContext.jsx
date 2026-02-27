@@ -115,7 +115,6 @@ export const SellerProvider = ({ children }) => {
   const login = async (sellerData, token) => {
     try {
       console.log('🔑 Seller login initiated')
-      setLoading(true)
       
       // Save and verify auth with new auth manager
       const result = await authManager.saveAuth('seller', sellerData, token)
@@ -126,27 +125,22 @@ export const SellerProvider = ({ children }) => {
       
       console.log('✅ Seller auth saved and verified')
       
-      // Update context state
+      // Update context state immediately
       setSeller(result.user)
       setIsLoggedIn(true)
       setAuthResolved(true)
+      setLoading(false)
       
-      // Small delay to ensure state is updated
-      await new Promise(resolve => setTimeout(resolve, 100))
+      console.log('✅ Seller login successful - redirecting to dashboard')
       
-      console.log('✅ Seller login successful - context updated')
-      
-      // Navigate to dashboard after successful login
-      setTimeout(() => {
-        window.location.href = '/seller/dashboard'
-      }, 200)
+      // Immediate redirect to dashboard
+      window.location.href = '/seller/dashboard'
       
       return { success: true }
     } catch (error) {
       console.error('❌ Seller login error:', error)
-      throw error
-    } finally {
       setLoading(false)
+      throw error
     }
   }
 

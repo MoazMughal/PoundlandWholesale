@@ -12,6 +12,7 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       totalProducts,
       activeProducts,
       pendingProducts,
+      inactiveProducts,
       totalSellers,
       pendingSellers,
       approvedSellers,
@@ -22,11 +23,13 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       totalBuyers,
       activeBuyers,
       inactiveBuyers,
-      suspendedBuyers
+      suspendedBuyers,
+      totalSellerListings
     ] = await Promise.all([
       Product.countDocuments(),
       Product.countDocuments({ status: 'active' }),
       Product.countDocuments({ status: 'pending' }),
+      Product.countDocuments({ status: 'inactive' }),
       Seller.countDocuments(),
       Seller.countDocuments({ status: 'verification_pending' }),
       Seller.countDocuments({ status: 'verified' }),
@@ -37,7 +40,8 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       Buyer.countDocuments(),
       Buyer.countDocuments({ status: 'active' }),
       Buyer.countDocuments({ status: 'inactive' }),
-      Buyer.countDocuments({ status: 'suspended' })
+      Buyer.countDocuments({ status: 'suspended' }),
+      Product.countDocuments({ 'sellers.0': { $exists: true } }) // Count products with at least one seller
     ]);
 
     // Count pending payments
@@ -90,12 +94,14 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       products: {
         total: totalProducts,
         active: activeProducts,
-        pending: pendingProducts
+        pending: pendingProducts,
+        inactive: inactiveProducts
       },
       sellers: {
         total: totalSellers,
         pending: pendingSellers,
-        approved: approvedSellers
+        approved: approvedSellers,
+        verified: approvedSellers // Alias for compatibility
       },
       verifications: {
         required: verificationRequired,
@@ -108,6 +114,9 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
         active: activeBuyers,
         inactive: inactiveBuyers,
         suspended: suspendedBuyers
+      },
+      sellerListings: {
+        total: totalSellerListings
       },
       pendingPayments: pendingPaymentsCount,
       paymentVerifications: paymentVerificationStats

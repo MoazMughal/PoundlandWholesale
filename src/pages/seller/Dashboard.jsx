@@ -54,11 +54,11 @@ const SellerDashboard = () => {
     console.log('🏠 Dashboard authenticated, fetching data...')
     
     // Fetch dashboard data only once when authenticated
-    const token = localStorage.getItem('sellerToken')
+    const token = sessionStorage.getItem('sellerToken')
     if (token) {
       fetchDashboardData(token)
     }
-  }, [authResolved, isLoggedIn, seller, navigate]) // Minimal dependencies
+  }, [authResolved, isLoggedIn, seller?.username, navigate]) // Only re-run if these change
 
   const fetchDashboardData = async (token) => {
     console.log('📊 Starting dashboard data fetch...')
@@ -192,15 +192,15 @@ const SellerDashboard = () => {
     }
   }
 
-  // Show loading spinner while context is loading OR dashboard is loading
-  if (contextLoading || (!authResolved)) {
+  // Show loading spinner only while context is loading (not dashboard data)
+  if (contextLoading || !authResolved) {
     return (
       <div className="container mt-5">
         <div className="text-center">
-          <div className="spinner-border" role="status">
+          <div className="spinner-border text-success" role="status" style={{width: '3rem', height: '3rem'}}>
             <span className="visually-hidden">Loading...</span>
           </div>
-          <p className="mt-2 text-muted">Loading seller dashboard...</p>
+          <p className="mt-3 text-muted">Authenticating...</p>
         </div>
       </div>
     )
@@ -381,15 +381,14 @@ const SellerDashboard = () => {
 
   return (
     <div className="container-fluid dashboard-container">
-      {/* Dashboard Loading Overlay */}
+      {/* Dashboard Loading Indicator - Less intrusive */}
       {dashboardLoading && (
-        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
-             style={{backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 9999}}>
-          <div className="text-center">
-            <div className="spinner-border text-primary" role="status">
+        <div className="position-fixed top-0 end-0 m-3" style={{zIndex: 9999}}>
+          <div className="bg-white rounded shadow-lg p-3 d-flex align-items-center gap-2">
+            <div className="spinner-border spinner-border-sm text-success" role="status">
               <span className="visually-hidden">Loading...</span>
             </div>
-            <p className="mt-2 text-muted">Loading dashboard data...</p>
+            <span className="text-muted small">Loading data...</span>
           </div>
         </div>
       )}

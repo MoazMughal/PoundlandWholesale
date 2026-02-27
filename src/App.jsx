@@ -37,6 +37,7 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
 const ForgotPasswordToken = lazy(() => import('./pages/ForgotPasswordToken'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const AuthLanding = lazy(() => import('./pages/auth/AuthLanding'))
+const RoleSelection = lazy(() => import('./pages/auth/RoleSelection'))
 const BuyerLogin = lazy(() => import('./pages/auth/BuyerLogin'))
 const SupplierLogin = lazy(() => import('./pages/auth/SupplierLogin'))
 const BuyerRegister = lazy(() => import('./pages/auth/BuyerRegister'))
@@ -136,11 +137,11 @@ function App() {
           <Route path="/basket" element={<Basket />} />
           <Route path="/about-us" element={<AboutUs />} />
           {/* Legacy routes - redirect to new auth system */}
-          <Route path="/login" element={<AuthLanding />} />
+          <Route path="/login" element={<RoleSelection />} />
           <Route path="/register" element={<AuthLanding />} />
           
           {/* New Auth Routes */}
-          <Route path="/auth" element={<AuthLanding />} />
+          <Route path="/auth" element={<RoleSelection />} />
           <Route path="/login/buyer" element={<BuyerLogin />} />
           <Route path="/login/supplier" element={<SupplierLogin />} />
           <Route path="/register/buyer" element={<BuyerRegister />} />

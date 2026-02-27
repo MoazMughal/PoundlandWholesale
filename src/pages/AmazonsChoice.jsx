@@ -512,6 +512,7 @@ const AmazonsChoice = () => {
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showAllProducts, setShowAllProducts] = useState(true) // Default to TRUE - show all products by default
   const [isLoadingRequest, setIsLoadingRequest] = useState(false) // Track active requests
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false)
@@ -593,8 +594,28 @@ const AmazonsChoice = () => {
     }
   }
 
-  // Pagination - now using server-side pagination
-  const currentProducts = products // Use products directly from API
+  // Pagination - now using server-side pagination with seller filter
+  const currentProducts = showAllProducts 
+    ? products // Show all products when checkbox is checked
+    : products.filter(product => {
+        // Only show products that have seller information
+        const hasSellerInfo = product.sellerInfo || 
+                             (product.sellers && product.sellers.length > 0) ||
+                             product.seller;
+        
+        // Debug logging for first few products
+        if (products.indexOf(product) < 3) {
+          console.log('Product filter check:', {
+            name: product.name,
+            hasSellerInfo,
+            sellerInfo: product.sellerInfo,
+            sellers: product.sellers,
+            seller: product.seller
+          });
+        }
+        
+        return hasSellerInfo;
+      })
   
   // Handle page change
   const handlePageChange = (page) => {
@@ -671,6 +692,16 @@ const AmazonsChoice = () => {
         const data = await response.json()
         
         if (data.products && data.products.length > 0) {
+          // Debug: Log first product to see what seller fields are available
+          if (data.products[0]) {
+            console.log('First product from API:', {
+              name: data.products[0].name,
+              sellers: data.products[0].sellers,
+              sellerInfo: data.products[0].sellerInfo,
+              seller: data.products[0].seller
+            });
+          }
+          
           // Simplified: All prices in GBP (£) only - use actual database price
           const transformedProducts = data.products.map(p => {
             // Debug specific products
@@ -686,6 +717,10 @@ const AmazonsChoice = () => {
               originalPrice: p.originalPrice ? `£${parseFloat(p.originalPrice).toFixed(2)}` : null,
               category: p.category,
               brand: p.brand,
+              // Include seller-related fields for filtering
+              sellers: p.sellers || [],
+              sellerInfo: p.sellerInfo || null,
+              seller: p.seller || null,
               image: (() => {
                 // Use Cloudinary URL directly - prioritize database images first
                 let imageUrl = '';
@@ -1411,6 +1446,7 @@ const AmazonsChoice = () => {
 
         {/* Enhanced Product Count Header */}
         {!loading && currentProducts.length > 0 && (
+          <>
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -1448,35 +1484,95 @@ const AmazonsChoice = () => {
                 🏆 Amazon's Choice Products
               </h2>
             </div>
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-end',
-              position: 'relative',
-              zIndex: 1,
-              textAlign: 'right'
-            }}>
-              <div style={{
-                fontSize: windowWidth < 576 ? '1.3rem' : '1.7rem', // Reduced icon size
-                opacity: 0.8,
-                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))', // Enhanced icon shadow
-                marginBottom: '2px'
-              }}>
-                
-              </div>
-              <p style={{ 
-                margin: 0, // No margin since it's now separate
-                fontSize: windowWidth < 576 ? '0.75rem' : '0.85rem', // Reduced font size
-                opacity: 0.95, // Slightly more opaque
+
+          </div>
+
+          {/* Seller Filter Checkbox */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '15px',
+            padding: '10px 15px',
+            background: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            border: '1px solid #e1e5e9'
+          }}>
+            <input
+              type="checkbox"
+              id="showAllProducts"
+              checked={showAllProducts}
+              onChange={(e) => setShowAllProducts(e.target.checked)}
+              style={{
+                width: '18px',
+                height: '18px',
+                cursor: 'pointer',
+                accentColor: '#ff6600'
+              }}
+            />
+            <label
+              htmlFor="showAllProducts"
+              style={{
+                fontSize: '0.9rem',
                 fontWeight: '500',
-                color: 'white', // Explicitly white for mobile
-                textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)', // Text shadow for better readability
-                whiteSpace: 'nowrap' // Prevent wrapping on mobile
+                color: '#232f3e',
+                cursor: 'pointer',
+                userSelect: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                margin: 0
+              }}
+            >
+              <span>Include out of stock products</span>
+              <span style={{
+                fontSize: '0.75rem',
+                color: '#666',
+                fontWeight: '400'
               }}>
-                ✨ Showing {products.length} of {totalProducts.toLocaleString()} products
-                {currentPage > 1 && ` (Page ${currentPage} of ${totalPages})`}
-              </p>
-            </div>
+                {showAllProducts 
+                  ? `(Showing all ${products.length} products)` 
+                  : `(Showing ${currentProducts.length} products with seller info only)`
+                }
+              </span>
+            </label>
+          </div>
+          </>
+        )}
+
+        {/* Product Count Info */}
+
+        {/* No Products Message */}
+        {!loading && currentProducts.length === 0 && products.length > 0 && (
+          <div style={{
+            padding: '30px',
+            textAlign: 'center',
+            background: 'white',
+            borderRadius: '12px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            marginBottom: '20px'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📦</div>
+            <h3 style={{ color: '#232f3e', marginBottom: '10px' }}>No products with seller information</h3>
+            <p style={{ color: '#666', marginBottom: '15px' }}>
+              All products are currently out of stock or don't have seller information.
+            </p>
+            <button
+              onClick={() => setShowAllProducts(true)}
+              style={{
+                background: '#ff6600',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Show all products including out of stock
+            </button>
           </div>
         )}
 
@@ -1874,73 +1970,125 @@ const AmazonsChoice = () => {
                 )}
                 
                 <div style={{display: 'flex', justifyContent: windowWidth < 576 ? 'flex-start' : 'space-between', alignItems: 'flex-start', gap: windowWidth < 576 ? '2px' : '5px', marginTop: '0px', overflow: 'hidden', flexDirection: windowWidth < 576 ? 'column' : 'row'}}>
-                  {/* Left side - Compact Enhanced Price */}
-                  <div 
-                    style={{
-                    fontWeight: '800', 
-                    fontSize: windowWidth < 576 ? '7px' : '8px',
-                    color: '#1a1a1a',
-                    background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
-                    padding: windowWidth < 576 ? '1px 3px' : '1px 2px',
-                    borderRadius: windowWidth < 576 ? '2px' : '2px',
-                    border: windowWidth < 576 ? '0.5px solid #1a1a1a' : '1px solid #1a1a1a',
-                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-                    whiteSpace: 'nowrap',
-                    maxWidth: 'fit-content',
-                    margin: windowWidth < 576 ? '0px 0' : '1px 0',
-                    flex: 'none',
-                    textAlign: 'center',
-                    minWidth: windowWidth < 576 ? '60px' : 'auto',
-                    cursor: 'pointer',
-                    position: 'relative',
-                    pointerEvents: 'auto',
-                    zIndex: 100
-                  }}
-                  onMouseEnter={(e) => {
-                    e.stopPropagation();
-                    // Remove any existing tooltips first
-                    document.querySelectorAll('.custom-tooltip-price').forEach(t => t.remove());
+                  {/* Left side - Compact Enhanced Price or Out of Stock */}
+                  {(() => {
+                    // Check if product is listed by admin (no seller info)
+                    const isAdminListed = product.listedBy === 'admin' || 
+                                         (!product.sellerInfo && 
+                                          (!product.sellers || product.sellers.length === 0) && 
+                                          !product.seller);
                     
-                    const tooltip = document.createElement('div');
-                    tooltip.className = 'custom-tooltip-price';
-                    tooltip.textContent = 'Cost/Unit';
-                    tooltip.style.cssText = `
-                      position: fixed;
-                      background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
-                      color: white;
-                      padding: 4px 8px;
-                      border-radius: 4px;
-                      font-size: 9px;
-                      font-weight: 600;
-                      white-space: nowrap;
-                      z-index: 999999;
-                      pointer-events: none;
-                      box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
-                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                      letter-spacing: 0.3px;
-                    `;
+                    // If admin listed, show "Out of Stock"
+                    if (isAdminListed) {
+                      return (
+                        <div 
+                          style={{
+                            fontWeight: '800', 
+                            fontSize: windowWidth < 576 ? '7px' : '8px',
+                            color: '#dc2626',
+                            background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+                            padding: windowWidth < 576 ? '1px 3px' : '1px 2px',
+                            borderRadius: windowWidth < 576 ? '2px' : '2px',
+                            border: windowWidth < 576 ? '0.5px solid #dc2626' : '1px solid #dc2626',
+                            textShadow: '0 1px 2px rgba(220, 38, 38, 0.1)',
+                            boxShadow: '0 1px 3px rgba(220, 38, 38, 0.15)',
+                            whiteSpace: 'nowrap',
+                            maxWidth: 'fit-content',
+                            margin: windowWidth < 576 ? '0px 0' : '1px 0',
+                            flex: 'none',
+                            textAlign: 'center',
+                            minWidth: windowWidth < 576 ? '60px' : 'auto',
+                            position: 'relative',
+                            pointerEvents: 'auto',
+                            zIndex: 100
+                          }}
+                        >
+                          ⚠️ Out of Stock
+                        </div>
+                      );
+                    }
                     
-                    // Position tooltip above the element
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    tooltip.style.left = `${rect.left + rect.width / 2}px`;
-                    tooltip.style.top = `${rect.top - 28}px`;
-                    tooltip.style.transform = 'translateX(-50%)';
-                    
-                    document.body.appendChild(tooltip);
-                  }}
-                  onMouseLeave={(e) => {
-                    document.querySelectorAll('.custom-tooltip-price').forEach(t => t.remove());
-                  }}
-                  >
-                    {(() => {
-                      const perUnitPrice = product.rawPrice || 0;
-                      return `${formatPrice(perUnitPrice)}/unit`;
-                    })()}
-                  </div>
+                    // Otherwise show price normally
+                    return (
+                      <div 
+                        style={{
+                        fontWeight: '800', 
+                        fontSize: windowWidth < 576 ? '7px' : '8px',
+                        color: '#1a1a1a',
+                        background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
+                        padding: windowWidth < 576 ? '1px 3px' : '1px 2px',
+                        borderRadius: windowWidth < 576 ? '2px' : '2px',
+                        border: windowWidth < 576 ? '0.5px solid #1a1a1a' : '1px solid #1a1a1a',
+                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+                        whiteSpace: 'nowrap',
+                        maxWidth: 'fit-content',
+                        margin: windowWidth < 576 ? '0px 0' : '1px 0',
+                        flex: 'none',
+                        textAlign: 'center',
+                        minWidth: windowWidth < 576 ? '60px' : 'auto',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        pointerEvents: 'auto',
+                        zIndex: 100
+                      }}
+                      onMouseEnter={(e) => {
+                        e.stopPropagation();
+                        // Remove any existing tooltips first
+                        document.querySelectorAll('.custom-tooltip-price').forEach(t => t.remove());
+                        
+                        const tooltip = document.createElement('div');
+                        tooltip.className = 'custom-tooltip-price';
+                        tooltip.textContent = 'Cost/Unit';
+                        tooltip.style.cssText = `
+                          position: fixed;
+                          background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+                          color: white;
+                          padding: 4px 8px;
+                          border-radius: 4px;
+                          font-size: 9px;
+                          font-weight: 600;
+                          white-space: nowrap;
+                          z-index: 999999;
+                          pointer-events: none;
+                          box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
+                          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                          letter-spacing: 0.3px;
+                        `;
+                        
+                        // Position tooltip above the element
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        tooltip.style.left = `${rect.left + rect.width / 2}px`;
+                        tooltip.style.top = `${rect.top - 28}px`;
+                        tooltip.style.transform = 'translateX(-50%)';
+                        
+                        document.body.appendChild(tooltip);
+                      }}
+                      onMouseLeave={(e) => {
+                        document.querySelectorAll('.custom-tooltip-price').forEach(t => t.remove());
+                      }}
+                      >
+                        {(() => {
+                          const perUnitPrice = product.rawPrice || 0;
+                          return `${formatPrice(perUnitPrice)}/unit`;
+                        })()}
+                      </div>
+                    );
+                  })()}
                   
                   {/* Right side - Profit Information - Mobile: Stack vertically, Desktop: Right aligned */}
                   {(() => {
+                    // Check if product is listed by admin (no seller info) - hide profit for out of stock
+                    const isAdminListed = product.listedBy === 'admin' || 
+                                         (!product.sellerInfo && 
+                                          (!product.sellers || product.sellers.length === 0) && 
+                                          !product.seller);
+                    
+                    // Don't show profit for admin-listed (out of stock) products
+                    if (isAdminListed) {
+                      return null;
+                    }
+                    
                     // Check profit data availability
 
                     // Check if profit data is valid - use multiple sources like ProductDetail
@@ -2160,6 +2308,19 @@ const AmazonsChoice = () => {
                 </div>
 
                 {/* Deal Units Display - Moved Down for Mobile */}
+                {(() => {
+                  // Check if product is listed by admin (no seller info) - hide for out of stock
+                  const isAdminListed = product.listedBy === 'admin' || 
+                                       (!product.sellerInfo && 
+                                        (!product.sellers || product.sellers.length === 0) && 
+                                        !product.seller);
+                  
+                  // Don't show deal cost for admin-listed (out of stock) products
+                  if (isAdminListed) {
+                    return null;
+                  }
+                  
+                  return (
                 <div style={{ marginTop: windowWidth < 576 ? '0px' : '1px' }}>
                   <div style={{
                     background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)', 
@@ -2324,9 +2485,22 @@ const AmazonsChoice = () => {
                     </button>
                   </div>
                 </div>
+                  );
+                })()}
 
                 {/* Profit for Deal Units Display - Below Deal Section */}
                 {(() => {
+                  // Check if product is listed by admin (no seller info) - hide for out of stock
+                  const isAdminListed = product.listedBy === 'admin' || 
+                                       (!product.sellerInfo && 
+                                        (!product.sellers || product.sellers.length === 0) && 
+                                        !product.seller);
+                  
+                  // Don't show profit for admin-listed (out of stock) products
+                  if (isAdminListed) {
+                    return null;
+                  }
+                  
                   // Calculate profit using the same logic as above
                   const getProfitPerUnit = () => {
                     let profitPerUnit = 0;

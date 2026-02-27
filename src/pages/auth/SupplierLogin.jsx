@@ -42,15 +42,16 @@ const SupplierLogin = () => {
       const data = await response.json()
 
       if (response.ok) {
-
-        // Use seller context to login
-        sellerLogin(data.seller, data.token)
+        console.log('✅ Login successful, saving auth...')
+        
+        // Use seller context to login (this will handle redirect)
+        await sellerLogin(data.seller, data.token)
         
         // Clear any errors
         setError('')
         
-        // Redirect to seller dashboard
-        navigate('/seller/dashboard')
+        // Context login will handle navigation, no need to navigate here
+        console.log('✅ Auth saved, context will redirect to dashboard')
       } else {
         setError(data.message || 'Invalid credentials. Please check your username/email/WhatsApp and password.')
       }

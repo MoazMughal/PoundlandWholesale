@@ -93,6 +93,13 @@ class AuthManager {
     }
   }
 
+  // Get storage type based on user type
+  getStorage(userType) {
+    // Sellers use sessionStorage (logout on browser close)
+    // Admin and Buyer use localStorage (persist across sessions)
+    return userType === 'seller' ? sessionStorage : localStorage
+  }
+
   // Clear all authentication data
   clearAllAuth() {
     const userTypes = ['admin', 'seller', 'buyer']
