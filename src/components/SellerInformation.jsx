@@ -8,7 +8,7 @@ const SellerInformation = ({
   onUpdatePrice,
   onRefreshProduct 
 }) => {
-  const { convertPrice } = useCurrency();
+  const { convertPrice, currency } = useCurrency();
   const [newPrice, setNewPrice] = useState('');
   const [updating, setUpdating] = useState(false);
   const [unlisting, setUnlisting] = useState(false);
@@ -144,32 +144,9 @@ const SellerInformation = ({
 
   return (
     <div className="mb-2">
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <h3 className="fw-bold mb-0" style={{fontSize: '0.85rem', color: '#1f2937'}}>
-          Seller Information
-        </h3>
-        {onRefreshProduct && (
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="btn btn-sm btn-outline-primary"
-            style={{fontSize: '0.65rem', padding: '2px 8px'}}
-            title="Refresh seller information"
-          >
-            {refreshing ? (
-              <>
-                <i className="fas fa-spinner fa-spin me-1"></i>
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <i className="fas fa-sync-alt me-1"></i>
-                Refresh
-              </>
-            )}
-          </button>
-        )}
-      </div>
+      <h3 className="fw-bold mb-0" style={{fontSize: '0.85rem', color: '#1f2937'}}>
+        Seller Information
+      </h3>
       
       {/* Show seller information to everyone - ONLY show sellers array if it exists, otherwise show legacy seller info */}
       {product.sellers && product.sellers.length > 0 ? (
@@ -227,7 +204,7 @@ const SellerInformation = ({
                 return (
                   <div key={`seller-${sellerEntry.sellerId || sellerEntry._id}-${sellerEntry.username}-${index}`} className="border rounded p-2 mb-2" style={{background: index === 0 ? '#f0f9ff' : '#f8f9fa'}}>
                     {index === 0 && (
-                      <div className="badge bg-success mb-2" style={{fontSize: '0.6rem'}}>
+                      <div className="badge bg-success mb-2" style={{fontSize: '0.6rem', color: '#ffffff'}}>
                         <i className="fas fa-tag me-1"></i>
                         Lowest Price
                       </div>
@@ -243,37 +220,58 @@ const SellerInformation = ({
                       </div>
                       <div className="text-end">
                         <div className="fw-bold text-success" style={{fontSize: '0.8rem'}}>
-                          {sellerShipping > 0 ? (
-                            <div>
-                              <div>{convertPrice(`£${sellerTotal}`)}</div>
-                              <div style={{fontSize: '0.6rem', color: '#6c757d'}}>
-                                {convertPrice(`£${sellerPrice}`)} + {convertPrice(`£${sellerShipping}`)} shipping
+                          {(() => {
+                            const sellerPrice = parseFloat(sellerEntry.sellerPrice) || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
+                            const sellerShipping = parseFloat(sellerEntry.sellerShipping) || 0;
+                            const sellerTotal = sellerPrice + sellerShipping;
+                            
+                            // Hide shipping if currency is PKR
+                            if (currency === 'PKR') {
+                              return convertPrice(`£${sellerPrice}`);
+                            }
+                            
+                            return sellerShipping > 0 ? (
+                              <div>
+                                <div>{convertPrice(`£${sellerTotal}`)}</div>
+                                <div style={{fontSize: '0.6rem', color: '#6c757d'}}>
+                                  {convertPrice(`£${sellerPrice}`)} + {convertPrice(`£${sellerShipping}`)} shipping
+                                </div>
                               </div>
-                            </div>
-                          ) : (
-                            convertPrice(`£${sellerPrice}`)
-                          )}
+                            ) : (
+                              convertPrice(`£${sellerPrice}`)
+                            );
+                          })()}
                         </div>
                         {/* Show crossed out prices for higher prices */}
                         {index === 0 && sellerTotal < mainTotal && (
                           <div style={{fontSize: '0.6rem', textDecoration: 'line-through', color: '#999'}}>
-                            Admin: {mainShipping > 0 ? (
-                              <span>{convertPrice(`£${mainTotal}`)} ({convertPrice(`£${mainPrice}`)} + {convertPrice(`£${mainShipping}`)} shipping)</span>
+                            {currency === 'PKR' ? (
+                              <span>Admin: {convertPrice(`£${mainPrice}`)}</span>
                             ) : (
-                              convertPrice(`£${mainPrice}`)
+                              mainShipping > 0 ? (
+                                <span>Admin: {convertPrice(`£${mainTotal}`)} ({convertPrice(`£${mainPrice}`)} + {convertPrice(`£${mainShipping}`)} shipping)</span>
+                              ) : (
+                                <span>Admin: {convertPrice(`£${mainPrice}`)}</span>
+                              )
                             )}
                           </div>
                         )}
                         {/* Show crossed out prices for other sellers with higher prices */}
                         {index > 0 && (
                           <div style={{fontSize: '0.6rem', textDecoration: 'line-through', color: '#999'}}>
-                            Was: {(() => {
+                            {(() => {
                               const firstSellerPrice = parseFloat(uniqueSellers[0].sellerPrice) || mainPrice;
                               const firstSellerShipping = parseFloat(uniqueSellers[0].sellerShipping) || 0;
                               const firstSellerTotal = firstSellerPrice + firstSellerShipping;
+                              
+                              // Hide shipping if currency is PKR
+                              if (currency === 'PKR') {
+                                return `Was: ${convertPrice(`£${firstSellerPrice}`)}`;
+                              }
+                              
                               return firstSellerShipping > 0 ? 
-                                `${convertPrice(`£${firstSellerTotal}`)} (${convertPrice(`£${firstSellerPrice}`)} + ${convertPrice(`£${firstSellerShipping}`)} shipping)` :
-                                convertPrice(`£${firstSellerPrice}`);
+                                `Was: ${convertPrice(`£${firstSellerTotal}`)} (${convertPrice(`£${firstSellerPrice}`)} + ${convertPrice(`£${firstSellerShipping}`)} shipping)` :
+                                `Was: ${convertPrice(`£${firstSellerPrice}`)}`;
                             })()}
                           </div>
                         )}
@@ -383,6 +381,11 @@ const SellerInformation = ({
                       const sellerShipping = parseFloat(sellerData.sellerShipping) || 0;
                       const sellerTotal = sellerPrice + sellerShipping;
                       
+                      // Hide shipping if currency is PKR
+                      if (currency === 'PKR') {
+                        return convertPrice(`£${sellerPrice}`);
+                      }
+                      
                       if (sellerShipping > 0) {
                         return (
                           <div>
@@ -407,10 +410,14 @@ const SellerInformation = ({
                     
                     return sellerData.sellerPrice && !isNaN(sellerPrice) && sellerTotal < mainTotal && (
                       <div style={{fontSize: '0.6rem', textDecoration: 'line-through', color: '#999'}}>
-                        {mainShipping > 0 ? (
-                          <span>{convertPrice(`£${mainTotal}`)} ({convertPrice(`£${mainPrice}`)} + {convertPrice(`£${mainShipping}`)} shipping)</span>
-                        ) : (
+                        {currency === 'PKR' ? (
                           convertPrice(`£${mainPrice}`)
+                        ) : (
+                          mainShipping > 0 ? (
+                            <span>{convertPrice(`£${mainTotal}`)} ({convertPrice(`£${mainPrice}`)} + {convertPrice(`£${mainShipping}`)} shipping)</span>
+                          ) : (
+                            convertPrice(`£${mainPrice}`)
+                          )
                         )}
                       </div>
                     );
@@ -478,15 +485,19 @@ const SellerInformation = ({
                 <div className="mb-2" style={{fontSize: '0.7rem'}}>
                   <strong>Your Current Price:</strong> 
                   <div className="text-success ms-1 fw-bold">
-                    {shipping > 0 ? (
-                      <div>
-                        <div>{convertPrice(`£${total}`)}</div>
-                        <div style={{fontSize: '0.6rem', color: '#6c757d'}}>
-                          {convertPrice(`£${price}`)} + {convertPrice(`£${shipping}`)} shipping
-                        </div>
-                      </div>
-                    ) : (
+                    {currency === 'PKR' ? (
                       convertPrice(`£${price}`)
+                    ) : (
+                      shipping > 0 ? (
+                        <div>
+                          <div>{convertPrice(`£${total}`)}</div>
+                          <div style={{fontSize: '0.6rem', color: '#6c757d'}}>
+                            {convertPrice(`£${price}`)} + {convertPrice(`£${shipping}`)} shipping
+                          </div>
+                        </div>
+                      ) : (
+                        convertPrice(`£${price}`)
+                      )
                     )}
                   </div>
                 </div>

@@ -1,0 +1,1028 @@
+/* ============================================
+   PRODUCT DETAIL PAGE - MOBILE RESPONSIVE
+   Amazon-style mobile layout
+   Desktop/Laptop: NO CHANGES
+   Mobile: Full responsive with proper sequence
+   ============================================ */
+
+/* ============================================
+   GLOBAL: Badge text color fix (all screen sizes)
+   ============================================ */
+
+/* Force "Lowest Price" badge to always have white text */
+.badge.bg-success,
+div.badge.bg-success,
+.seller-information .badge.bg-success {
+  color: #ffffff !important;
+}
+
+.badge.bg-success *,
+div.badge.bg-success *,
+.seller-information .badge.bg-success * {
+  color: #ffffff !important;
+}
+
+/* ============================================
+   MOBILE ONLY (max-width: 991px)
+   ============================================ */
+@media (max-width: 991px) {
+  
+  /* ==========================================
+     LAYOUT STRUCTURE
+     ========================================== */
+  
+  /* Container */
+  .product-detail-page .container-fluid {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  
+  /* All columns full width */
+  .product-detail-page .row > [class*="col-"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  
+  /* Remove sticky positioning */
+  .product-detail-page .sticky-top {
+    position: relative !important;
+    top: 0 !important;
+  }
+  
+  /* ==========================================
+     MOBILE SEQUENCE (Amazon-style)
+     1. Product Images
+     2. Product Title & Rating
+     3. Price & Availability
+     4. Quantity & Buy Buttons
+     5. Seller Information (AFTER purchase details)
+     6. Product Details
+     7. Related Products
+     ========================================== */
+  
+  /* Reorder columns for mobile */
+  .product-detail-page .row {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  /* Image column - show first */
+  .product-detail-page .col-12.col-lg-4 {
+    order: 1 !important;
+  }
+  
+  /* Middle column (title, description) - show second */
+  .product-detail-page .col-12.col-lg-5 {
+    order: 2 !important;
+  }
+  
+  /* Right column (buy box, seller info) - show third */
+  .product-detail-page .col-12.col-lg-3 {
+    order: 3 !important;
+  }
+  
+  /* Within the right column, ensure proper order */
+  .product-detail-page .col-12.col-lg-3 > .sticky-top {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  /* Purchase details (price, quantity, buttons) - show first in right column */
+  .product-detail-page .col-12.col-lg-3 .enhanced-card,
+  .product-detail-page .col-12.col-lg-3 .mobile-buy-box,
+  .product-detail-page .col-12.col-lg-3 > .sticky-top > div:first-child {
+    order: 1 !important;
+  }
+  
+  /* Seller Information - show after purchase details */
+  .product-detail-page .col-12.col-lg-3 .seller-information,
+  .product-detail-page .seller-information {
+    order: 2 !important;
+    margin-top: 20px !important;
+  }
+  
+  /* ==========================================
+     PRODUCT IMAGES
+     ========================================== */
+  
+  .product-detail-page img {
+    max-width: 100% !important;
+    height: auto !important;
+    border-radius: 8px !important;
+  }
+  
+  /* Main product image */
+  .product-detail-page .position-relative img {
+    width: 100% !important;
+    max-height: 400px !important;
+    object-fit: contain !important;
+  }
+  
+  /* Thumbnail images */
+  .product-detail-page .d-flex.gap-1 img,
+  .product-detail-page .d-flex.gap-2 img {
+    width: 60px !important;
+    height: 60px !important;
+    object-fit: cover !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+  }
+  
+  /* ==========================================
+     PRODUCT TITLE & INFO
+     ========================================== */
+  
+  .product-detail-page h1 {
+    font-size: 1.25rem !important;
+    line-height: 1.4 !important;
+    margin-bottom: 12px !important;
+    font-weight: 600 !important;
+  }
+  
+  /* Rating and reviews */
+  .product-detail-page .d-flex.align-items-center {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-bottom: 12px !important;
+  }
+  
+  /* ==========================================
+     PRICE SECTION
+     ========================================== */
+  
+  /* Price container */
+  .product-detail-page .border.rounded {
+    width: 100% !important;
+    padding: 16px !important;
+    margin-bottom: 16px !important;
+    border: 1px solid #ddd !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+  }
+  
+  /* Main price */
+  .product-detail-page .fw-bold[style*="fontSize"],
+  .product-detail-page [style*="color: #dc2626"] {
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    color: #B12704 !important;
+    margin-bottom: 8px !important;
+  }
+  
+  /* Price breakdown */
+  .product-detail-page small {
+    display: block !important;
+    font-size: 0.8rem !important;
+    color: #565959 !important;
+    line-height: 1.4 !important;
+    margin-bottom: 4px !important;
+  }
+  
+  /* ==========================================
+     QUANTITY SELECTOR
+     ========================================== */
+  
+  /* Quantity container */
+  .product-detail-page .mb-2 {
+    width: 100% !important;
+    margin-bottom: 16px !important;
+  }
+  
+  /* Quantity label */
+  .product-detail-page .mb-2 label {
+    display: block !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    color: #0F1111 !important;
+    margin-bottom: 8px !important;
+  }
+  
+  /* Quantity controls wrapper */
+  .product-detail-page .d-flex.align-items-center.gap-1 {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    margin-bottom: 8px !important;
+  }
+  
+  /* Quantity buttons */
+  .product-detail-page .d-flex.align-items-center.gap-1 button {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    font-size: 1.2rem !important;
+    font-weight: 600 !important;
+    border: 1px solid #D5D9D9 !important;
+    border-radius: 8px !important;
+    background: #F7F8F8 !important;
+    color: #0F1111 !important;
+    cursor: pointer !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .product-detail-page .d-flex.align-items-center.gap-1 button:active {
+    background: #E3E6E6 !important;
+  }
+  
+  /* Quantity input */
+  .product-detail-page .d-flex.align-items-center.gap-1 input[type="number"] {
+    display: block !important;
+    width: 70px !important;
+    height: 44px !important;
+    text-align: center !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    border: 1px solid #D5D9D9 !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    color: #0F1111 !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* MOQ text */
+  .product-detail-page .mb-2 small {
+    display: block !important;
+    font-size: 0.75rem !important;
+    color: #565959 !important;
+    margin-top: 6px !important;
+  }
+  
+  /* ==========================================
+     BUY BUTTONS (Amazon-style)
+     ========================================== */
+  
+  /* Button container */
+  .product-detail-page .d-grid,
+  .product-detail-page .d-grid.gap-1 {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    width: 100% !important;
+    margin-bottom: 16px !important;
+  }
+  
+  /* All buttons */
+  .product-detail-page .d-grid button,
+  .product-detail-page button {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-height: 48px !important;
+    padding: 12px 20px !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+  }
+  
+  /* Buy Now button (Amazon orange) */
+  .product-detail-page button[style*="linear-gradient(135deg, #ff9900"],
+  .product-detail-page .btn-danger {
+    background: linear-gradient(to bottom, #f7dfa5, #f0c14b) !important;
+    border: 1px solid #a88734 !important;
+    color: #111 !important;
+    box-shadow: 0 1px 0 rgba(255,255,255,.4) inset !important;
+  }
+  
+  .product-detail-page button[style*="linear-gradient(135deg, #ff9900"]:active,
+  .product-detail-page .btn-danger:active {
+    background: linear-gradient(to bottom, #f0c14b, #f7dfa5) !important;
+  }
+  
+  /* Add to Cart button (Amazon dark) */
+  .product-detail-page button[style*="linear-gradient(135deg, #232f3e"],
+  .product-detail-page .btn-secondary {
+    background: linear-gradient(to bottom, #f7f8fa, #e7e9ec) !important;
+    border: 1px solid #ADB1B8 !important;
+    color: #0F1111 !important;
+    box-shadow: 0 1px 0 rgba(255,255,255,.6) inset !important;
+  }
+  
+  .product-detail-page button[style*="linear-gradient(135deg, #232f3e"]:active {
+    background: linear-gradient(to bottom, #e7e9ec, #f7f8fa) !important;
+  }
+  
+  /* ==========================================
+     SELLER INFORMATION
+     ========================================== */
+  
+  /* Seller info container - FORCE VISIBILITY */
+  .product-detail-page .seller-information {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin-bottom: 20px !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* Seller info heading */
+  .product-detail-page .seller-information h3,
+  .product-detail-page .seller-information h5,
+  .product-detail-page .seller-information h6 {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    color: #0F1111 !important;
+    margin-bottom: 12px !important;
+  }
+  
+  /* Seller info cards */
+  .product-detail-page .seller-information .border.rounded {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 16px !important;
+    margin-bottom: 12px !important;
+    border: 1px solid #D5D9D9 !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* Green background seller boxes */
+  .product-detail-page .seller-information [style*="background: #e8f5e9"],
+  .product-detail-page .seller-information [style*="background:#e8f5e9"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background: #e8f5e9 !important;
+    padding: 16px !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  
+  /* Seller info text */
+  .product-detail-page .seller-information p,
+  .product-detail-page .seller-information div {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: 0.875rem !important;
+    line-height: 1.5 !important;
+    color: #0F1111 !important;
+    margin-bottom: 8px !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* "Available from X seller(s)" text - CRITICAL */
+  .product-detail-page .seller-information strong,
+  .product-detail-page .seller-information [style*="fontSize: '0.7rem'"],
+  .product-detail-page .seller-information [style*="fontSize:'0.7rem'"],
+  .product-detail-page .seller-information div[style*="0.7rem"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-weight: 600 !important;
+    color: #0F1111 !important;
+    margin-bottom: 10px !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  
+  /* Seller info small text */
+  .product-detail-page .seller-information small {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: 0.8rem !important;
+    color: #565959 !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  
+  /* Seller info buttons */
+  .product-detail-page .seller-information button,
+  .product-detail-page .seller-information .btn {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    min-height: 44px !important;
+    margin-top: 10px !important;
+  }
+  
+  /* Seller info links */
+  .product-detail-page .seller-information a {
+    display: inline !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: #007185 !important;
+    text-decoration: none !important;
+  }
+  
+  /* Preserve flex in seller info */
+  .product-detail-page .seller-information .d-flex {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  
+  /* Seller info icons */
+  .product-detail-page .seller-information i,
+  .product-detail-page .seller-information .fas,
+  .product-detail-page .seller-information .fab {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin-right: 6px !important;
+  }
+  
+  /* Force "Lowest Price" badge to have white text */
+  .product-detail-page .seller-information .badge.bg-success {
+    color: #ffffff !important;
+  }
+  
+  .product-detail-page .seller-information .badge.bg-success * {
+    color: #ffffff !important;
+  }
+  
+  /* Target the badge text specifically */
+  .product-detail-page .badge.bg-success,
+  .badge.bg-success {
+    color: #ffffff !important;
+  }
+  
+  /* Force all text inside green badges to be white */
+  .bg-success,
+  .badge.bg-success,
+  div.badge.bg-success {
+    color: #ffffff !important;
+  }
+  
+  .bg-success *,
+  .badge.bg-success *,
+  div.badge.bg-success * {
+    color: #ffffff !important;
+  }
+  
+  /* Force all seller information children to be visible */
+  .product-detail-page .seller-information * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-height: none !important;
+  }
+  
+  /* Seller cards container */
+  .product-detail-page .seller-information > div {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* Seller cards inside container */
+  .product-detail-page .seller-information > div > div {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* Preserve flex containers */
+  .product-detail-page .seller-information .d-flex,
+  .product-detail-page .seller-information .d-flex.align-items-center,
+  .product-detail-page .seller-information .d-flex.justify-content-between {
+    display: flex !important;
+  }
+  
+  /* Preserve grid containers */
+  .product-detail-page .seller-information .d-grid {
+    display: grid !important;
+  }
+  
+  /* ==========================================
+     PRODUCT DETAILS & DESCRIPTION
+     ========================================== */
+  
+  .product-detail-page h2,
+  .product-detail-page h3 {
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: #0F1111 !important;
+    margin-top: 20px !important;
+    margin-bottom: 12px !important;
+  }
+  
+  .product-detail-page p {
+    font-size: 0.875rem !important;
+    line-height: 1.6 !important;
+    color: #0F1111 !important;
+    margin-bottom: 12px !important;
+  }
+  
+  .product-detail-page ul,
+  .product-detail-page ol {
+    padding-left: 20px !important;
+    margin-bottom: 16px !important;
+  }
+  
+  .product-detail-page li {
+    font-size: 0.875rem !important;
+    line-height: 1.6 !important;
+    color: #0F1111 !important;
+    margin-bottom: 8px !important;
+  }
+  
+  /* ==========================================
+     DIVIDERS
+     ========================================== */
+  
+  .product-detail-page hr {
+    margin: 20px 0 !important;
+    border: 0 !important;
+    border-top: 1px solid #e7e7e7 !important;
+  }
+  
+  /* ==========================================
+     BADGES & LABELS
+     ========================================== */
+  
+  .product-detail-page .badge {
+    font-size: 0.75rem !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    font-weight: 600 !important;
+  }
+  
+  /* ==========================================
+     SPACING & UTILITIES
+     ========================================== */
+  
+  .product-detail-page .mb-2 {
+    margin-bottom: 12px !important;
+  }
+  
+  .product-detail-page .mb-3 {
+    margin-bottom: 16px !important;
+  }
+  
+  .product-detail-page .mt-3 {
+    margin-top: 16px !important;
+  }
+  
+  /* ==========================================
+     ENSURE VISIBILITY
+     ========================================== */
+  
+  /* Force all content to be visible */
+  .product-detail-page * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-height: none !important;
+  }
+  
+  /* Remove any hidden classes on mobile */
+  .product-detail-page .d-none.d-lg-block {
+    display: none !important;
+  }
+  
+  .product-detail-page .d-block.d-lg-none {
+    display: block !important;
+  }
+  
+  /* CRITICAL: Force seller information to show */
+  .product-detail-page .mb-2:has(.seller-information),
+  .product-detail-page div:has(> .seller-information),
+  .product-detail-page [class*="col-"]:has(.seller-information) {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* Force SellerInformation component to show */
+  .seller-information,
+  [class*="seller-information"],
+  div[class*="Seller"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* ==========================================
+     PREVENT LAYOUT BREAKS
+     ========================================== */
+  
+  .product-detail-page {
+    overflow-x: hidden !important;
+  }
+  
+  .product-detail-page * {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* ============================================
+   SMALL MOBILE (max-width: 575px)
+   ============================================ */
+@media (max-width: 575px) {
+  
+  /* Smaller padding */
+  .product-detail-page .container-fluid {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+  
+  /* Smaller title */
+  .product-detail-page h1 {
+    font-size: 1.1rem !important;
+  }
+  
+  /* Larger touch targets */
+  .product-detail-page .d-flex.align-items-center.gap-1 button {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+  }
+  
+  .product-detail-page .d-flex.align-items-center.gap-1 input[type="number"] {
+    width: 80px !important;
+    height: 48px !important;
+  }
+  
+  /* Larger buttons */
+  .product-detail-page .d-grid button {
+    min-height: 52px !important;
+    font-size: 1rem !important;
+  }
+  
+  /* Fixed bottom bar for very small screens */
+  .product-detail-page .d-block.d-sm-none {
+    display: block !important;
+  }
+  
+  .product-detail-page .d-none.d-sm-block {
+    display: none !important;
+  }
+  
+  .product-detail-page .fixed-bottom {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    z-index: 1030 !important;
+    background: #fff !important;
+    border-top: 1px solid #ddd !important;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.1) !important;
+    padding: 12px !important;
+  }
+}
+
+/* ============================================
+   TABLET (576px - 991px)
+   ============================================ */
+@media (min-width: 576px) and (max-width: 991px) {
+  
+  /* Show regular mobile layout */
+  .product-detail-page .d-none.d-sm-block {
+    display: block !important;
+  }
+  
+  .product-detail-page .d-block.d-sm-none {
+    display: none !important;
+  }
+  
+  /* Slightly larger elements */
+  .product-detail-page h1 {
+    font-size: 1.35rem !important;
+  }
+  
+  .product-detail-page .d-grid button {
+    min-height: 50px !important;
+  }
+}
+
+/* ============================================
+   TOUCH DEVICES
+   ============================================ */
+@media (hover: none) and (pointer: coarse) {
+  
+  /* Minimum tap target size */
+  .product-detail-page button,
+  .product-detail-page .btn,
+  .product-detail-page input,
+  .product-detail-page a.btn {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+  
+  /* Prevent zoom on input focus */
+  .product-detail-page input[type="number"],
+  .product-detail-page input[type="text"] {
+    font-size: 16px !important;
+  }
+}
+
+/* ============================================
+   iOS SAFARI FIXES
+   ============================================ */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 991px) {
+    
+    /* Prevent zoom */
+    .product-detail-page input {
+      font-size: 16px !important;
+    }
+    
+    /* Fix sticky */
+    .product-detail-page .sticky-top {
+      position: -webkit-sticky !important;
+      position: relative !important;
+    }
+    
+    /* Fix flex gaps */
+    .product-detail-page .d-flex {
+      gap: 10px !important;
+    }
+  }
+}
+
+/* ============================================
+   LANDSCAPE ORIENTATION
+   ============================================ */
+@media (max-width: 991px) and (orientation: landscape) {
+  
+  /* Slightly smaller elements in landscape */
+  .product-detail-page .d-grid button {
+    min-height: 46px !important;
+  }
+  
+  .product-detail-page .d-flex.align-items-center.gap-1 button {
+    width: 42px !important;
+    height: 42px !important;
+  }
+}
+
+
+/* ============================================
+   CRITICAL FIX: RIGHT COLUMN VISIBILITY
+   The SellerInformation is in col-lg-3 order-2
+   Should show AFTER purchase details
+   ============================================ */
+@media (max-width: 991px) {
+  
+  /* Force right column to be visible */
+  .product-detail-page .col-12.col-lg-3,
+  .product-detail-page .col-12.col-lg-3.order-2,
+  .product-detail-page .col-12.col-lg-3.order-2.order-lg-3 {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    order: 3 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* Force sticky-top inside right column to be flex column */
+  .product-detail-page .col-12.col-lg-3 .sticky-top,
+  .product-detail-page .col-12.col-lg-3 > .sticky-top {
+    display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    top: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* Purchase details box - show first */
+  .product-detail-page .col-12.col-lg-3 .enhanced-card,
+  .product-detail-page .col-12.col-lg-3 .mobile-buy-box,
+  .product-detail-page .col-12.col-lg-3 > .sticky-top > div:not(.seller-information):first-child {
+    order: 1 !important;
+    margin-bottom: 20px !important;
+  }
+  
+  /* Seller Information - show AFTER purchase details */
+  .product-detail-page .col-12.col-lg-3 .seller-information,
+  .product-detail-page .col-12.col-lg-3 [class*="seller-information"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    order: 2 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin-top: 20px !important;
+  }
+  
+  /* Force all divs inside right column to be visible */
+  .product-detail-page .col-12.col-lg-3 div {
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* Preserve flex and grid in right column */
+  .product-detail-page .col-12.col-lg-3 .d-flex {
+    display: flex !important;
+  }
+  
+  .product-detail-page .col-12.col-lg-3 .d-grid {
+    display: grid !important;
+  }
+  
+  /* Force all content inside SellerInformation to be visible */
+  .product-detail-page .col-12.col-lg-3 .seller-information *,
+  .product-detail-page .col-12.col-lg-3 [class*="seller"] * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-height: none !important;
+  }
+  
+  /* Ensure proper spacing */
+  .product-detail-page .col-12.col-lg-3 > .sticky-top > * {
+    margin-bottom: 16px !important;
+  }
+  
+  .product-detail-page .col-12.col-lg-3 > .sticky-top > *:last-child {
+    margin-bottom: 0 !important;
+  }
+  
+  /* ULTRA AGGRESSIVE: Override ANY inline styles that might hide content */
+  .product-detail-page .col-12.col-lg-3 [style*="display: none"],
+  .product-detail-page .col-12.col-lg-3 [style*="display:none"],
+  .product-detail-page .col-12.col-lg-3 [style*="visibility: hidden"],
+  .product-detail-page .col-12.col-lg-3 [style*="visibility:hidden"],
+  .product-detail-page .col-12.col-lg-3 [style*="opacity: 0"],
+  .product-detail-page .col-12.col-lg-3 [style*="opacity:0"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Force enhanced-card to be visible */
+  .product-detail-page .enhanced-card,
+  .product-detail-page .mobile-buy-box,
+  .product-detail-page [class*="enhanced-card"],
+  .product-detail-page [class*="mobile-buy-box"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* Force all children of enhanced-card to be visible */
+  .product-detail-page .enhanced-card *,
+  .product-detail-page .mobile-buy-box * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-height: none !important;
+  }
+}
+
+/* ============================================
+   NUCLEAR OPTION: Force everything visible
+   This overrides ANY other CSS rules
+   ============================================ */
+@media (max-width: 991px) {
+  
+  /* HIDE the duplicate mobile buy box - we want to show the full right column instead */
+  div.product-detail-page div.col-12.col-lg-3 > div.d-block.d-lg-none {
+    display: none !important;
+  }
+  
+  /* Target the exact structure from ProductDetail.jsx */
+  div.product-detail-page div.col-12.col-lg-3.order-2.order-lg-3 {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  div.product-detail-page div.col-12.col-lg-3.order-2.order-lg-3 > div.sticky-top {
+    display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  div.product-detail-page div.col-12.col-lg-3.order-2.order-lg-3 > div.sticky-top > div {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Force the enhanced-card (purchase details) to show */
+  div.product-detail-page div.enhanced-card.mobile-buy-box {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+  }
+  
+  /* Force all content inside enhanced-card to show */
+  div.product-detail-page div.enhanced-card.mobile-buy-box > * {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Force quantity selector to show */
+  div.product-detail-page div.enhanced-card.mobile-buy-box div.mb-2 {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Force buttons to show */
+  div.product-detail-page div.enhanced-card.mobile-buy-box div.d-grid {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  div.product-detail-page div.enhanced-card.mobile-buy-box div.d-grid button {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Force SellerInformation to show */
+  div.product-detail-page div.col-12.col-lg-3 div.mb-2:has(h3) {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Override any Bootstrap responsive utilities that hide content on mobile */
+  .product-detail-page .col-12.col-lg-3 .d-none {
+    display: none !important;
+  }
+  
+  .product-detail-page .col-12.col-lg-3 .d-lg-block {
+    display: block !important;
+  }
+  
+  .product-detail-page .col-12.col-lg-3 .d-lg-none {
+    display: none !important;
+  }
+  
+  .product-detail-page .col-12.col-lg-3 .d-lg-flex {
+    display: flex !important;
+  }
+  
+  .product-detail-page .col-12.col-lg-3 .d-lg-grid {
+    display: grid !important;
+  }
+  
+  /* Force the main sticky-top content to show, hide the duplicate mobile section */
+  .product-detail-page .col-12.col-lg-3 > .sticky-top {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  .product-detail-page .col-12.col-lg-3 > .d-block.d-lg-none.mt-3 {
+    display: none !important;
+  }
+}

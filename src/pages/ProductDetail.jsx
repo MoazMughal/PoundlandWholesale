@@ -15,6 +15,7 @@ import { useSeller } from '../context/SellerContext'
 import { useBasket } from '../context/BasketContext'
 import '../styles/product-detail-compact.css'
 import '../styles/product-detail-enhanced.css'
+import '../styles/product-detail-mobile-fix.css'
 
 // Component to fetch and display linked product image
 import { ProductDetailSkeleton } from '../components/SkeletonLoaders'
@@ -3975,7 +3976,7 @@ _This quotation was generated from PoundlandWholesale.com_
                             e.target.style.boxShadow = '0 2px 6px rgba(255, 153, 0, 0.25)';
                           }}
                         >
-                          <i className="fas fa-bolt me-1"></i>Buy Now - <span style={{fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>{quantity || 1}</span> Units
+                          <i className="fas fa-bolt me-1"></i>Buy Now  <span style={{fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>{quantity || 1}</span> Units
                         </button>
                         
                         <button 
@@ -4051,16 +4052,7 @@ _This quotation was generated from PoundlandWholesale.com_
                     </div>
                   )}
 
-                  <hr />
-
-                  {/* Seller Information is now handled by the SellerInformation component below */}
-
-                    {/* All duplicate seller information sections have been removed */}
-                    {/* Seller information is now handled by the SellerInformation component below */}
-
-                  <hr />
-
-                                    {/* New Seller Information Component - Open to All Users */}
+                  {/* New Seller Information Component - Open to All Users */}
                   <SellerInformation 
                     product={product}
                     isSellerLoggedIn={isSellerLoggedIn}

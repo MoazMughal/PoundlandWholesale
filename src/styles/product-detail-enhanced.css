@@ -406,3 +406,236 @@ button[style*="background: linear-gradient"][style*="#232f3e"] *,
 button[style*="background: linear-gradient"][style*="#1a1a1a"] * {
   color: #ffffff !important;
 }
+
+/* ============================================
+   MOBILE RESPONSIVE - PRODUCT DETAIL PAGE
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Force mobile layout */
+  .product-detail-page {
+    display: block !important;
+  }
+  
+  /* Reset any desktop constraints */
+  .product-detail-page .sticky-top {
+    position: relative !important;
+    top: 0 !important;
+    display: block !important;
+  }
+  
+  /* Make all columns full width and VISIBLE */
+  .product-detail-page .col-lg-4,
+  .product-detail-page .col-lg-8,
+  .product-detail-page .col-12,
+  .product-detail-page [class*="col-"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* CRITICAL: Show the right sidebar on mobile */
+  .product-detail-page .col-12.col-lg-4,
+  .product-detail-page .order-3,
+  .product-detail-page .order-lg-3 {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    order: 2 !important;
+  }
+  
+  /* Ensure buy box is visible */
+  .product-detail-page .border.rounded {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin-bottom: 15px !important;
+    padding: 15px !important;
+  }
+  
+  /* Price breakdown box */
+  .product-detail-page .border.rounded.p-3 {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+  }
+  
+  /* Quantity section */
+  .product-detail-page .mb-2 {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    margin-bottom: 15px !important;
+  }
+  
+  /* Quantity label */
+  .product-detail-page label {
+    display: block !important;
+    visibility: visible !important;
+    font-size: 0.9rem !important;
+    margin-bottom: 8px !important;
+  }
+  
+  /* Quantity controls - flex container */
+  .product-detail-page .d-flex {
+    display: flex !important;
+    visibility: visible !important;
+    width: 100% !important;
+  }
+  
+  /* Quantity buttons and input */
+  .product-detail-page .d-flex button,
+  .product-detail-page .d-flex input {
+    display: block !important;
+    visibility: visible !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+  
+  /* Small text (MOQ, etc) */
+  .product-detail-page small {
+    display: block !important;
+    visibility: visible !important;
+    font-size: 0.75rem !important;
+    margin-top: 5px !important;
+  }
+  
+  /* Button grid container */
+  .product-detail-page .d-grid {
+    display: grid !important;
+    visibility: visible !important;
+    width: 100% !important;
+    gap: 10px !important;
+  }
+  
+  /* Make buttons full width and visible */
+  .product-detail-page .d-grid button,
+  .product-detail-page button,
+  .product-detail-page .btn {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    min-height: 48px !important;
+    margin-bottom: 10px !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  /* Ensure seller information is visible */
+  .product-detail-page .seller-information {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    margin-bottom: 20px !important;
+  }
+  
+  /* Seller information heading */
+  .product-detail-page .seller-information h3,
+  .product-detail-page .seller-information h5 {
+    display: block !important;
+    visibility: visible !important;
+    font-size: 1rem !important;
+  }
+  
+  /* Seller information content */
+  .product-detail-page .seller-information .border.rounded {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    padding: 15px !important;
+  }
+  
+  /* Seller information text */
+  .product-detail-page .seller-information p,
+  .product-detail-page .seller-information div,
+  .product-detail-page .seller-information strong {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Force all content to be visible */
+  .product-detail-page * {
+    max-height: none !important;
+  }
+  
+  /* Remove any hidden or display none */
+  .product-detail-page .d-none.d-lg-block {
+    display: block !important;
+  }
+  
+  .product-detail-page .d-lg-none {
+    display: block !important;
+  }
+}
+
+
+/* ============================================
+   MOBILE BUY BOX - FORCE VISIBILITY
+   ============================================ */
+
+@media (max-width: 991px) {
+  /* Show mobile buy box on tablets and mobile */
+  .product-detail-page .d-block.d-lg-none {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Hide desktop buy box on mobile */
+  .product-detail-page .d-none.d-lg-block {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Show mobile buy box on mobile */
+  .product-detail-page .d-block.d-lg-none {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Show tablet/mobile layout */
+  .product-detail-page .d-none.d-sm-block {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Hide very small screen fixed bottom bar on regular mobile */
+  .product-detail-page .d-block.d-sm-none {
+    display: none !important;
+  }
+}
+
+@media (max-width: 575px) {
+  /* Hide tablet layout on very small screens */
+  .product-detail-page .d-none.d-sm-block {
+    display: none !important;
+  }
+  
+  /* Show fixed bottom bar on very small screens */
+  .product-detail-page .d-block.d-sm-none {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Ensure fixed bottom bar is actually fixed */
+  .product-detail-page .fixed-bottom {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 1000 !important;
+  }
+}
