@@ -1022,7 +1022,7 @@ const Approval = () => {
               <div style={{ position: 'relative' }}>
                 <input
                   type="text"
-                  placeholder="Search by name, category, brand, SKU, or description..."
+                  placeholder="Search by name, category, brand, SKU, ASIN, or description..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   style={{

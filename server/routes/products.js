@@ -1039,12 +1039,13 @@ router.get('/pending-approval', authenticateAdmin, async (req, res) => {
 
     // Add search filter
     if (search) {
-      const searchRegex = new RegExp(search, 'i');
+      const searchRegex = new RegExp(search.trim(), 'i');
       query.$or = [
         { name: searchRegex },
         { category: searchRegex },
         { brand: searchRegex },
         { sku: searchRegex },
+        { asin: searchRegex },
         { description: searchRegex }
       ];
     }
@@ -1104,12 +1105,105 @@ router.get('/pending-approval', authenticateAdmin, async (req, res) => {
     const totalProducts = await Product.countDocuments(query);
     const totalPages = Math.ceil(totalProducts / limitNum);
 
-    // Get paginated products
-    const pendingProducts = await Product.find(query)
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(limitNum)
-      .lean();
+    // If there's a search term, use aggregation for scoring
+    let pendingProducts;
+    
+    if (search && search.trim()) {
+      const searchTerm = search.trim();
+      const searchRegex = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const exactMatch = new RegExp(`^${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      
+      // Build aggregation pipeline with scoring
+      const pipeline = [
+        { $match: query },
+        {
+          $addFields: {
+            searchScore: {
+              $add: [
+                // Exact ASIN match (highest priority: 1000)
+                { $cond: [{ $regexMatch: { input: { $ifNull: ["$asin", ""] }, regex: exactMatch } }, 1000, 0] },
+                
+                // Exact SKU match (priority: 900)
+                { $cond: [{ $regexMatch: { input: { $ifNull: ["$sku", ""] }, regex: exactMatch } }, 900, 0] },
+                
+                // Exact name match (priority: 800)
+                { $cond: [{ $regexMatch: { input: "$name", regex: exactMatch } }, 800, 0] },
+                
+                // Partial ASIN match (priority: 700)
+                { $cond: [{ $regexMatch: { input: { $ifNull: ["$asin", ""] }, regex: searchRegex } }, 700, 0] },
+                
+                // Partial SKU match (priority: 600)
+                { $cond: [{ $regexMatch: { input: { $ifNull: ["$sku", ""] }, regex: searchRegex } }, 600, 0] },
+                
+                // Name starts with search (priority: 500)
+                { $cond: [{ $regexMatch: { input: "$name", regex: new RegExp(`^${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i') } }, 500, 0] },
+                
+                // Partial name match (priority: 400)
+                { $cond: [{ $regexMatch: { input: "$name", regex: searchRegex } }, 400, 0] },
+                
+                // Brand match (priority: 300)
+                { $cond: [{ $regexMatch: { input: { $ifNull: ["$brand", ""] }, regex: searchRegex } }, 300, 0] },
+                
+                // Category match (priority: 200)
+                { $cond: [{ $regexMatch: { input: "$category", regex: searchRegex } }, 200, 0] },
+                
+                // Description match (priority: 100)
+                { $cond: [{ $regexMatch: { input: { $ifNull: ["$description", ""] }, regex: searchRegex } }, 100, 0] }
+              ]
+            }
+          }
+        },
+        // Sort by search score first, then by created date
+        { $sort: { searchScore: -1, createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limitNum }
+      ];
+      
+      pendingProducts = await Product.aggregate(pipeline);
+    } else {
+      // No search term - use regular sort
+      let sortOptions = {};
+      switch (sortBy) {
+        case 'newest':
+          sortOptions = { createdAt: -1 };
+          break;
+        case 'oldest':
+          sortOptions = { createdAt: 1 };
+          break;
+        case 'name-asc':
+          sortOptions = { name: 1 };
+          break;
+        case 'name-desc':
+          sortOptions = { name: -1 };
+          break;
+        case 'price-low':
+          sortOptions = { price: 1 };
+          break;
+        case 'price-high':
+          sortOptions = { price: -1 };
+          break;
+        case 'rating-high':
+          sortOptions = { rating: -1 };
+          break;
+        case 'rating-low':
+          sortOptions = { rating: 1 };
+          break;
+        case 'stock-high':
+          sortOptions = { stock: -1 };
+          break;
+        case 'stock-low':
+          sortOptions = { stock: 1 };
+          break;
+        default:
+          sortOptions = { createdAt: -1 };
+      }
+      
+      pendingProducts = await Product.find(query)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limitNum)
+        .lean();
+    }
     
     res.json({
       success: true,

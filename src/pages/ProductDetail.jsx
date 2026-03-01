@@ -140,18 +140,6 @@ const ProductDetail = () => {
     // 3. If admin has NO stock and NO sellers → Show "Out of Stock"
     const isAvailable = hasSellers || adminStock > 0;
     
-    console.log('📦 Product Availability Check:', {
-      adminStock,
-      hasSellers,
-      sellersCount: product.sellers?.length || 0,
-      isAvailable,
-      logic: hasSellers 
-        ? 'Seller listed - showing as available' 
-        : adminStock > 0 
-          ? 'Admin has stock - showing as available'
-          : 'No sellers and no admin stock - out of stock'
-    });
-    
     return isAvailable;
   };
 
@@ -3039,16 +3027,16 @@ _This quotation was generated from PoundlandWholesale.com_
                   background: '#ffffff', 
                   border: 'none',
                   borderRadius: '8px', 
-                  padding: '15px', // Moderate padding for clean look
+                  padding: '20px',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
                   transition: 'box-shadow 0.3s ease',
-                  minHeight: '300px', // Minimum height for consistency
-                  maxHeight: '550px', // Maximum height to prevent too large
-                  height: 'auto', // Let container adapt to image
+                  minHeight: '350px',
+                  maxHeight: '600px',
+                  height: 'auto',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  overflow: 'hidden', // Prevent overflow but maintain aspect ratio
+                  overflow: 'hidden',
                   width: '100%'
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'}
@@ -3060,47 +3048,28 @@ _This quotation was generated from PoundlandWholesale.com_
                     className="img-fluid main-product-image-full"
                     onClick={() => setShowZoomModal(true)}
                     style={{
-                      maxWidth: '85% !important', // Zoom out - show more space around product
-                      maxHeight: '450px !important', // Slightly reduced max height
-                      width: 'auto !important', // Auto width to maintain aspect ratio
-                      height: 'auto !important', // Auto height to maintain aspect ratio
-                      objectFit: 'contain !important', // Contain entire image without cropping
-                      objectPosition: 'center !important',
-                      padding: '0px !important',
-                      margin: '0 auto !important',
-                      display: 'block !important',
+                      maxWidth: '100%', // Full width to show complete image
+                      maxHeight: '500px', // Increased max height for better visibility
+                      width: 'auto', // Auto width to maintain aspect ratio
+                      height: 'auto', // Auto height to maintain aspect ratio
+                      objectFit: 'contain', // Contain entire image without cropping
+                      objectPosition: 'center',
+                      padding: '0px',
+                      margin: '0 auto',
+                      display: 'block',
                       backgroundColor: 'transparent',
                       transition: 'transform 0.3s ease',
                       cursor: 'zoom-in'
                     }}
                     onMouseEnter={(e) => {
                       e.target.style.transform = 'scale(1.05)';
-                      // Force correct sizing on hover
-                      e.target.style.maxWidth = '85%';
-                      e.target.style.width = 'auto';
-                      e.target.style.height = 'auto';
                     }}
                     onMouseLeave={(e) => {
                       e.target.style.transform = 'scale(1)';
                     }}
                     onLoad={(e) => {
-                      // Force correct sizing when image loads
-                      e.target.style.maxWidth = '85%';
-                      e.target.style.maxHeight = '450px';
-                      e.target.style.width = 'auto';
-                      e.target.style.height = 'auto';
+                      // Ensure image displays correctly
                       e.target.style.objectFit = 'contain';
-                      
-                      console.log('🖼️ Image loaded:', {
-                        src: e.target.src,
-                        naturalWidth: e.target.naturalWidth,
-                        naturalHeight: e.target.naturalHeight,
-                        displayWidth: e.target.offsetWidth,
-                        displayHeight: e.target.offsetHeight,
-                        objectFit: window.getComputedStyle(e.target).objectFit,
-                        computedWidth: window.getComputedStyle(e.target).width,
-                        computedMaxWidth: window.getComputedStyle(e.target).maxWidth
-                      });
                     }}
                     onError={(e) => {
                       console.error('❌ Image failed to load:', e.target.src);

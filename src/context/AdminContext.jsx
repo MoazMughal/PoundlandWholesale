@@ -20,27 +20,17 @@ export const AdminProvider = ({ children }) => {
   // Initialize authentication - Restore sessions on ALL pages
   useEffect(() => {
     const initializeAuth = async () => {
-      console.log('🔑 AdminContext: Starting auth initialization...')
-      
       try {
         // Initialize auth manager and check for valid tokens on ALL pages
-        console.log('🔑 AdminContext: Calling authManager.initializeAuth()...')
         const authData = await authManager.initializeAuth()
-        console.log('🔑 AdminContext: authManager.initializeAuth() returned:', authData)
         
         if (authData && authData.userType === 'admin') {
-          console.log('✅ AdminContext: Valid admin auth restored after verification')
-          console.log('✅ AdminContext: Setting admin user:', authData.user)
           setAdmin(authData.user)
           setIsLoggedIn(true)
         } else {
-          console.log('🔍 AdminContext: No valid admin auth found')
-          console.log('🔍 AdminContext: authData was:', authData)
-          
           // Only redirect if on protected admin page but no auth
           const currentPath = window.location.pathname
           if (currentPath.startsWith('/admin/') && currentPath !== '/admin/login') {
-            console.log('🔄 AdminContext: Redirecting to admin login')
             window.location.replace('/admin/login')
             return
           }
@@ -49,7 +39,6 @@ export const AdminProvider = ({ children }) => {
         console.error('❌ AdminContext: Auth initialization error:', error)
         // Don't clear auth on error - might be temporary network issue
       } finally {
-        console.log('🔑 AdminContext: Setting loading=false, authResolved=true')
         setLoading(false)
         setAuthResolved(true)
       }
@@ -61,17 +50,11 @@ export const AdminProvider = ({ children }) => {
   // Cross-tab synchronization - Enhanced
   useEffect(() => {
     const handleStorageChange = (event) => {
-      console.log('🔄 AdminContext: Storage change detected:', event.key, event.newValue)
-      
       if (event.key === 'activeUserType' && event.storageArea === localStorage) {
-        console.log('🔄 Active user type changed in another tab:', event.newValue)
-        
         if (event.newValue === 'admin') {
           // Admin logged in from another tab - verify and update
-          console.log('🔄 Admin logged in from another tab, updating context')
           authManager.loadAuth('admin').then(authData => {
             if (authData) {
-              console.log('✅ Admin auth loaded from another tab')
               setAdmin(authData.user)
               setIsLoggedIn(true)
             }
@@ -80,22 +63,18 @@ export const AdminProvider = ({ children }) => {
           })
         } else if (event.newValue !== 'admin' && isLoggedIn) {
           // Different user type logged in, logout admin
-          console.log('🔄 Different user type active, logging out admin')
           setAdmin(null)
           setIsLoggedIn(false)
         }
       } else if (event.key === 'adminToken' && event.storageArea === localStorage) {
         if (!event.newValue && event.oldValue && isLoggedIn) {
           // Admin token removed in another tab
-          console.log('🔄 Admin token removed in another tab, logging out')
           setAdmin(null)
           setIsLoggedIn(false)
         } else if (event.newValue && !event.oldValue && !isLoggedIn) {
           // Admin token added in another tab
-          console.log('🔄 Admin token added in another tab, checking auth')
           authManager.loadAuth('admin').then(authData => {
             if (authData) {
-              console.log('✅ Admin auth restored from new token')
               setAdmin(authData.user)
               setIsLoggedIn(true)
             }
@@ -112,14 +91,6 @@ export const AdminProvider = ({ children }) => {
 
   const login = async (adminData, token) => {
     try {
-      console.log('🔑 Admin login initiated')
-      console.log('🔍 Admin data received:', { 
-        id: adminData?.id, 
-        username: adminData?.username, 
-        role: adminData?.role 
-      })
-      console.log('🔍 Token received (first 50 chars):', token?.substring(0, 50) + '...')
-      
       setLoading(true)
       
       // Save and verify auth with new auth manager
@@ -130,8 +101,6 @@ export const AdminProvider = ({ children }) => {
         throw new Error(result.error || 'Failed to save authentication')
       }
       
-      console.log('✅ Admin auth saved and verified')
-      
       // Update context state
       setAdmin(result.user)
       setIsLoggedIn(true)
@@ -139,8 +108,6 @@ export const AdminProvider = ({ children }) => {
       
       // Small delay to ensure state is updated
       await new Promise(resolve => setTimeout(resolve, 100))
-      
-      console.log('✅ Admin login successful - context updated')
       
       // Navigate to dashboard after successful login
       setTimeout(() => {
@@ -157,8 +124,6 @@ export const AdminProvider = ({ children }) => {
   }
 
   const logout = () => {
-    console.log('🔄 Admin logout initiated')
-    
     // Clear auth data
     authManager.logout('admin')
     

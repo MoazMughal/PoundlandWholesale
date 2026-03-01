@@ -1972,14 +1972,13 @@ const AmazonsChoice = () => {
                 <div style={{display: 'flex', justifyContent: windowWidth < 576 ? 'flex-start' : 'space-between', alignItems: 'flex-start', gap: windowWidth < 576 ? '2px' : '5px', marginTop: '0px', overflow: 'hidden', flexDirection: windowWidth < 576 ? 'column' : 'row'}}>
                   {/* Left side - Compact Enhanced Price or Out of Stock */}
                   {(() => {
-                    // Check if product is listed by admin (no seller info)
-                    const isAdminListed = product.listedBy === 'admin' || 
-                                         (!product.sellerInfo && 
-                                          (!product.sellers || product.sellers.length === 0) && 
-                                          !product.seller);
+                    // Check product availability using same logic as ProductDetail page
+                    const adminStock = product.stock || 0;
+                    const hasSellers = product.sellers && product.sellers.length > 0;
+                    const isAvailable = hasSellers || adminStock > 0;
                     
-                    // If admin listed, show "Out of Stock"
-                    if (isAdminListed) {
+                    // If not available, show "Out of Stock"
+                    if (!isAvailable) {
                       return (
                         <div 
                           style={{
@@ -2078,14 +2077,13 @@ const AmazonsChoice = () => {
                   
                   {/* Right side - Profit Information - Mobile: Stack vertically, Desktop: Right aligned */}
                   {(() => {
-                    // Check if product is listed by admin (no seller info) - hide profit for out of stock
-                    const isAdminListed = product.listedBy === 'admin' || 
-                                         (!product.sellerInfo && 
-                                          (!product.sellers || product.sellers.length === 0) && 
-                                          !product.seller);
+                    // Check product availability using same logic as ProductDetail page
+                    const adminStock = product.stock || 0;
+                    const hasSellers = product.sellers && product.sellers.length > 0;
+                    const isAvailable = hasSellers || adminStock > 0;
                     
-                    // Don't show profit for admin-listed (out of stock) products
-                    if (isAdminListed) {
+                    // Don't show profit for out of stock products
+                    if (!isAvailable) {
                       return null;
                     }
                     
@@ -2309,14 +2307,13 @@ const AmazonsChoice = () => {
 
                 {/* Deal Units Display - Moved Down for Mobile */}
                 {(() => {
-                  // Check if product is listed by admin (no seller info) - hide for out of stock
-                  const isAdminListed = product.listedBy === 'admin' || 
-                                       (!product.sellerInfo && 
-                                        (!product.sellers || product.sellers.length === 0) && 
-                                        !product.seller);
+                  // Check product availability using same logic as ProductDetail page
+                  const adminStock = product.stock || 0;
+                  const hasSellers = product.sellers && product.sellers.length > 0;
+                  const isAvailable = hasSellers || adminStock > 0;
                   
-                  // Don't show deal cost for admin-listed (out of stock) products
-                  if (isAdminListed) {
+                  // Don't show deal cost for out of stock products
+                  if (!isAvailable) {
                     return null;
                   }
                   
@@ -2490,14 +2487,13 @@ const AmazonsChoice = () => {
 
                 {/* Profit for Deal Units Display - Below Deal Section */}
                 {(() => {
-                  // Check if product is listed by admin (no seller info) - hide for out of stock
-                  const isAdminListed = product.listedBy === 'admin' || 
-                                       (!product.sellerInfo && 
-                                        (!product.sellers || product.sellers.length === 0) && 
-                                        !product.seller);
+                  // Check product availability using same logic as ProductDetail page
+                  const adminStock = product.stock || 0;
+                  const hasSellers = product.sellers && product.sellers.length > 0;
+                  const isAvailable = hasSellers || adminStock > 0;
                   
-                  // Don't show profit for admin-listed (out of stock) products
-                  if (isAdminListed) {
+                  // Don't show profit for out of stock products
+                  if (!isAvailable) {
                     return null;
                   }
                   
