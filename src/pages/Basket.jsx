@@ -15,6 +15,7 @@ const Basket = () => {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [localBasket, setLocalBasket] = useState(basket)
   const [basketUpdated, setBasketUpdated] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true) // Track initial page load
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [selectedItems, setSelectedItems] = useState({})
 
@@ -40,10 +41,15 @@ const Basket = () => {
     })
     setSelectedItems(initialSelected)
     
-    // Show update notification briefly
-    if (basket.length > 0) {
+    // Show update notification briefly - but NOT on initial page load
+    if (basket.length > 0 && !isInitialLoad) {
       setBasketUpdated(true)
       setTimeout(() => setBasketUpdated(false), 2000)
+    }
+    
+    // Mark that initial load is complete
+    if (isInitialLoad) {
+      setIsInitialLoad(false)
     }
   }, [basket])
 

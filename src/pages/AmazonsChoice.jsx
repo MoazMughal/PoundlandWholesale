@@ -598,23 +598,20 @@ const AmazonsChoice = () => {
   const currentProducts = showAllProducts 
     ? products // Show all products when checkbox is checked
     : products.filter(product => {
-        // Only show products that have seller information
-        const hasSellerInfo = product.sellerInfo || 
-                             (product.sellers && product.sellers.length > 0) ||
-                             product.seller;
+        // Only show products that have sellers (sellers array with at least one seller)
+        const hasSellers = product.sellers && product.sellers.length > 0;
         
         // Debug logging for first few products
         if (products.indexOf(product) < 3) {
           console.log('Product filter check:', {
             name: product.name,
-            hasSellerInfo,
-            sellerInfo: product.sellerInfo,
-            sellers: product.sellers,
-            seller: product.seller
+            hasSellers,
+            sellersCount: product.sellers ? product.sellers.length : 0,
+            sellers: product.sellers
           });
         }
         
-        return hasSellerInfo;
+        return hasSellers;
       })
   
   // Handle page change
@@ -694,9 +691,10 @@ const AmazonsChoice = () => {
         if (data.products && data.products.length > 0) {
           // Debug: Log first product to see what seller fields are available
           if (data.products[0]) {
-            console.log('First product from API:', {
+            console.log('🔍 First product from API:', {
               name: data.products[0].name,
               sellers: data.products[0].sellers,
+              sellersCount: data.products[0].sellers ? data.products[0].sellers.length : 0,
               sellerInfo: data.products[0].sellerInfo,
               seller: data.products[0].seller
             });
@@ -1533,7 +1531,7 @@ const AmazonsChoice = () => {
               }}>
                 {showAllProducts 
                   ? `(Showing all ${products.length} products)` 
-                  : `(Showing ${currentProducts.length} products with seller info only)`
+                  : `(Showing ${currentProducts.length} products with sellers only)`
                 }
               </span>
             </label>
@@ -1554,9 +1552,9 @@ const AmazonsChoice = () => {
             marginBottom: '20px'
           }}>
             <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📦</div>
-            <h3 style={{ color: '#232f3e', marginBottom: '10px' }}>No products with seller information</h3>
+            <h3 style={{ color: '#232f3e', marginBottom: '10px' }}>No products with sellers</h3>
             <p style={{ color: '#666', marginBottom: '15px' }}>
-              All products are currently out of stock or don't have seller information.
+              All products are currently out of stock (no sellers available).
             </p>
             <button
               onClick={() => setShowAllProducts(true)}
@@ -1972,83 +1970,93 @@ const AmazonsChoice = () => {
                 <div style={{display: 'flex', justifyContent: windowWidth < 576 ? 'flex-start' : 'space-between', alignItems: 'flex-start', gap: windowWidth < 576 ? '2px' : '5px', marginTop: '0px', overflow: 'hidden', flexDirection: windowWidth < 576 ? 'column' : 'row'}}>
                   {/* Left side - Compact Enhanced Price or Out of Stock */}
                   {(() => {
-                    // Check product availability using same logic as ProductDetail page
-                    const adminStock = product.stock || 0;
+                    // Check product availability - only show as available if there are sellers
                     const hasSellers = product.sellers && product.sellers.length > 0;
-                    const isAvailable = hasSellers || adminStock > 0;
+                    const isAvailable = hasSellers;
                     
                     // If not available, show "Out of Stock"
                     if (!isAvailable) {
                       return (
-                        <div 
-                          style={{
-                            fontWeight: '800', 
-                            fontSize: windowWidth < 576 ? '7px' : '8px',
-                            color: '#dc2626',
-                            background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
-                            padding: windowWidth < 576 ? '1px 3px' : '1px 2px',
-                            borderRadius: windowWidth < 576 ? '2px' : '2px',
-                            border: windowWidth < 576 ? '0.5px solid #dc2626' : '1px solid #dc2626',
-                            textShadow: '0 1px 2px rgba(220, 38, 38, 0.1)',
-                            boxShadow: '0 1px 3px rgba(220, 38, 38, 0.15)',
-                            whiteSpace: 'nowrap',
-                            maxWidth: 'fit-content',
-                            margin: windowWidth < 576 ? '0px 0' : '1px 0',
-                            flex: 'none',
-                            textAlign: 'center',
-                            minWidth: windowWidth < 576 ? '60px' : 'auto',
-                            position: 'relative',
-                            pointerEvents: 'auto',
-                            zIndex: 100
-                          }}
-                        >
-                          ⚠️ Out of Stock
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <div 
+                            style={{
+                              fontWeight: '800', 
+                              fontSize: windowWidth < 576 ? '7px' : '8px',
+                              color: '#dc2626',
+                              background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+                              padding: windowWidth < 576 ? '1px 3px' : '1px 2px',
+                              borderRadius: windowWidth < 576 ? '2px' : '2px',
+                              border: windowWidth < 576 ? '0.5px solid #dc2626' : '1px solid #dc2626',
+                              textShadow: '0 1px 2px rgba(220, 38, 38, 0.1)',
+                              boxShadow: '0 1px 3px rgba(220, 38, 38, 0.15)',
+                              whiteSpace: 'nowrap',
+                              maxWidth: 'fit-content',
+                              margin: windowWidth < 576 ? '0px 0' : '1px 0',
+                              flex: 'none',
+                              textAlign: 'center',
+                              minWidth: windowWidth < 576 ? '60px' : 'auto',
+                              position: 'relative',
+                              pointerEvents: 'auto',
+                              zIndex: 100
+                            }}
+                          >
+                            ⚠️ Out of Stock
+                          </div>
+                          {/* Debug: Show sellers info */}
+                          <div style={{
+                            fontSize: '6px',
+                            color: '#666',
+                            fontStyle: 'italic'
+                          }}>
+                            Sellers: {product.sellers ? product.sellers.length : 0}
+                          </div>
                         </div>
                       );
                     }
                     
-                    // Otherwise show price normally
+                    // Otherwise show price normally with seller names
                     return (
-                      <div 
-                        style={{
-                        fontWeight: '800', 
-                        fontSize: windowWidth < 576 ? '7px' : '8px',
-                        color: '#1a1a1a',
-                        background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
-                        padding: windowWidth < 576 ? '1px 3px' : '1px 2px',
-                        borderRadius: windowWidth < 576 ? '2px' : '2px',
-                        border: windowWidth < 576 ? '0.5px solid #1a1a1a' : '1px solid #1a1a1a',
-                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-                        whiteSpace: 'nowrap',
-                        maxWidth: 'fit-content',
-                        margin: windowWidth < 576 ? '0px 0' : '1px 0',
-                        flex: 'none',
-                        textAlign: 'center',
-                        minWidth: windowWidth < 576 ? '60px' : 'auto',
-                        cursor: 'pointer',
-                        position: 'relative',
-                        pointerEvents: 'auto',
-                        zIndex: 100
-                      }}
-                      onMouseEnter={(e) => {
-                        e.stopPropagation();
-                        // Remove any existing tooltips first
-                        document.querySelectorAll('.custom-tooltip-price').forEach(t => t.remove());
-                        
-                        const tooltip = document.createElement('div');
-                        tooltip.className = 'custom-tooltip-price';
-                        tooltip.textContent = 'Cost/Unit';
-                        tooltip.style.cssText = `
-                          position: fixed;
-                          background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
-                          color: white;
-                          padding: 4px 8px;
-                          border-radius: 4px;
-                          font-size: 9px;
-                          font-weight: 600;
-                          white-space: nowrap;
-                          z-index: 999999;
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <div 
+                          style={{
+                          fontWeight: '800', 
+                          fontSize: windowWidth < 576 ? '7px' : '8px',
+                          color: '#1a1a1a',
+                          background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
+                          padding: windowWidth < 576 ? '1px 3px' : '1px 2px',
+                          borderRadius: windowWidth < 576 ? '2px' : '2px',
+                          border: windowWidth < 576 ? '0.5px solid #1a1a1a' : '1px solid #1a1a1a',
+                          textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+                          whiteSpace: 'nowrap',
+                          maxWidth: 'fit-content',
+                          margin: windowWidth < 576 ? '0px 0' : '1px 0',
+                          flex: 'none',
+                          textAlign: 'center',
+                          minWidth: windowWidth < 576 ? '60px' : 'auto',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          pointerEvents: 'auto',
+                          zIndex: 100
+                        }}
+                        onMouseEnter={(e) => {
+                          e.stopPropagation();
+                          // Remove any existing tooltips first
+                          document.querySelectorAll('.custom-tooltip-price').forEach(t => t.remove());
+                          
+                          const tooltip = document.createElement('div');
+                          tooltip.className = 'custom-tooltip-price';
+                          tooltip.textContent = 'Cost/Unit';
+                          tooltip.style.cssText = `
+                            position: fixed;
+                            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+                            color: white;
+                            padding: 4px 8px;
+                            border-radius: 4px;
+                            font-size: 9px;
+                            font-weight: 600;
+                            white-space: nowrap;
+                            z-index: 999999;
                           pointer-events: none;
                           box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
                           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -2072,15 +2080,27 @@ const AmazonsChoice = () => {
                           return `${formatPrice(perUnitPrice)}/unit`;
                         })()}
                       </div>
+                      {/* Debug: Show seller names */}
+                      {product.sellers && product.sellers.length > 0 && (
+                        <div style={{
+                          fontSize: '6px',
+                          color: '#16a34a',
+                          fontWeight: '600',
+                          marginTop: '2px'
+                        }}>
+                          Sellers: {product.sellers.map(s => s.username).join(', ')}
+                        </div>
+                      )}
+                    </div>
                     );
                   })()}
                   
                   {/* Right side - Profit Information - Mobile: Stack vertically, Desktop: Right aligned */}
                   {(() => {
                     // Check product availability using same logic as ProductDetail page
-                    const adminStock = product.stock || 0;
+                    // Check product availability - only show as available if there are sellers
                     const hasSellers = product.sellers && product.sellers.length > 0;
-                    const isAvailable = hasSellers || adminStock > 0;
+                    const isAvailable = hasSellers;
                     
                     // Don't show profit for out of stock products
                     if (!isAvailable) {
@@ -2308,9 +2328,9 @@ const AmazonsChoice = () => {
                 {/* Deal Units Display - Moved Down for Mobile */}
                 {(() => {
                   // Check product availability using same logic as ProductDetail page
-                  const adminStock = product.stock || 0;
+                  // Check product availability - only show as available if there are sellers
                   const hasSellers = product.sellers && product.sellers.length > 0;
-                  const isAvailable = hasSellers || adminStock > 0;
+                  const isAvailable = hasSellers;
                   
                   // Don't show deal cost for out of stock products
                   if (!isAvailable) {
@@ -2487,10 +2507,9 @@ const AmazonsChoice = () => {
 
                 {/* Profit for Deal Units Display - Below Deal Section */}
                 {(() => {
-                  // Check product availability using same logic as ProductDetail page
-                  const adminStock = product.stock || 0;
+                  // Check product availability - only show as available if there are sellers
                   const hasSellers = product.sellers && product.sellers.length > 0;
-                  const isAvailable = hasSellers || adminStock > 0;
+                  const isAvailable = hasSellers;
                   
                   // Don't show profit for out of stock products
                   if (!isAvailable) {

@@ -1889,7 +1889,8 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
               platformComparison: 1,
               showEvaluation: 1,
               asin: 1,
-              variations: 1
+              variations: 1,
+              sellers: 1
             }
           }
         ];
@@ -1929,7 +1930,7 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
       products = await Product.find(query)
         .sort(sortOptions)
         .limit(parseInt(limit))
-        .select('name description price originalPrice discount category brand images rating reviews stock dealUnits currency isAmazonsChoice isBestSeller seller isAdminProduct sellerInfo profitCalculations profitEvaluation platformComparison showEvaluation asin sku variations')
+        .select('name description price originalPrice discount category brand images rating reviews stock dealUnits currency isAmazonsChoice isBestSeller seller isAdminProduct sellerInfo profitCalculations profitEvaluation platformComparison showEvaluation asin sku variations sellers')
         .maxTimeMS(10000) // Increased timeout to 10 seconds
         .lean();
       
