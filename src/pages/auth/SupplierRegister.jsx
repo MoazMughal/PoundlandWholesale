@@ -244,19 +244,42 @@ const SupplierRegister = () => {
                       required
                     >
                       <option value="">Select your main product category</option>
-                      <option value="Electronics">Electronics & Gadgets</option>
-                      <option value="Clothing">Clothing & Fashion</option>
-                      <option value="Home & Garden">Home & Garden</option>
-                      <option value="Sports">Sports & Outdoors</option>
-                      <option value="Health">Health & Beauty</option>
                       <option value="Automotive">Automotive</option>
-                      <option value="Books">Books & Media</option>
-                      <option value="Toys">Toys & Games</option>
-                      <option value="Food">Food & Beverages</option>
-                      <option value="Jewelry">Jewelry & Accessories</option>
-                      <option value="Office">Office & Business</option>
+                      <option value="Baby Products">Baby Products</option>
+                      <option value="Balloons">Balloons</option>
+                      <option value="Beauty & Personal Care">Beauty & Personal Care</option>
+                      <option value="Books & Media">Books & Media</option>
+                      <option value="Clothing & Fashion">Clothing & Fashion</option>
+                      <option value="Computers & Accessories">Computers & Accessories</option>
+                      <option value="Electronics & Gadgets">Electronics & Gadgets</option>
+                      <option value="Fashion Jewelry">Fashion Jewelry</option>
+                      <option value="Food & Beverages">Food & Beverages</option>
+                      <option value="Furniture">Furniture</option>
+                      <option value="Garden & Outdoor">Garden & Outdoor</option>
+                      <option value="Gift & Craft Supplies">Gift & Craft Supplies</option>
+                      <option value="Health & Beauty">Health & Beauty</option>
+                      <option value="Home & Garden">Home & Garden</option>
+                      <option value="Home & Kitchen">Home & Kitchen</option>
+                      <option value="Home Decor">Home Decor</option>
+                      <option value="Home Improvement">Home Improvement</option>
+                      <option value="Industrial & Scientific">Industrial & Scientific</option>
+                      <option value="Jewelry & Accessories">Jewelry & Accessories</option>
+                      <option value="Kitchen & Dining">Kitchen & Dining</option>
+                      <option value="Lighting">Lighting</option>
+                      <option value="Musical Instruments">Musical Instruments</option>
+                      <option value="Office & Business">Office & Business</option>
+                      <option value="Office Products">Office Products</option>
+                      <option value="Party Accessories">Party Accessories</option>
+                      <option value="Pet Supplies">Pet Supplies</option>
+                      <option value="Sports & Outdoors">Sports & Outdoors</option>
+                      <option value="Stationery">Stationery</option>
+                      <option value="Tools & Home Improvement">Tools & Home Improvement</option>
+                      <option value="Toys & Games">Toys & Games</option>
                       <option value="Other">Other</option>
                     </select>
+                    <div className="form-text small">
+                      Select the category that best represents your main products
+                    </div>
                   </div>
 
                   <div className="row">

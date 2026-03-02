@@ -397,12 +397,12 @@ const SellerProductsSimple = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                <th style={{ padding: '10px', textAlign: 'left', width: '80px' }}>Image</th>
-                <th style={{ padding: '10px', textAlign: 'left' }}>Product</th>
-                <th style={{ padding: '10px', textAlign: 'left', width: '120px' }}>Seller</th>
-                <th style={{ padding: '10px', textAlign: 'right', width: '80px' }}>Price</th>
-                <th style={{ padding: '10px', textAlign: 'center', width: '100px' }}>Status</th>
-                <th style={{ padding: '10px', textAlign: 'center', width: '200px' }}>Actions</th>
+                <th style={{ padding: '10px', textAlign: 'left', width: '70px' }}>IMAGE</th>
+                <th style={{ padding: '10px', textAlign: 'left' }}>PRODUCT</th>
+                <th style={{ padding: '10px', textAlign: 'left', width: '100px' }}>SELLER</th>
+                <th style={{ padding: '10px', textAlign: 'right', width: '70px' }}>PRICE</th>
+                <th style={{ padding: '10px', textAlign: 'center', width: '80px' }}>STATUS</th>
+                <th style={{ padding: '10px', textAlign: 'center', width: '180px' }}>ACTIONS</th>
               </tr>
             </thead>
             <tbody>
@@ -508,12 +508,12 @@ const SellerProductsSimple = () => {
           <table className="products-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
             <thead>
               <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                <th style={{ padding: '10px', textAlign: 'left', width: '80px' }}>Image</th>
-                <th style={{ padding: '10px', textAlign: 'left' }}>Product</th>
-                <th style={{ padding: '10px', textAlign: 'left', width: '120px' }}>Seller</th>
-                <th style={{ padding: '10px', textAlign: 'right', width: '80px' }}>Price</th>
-                <th style={{ padding: '10px', textAlign: 'center', width: '100px' }}>Status</th>
-                <th style={{ padding: '10px', textAlign: 'center', width: '200px' }}>Actions</th>
+                <th style={{ padding: '10px', textAlign: 'left', width: '70px' }}>IMAGE</th>
+                <th style={{ padding: '10px', textAlign: 'left' }}>PRODUCT</th>
+                <th style={{ padding: '10px', textAlign: 'left', width: '100px' }}>SELLER</th>
+                <th style={{ padding: '10px', textAlign: 'right', width: '70px' }}>PRICE</th>
+                <th style={{ padding: '10px', textAlign: 'center', width: '80px' }}>STATUS</th>
+                <th style={{ padding: '10px', textAlign: 'center', width: '180px' }}>ACTIONS</th>
               </tr>
             </thead>
             <tbody>

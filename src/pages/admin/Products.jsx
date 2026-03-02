@@ -1361,9 +1361,31 @@ const AdminProducts = () => {
         const result = await response.json();
         console.log('✅ Bulk update result:', result);
 
-        // Clear selection and refresh
+        // Update local state immediately for instant UI feedback
+        if (updateData.status) {
+          setProducts(prevProducts => 
+            prevProducts.map(product => 
+              productIds.includes(product._id) 
+                ? { ...product, status: updateData.status }
+                : product
+            )
+          );
+          setFilteredProducts(prevProducts => 
+            prevProducts.map(product => 
+              productIds.includes(product._id) 
+                ? { ...product, status: updateData.status }
+                : product
+            )
+          );
+        }
+
+        // Clear selection
         setSelectedProducts(new Set());
-        fetchProducts();
+        
+        // Refresh data from server to ensure consistency
+        await fetchProducts();
+        
+        // Clear cache
         cacheManager.clearAll();
 
         // Show results
