@@ -512,7 +512,7 @@ const AmazonsChoice = () => {
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showAllProducts, setShowAllProducts] = useState(true) // Default to TRUE - show all products by default
+  const [showAllProducts, setShowAllProducts] = useState(false) // Default to FALSE - only show products with sellers by default
   const [isLoadingRequest, setIsLoadingRequest] = useState(false) // Track active requests
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false)
@@ -1015,7 +1015,7 @@ const AmazonsChoice = () => {
           margin: windowWidth < 576 ? '15px 0 25px 0' : '20px 0 30px 0',
           position: 'relative',
           overflow: 'hidden',
-          background: 'linear-gradient(135deg, #ff6600 0%, #ff8533 50%, #ffaa66 100%)',
+          background: 'linear-gradient(135deg, #ff9944 0%, #ffaa66 50%, #ffcc99 100%)',
           borderRadius: windowWidth < 576 ? '16px' : '20px',
           boxShadow: '0 12px 40px rgba(255, 102, 0, 0.25), 0 4px 15px rgba(255, 102, 0, 0.15)',
           border: '1px solid rgba(255, 255, 255, 0.2)'
@@ -1094,7 +1094,7 @@ const AmazonsChoice = () => {
               marginBottom: windowWidth < 576 ? '8px' : '12px',
               lineHeight: '1.2'
             }}>
-              Loading Amazing Products
+              Loading
             </div>
             
             {/* Subtitle with typewriter effect */}
@@ -1264,7 +1264,7 @@ const AmazonsChoice = () => {
               onClick={() => window.location.reload()}
               className="enhanced-btn"
               style={{
-                background: 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
+                background: 'linear-gradient(135deg, #ff9944 0%, #ff7733 100%)',
                 color: 'white',
                 border: '2px solid white',
                 padding: '15px 30px',
@@ -1307,7 +1307,7 @@ const AmazonsChoice = () => {
               }}
               onMouseEnter={(e) => {
                 e.target.style.transform = 'translateY(-3px) scale(1.05)';
-                e.target.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
+                e.target.style.background = 'linear-gradient(135deg, #ff9944 0%, #ff7733 100%)';
                 e.target.style.borderColor = 'white';
               }}
               onMouseLeave={(e) => {
@@ -1451,7 +1451,7 @@ const AmazonsChoice = () => {
             alignItems: 'center',
             marginBottom: windowWidth < 576 ? '10px' : '10px', // Consistent margin
             padding: windowWidth < 576 ? '8px 16px' : '10px 18px', // Reduced padding for smaller height
-            background: 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
+            background: 'linear-gradient(135deg, #f09d5aff 0%, #ff7733 100%)',
             borderRadius: windowWidth < 576 ? '12px' : '12px', // Consistent radius
             color: 'white',
             boxShadow: '0 4px 15px rgba(255, 102, 0, 0.3)', // Enhanced shadow
@@ -2002,13 +2002,13 @@ const AmazonsChoice = () => {
                           >
                             ⚠️ Out of Stock
                           </div>
-                          {/* Debug: Show sellers info */}
+                          {/* Show seller count */}
                           <div style={{
                             fontSize: '6px',
                             color: '#666',
                             fontStyle: 'italic'
                           }}>
-                            Sellers: {product.sellers ? product.sellers.length : 0}
+                            No of sellers: {product.sellers ? product.sellers.length : 0}
                           </div>
                         </div>
                       );
@@ -2080,7 +2080,7 @@ const AmazonsChoice = () => {
                           return `${formatPrice(perUnitPrice)}/unit`;
                         })()}
                       </div>
-                      {/* Debug: Show seller names */}
+                      {/* Show seller count */}
                       {product.sellers && product.sellers.length > 0 && (
                         <div style={{
                           fontSize: '6px',
@@ -2088,7 +2088,7 @@ const AmazonsChoice = () => {
                           fontWeight: '600',
                           marginTop: '2px'
                         }}>
-                          Sellers: {product.sellers.map(s => s.username).join(', ')}
+                          No of sellers: {product.sellers.length}
                         </div>
                       )}
                     </div>
@@ -2450,7 +2450,7 @@ const AmazonsChoice = () => {
                         zIndex: 3,
                         background: isInBasket(product.id) ? 
                           'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
-                          'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)',
+                          'linear-gradient(135deg, #ff9944 0%, #ff7733 100%)',
                         color: 'white',
                         border: 'none',
                         padding: windowWidth < 576 ? '0' : '0',
@@ -2494,7 +2494,7 @@ const AmazonsChoice = () => {
                           e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
                           e.target.style.background = isInBasket(product.id) ? 
                             'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
-                            'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)';
+                            'linear-gradient(135deg, #ff9944 0%, #ff7733 100%)';
                         }
                       }}
                     >

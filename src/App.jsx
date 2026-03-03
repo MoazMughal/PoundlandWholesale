@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { useEffect, lazy, Suspense } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import MobileHeader from './components/MobileHeader'
 import CompactFooter from './components/CompactFooter'
 import WhatsAppFloat from './components/WhatsAppFloat'
@@ -239,6 +239,19 @@ function App() {
 // Wrapper component to access basket context
 const BasketSidebarWrapper = () => {
   const { isSidebarOpen, closeSidebar } = useBasket()
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Only show basket sidebar on screens wider than 565px
+  if (windowWidth <= 565) {
+    return null
+  }
+
   return <BasketSidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
 }
 

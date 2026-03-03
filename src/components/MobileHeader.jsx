@@ -20,6 +20,7 @@ const MobileHeader = () => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showLoginMenu, setShowLoginMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const loginMenuRef = useRef(null);
   const userMenuRef = useRef(null);
 
@@ -64,8 +65,17 @@ const MobileHeader = () => {
       }
     };
 
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -598,6 +608,13 @@ const MobileHeader = () => {
           border: 2px solid #fc5e03;
         }
 
+        /* Hide basket icon on very small mobile screens */
+        @media (max-width: 565px) {
+          .mobile-icon-btn[href="/basket"] {
+            display: none !important;
+          }
+        }
+
         /* Remove any white background from logo */
         .mobile-logo img,
         .mobile-menu-header img,
@@ -744,12 +761,14 @@ const MobileHeader = () => {
               </select>
             </div>
 
-            <Link to="/basket" className="mobile-icon-btn">
-              <i className="fas fa-shopping-basket"></i>
-              {getBasketCount() > 0 && (
-                <span className="basket-badge">{getBasketCount()}</span>
-              )}
-            </Link>
+            {windowWidth > 565 && (
+              <Link to="/basket" className="mobile-icon-btn">
+                <i className="fas fa-shopping-basket"></i>
+                {getBasketCount() > 0 && (
+                  <span className="basket-badge">{getBasketCount()}</span>
+                )}
+              </Link>
+            )}
           </div>
         </div>
 

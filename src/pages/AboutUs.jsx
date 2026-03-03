@@ -42,7 +42,7 @@ const AboutUs = () => {
             About PoundlandWholesale.com
           </h1>
           <p style={{ fontSize: '1.1rem', opacity: 0.95 }}>
-            Your trusted partner for wholesale products and Amazon FBA success
+            Your trusted partner for wholesale products to Ecommerce Plateform
           </p>
         </div>
       </div>
@@ -62,7 +62,7 @@ const AboutUs = () => {
             Our Mission
           </h2>
           <p style={{ fontSize: '1.1rem', lineHeight: '1.8', color: '#555', marginBottom: '20px' }}>
-            We connect wholesale suppliers with Amazon sellers, providing high-quality products at competitive prices. 
+            We connect wholesale suppliers with Amazon sellers with ecommerce stores, providing high-quality products at competitive prices. 
             Our platform makes it easy to find trending products, calculate profits, and grow your e-commerce business.
           </p>
           <p style={{ fontSize: '1.1rem', lineHeight: '1.8', color: '#555' }}>
