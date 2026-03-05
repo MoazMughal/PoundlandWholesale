@@ -16,7 +16,7 @@ export const getOptimizedCloudinaryUrl = (imageUrl, options = {}) => {
   const {
     width = 400,
     height = 400,
-    crop = 'fill',
+    crop = 'fit', // Changed from 'fill' to 'fit' to show full image without cropping
     quality = 'auto',
     format = 'auto',
     dpr = 'auto'

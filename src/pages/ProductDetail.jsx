@@ -3048,13 +3048,13 @@ _This quotation was generated from PoundlandWholesale.com_
                     className="img-fluid main-product-image-full"
                     onClick={() => setShowZoomModal(true)}
                     style={{
-                      maxWidth: '100%', // Full width to show complete image
-                      maxHeight: '500px', // Increased max height for better visibility
-                      width: 'auto', // Auto width to maintain aspect ratio
-                      height: 'auto', // Auto height to maintain aspect ratio
-                      objectFit: 'contain', // Contain entire image without cropping
+                      maxWidth: '100%',
+                      maxHeight: '500px',
+                      width: 'auto',
+                      height: 'auto',
+                      objectFit: 'contain',
                       objectPosition: 'center',
-                      padding: '0px',
+                      padding: '20px', // Added padding to show full image
                       margin: '0 auto',
                       display: 'block',
                       backgroundColor: 'transparent',
@@ -5189,19 +5189,15 @@ _This quotation was generated from PoundlandWholesale.com_
                         alt={deal.name} 
                         className="card-img-top w-100" 
                         style={{
-                          height: 'auto',
-                          minHeight: '200px', // Increased for better image display
-                          maxHeight: 'none',
-                          maxWidth: '100%', // Full width for all devices - show complete image
-                          width: 'auto',
+                          height: '120px',
                           objectFit: 'contain',
-                          padding: '5px', // Reduced padding for larger image display
+                          padding: '12px',
                           background: '#ffffff'
                         }} 
                       />
                     </div>
-                    <div className="card-body p-2">
-                      <h6 className="card-title" style={{fontSize: '0.75rem', fontWeight: '600', color: '#2d3748', height: '32px', overflow: 'hidden', lineHeight: '1.3', marginBottom: '4px'}}>{deal.name}</h6>
+                    <div className="card-body" style={{padding: '4px 8px 8px 8px'}}>
+                      <h6 className="card-title" style={{fontSize: '0.7rem', fontWeight: '600', color: '#2d3748', height: '30px', overflow: 'hidden', lineHeight: '1.2', marginBottom: '8px', padding: '0 2px'}}>{deal.name}</h6>
                       <div className="d-flex justify-content-between align-items-center mb-1">
                         <span className="text-primary fw-bold" style={{fontSize: '0.85rem'}}>{formatPrice(deal.rawPrice || 0)}</span>
                         <div className="text-warning" style={{fontSize: '0.65rem'}}>
@@ -5245,19 +5241,15 @@ _This quotation was generated from PoundlandWholesale.com_
                         alt={popular.name} 
                         className="card-img-top w-100" 
                         style={{
-                          height: 'auto',
-                          minHeight: '200px', // Increased for better image display
-                          maxHeight: 'none',
-                          maxWidth: '100%', // Full width for all devices - show complete image
-                          width: 'auto',
+                          height: '120px',
                           objectFit: 'contain',
-                          padding: '5px', // Reduced padding for larger image display
+                          padding: '12px',
                           background: '#ffffff'
                         }} 
                       />
                     </div>
-                    <div className="card-body p-2">
-                      <h6 className="card-title" style={{fontSize: '0.75rem', fontWeight: '600', color: '#2d3748', height: '32px', overflow: 'hidden', lineHeight: '1.3', marginBottom: '4px'}}>{popular.name}</h6>
+                    <div className="card-body" style={{padding: '4px 8px 8px 8px'}}>
+                      <h6 className="card-title" style={{fontSize: '0.7rem', fontWeight: '600', color: '#2d3748', height: '30px', overflow: 'hidden', lineHeight: '1.2', marginBottom: '8px', padding: '0 2px'}}>{popular.name}</h6>
                       <div className="d-flex justify-content-between align-items-center mb-1">
                         <span className="text-primary fw-bold" style={{fontSize: '0.85rem'}}>{formatPrice(popular.rawPrice || 0)}</span>
                         <div className="text-warning" style={{fontSize: '0.65rem'}}>

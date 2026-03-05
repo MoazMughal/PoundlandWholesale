@@ -995,6 +995,482 @@ div.badge.bg-success *,
     opacity: 1 !important;
   }
   
+  /* ==========================================
+     TOP DEALS & MOST POPULAR SECTIONS - MOBILE
+     ========================================== */
+  
+  /* Top Deals Section */
+  .product-detail-page .top-deals-section,
+  .product-detail-page .most-popular-section {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    margin-top: 30px !important;
+    padding-top: 20px !important;
+  }
+  
+  /* Section header container - Orange gradient like Amazon's Choice */
+  .product-detail-page .top-deals-section > div:first-child,
+  .product-detail-page .most-popular-section > div:first-child {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 10px !important;
+    padding: 8px 16px !important;
+    background: linear-gradient(135deg, #f09d5aff 0%, #ff7733 100%) !important;
+    border-radius: 12px !important;
+    color: white !important;
+    box-shadow: 0 4px 15px rgba(255, 102, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+  
+  /* Section titles - WHITE TEXT with proper visibility */
+  .product-detail-page .top-deals-section h3,
+  .product-detail-page .most-popular-section h3 {
+    color: #ffffff !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    margin: 0 !important;
+    text-shadow: 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+    letter-spacing: 0.5px !important;
+    position: relative !important;
+    z-index: 1 !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Section title icons */
+  .product-detail-page .top-deals-section h3 i,
+  .product-detail-page .most-popular-section h3 i {
+    color: #ffffff !important;
+    margin-right: 8px !important;
+  }
+  
+  /* Product cards in these sections - More compact */
+  .product-detail-page .top-deals-section .card,
+  .product-detail-page .most-popular-section .card {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    background: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    transition: all 0.3s ease !important;
+  }
+  
+  .product-detail-page .top-deals-section .card:hover,
+  .product-detail-page .most-popular-section .card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    transform: translateY(-2px) !important;
+  }
+  
+  /* Product images - Compact responsive display */
+  .product-detail-page .top-deals-section .card-img-top,
+  .product-detail-page .most-popular-section .card-img-top {
+    width: 100% !important;
+    height: 120px !important;
+    min-height: 120px !important;
+    max-height: 120px !important;
+    object-fit: contain !important;
+    padding: 12px !important;
+    background: #ffffff !important;
+    border-radius: 8px 8px 0 0 !important;
+  }
+  
+  /* Product card body - Minimal top padding, space after title */
+  .product-detail-page .top-deals-section .card-body,
+  .product-detail-page .most-popular-section .card-body {
+    padding: 4px 8px 8px 8px !important; /* Reduced top padding to minimize gap */
+    background: #ffffff !important;
+  }
+  
+  /* Product titles - Compact with space after */
+  .product-detail-page .top-deals-section .card-title,
+  .product-detail-page .most-popular-section .card-title {
+    color: #2d3748 !important;
+    font-size: 0.7rem !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+    height: 32px !important;
+    overflow: hidden !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    margin-bottom: 8px !important; /* Added space after title */
+    text-overflow: ellipsis !important;
+    padding: 0 4px !important;
+  }
+  
+  /* Grid layout for mobile */
+  .product-detail-page .top-deals-section .row,
+  .product-detail-page .most-popular-section .row {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+    margin: 0 !important;
+  }
+  
+  /* Column sizing */
+  .product-detail-page .top-deals-section .row > div,
+  .product-detail-page .most-popular-section .row > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  
+  /* View All button - WHITE with transparent background */
+  .product-detail-page .top-deals-section .btn-outline-primary,
+  .product-detail-page .most-popular-section .btn-outline-primary {
+    font-size: 0.75rem !important;
+    padding: 6px 12px !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    position: relative !important;
+    z-index: 1 !important;
+  }
+  
+  .product-detail-page .top-deals-section .btn-outline-primary:hover,
+  .product-detail-page .most-popular-section .btn-outline-primary:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.8) !important;
+  }
+  
+  /* Badges */
+  .product-detail-page .top-deals-section .badge,
+  .product-detail-page .most-popular-section .badge {
+    font-size: 0.65rem !important;
+    padding: 4px 8px !important;
+  }
+  
+  /* Price and rating */
+  .product-detail-page .top-deals-section .text-primary,
+  .product-detail-page .most-popular-section .text-primary {
+    font-size: 0.9rem !important;
+    font-weight: 700 !important;
+  }
+  
+  .product-detail-page .top-deals-section .text-warning,
+  .product-detail-page .most-popular-section .text-warning {
+    font-size: 0.7rem !important;
+  }
+}
+
+/* ============================================
+   SMALL MOBILE - Top Deals & Most Popular
+   ============================================ */
+@media (max-width: 575px) {
+  
+  /* Single column on very small screens */
+  .product-detail-page .top-deals-section .row,
+  .product-detail-page .most-popular-section .row {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  
+  /* Very compact images for small mobile */
+  .product-detail-page .top-deals-section .card-img-top,
+  .product-detail-page .most-popular-section .card-img-top {
+    height: 100px !important;
+    min-height: 100px !important;
+    max-height: 100px !important;
+    padding: 10px !important;
+    margin-bottom: 0 !important; /* Remove any bottom margin */
+  }
+  
+  /* Minimal card body padding for small mobile */
+  .product-detail-page .top-deals-section .card-body,
+  .product-detail-page .most-popular-section .card-body {
+    padding: 2px 6px 6px 6px !important; /* Minimal top padding */
+  }
+  
+  /* Smaller titles */
+  .product-detail-page .top-deals-section h3,
+  .product-detail-page .most-popular-section h3 {
+    font-size: 1rem !important;
+  }
+  
+  /* Smaller card titles for small mobile with space after */
+  .product-detail-page .top-deals-section .card-title,
+  .product-detail-page .most-popular-section .card-title {
+    font-size: 0.65rem !important;
+    height: 28px !important;
+    line-height: 1.15 !important;
+    margin-bottom: 6px !important; /* Space after title */
+  }
+}
+
+/* ============================================
+   DESKTOP/LARGE SCREENS - Top Deals & Most Popular
+   Make them look like Amazon's Choice products
+   ============================================ */
+@media (min-width: 992px) {
+  
+  /* Section styling */
+  .product-detail-page .top-deals-section,
+  .product-detail-page .most-popular-section {
+    margin-top: 40px !important;
+    padding-top: 30px !important;
+  }
+  
+  /* Section header container - Orange gradient like Amazon's Choice */
+  .product-detail-page .top-deals-section > div:first-child,
+  .product-detail-page .most-popular-section > div:first-child {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 20px !important;
+    padding: 10px 18px !important;
+    background: linear-gradient(135deg, #f09d5aff 0%, #ff7733 100%) !important;
+    border-radius: 12px !important;
+    color: white !important;
+    box-shadow: 0 4px 15px rgba(255, 102, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+  
+  /* Background decoration */
+  .product-detail-page .top-deals-section > div:first-child::before,
+  .product-detail-page .most-popular-section > div:first-child::before {
+    content: '' !important;
+    position: absolute !important;
+    top: -50% !important;
+    right: -20% !important;
+    width: 100px !important;
+    height: 100px !important;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%) !important;
+    border-radius: 50% !important;
+    pointer-events: none !important;
+  }
+  
+  /* Section titles - WHITE TEXT */
+  .product-detail-page .top-deals-section h3,
+  .product-detail-page .most-popular-section h3 {
+    font-size: 1.3rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    margin: 0 !important;
+    text-shadow: 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+    letter-spacing: 0.5px !important;
+    position: relative !important;
+    z-index: 1 !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Section title icons */
+  .product-detail-page .top-deals-section h3 i,
+  .product-detail-page .most-popular-section h3 i {
+    color: #ffffff !important;
+    margin-right: 8px !important;
+  }
+  
+  /* View All button - WHITE with transparent background */
+  .product-detail-page .top-deals-section .btn-outline-primary,
+  .product-detail-page .most-popular-section .btn-outline-primary {
+    font-size: 0.85rem !important;
+    padding: 8px 16px !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    position: relative !important;
+    z-index: 1 !important;
+    transition: all 0.2s ease !important;
+  }
+  
+  .product-detail-page .top-deals-section .btn-outline-primary:hover,
+  .product-detail-page .most-popular-section .btn-outline-primary:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.8) !important;
+    transform: translateY(-1px) !important;
+  }
+  
+  /* Product cards - Amazon's Choice style */
+  .product-detail-page .top-deals-section .card,
+  .product-detail-page .most-popular-section .card {
+    display: block !important;
+    height: 100% !important;
+    background: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08) !important;
+  }
+  
+  .product-detail-page .top-deals-section .card:hover,
+  .product-detail-page .most-popular-section .card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    transform: translateY(-4px) !important;
+    border-color: #ff9900 !important;
+  }
+  
+  /* Product images - Compact for desktop */
+  .product-detail-page .top-deals-section .card-img-top,
+  .product-detail-page .most-popular-section .card-img-top {
+    width: 100% !important;
+    height: 150px !important;
+    min-height: 150px !important;
+    max-height: 150px !important;
+    object-fit: contain !important;
+    padding: 15px !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #f0f0f0 !important;
+  }
+  
+  /* Image container */
+  .product-detail-page .top-deals-section .position-relative,
+  .product-detail-page .most-popular-section .position-relative {
+    position: relative !important;
+    background: #ffffff !important;
+  }
+  
+  /* Product card body - Minimal top padding */
+  .product-detail-page .top-deals-section .card-body,
+  .product-detail-page .most-popular-section .card-body {
+    padding: 6px 12px 12px 12px !important; /* Reduced top padding */
+    background: #ffffff !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  
+  /* Product titles - Compact for desktop with space after */
+  .product-detail-page .top-deals-section .card-title,
+  .product-detail-page .most-popular-section .card-title {
+    color: #2d3748 !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+    height: 34px !important;
+    overflow: hidden !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    margin-bottom: 8px !important; /* Space after title */
+    text-overflow: ellipsis !important;
+  }
+  
+  /* Price styling */
+  .product-detail-page .top-deals-section .text-primary,
+  .product-detail-page .most-popular-section .text-primary {
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    color: #B12704 !important;
+  }
+  
+  /* Rating stars */
+  .product-detail-page .top-deals-section .text-warning,
+  .product-detail-page .most-popular-section .text-warning {
+    font-size: 0.75rem !important;
+    color: #FFA41C !important;
+  }
+  
+  /* Badges positioning */
+  .product-detail-page .top-deals-section .badge,
+  .product-detail-page .most-popular-section .badge {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    z-index: 2 !important;
+    font-size: 0.7rem !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    font-weight: 600 !important;
+  }
+  
+  /* Grid layout */
+  .product-detail-page .top-deals-section .row,
+  .product-detail-page .most-popular-section .row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 16px !important;
+    margin: 0 -8px !important;
+  }
+  
+  /* Column sizing for desktop */
+  .product-detail-page .top-deals-section .row > div,
+  .product-detail-page .most-popular-section .row > div {
+    flex: 0 0 auto !important;
+    width: calc(16.666% - 16px) !important;
+    padding: 0 !important;
+  }
+  
+  /* Success badge (Popular) */
+  .product-detail-page .top-deals-section .badge.bg-success,
+  .product-detail-page .most-popular-section .badge.bg-success {
+    background: #067D62 !important;
+    color: #ffffff !important;
+  }
+  
+  /* Danger badge (High Profit) */
+  .product-detail-page .top-deals-section .badge.bg-danger,
+  .product-detail-page .most-popular-section .badge.bg-danger {
+    background: #C7511F !important;
+    color: #ffffff !important;
+  }
+  
+  /* Small text (High Profit indicator) */
+  .product-detail-page .top-deals-section small,
+  .product-detail-page .most-popular-section small {
+    font-size: 0.7rem !important;
+    color: #067D62 !important;
+    font-weight: 600 !important;
+  }
+  
+  /* Price and rating container */
+  .product-detail-page .top-deals-section .d-flex.justify-content-between,
+  .product-detail-page .most-popular-section .d-flex.justify-content-between {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 4px !important;
+  }
+}
+
+/* ============================================
+   TABLET - Top Deals & Most Popular
+   ============================================ */
+@media (min-width: 768px) and (max-width: 991px) {
+  
+  /* 3 columns on tablet */
+  .product-detail-page .top-deals-section .row,
+  .product-detail-page .most-popular-section .row {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 14px !important;
+  }
+  
+  /* Compact image size for tablet */
+  .product-detail-page .top-deals-section .card-img-top,
+  .product-detail-page .most-popular-section .card-img-top {
+    height: 130px !important;
+    min-height: 130px !important;
+    max-height: 130px !important;
+    padding: 12px !important;
+  }
+  
+  /* Adjust title size for tablet */
+  .product-detail-page .top-deals-section .card-title,
+  .product-detail-page .most-popular-section .card-title {
+    font-size: 0.72rem !important;
+    height: 32px !important;
+  }
+}
+  
   /* Override any Bootstrap responsive utilities that hide content on mobile */
   .product-detail-page .col-12.col-lg-3 .d-none {
     display: none !important;
@@ -1024,5 +1500,67 @@ div.badge.bg-success *,
   
   .product-detail-page .col-12.col-lg-3 > .d-block.d-lg-none.mt-3 {
     display: none !important;
+  }
+
+/* ============================================
+   CRITICAL OVERRIDE: Force image sizes for Top Deals & Most Popular
+   Compact responsive approach
+   ============================================ */
+
+/* Desktop - Compact images */
+@media (min-width: 992px) {
+  .top-deals-section .card-img-top,
+  .most-popular-section .card-img-top,
+  .product-detail-page .top-deals-section .card-img-top,
+  .product-detail-page .most-popular-section .card-img-top {
+    height: 150px !important;
+    padding: 15px !important;
+  }
+}
+
+/* Tablet - Medium compact */
+@media (min-width: 768px) and (max-width: 991px) {
+  .top-deals-section .card-img-top,
+  .most-popular-section .card-img-top,
+  .product-detail-page .top-deals-section .card-img-top,
+  .product-detail-page .most-popular-section .card-img-top {
+    height: 130px !important;
+    padding: 12px !important;
+  }
+}
+
+/* Mobile - Very compact */
+@media (max-width: 767px) {
+  .top-deals-section .card-img-top,
+  .most-popular-section .card-img-top,
+  .product-detail-page .top-deals-section .card-img-top,
+  .product-detail-page .most-popular-section .card-img-top {
+    height: 120px !important;
+    padding: 12px !important;
+  }
+  
+  /* Ensure cards are compact on mobile */
+  .top-deals-section .card,
+  .most-popular-section .card,
+  .product-detail-page .top-deals-section .card,
+  .product-detail-page .most-popular-section .card {
+    min-height: auto !important;
+    max-height: none !important;
+  }
+  
+  /* Compact card body - minimal top padding */
+  .top-deals-section .card-body,
+  .most-popular-section .card-body,
+  .product-detail-page .top-deals-section .card-body,
+  .product-detail-page .most-popular-section .card-body {
+    padding: 4px 6px 6px 6px !important; /* Minimal top padding to reduce gap */
+  }
+  
+  /* Title spacing */
+  .top-deals-section .card-title,
+  .most-popular-section .card-title,
+  .product-detail-page .top-deals-section .card-title,
+  .product-detail-page .most-popular-section .card-title {
+    margin-bottom: 6px !important; /* Space after title */
   }
 }

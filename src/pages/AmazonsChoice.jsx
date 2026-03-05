@@ -95,7 +95,7 @@ const AmazonsChoice = () => {
           background: transparent !important;
         }
         
-        /* Cards - More Compact Height */
+        /* Cards - Adjusted Height for Larger Images */
         .product-card, .enhanced-card {
           display: flex !important;
           flex-direction: column !important;
@@ -103,8 +103,8 @@ const AmazonsChoice = () => {
           border: 2px solid #1a1a1a !important;
           border-radius: 8px !important;
           padding: 4px !important;
-          min-height: 280px !important; /* Reduced from 220px for more compact cards */
-          max-height: 300px !important; /* Reduced from 250px for more compact cards */
+          min-height: 300px !important; /* Increased from 280px for larger images */
+          max-height: 320px !important; /* Increased from 300px for larger images */
           width: 100% !important;
           position: relative !important;
           overflow: hidden !important;
@@ -112,24 +112,18 @@ const AmazonsChoice = () => {
           margin: 0 !important;
         }
         
-        /* Images - Much Larger Size for Mobile */
+        /* Images - Much Larger Size for Mobile with increased padding */
         .product-image-container {
-          height: 160px !important; /* Significantly increased for larger images */
-          min-height: 160px !important; 
-          max-height: 160px !important; 
+          height: 180px !important; /* Increased from 160px for larger images */
+          min-height: 180px !important; 
+          max-height: 180px !important; 
           width: 100% !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
           background: #fff !important;
           margin-bottom: 0px !important; /* Remove bottom margin */
-          padding: 2px !important;
-        }
-          align-items: center !important;
-          justify-content: center !important;
-          background: #fff !important;
-          margin-bottom: 2px !important;
-          padding: 2px !important;
+          padding: 8px !important; /* Increased from 2px to show full image */
         }
         
         .product-image-container img {
@@ -433,20 +427,21 @@ const AmazonsChoice = () => {
         }
         
         .product-card, .enhanced-card {
-          min-height: 240px !important;
-          max-height: 270px !important;
+          min-height: 260px !important; /* Increased from 240px */
+          max-height: 290px !important; /* Increased from 270px */
           padding: 6px !important;
         }
         
         .product-image-container {
-          height: 90px !important;
-          min-height: 90px !important;
-          max-height: 90px !important;
+          height: 110px !important; /* Increased from 90px */
+          min-height: 110px !important;
+          max-height: 110px !important;
+          padding: 8px !important; /* Increased padding */
         }
         
         .product-image-container img {
-          max-width: 80px !important;
-          max-height: 80px !important;
+          max-width: 100% !important; /* Changed from fixed 80px */
+          max-height: 100% !important; /* Changed from fixed 80px */
         }
         
         .product-info h5 {
@@ -1479,7 +1474,7 @@ const AmazonsChoice = () => {
                 textShadow: '0 2px 4px rgba(255, 255, 255, 0.3)', // Better text shadow
                 letterSpacing: '0.5px' // Improved letter spacing
               }}>
-                🏆 Amazon's Choice Products
+                🏆 Best Sellers
               </h2>
             </div>
 
@@ -2080,15 +2075,83 @@ const AmazonsChoice = () => {
                           return `${formatPrice(perUnitPrice)}/unit`;
                         })()}
                       </div>
-                      {/* Show seller count */}
+                      {/* Show seller count WITH basket button on the right */}
                       {product.sellers && product.sellers.length > 0 && (
                         <div style={{
-                          fontSize: '6px',
-                          color: '#16a34a',
-                          fontWeight: '600',
-                          marginTop: '2px'
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginTop: '2px',
+                          width: '100%',
+                          gap: '4px'
                         }}>
-                          No of sellers: {product.sellers.length}
+                          <div style={{
+                            fontSize: '6px',
+                            color: '#16a34a',
+                            fontWeight: '600'
+                          }}>
+                            No of sellers: {product.sellers.length}
+                          </div>
+                          
+                          {/* Basket button on the right side */}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              addToBasket(product)
+                            }}
+                            style={{
+                              pointerEvents: 'auto',
+                              position: 'relative',
+                              zIndex: 3,
+                              background: isInBasket(product.id) ? 
+                                'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
+                                'linear-gradient(135deg, #ff9944 0%, #ff7733 100%)',
+                              color: 'white',
+                              border: 'none',
+                              padding: '0',
+                              borderRadius: '50%',
+                              fontSize: windowWidth < 576 ? '7px' : '8px',
+                              cursor: 'pointer',
+                              boxShadow: windowWidth < 576 ? 
+                                '0 2px 4px rgba(255, 102, 0, 0.4)' : 
+                                '0 3px 8px rgba(255, 102, 0, 0.4)',
+                              transition: 'all 0.2s ease',
+                              minWidth: windowWidth < 576 ? '18px' : '20px',
+                              width: windowWidth < 576 ? '18px' : '20px',
+                              height: windowWidth < 576 ? '18px' : '20px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}
+                            onMouseEnter={(e) => {
+                              if (windowWidth < 576) {
+                                e.target.style.transform = 'scale(1.05)';
+                                e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
+                              } else {
+                                e.target.style.transform = 'scale(1.1)';
+                                e.target.style.boxShadow = '0 3px 8px rgba(255, 102, 0, 0.5)';
+                                e.target.style.background = isInBasket(product.id) ? 
+                                  'linear-gradient(135deg, #059669 0%, #047857 100%)' : 
+                                  'linear-gradient(135deg, #ff3300 0%, #cc2900 100%)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (windowWidth < 576) {
+                                e.target.style.transform = 'scale(1)';
+                                e.target.style.boxShadow = '0 1px 3px rgba(255, 102, 0, 0.3)';
+                              } else {
+                                e.target.style.transform = 'scale(1)';
+                                e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
+                                e.target.style.background = isInBasket(product.id) ? 
+                                  'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
+                                  'linear-gradient(135deg, #ff9944 0%, #ff7733 100%)';
+                              }
+                            }}
+                          >
+                            <i className={isInBasket(product.id) ? 'fas fa-check' : 'fas fa-shopping-basket'}></i>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -2372,7 +2435,7 @@ const AmazonsChoice = () => {
                         maxWidth: windowWidth < 576 ? 'calc(100% - 40px)' : 'none',
                         flex: '0 1 auto'
                       }}>
-                        💰 Deal Cost / {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
+                        💰 Deal Cost Price / {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{
                         fontSize: windowWidth < 576 ? '6px' : '7px', // Increased for better readability
@@ -2436,70 +2499,6 @@ const AmazonsChoice = () => {
                         })()}
                       </span>
                     </div>
-                    
-                    {/* Basket button - Desktop: Orange Circle, Mobile: Rectangular */}
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        addToBasket(product)
-                      }}
-                      style={{
-                        pointerEvents: 'auto', // Enable clicks on this button
-                        position: 'relative',
-                        zIndex: 3,
-                        background: isInBasket(product.id) ? 
-                          'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
-                          'linear-gradient(135deg, #ff9944 0%, #ff7733 100%)',
-                        color: 'white',
-                        border: 'none',
-                        padding: windowWidth < 576 ? '0' : '0',
-                        borderRadius: windowWidth < 576 ? '50%' : '50%',
-                        fontSize: windowWidth < 576 ? '7px' : '8px',
-                        cursor: 'pointer',
-                        boxShadow: windowWidth < 576 ? 
-                          '0 2px 4px rgba(255, 102, 0, 0.4)' : 
-                          '0 3px 8px rgba(255, 102, 0, 0.4)',
-                        transition: 'all 0.2s ease',
-                        minWidth: windowWidth < 576 ? '18px' : '18px',
-                        width: windowWidth < 576 ? '18px' : '18px',
-                        height: windowWidth < 576 ? '18px' : '18px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                        ...(windowWidth >= 576 && {
-                          position: 'relative',
-                          overflow: 'hidden'
-                        })
-                      }}
-                      onMouseEnter={(e) => {
-                        if (windowWidth < 576) {
-                          e.target.style.transform = 'scale(1.05)';
-                          e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
-                        } else {
-                          e.target.style.transform = 'scale(1.1)';
-                          e.target.style.boxShadow = '0 3px 8px rgba(255, 102, 0, 0.5)';
-                          e.target.style.background = isInBasket(product.id) ? 
-                            'linear-gradient(135deg, #059669 0%, #047857 100%)' : 
-                            'linear-gradient(135deg, #ff3300 0%, #cc2900 100%)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (windowWidth < 576) {
-                          e.target.style.transform = 'scale(1)';
-                          e.target.style.boxShadow = '0 1px 3px rgba(255, 102, 0, 0.3)';
-                        } else {
-                          e.target.style.transform = 'scale(1)';
-                          e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
-                          e.target.style.background = isInBasket(product.id) ? 
-                            'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
-                            'linear-gradient(135deg, #ff9944 0%, #ff7733 100%)';
-                        }
-                      }}
-                    >
-                      <i className={isInBasket(product.id) ? 'fas fa-check' : 'fas fa-shopping-basket'}></i>
-                    </button>
                   </div>
                 </div>
                   );
@@ -2595,7 +2594,7 @@ const AmazonsChoice = () => {
                           whiteSpace: 'nowrap',
                           flex: '0 1 auto'
                         }}>
-                          📈 Profit cost / {dealUnits} unit{dealUnits !== 1 ? 's' : ''}:
+                          📈 Profit cost Price / {dealUnits} unit{dealUnits !== 1 ? 's' : ''}:
                         </span>
                         <span style={{
                           fontSize: windowWidth < 576 ? '6px' : '7px', // Increased for better readability

@@ -75,15 +75,39 @@ img[alt*="Product" i] {
   padding: 5px !important; /* Minimal padding for maximum image visibility */
 }
 
-/* Top deals and most popular sections - full size images */
+/* Top deals and most popular sections - Compact responsive images */
 .top-deals-section .card-img-top,
 .most-popular-section .card-img-top {
-  max-height: none !important;
-  height: auto !important;
-  min-height: 200px !important; /* Increased minimum height for better image display */
+  width: 100% !important;
   object-fit: contain !important;
   background-color: #ffffff !important;
-  padding: 5px !important; /* Minimal padding for maximum image visibility */
+}
+
+/* Desktop - Compact */
+@media (min-width: 992px) {
+  .top-deals-section .card-img-top,
+  .most-popular-section .card-img-top {
+    height: 150px !important;
+    padding: 15px !important;
+  }
+}
+
+/* Tablet - Medium compact */
+@media (min-width: 768px) and (max-width: 991px) {
+  .top-deals-section .card-img-top,
+  .most-popular-section .card-img-top {
+    height: 130px !important;
+    padding: 12px !important;
+  }
+}
+
+/* Mobile - Very compact */
+@media (max-width: 767px) {
+  .top-deals-section .card-img-top,
+  .most-popular-section .card-img-top {
+    height: 120px !important;
+    padding: 12px !important;
+  }
 }
 
 /* Main product image container - ensure no cropping */
@@ -670,11 +694,11 @@ img[alt*="Product" i] {
     margin-bottom: 1rem !important;
   }
   
-  /* Better image sizing on very small screens - full size for visibility */
+  /* Better image sizing on very small screens - with padding for full visibility */
   .product-detail-page .position-relative img {
     min-height: auto !important;
     max-height: none !important;
-    padding: 0 !important;
+    padding: 15px !important; /* Added padding to show full image */
     width: 100% !important;
     max-width: 100% !important;
   }
@@ -683,15 +707,15 @@ img[alt*="Product" i] {
   .product-detail-page .position-relative {
     min-height: 300px !important;
     max-height: 400px !important;
-    padding: 3px !important; /* Minimal padding for maximum image display */
-    overflow: visible !important; /* Prevent cropping */
+    padding: 5px !important;
+    overflow: visible !important;
   }
   
-  /* Main product image on mobile - full size display */
+  /* Main product image on mobile - full size display with padding */
   .product-detail-page .position-relative img {
-    max-width: 100% !important; /* Full width for maximum image display */
-    max-height: 100% !important; /* Full height for maximum image display */
-    padding: 0 !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    padding: 15px !important; /* Added padding to prevent cutting */
     margin: 0 !important;
   }
   
@@ -950,13 +974,13 @@ button[style*="background: linear-gradient"][style*="#1a1a1a"] * {
 
 /* Ultra-specific rule for main product image - ABSOLUTE PRIORITY */
 img.main-product-image-full.img-fluid {
-  max-width: 85% !important;
-  max-height: 450px !important;
+  max-width: 100% !important; /* Changed from 85% to show full image */
+  max-height: 500px !important;
   width: auto !important;
   height: auto !important;
   object-fit: contain !important;
   object-position: center !important;
   margin: 0 auto !important;
-  padding: 0 !important;
+  padding: 20px !important; /* Added padding to show full image without cutting */
   display: block !important;
 }

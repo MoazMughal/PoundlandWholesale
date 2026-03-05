@@ -34,7 +34,7 @@ export const getImageUrl = (imagePath, options = {}) => {
       height: options.height || 400,
       quality: options.quality || 'auto',
       format: options.format || 'auto',
-      crop: options.crop || 'fill'
+      crop: options.crop || 'fit' // Changed from 'fill' to 'fit' to show full image
     });
   }
   
