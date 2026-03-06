@@ -28,6 +28,7 @@ import '../styles/production-optimizations.css'
 import '../styles/compact-cards.css'
 import '../styles/mobile-image-override.css' // New override file for mobile images
 import '../styles/amazons-choice-responsive.css' // Currency symbol styling
+import '../styles/seller-basket-row-fix.css' // CRITICAL: Fix for basket button alignment
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
@@ -144,6 +145,36 @@ const AmazonsChoice = () => {
           overflow: hidden !important;
           background: transparent !important;
           margin: 0px !important; /* Remove all margins */
+        }
+        
+        /* EXCEPTION: Seller count and basket button row - MUST be horizontal */
+        .product-info > .seller-basket-row,
+        .product-info > div.seller-basket-row {
+          flex-direction: row !important;
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: center !important;
+          width: 100% !important;
+          gap: 8px !important;
+          margin-top: 2px !important;
+        }
+        
+        /* Seller count text - Stay on left */
+        .product-info > .seller-basket-row > div:first-child {
+          flex: 0 1 auto !important;
+          text-align: left !important;
+          margin-right: auto !important;
+          display: inline-block !important;
+        }
+        
+        /* Basket button in seller row - Stay on right */
+        .product-info > .seller-basket-row > button {
+          flex: 0 0 auto !important;
+          margin-left: auto !important;
+          display: inline-flex !important;
+          width: 16px !important;
+          height: 16px !important;
+          min-width: 16px !important;
         }
         
         /* Title - Optimized 2 Line Display with spacing */
@@ -263,12 +294,12 @@ const AmazonsChoice = () => {
           margin-left: -3px !important;
         }
         
-        /* Basket Button - Larger */
+        /* Basket Button - Smaller Size */
         .product-info button {
-          font-size: 7px !important;
-          width: 18px !important;
-          height: 18px !important;
-          min-width: 18px !important;
+          font-size: 5px !important;
+          width: 14px !important;
+          height: 14px !important;
+          min-width: 14px !important;
           border-radius: 50% !important;
           background: #ff6600 !important;
           color: white !important;
@@ -280,7 +311,7 @@ const AmazonsChoice = () => {
           box-shadow: 0 2px 4px rgba(255, 102, 0, 0.4) !important;
           visibility: visible !important;
           opacity: 1 !important;
-          margin-left: 3px !important;
+          margin-left: auto !important;
           padding: 0 !important;
           line-height: 1 !important;
         }
@@ -479,9 +510,9 @@ const AmazonsChoice = () => {
         }
         
         .product-info button {
-          width: 20px !important;
-          height: 20px !important;
-          font-size: 8px !important;
+          width: 16px !important;
+          height: 16px !important;
+          font-size: 6px !important;
           border-radius: 50% !important;
           box-shadow: 0 2px 4px rgba(255, 102, 0, 0.4) !important;
         }
@@ -1442,7 +1473,7 @@ const AmazonsChoice = () => {
           <>
           <div style={{
             display: 'flex',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
             alignItems: 'center',
             marginBottom: windowWidth < 576 ? '10px' : '10px', // Consistent margin
             padding: windowWidth < 576 ? '8px 16px' : '10px 18px', // Reduced padding for smaller height
@@ -1471,6 +1502,7 @@ const AmazonsChoice = () => {
                 margin: 0, 
                 fontSize: windowWidth < 576 ? '1.1rem' : '1.3rem', // Reduced font size
                 fontWeight: '700',
+                textAlign: 'center',
                 textShadow: '0 2px 4px rgba(255, 255, 255, 0.3)', // Better text shadow
                 letterSpacing: '0.5px' // Improved letter spacing
               }}>
@@ -1654,12 +1686,6 @@ const AmazonsChoice = () => {
                   e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
                   e.currentTarget.style.boxShadow = '0 20px 40px rgba(255, 102, 0, 0.25)';
                   e.currentTarget.style.borderColor = '#ff6600';
-                  // Show verify button
-                  const verifyBtn = e.currentTarget.querySelector('.verify-amazon-btn');
-                  if (verifyBtn) {
-                    verifyBtn.style.opacity = '1';
-                    verifyBtn.style.pointerEvents = 'auto';
-                  }
                 }
               }}
               onMouseLeave={(e) => {
@@ -1667,12 +1693,6 @@ const AmazonsChoice = () => {
                   e.currentTarget.style.transform = 'translateY(0) scale(1)';
                   e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 102, 0, 0.15)';
                   e.currentTarget.style.borderColor = 'transparent';
-                  // Hide verify button
-                  const verifyBtn = e.currentTarget.querySelector('.verify-amazon-btn');
-                  if (verifyBtn) {
-                    verifyBtn.style.opacity = '0';
-                    verifyBtn.style.pointerEvents = 'none';
-                  }
                 }
               }}
             >
@@ -1808,11 +1828,11 @@ const AmazonsChoice = () => {
                 justifyContent: 'space-between'
               }}>
                 <h5 style={{
-                  fontSize: windowWidth < 576 ? '9px' : '10px', // Slightly smaller font for mobile
+                  fontSize: '9px', // Fixed size for all devices
                   fontWeight: '700', 
                   margin: 0,
                   lineHeight: '1.1', // Tighter line height to fit more text
-                  height: windowWidth < 576 ? '20px' : '28px', // Reduced height but optimized for 2 lines
+                  height: windowWidth < 576 ? '20px' : '22px', // Slightly reduced height for desktop
                   overflow: 'hidden',
                   color: '#1a1a1a',
                   textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
@@ -1976,7 +1996,7 @@ const AmazonsChoice = () => {
                           <div 
                             style={{
                               fontWeight: '800', 
-                              fontSize: windowWidth < 576 ? '7px' : '8px',
+                              fontSize: '7px', // Fixed size for all devices
                               color: '#dc2626',
                               background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
                               padding: windowWidth < 576 ? '1px 3px' : '1px 2px',
@@ -2015,7 +2035,7 @@ const AmazonsChoice = () => {
                         <div 
                           style={{
                           fontWeight: '800', 
-                          fontSize: windowWidth < 576 ? '7px' : '8px',
+                          fontSize: '7px', // Fixed size for all devices
                           color: '#1a1a1a',
                           background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
                           padding: windowWidth < 576 ? '1px 3px' : '1px 2px',
@@ -2075,83 +2095,16 @@ const AmazonsChoice = () => {
                           return `${formatPrice(perUnitPrice)}/unit`;
                         })()}
                       </div>
-                      {/* Show seller count WITH basket button on the right */}
+                      
+                      {/* Show seller count only (no basket button here) */}
                       {product.sellers && product.sellers.length > 0 && (
                         <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginTop: '2px',
-                          width: '100%',
-                          gap: '4px'
+                          fontSize: '8px',
+                          color: '#16a34a',
+                          fontWeight: '600',
+                          marginTop: '2px'
                         }}>
-                          <div style={{
-                            fontSize: '6px',
-                            color: '#16a34a',
-                            fontWeight: '600'
-                          }}>
-                            No of sellers: {product.sellers.length}
-                          </div>
-                          
-                          {/* Basket button on the right side */}
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              addToBasket(product)
-                            }}
-                            style={{
-                              pointerEvents: 'auto',
-                              position: 'relative',
-                              zIndex: 3,
-                              background: isInBasket(product.id) ? 
-                                'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
-                                'linear-gradient(135deg, #ff9944 0%, #ff7733 100%)',
-                              color: 'white',
-                              border: 'none',
-                              padding: '0',
-                              borderRadius: '50%',
-                              fontSize: windowWidth < 576 ? '7px' : '8px',
-                              cursor: 'pointer',
-                              boxShadow: windowWidth < 576 ? 
-                                '0 2px 4px rgba(255, 102, 0, 0.4)' : 
-                                '0 3px 8px rgba(255, 102, 0, 0.4)',
-                              transition: 'all 0.2s ease',
-                              minWidth: windowWidth < 576 ? '18px' : '20px',
-                              width: windowWidth < 576 ? '18px' : '20px',
-                              height: windowWidth < 576 ? '18px' : '20px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0
-                            }}
-                            onMouseEnter={(e) => {
-                              if (windowWidth < 576) {
-                                e.target.style.transform = 'scale(1.05)';
-                                e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
-                              } else {
-                                e.target.style.transform = 'scale(1.1)';
-                                e.target.style.boxShadow = '0 3px 8px rgba(255, 102, 0, 0.5)';
-                                e.target.style.background = isInBasket(product.id) ? 
-                                  'linear-gradient(135deg, #059669 0%, #047857 100%)' : 
-                                  'linear-gradient(135deg, #ff3300 0%, #cc2900 100%)';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (windowWidth < 576) {
-                                e.target.style.transform = 'scale(1)';
-                                e.target.style.boxShadow = '0 1px 3px rgba(255, 102, 0, 0.3)';
-                              } else {
-                                e.target.style.transform = 'scale(1)';
-                                e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
-                                e.target.style.background = isInBasket(product.id) ? 
-                                  'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
-                                  'linear-gradient(135deg, #ff9944 0%, #ff7733 100%)';
-                              }
-                            }}
-                          >
-                            <i className={isInBasket(product.id) ? 'fas fa-check' : 'fas fa-shopping-basket'}></i>
-                          </button>
+                          No of sellers: {product.sellers.length}
                         </div>
                       )}
                     </div>
@@ -2383,6 +2336,67 @@ const AmazonsChoice = () => {
                         >
                           💰 {formatPrice(profitPerUnit)}/unit
                         </div>
+                        
+                        {/* Basket button below Profit/unit in right column */}
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            addToBasket(product)
+                          }}
+                          style={{
+                            pointerEvents: 'auto',
+                            position: 'relative',
+                            zIndex: 3,
+                            background: isInBasket(product.id) ? 
+                              'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
+                              'linear-gradient(135deg, #ff9944 0%, #ff7733 100%)',
+                            color: 'white',
+                            border: 'none',
+                            padding: '0',
+                            borderRadius: '50%',
+                            fontSize: windowWidth < 576 ? '5px' : '6px',
+                            cursor: 'pointer',
+                            boxShadow: windowWidth < 576 ? 
+                              '0 2px 4px rgba(255, 102, 0, 0.4)' : 
+                              '0 3px 8px rgba(255, 102, 0, 0.4)',
+                            transition: 'all 0.2s ease',
+                            minWidth: windowWidth < 576 ? '14px' : '16px',
+                            width: windowWidth < 576 ? '14px' : '16px',
+                            height: windowWidth < 576 ? '14px' : '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            marginTop: '2px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (windowWidth < 576) {
+                              e.target.style.transform = 'scale(1.05)';
+                              e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
+                            } else {
+                              e.target.style.transform = 'scale(1.1)';
+                              e.target.style.boxShadow = '0 3px 8px rgba(255, 102, 0, 0.5)';
+                              e.target.style.background = isInBasket(product.id) ? 
+                                'linear-gradient(135deg, #059669 0%, #047857 100%)' : 
+                                'linear-gradient(135deg, #ff3300 0%, #cc2900 100%)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (windowWidth < 576) {
+                              e.target.style.transform = 'scale(1)';
+                              e.target.style.boxShadow = '0 1px 3px rgba(255, 102, 0, 0.3)';
+                            } else {
+                              e.target.style.transform = 'scale(1)';
+                              e.target.style.boxShadow = '0 2px 6px rgba(255, 102, 0, 0.4)';
+                              e.target.style.background = isInBasket(product.id) ? 
+                                'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
+                                'linear-gradient(135deg, #ff9944 0%, #ff7733 100%)';
+                            }
+                          }}
+                        >
+                          <i className={isInBasket(product.id) ? 'fas fa-check' : 'fas fa-shopping-basket'}></i>
+                        </button>
                       </div>
                     );
                   })()}
@@ -2426,7 +2440,7 @@ const AmazonsChoice = () => {
                       minWidth: 0
                     }}>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '6px' : '7px', // Increased for better readability
+                        fontSize: '6px', // Fixed size for all devices
                         color: '#1a1a1a', 
                         fontWeight: '700',
                         whiteSpace: 'nowrap',
@@ -2438,7 +2452,7 @@ const AmazonsChoice = () => {
                         💰 Deal Cost Price / {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{
-                        fontSize: windowWidth < 576 ? '6px' : '7px', // Increased for better readability
+                        fontSize: '6px', // Fixed size for all devices
                         fontWeight: '800', 
                         color: '#1a1a1a',
                         whiteSpace: 'nowrap',
@@ -2588,7 +2602,7 @@ const AmazonsChoice = () => {
                         boxSizing: 'border-box'
                       }}>
                         <span style={{
-                          fontSize: windowWidth < 576 ? '6px' : '7px', // Increased for better readability
+                          fontSize: '6px', // Fixed size for all devices
                           color: '#1a1a1a', 
                           fontWeight: '700',
                           whiteSpace: 'nowrap',
@@ -2597,7 +2611,7 @@ const AmazonsChoice = () => {
                           📈 Profit cost Price / {dealUnits} unit{dealUnits !== 1 ? 's' : ''}:
                         </span>
                         <span style={{
-                          fontSize: windowWidth < 576 ? '6px' : '7px', // Increased for better readability
+                          fontSize: '6px', // Fixed size for all devices
                           fontWeight: '800', 
                           color: '#1a1a1a',
                           whiteSpace: 'nowrap',
@@ -2622,14 +2636,13 @@ const AmazonsChoice = () => {
                   );
                 })()}
 
-                {/* Verify on Amazon Button - Hidden by default, shown on card hover */}
+                {/* Verify on Amazon Button - Always visible with dark background */}
                 <div 
                   className="verify-amazon-btn"
                   style={{ 
                     marginTop: windowWidth < 576 ? '0px' : '1px',
-                    opacity: 0,
-                    transition: 'opacity 0.3s ease',
-                    pointerEvents: 'none'
+                    opacity: 1,
+                    transition: 'opacity 0.3s ease'
                   }}>
                   <a 
                     href={`https://www.amazon.com/s?k=${encodeURIComponent(product.name)}`}
@@ -2640,12 +2653,12 @@ const AmazonsChoice = () => {
                       pointerEvents: 'auto',
                       position: 'relative',
                       zIndex: 3,
-                      background: 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)',
+                      background: 'linear-gradient(135deg, #2d3748 0%, #1a202c 100%)',
                       color: 'white',
-                      border: '2px solid #1a1a1a',
+                      border: '2px solid #ff6600',
                       padding: windowWidth < 576 ? '2px 3px' : '3px 5px',
                       borderRadius: '4px',
-                      fontSize: windowWidth < 576 ? '6px' : '8px',
+                      fontSize: '6px', // Fixed size for all devices
                       fontWeight: '700',
                       display: 'flex',
                       alignItems: 'center',
@@ -2659,26 +2672,26 @@ const AmazonsChoice = () => {
                       boxSizing: 'border-box'
                     }}
                     onMouseEnter={(e) => {
-                      e.target.style.background = 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)';
-                      e.target.style.borderColor = '#1a1a1a';
+                      e.target.style.background = 'linear-gradient(135deg, #1a202c 0%, #0f1419 100%)';
+                      e.target.style.borderColor = '#ff9944';
                       e.target.style.transform = 'translateY(-2px)';
-                      e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.4)';
+                      e.target.style.boxShadow = '0 4px 15px rgba(255, 102, 0, 0.4)';
                     }}
                     onMouseLeave={(e) => {
-                      e.target.style.background = 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)';
-                      e.target.style.borderColor = '#1a1a1a';
+                      e.target.style.background = 'linear-gradient(135deg, #2d3748 0%, #1a202c 100%)';
+                      e.target.style.borderColor = '#ff6600';
                       e.target.style.transform = 'translateY(0)';
                       e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
                     }}
                     {...(windowWidth < 576 && {
                       onTouchStart: (e) => {
-                        e.target.style.background = 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)';
-                        e.target.style.borderColor = '#1a1a1a';
+                        e.target.style.background = 'linear-gradient(135deg, #1a202c 0%, #0f1419 100%)';
+                        e.target.style.borderColor = '#ff9944';
                       },
                       onTouchEnd: (e) => {
                         setTimeout(() => {
-                          e.target.style.background = 'linear-gradient(135deg, #1a1a1a 0%, #000000 100%)';
-                          e.target.style.borderColor = '#1a1a1a';
+                          e.target.style.background = 'linear-gradient(135deg, #2d3748 0%, #1a202c 100%)';
+                          e.target.style.borderColor = '#ff6600';
                         }, 150);
                       }
                     })}

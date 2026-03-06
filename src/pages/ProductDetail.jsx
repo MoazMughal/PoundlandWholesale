@@ -115,6 +115,14 @@ const ProductDetail = () => {
   const [savingUnits, setSavingUnits] = useState(false) // Loading state for saving units
   const [quantity, setQuantity] = useState(1) // Set MOQ to 1
   const [showZoomModal, setShowZoomModal] = useState(false)
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+
+  // Track window width for responsive design
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Initialize quantity to 1 (MOQ) when product loads, but allow independent changes
   useEffect(() => {
@@ -5167,51 +5175,140 @@ _This quotation was generated from PoundlandWholesale.com_
             {/* Top Deals Section */}
           <div className="top-deals-section" style={{marginTop: '40px', paddingTop: '30px', borderTop: '2px solid #e2e8f0'}}>
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h3 style={{fontSize: '1.2rem', fontWeight: '700', color: '#2d3748', marginBottom: 0}}>
+              <h3 style={{
+                fontSize: windowWidth < 576 ? '1rem' : '1.2rem', 
+                fontWeight: '900', 
+                color: '#000000',
+                marginBottom: 0,
+                textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+              }}>
                 <i className="fas fa-fire text-danger me-2"></i>Top Deals - Highest Profit Margins
               </h3>
-              <Link to={`/?cat=${encodeURIComponent(product?.category || '')}`} className="btn btn-sm btn-outline-primary">View All</Link>
+              <Link to={`/?cat=${encodeURIComponent(product?.category || '')}`} className="btn btn-sm btn-outline-primary" style={{fontSize: windowWidth < 576 ? '0.7rem' : '0.875rem'}}>View All</Link>
             </div>
-            <div className="row g-3">
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: windowWidth < 576 
+                ? 'repeat(2, 1fr)' 
+                : windowWidth < 768 
+                  ? 'repeat(3, 1fr)' 
+                  : windowWidth < 992 
+                    ? 'repeat(4, 1fr)' 
+                    : 'repeat(6, 1fr)',
+              gap: windowWidth < 576 ? '8px' : '12px',
+              marginBottom: '20px'
+            }}>
               {topDealsFromDB.map((deal, idx) => (
-                <div key={deal.id} className="col-lg-2 col-md-3 col-sm-4 col-6">
-                  <Link 
-                    to={`/product/${deal.id}?name=${encodeURIComponent(deal.name)}&img=${encodeURIComponent(deal.image)}&price=${parseFloat(deal.price.replace(/[?$?]/g, ''))}&rating=${deal.rating}&reviews=${deal.reviews || 100}&category=${encodeURIComponent(deal.category || 'General')}&brand=${encodeURIComponent(deal.brand || '')}&discount=${deal.markup || '250%'}`}
-                    className="card border-0 shadow-sm h-100 text-decoration-none" 
-                    style={{transition: 'all 0.3s ease'}}
-                  >
-                    <div className="position-relative">
-                      <span className="badge bg-danger position-absolute top-0 end-0 m-2" style={{fontSize: '0.65rem', zIndex: 2}}>
-                        {deal.markup}
+                <Link 
+                  key={deal.id}
+                  to={`/product/${deal.id}?name=${encodeURIComponent(deal.name)}&img=${encodeURIComponent(deal.image)}&price=${parseFloat(deal.price.replace(/[£₨$€]/g, ''))}&rating=${deal.rating}&reviews=${deal.reviews || 100}&category=${encodeURIComponent(deal.category || 'General')}&brand=${encodeURIComponent(deal.brand || '')}&discount=${deal.markup || '250%'}`}
+                  className="text-decoration-none" 
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    background: '#ffffff',
+                    borderRadius: windowWidth < 576 ? '8px' : '10px',
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                    transition: 'all 0.3s ease',
+                    border: '1px solid #e2e8f0'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.12)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.08)';
+                  }}
+                >
+                  <div style={{
+                    position: 'relative',
+                    width: '100%',
+                    paddingTop: '100%',
+                    background: '#ffffff',
+                    overflow: 'hidden'
+                  }}>
+                    <span style={{
+                      position: 'absolute',
+                      top: '4px',
+                      right: '4px',
+                      background: '#b91c1c',
+                      color: 'white',
+                      padding: windowWidth < 576 ? '2px 4px' : '3px 6px',
+                      borderRadius: '4px',
+                      fontSize: windowWidth < 576 ? '7px' : '8px',
+                      fontWeight: '700',
+                      zIndex: 2,
+                      border: '1px solid rgba(0,0,0,0.1)'
+                    }}>
+                      {deal.markup}
+                    </span>
+                    <img 
+                      src={deal.image} 
+                      alt={deal.name} 
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        maxWidth: '90%',
+                        maxHeight: '90%',
+                        width: 'auto',
+                        height: 'auto',
+                        objectFit: 'contain'
+                      }} 
+                    />
+                  </div>
+                  <div style={{
+                    padding: windowWidth < 576 ? '6px' : '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: windowWidth < 576 ? '4px' : '6px',
+                    flex: 1
+                  }}>
+                    <h6 style={{
+                      fontSize: windowWidth < 576 ? '9px' : '10px',
+                      fontWeight: '700',
+                      color: '#2d3748',
+                      margin: 0,
+                      lineHeight: '1.2',
+                      height: windowWidth < 576 ? '22px' : '24px',
+                      overflow: 'hidden',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical'
+                    }}>
+                      {deal.name}
+                    </h6>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginTop: 'auto'
+                    }}>
+                      <span style={{
+                        color: '#2563eb',
+                        fontWeight: '800',
+                        fontSize: windowWidth < 576 ? '10px' : '11px'
+                      }}>
+                        {formatPrice(deal.rawPrice || 0)}
                       </span>
-                      <img 
-                        src={deal.image} 
-                        alt={deal.name} 
-                        className="card-img-top w-100" 
-                        style={{
-                          height: '120px',
-                          objectFit: 'contain',
-                          padding: '12px',
-                          background: '#ffffff'
-                        }} 
-                      />
-                    </div>
-                    <div className="card-body" style={{padding: '4px 8px 8px 8px'}}>
-                      <h6 className="card-title" style={{fontSize: '0.7rem', fontWeight: '600', color: '#2d3748', height: '30px', overflow: 'hidden', lineHeight: '1.2', marginBottom: '8px', padding: '0 2px'}}>{deal.name}</h6>
-                      <div className="d-flex justify-content-between align-items-center mb-1">
-                        <span className="text-primary fw-bold" style={{fontSize: '0.85rem'}}>{formatPrice(deal.rawPrice || 0)}</span>
-                        <div className="text-warning" style={{fontSize: '0.65rem'}}>
-                          {[...Array(5)].map((_, i) => (
-                            <i key={i} className={`${i < Math.floor(deal.rating) ? 'fas' : 'far'} fa-star`}></i>
-                          ))}
-                        </div>
+                      <div style={{fontSize: windowWidth < 576 ? '8px' : '9px', color: '#fbbf24'}}>
+                        {[...Array(5)].map((_, i) => (
+                          <i key={i} className={`${i < Math.floor(deal.rating) ? 'fas' : 'far'} fa-star`}></i>
+                        ))}
                       </div>
-                      <small className="text-success" style={{fontSize: '0.65rem'}}>
-                        <i className="fas fa-percentage me-1"></i>High Profit
-                      </small>
                     </div>
-                  </Link>
-                </div>
+                    <small style={{
+                      color: '#16a34a',
+                      fontSize: windowWidth < 576 ? '7px' : '8px',
+                      fontWeight: '600'
+                    }}>
+                      <i className="fas fa-percentage me-1"></i>High Profit
+                    </small>
+                  </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -5219,51 +5316,140 @@ _This quotation was generated from PoundlandWholesale.com_
           {/* Most Popular Section */}
           <div className="most-popular-section" style={{marginTop: '40px', paddingTop: '30px', borderTop: '2px solid #e2e8f0'}}>
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h3 style={{fontSize: '1.2rem', fontWeight: '700', color: '#2d3748', marginBottom: 0}}>
+              <h3 style={{
+                fontSize: windowWidth < 576 ? '1rem' : '1.2rem', 
+                fontWeight: '900', 
+                color: '#000000',
+                marginBottom: 0,
+                textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+              }}>
                 <i className="fas fa-star text-warning me-2"></i>Most Popular Products
               </h3>
-              <Link to="/" className="btn btn-sm btn-outline-primary">View All</Link>
+              <Link to="/" className="btn btn-sm btn-outline-primary" style={{fontSize: windowWidth < 576 ? '0.7rem' : '0.875rem'}}>View All</Link>
             </div>
-            <div className="row g-3">
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: windowWidth < 576 
+                ? 'repeat(2, 1fr)' 
+                : windowWidth < 768 
+                  ? 'repeat(3, 1fr)' 
+                  : windowWidth < 992 
+                    ? 'repeat(4, 1fr)' 
+                    : 'repeat(6, 1fr)',
+              gap: windowWidth < 576 ? '8px' : '12px',
+              marginBottom: '20px'
+            }}>
               {mostPopularFromDB.map((popular, idx) => (
-                <div key={popular.id} className="col-lg-2 col-md-3 col-sm-4 col-6">
-                  <Link 
-                    to={`/product/${popular.id}?name=${encodeURIComponent(popular.name)}&img=${encodeURIComponent(popular.image)}&price=${parseFloat(popular.price.replace(/[?$?]/g, ''))}&rating=${popular.rating}&reviews=${popular.reviews || 100}&category=${encodeURIComponent(popular.category || 'General')}&brand=${encodeURIComponent(popular.brand || '')}&discount=${popular.markup || '250%'}`}
-                    className="card border-0 shadow-sm h-100 text-decoration-none" 
-                    style={{transition: 'all 0.3s ease'}}
-                  >
-                    <div className="position-relative">
-                      <span className="badge bg-success position-absolute top-0 end-0 m-2" style={{fontSize: '0.65rem', zIndex: 2}}>
-                        <i className="fas fa-star me-1"></i>Popular
+                <Link 
+                  key={popular.id}
+                  to={`/product/${popular.id}?name=${encodeURIComponent(popular.name)}&img=${encodeURIComponent(popular.image)}&price=${parseFloat(popular.price.replace(/[£₨$€]/g, ''))}&rating=${popular.rating}&reviews=${popular.reviews || 100}&category=${encodeURIComponent(popular.category || 'General')}&brand=${encodeURIComponent(popular.brand || '')}&discount=${popular.markup || '250%'}`}
+                  className="text-decoration-none" 
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    background: '#ffffff',
+                    borderRadius: windowWidth < 576 ? '8px' : '10px',
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                    transition: 'all 0.3s ease',
+                    border: '1px solid #e2e8f0'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.12)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.08)';
+                  }}
+                >
+                  <div style={{
+                    position: 'relative',
+                    width: '100%',
+                    paddingTop: '100%',
+                    background: '#ffffff',
+                    overflow: 'hidden'
+                  }}>
+                    <span style={{
+                      position: 'absolute',
+                      top: '4px',
+                      right: '4px',
+                      background: '#b91c1c',
+                      color: 'white',
+                      padding: windowWidth < 576 ? '2px 4px' : '3px 6px',
+                      borderRadius: '4px',
+                      fontSize: windowWidth < 576 ? '7px' : '8px',
+                      fontWeight: '700',
+                      zIndex: 2,
+                      border: '1px solid rgba(0,0,0,0.1)'
+                    }}>
+                      <i className="fas fa-star me-1"></i>Popular
+                    </span>
+                    <img 
+                      src={popular.image} 
+                      alt={popular.name} 
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        maxWidth: '90%',
+                        maxHeight: '90%',
+                        width: 'auto',
+                        height: 'auto',
+                        objectFit: 'contain'
+                      }} 
+                    />
+                  </div>
+                  <div style={{
+                    padding: windowWidth < 576 ? '6px' : '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: windowWidth < 576 ? '4px' : '6px',
+                    flex: 1
+                  }}>
+                    <h6 style={{
+                      fontSize: windowWidth < 576 ? '9px' : '10px',
+                      fontWeight: '700',
+                      color: '#2d3748',
+                      margin: 0,
+                      lineHeight: '1.2',
+                      height: windowWidth < 576 ? '22px' : '24px',
+                      overflow: 'hidden',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical'
+                    }}>
+                      {popular.name}
+                    </h6>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginTop: 'auto'
+                    }}>
+                      <span style={{
+                        color: '#2563eb',
+                        fontWeight: '800',
+                        fontSize: windowWidth < 576 ? '10px' : '11px'
+                      }}>
+                        {formatPrice(popular.rawPrice || 0)}
                       </span>
-                      <img 
-                        src={popular.image} 
-                        alt={popular.name} 
-                        className="card-img-top w-100" 
-                        style={{
-                          height: '120px',
-                          objectFit: 'contain',
-                          padding: '12px',
-                          background: '#ffffff'
-                        }} 
-                      />
-                    </div>
-                    <div className="card-body" style={{padding: '4px 8px 8px 8px'}}>
-                      <h6 className="card-title" style={{fontSize: '0.7rem', fontWeight: '600', color: '#2d3748', height: '30px', overflow: 'hidden', lineHeight: '1.2', marginBottom: '8px', padding: '0 2px'}}>{popular.name}</h6>
-                      <div className="d-flex justify-content-between align-items-center mb-1">
-                        <span className="text-primary fw-bold" style={{fontSize: '0.85rem'}}>{formatPrice(popular.rawPrice || 0)}</span>
-                        <div className="text-warning" style={{fontSize: '0.65rem'}}>
-                          {[...Array(5)].map((_, i) => (
-                            <i key={i} className={`${i < Math.floor(popular.rating) ? 'fas' : 'far'} fa-star`}></i>
-                          ))}
-                        </div>
+                      <div style={{fontSize: windowWidth < 576 ? '8px' : '9px', color: '#fbbf24'}}>
+                        {[...Array(5)].map((_, i) => (
+                          <i key={i} className={`${i < Math.floor(popular.rating) ? 'fas' : 'far'} fa-star`}></i>
+                        ))}
                       </div>
-                      <small className="text-muted" style={{fontSize: '0.65rem'}}>
-                        <i className="fas fa-users me-1"></i>{popular.reviews} reviews
-                      </small>
                     </div>
-                  </Link>
-                </div>
+                    <small style={{
+                      color: '#6b7280',
+                      fontSize: windowWidth < 576 ? '7px' : '8px',
+                      fontWeight: '600'
+                    }}>
+                      <i className="fas fa-users me-1"></i>{popular.reviews} reviews
+                    </small>
+                  </div>
+                </Link>
               ))}
             </div>
           </div>

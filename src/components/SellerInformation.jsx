@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../context/CurrencyContext';
-import { useBasket } from '../context/BasketContext';
 
 const SellerInformation = ({ 
   product, 
@@ -12,12 +11,19 @@ const SellerInformation = ({
 }) => {
   const navigate = useNavigate();
   const { convertPrice, currency } = useCurrency();
-  const { getBasketCount } = useBasket();
   const [newPrice, setNewPrice] = useState('');
   const [updating, setUpdating] = useState(false);
   const [unlisting, setUnlisting] = useState(false);
   const [showAllSellers, setShowAllSellers] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  // Track window width for responsive design
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleRefresh = async () => {
     if (!onRefreshProduct) return;
@@ -155,65 +161,6 @@ const SellerInformation = ({
       {/* Show seller information to everyone - ONLY show sellers array if it exists, otherwise show legacy seller info */}
       {product.sellers && product.sellers.length > 0 ? (
         <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9', position: 'relative'}}>
-          {/* Basket Icon - Positioned absolutely in top right corner */}
-          <button
-            onClick={() => navigate('/basket')}
-            className="btn btn-sm"
-            style={{
-              position: 'absolute',
-              top: '8px',
-              right: '8px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              background: '#ff9900',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '14px',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 2px 8px rgba(255, 153, 0, 0.4)',
-              padding: '0',
-              zIndex: 10
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#e68900'
-              e.currentTarget.style.transform = 'scale(1.15)'
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.5)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = '#ff9900'
-              e.currentTarget.style.transform = 'scale(1)'
-              e.currentTarget.style.boxShadow = '0 2px 8px rgba(255, 153, 0, 0.4)'
-            }}
-          >
-            <i className="fas fa-shopping-basket"></i>
-            {getBasketCount() > 0 && (
-              <span 
-                style={{
-                  position: 'absolute',
-                  top: '-4px',
-                  right: '-4px',
-                  background: '#dc2626',
-                  color: 'white',
-                  borderRadius: '50%',
-                  width: '18px',
-                  height: '18px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '9px',
-                  fontWeight: '700',
-                  border: '2px solid white'
-                }}
-              >
-                {getBasketCount()}
-              </span>
-            )}
-          </button>
           
           <div className="mb-2">
             <div className="d-flex align-items-center mb-1">
@@ -268,9 +215,23 @@ const SellerInformation = ({
                 return (
                   <div key={`seller-${sellerEntry.sellerId || sellerEntry._id}-${sellerEntry.username}-${index}`} className="border rounded p-2 mb-2" style={{background: index === 0 ? '#f0f9ff' : '#f8f9fa'}}>
                     {index === 0 && (
-                      <div className="badge bg-success mb-2" style={{fontSize: '0.6rem', color: '#ffffff'}}>
-                        <i className="fas fa-tag me-1"></i>
-                        Lowest Price
+                      <div 
+                        className="lowest-price-badge mb-2" 
+                        style={{
+                          display: 'inline-block',
+                          fontSize: windowWidth < 576 ? '0.55rem' : '0.6rem', 
+                          color: '#ffffff',
+                          backgroundColor: '#16a34a',
+                          fontWeight: '700',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          border: 'none',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        <i className="fas fa-tag me-1" style={{color: '#ffffff'}}></i>
+                        <span style={{color: '#ffffff'}}>Lowest Price</span>
                       </div>
                     )}
                     <div className="d-flex justify-content-between align-items-start mb-2">
