@@ -28,7 +28,6 @@ import '../styles/production-optimizations.css'
 import '../styles/compact-cards.css'
 import '../styles/mobile-image-override.css' // New override file for mobile images
 import '../styles/amazons-choice-responsive.css' // Currency symbol styling
-import '../styles/seller-basket-row-fix.css' // CRITICAL: Fix for basket button alignment
 
 const AmazonsChoice = () => {
   const [searchParams] = useSearchParams()
@@ -2440,7 +2439,7 @@ const AmazonsChoice = () => {
                       minWidth: 0
                     }}>
                       <span style={{
-                        fontSize: '6px', // Fixed size for all devices
+                        fontSize: '7px', // Fixed size for all devices
                         color: '#1a1a1a', 
                         fontWeight: '700',
                         whiteSpace: 'nowrap',
@@ -2452,7 +2451,7 @@ const AmazonsChoice = () => {
                         💰 Deal Cost Price / {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
                       </span>
                       <span style={{
-                        fontSize: '6px', // Fixed size for all devices
+                        fontSize: '7px', // Fixed size for all devices
                         fontWeight: '800', 
                         color: '#1a1a1a',
                         whiteSpace: 'nowrap',
@@ -2602,16 +2601,16 @@ const AmazonsChoice = () => {
                         boxSizing: 'border-box'
                       }}>
                         <span style={{
-                          fontSize: '6px', // Fixed size for all devices
+                          fontSize: '7px', // Fixed size for all devices
                           color: '#1a1a1a', 
                           fontWeight: '700',
                           whiteSpace: 'nowrap',
                           flex: '0 1 auto'
                         }}>
-                          📈 Profit cost Price / {dealUnits} unit{dealUnits !== 1 ? 's' : ''}:
+                          📈 Profit Cost Price / {dealUnits} unit{dealUnits !== 1 ? 's' : ''}:
                         </span>
                         <span style={{
-                          fontSize: '6px', // Fixed size for all devices
+                          fontSize: '7px', // Fixed size for all devices
                           fontWeight: '800', 
                           color: '#1a1a1a',
                           whiteSpace: 'nowrap',
