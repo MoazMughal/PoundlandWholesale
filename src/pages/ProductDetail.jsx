@@ -124,11 +124,13 @@ const ProductDetail = () => {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Initialize quantity to 1 (MOQ) when product loads, but allow independent changes
+  // Initialize quantity to MOQ when product loads
   useEffect(() => {
-    if (product && quantity === 1) {
-      // Keep quantity at 1 as MOQ, but allow user to change it
-      setQuantity(1);
+    if (product) {
+      const moq = getLowestPriceBreakdown().moq || 1;
+      if (quantity < moq) {
+        setQuantity(moq);
+      }
     }
   }, [product]);
 
@@ -239,55 +241,42 @@ const ProductDetail = () => {
 
   // Function to get price breakdown for the lowest price
   const getLowestPriceBreakdown = () => {
-    if (!product) return { total: 0, price: 0, shipping: 0, isSellerPrice: false };
+    if (!product) return { total: 0, price: 0, shipping: 0, isSellerPrice: false, moq: 1 };
     
     const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
     const mainShipping = parseFloat(product.shipping) || 0;
     const mainTotal = mainPrice + mainShipping;
-    
-    if (!product.sellers || product.sellers.length === 0) {
-      return { 
-        total: mainTotal, 
-        price: mainPrice, 
-        shipping: mainShipping, 
-        isSellerPrice: false 
-      };
-    }
-    
-    // Find the seller with the lowest total price
-    let lowestSeller = null;
-    let lowestTotal = mainTotal;
-    
-    product.sellers.forEach(seller => {
-      const price = parseFloat(seller.sellerPrice);
-      const shipping = parseFloat(seller.sellerShipping) || 0;
-      const total = (isNaN(price) ? mainPrice : price) + shipping;
-      
-      if (total < lowestTotal) {
-        lowestTotal = total;
-        lowestSeller = {
-          price: isNaN(price) ? mainPrice : price,
-          shipping: shipping,
-          total: total
-        };
-      }
-    });
-    
-    if (lowestSeller) {
-      return {
-        total: lowestSeller.total,
-        price: lowestSeller.price,
-        shipping: lowestSeller.shipping,
-        isSellerPrice: true
-      };
-    }
-    
-    return { 
-      total: mainTotal, 
-      price: mainPrice, 
-      shipping: mainShipping, 
-      isSellerPrice: false 
+
+    // Start with admin price as the default
+    let lowest = {
+      price: mainPrice,
+      shipping: mainShipping,
+      total: mainTotal,
+      isSellerPrice: false,
+      moq: 1
     };
+
+    // Compare every seller's total (price + shipping) and pick the lowest
+    if (product.sellers && product.sellers.length > 0) {
+      product.sellers.forEach(seller => {
+        const sellerPrice = parseFloat(seller.sellerPrice);
+        if (isNaN(sellerPrice)) return; // skip sellers with no price
+        const sellerShipping = parseFloat(seller.sellerShipping) || 0;
+        const sellerTotal = sellerPrice + sellerShipping;
+
+        if (sellerTotal < lowest.total) {
+          lowest = {
+            price: sellerPrice,
+            shipping: sellerShipping,
+            total: sellerTotal,
+            isSellerPrice: true,
+            moq: seller.moq || 1
+          };
+        }
+      });
+    }
+
+    return lowest;
   };
 
   // Function to check if there's a lower seller price than the main product price (including shipping)
@@ -3379,10 +3368,11 @@ _This quotation was generated from PoundlandWholesale.com_
                             border: '1px solid rgba(107, 114, 128, 0.2)'
                           }}>
                             <i className="fas fa-calculator" style={{ fontSize: '0.7rem', marginRight: '6px' }}></i>
-                            {/* Hide shipping if currency is PKR (regardless of login status) */}
                             {currency === 'PKR'
                               ? formatPrice(breakdown.price)
-                              : `${formatPrice(breakdown.price)} + ${formatPrice(breakdown.shipping)} shipping`
+                              : breakdown.shipping > 0
+                                ? `${formatPrice(breakdown.price)} + ${formatPrice(breakdown.shipping)} shipping`
+                                : `${formatPrice(breakdown.price)} + £0.00 shipping`
                             }
                           </div>
                         );
@@ -3698,10 +3688,7 @@ _This quotation was generated from PoundlandWholesale.com_
                         }}>
                           {(() => {
                             const breakdown = getLowestPriceBreakdown();
-                            const basePrice = breakdown.price > 0 ? breakdown.price : parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                            const shippingCost = breakdown.shipping > 0 ? breakdown.shipping : parseFloat(product.shipping) || 0;
-                            const totalPrice = basePrice + shippingCost;
-                            return convertPrice(`£${totalPrice.toFixed(2)}`);
+                            return convertPrice(`£${breakdown.total.toFixed(2)}`);
                           })()}
                         </span>
                         <span style={{fontSize: '0.65rem', color: '#565959', fontWeight: '500'}}>/Unit</span>
@@ -3716,8 +3703,7 @@ _This quotation was generated from PoundlandWholesale.com_
                           {(() => {
                             const basePrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
                             const shippingCost = parseFloat(product.shipping) || 0;
-                            const totalPrice = basePrice + shippingCost;
-                            return convertPrice(`£${totalPrice.toFixed(2)}`);
+                            return convertPrice(`£${(basePrice + shippingCost).toFixed(2)}`);
                           })()}
                         </span>
                       )}
@@ -3742,15 +3728,13 @@ _This quotation was generated from PoundlandWholesale.com_
                       <span style={{ fontWeight: '600', whiteSpace: 'nowrap' }}>
                         {(() => {
                           const breakdown = getLowestPriceBreakdown();
-                          const basePrice = breakdown.price > 0 ? breakdown.price : parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                          const shippingCost = breakdown.shipping > 0 ? breakdown.shipping : parseFloat(product.shipping) || 0;
-                          
-                          // Hide shipping if currency is PKR (regardless of login status)
                           if (currency === 'PKR') {
-                            return `${formatPrice(basePrice)}`;
+                            return `${formatPrice(breakdown.price)}`;
                           }
-                          
-                          return `${formatPrice(basePrice)} + ${formatPrice(shippingCost)} shipping`;
+                          if (breakdown.shipping > 0) {
+                            return `${formatPrice(breakdown.price)} + ${formatPrice(breakdown.shipping)} shipping`;
+                          }
+                          return `${formatPrice(breakdown.price)} + £0.00 shipping`;
                         })()}
                       </span>
                     </div>
@@ -3818,7 +3802,7 @@ _This quotation was generated from PoundlandWholesale.com_
                         }}>Quantity:</label>
                         <div className="d-flex align-items-center gap-1 mb-1">
                           <button
-                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                            onClick={() => setQuantity(Math.max(getLowestPriceBreakdown().moq, quantity - 1))}
                             style={{
                               background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
                               border: '1px solid #e1e5e9',
@@ -3861,7 +3845,7 @@ _This quotation was generated from PoundlandWholesale.com_
                               fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                             }}
                             value={quantity}
-                            min="1"
+                            min={getLowestPriceBreakdown().moq}
                             step="1"
                             onChange={(e) => {
                               const value = e.target.value;
@@ -3872,9 +3856,10 @@ _This quotation was generated from PoundlandWholesale.com_
                               }
                             }}
                             onBlur={(e) => {
+                              const moq = getLowestPriceBreakdown().moq;
                               const value = parseInt(e.target.value);
-                              if (isNaN(value) || value < 1) {
-                                setQuantity(1);
+                              if (isNaN(value) || value < moq) {
+                                setQuantity(moq);
                               }
                               e.target.style.borderColor = '#e1e5e9';
                               e.target.style.boxShadow = 'none';
@@ -3883,7 +3868,7 @@ _This quotation was generated from PoundlandWholesale.com_
                               e.target.style.borderColor = '#ff9900';
                               e.target.style.boxShadow = '0 0 0 2px rgba(255, 153, 0, 0.1)';
                             }}
-                            placeholder="1"
+                            placeholder={String(getLowestPriceBreakdown().moq)}
                           />
                           <button
                             onClick={() => setQuantity(quantity + 1)}
@@ -3920,7 +3905,7 @@ _This quotation was generated from PoundlandWholesale.com_
                           fontWeight: '500'
                         }}>
                           <i className="fas fa-info-circle me-1"></i>
-                          MOQ: 1 unit • Changes affect Platform Comparison gross profit
+                          MOQ: {getLowestPriceBreakdown().moq} unit{getLowestPriceBreakdown().moq > 1 ? 's' : ''} • Changes affect Platform Comparison gross profit
                         </small>
                       </div>
 
@@ -4057,10 +4042,6 @@ _This quotation was generated from PoundlandWholesale.com_
                       </div>
                       {(() => {
                         const breakdown = getLowestPriceBreakdown();
-                        const shippingCost = breakdown.shipping || parseFloat(product.shipping) || 0;
-                        const basePrice = breakdown.price || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                        
-                        // Always show breakdown - even if shipping is 0
                         return (
                           <div style={{
                             fontSize: '0.75rem', 
@@ -4073,7 +4054,10 @@ _This quotation was generated from PoundlandWholesale.com_
                             border: '1px solid rgba(107, 114, 128, 0.2)'
                           }}>
                             <i className="fas fa-calculator" style={{ fontSize: '0.65rem', marginRight: '4px' }}></i>
-                            £{basePrice.toFixed(2)} + £{shippingCost.toFixed(2)} shipping
+                            {currency === 'PKR'
+                              ? `${formatPrice(breakdown.price)}`
+                              : `${formatPrice(breakdown.price)} + ${formatPrice(breakdown.shipping)} shipping`
+                            }
                           </div>
                         );
                       })()}
@@ -4125,10 +4109,6 @@ _This quotation was generated from PoundlandWholesale.com_
                           </div>
                           {(() => {
                             const breakdown = getLowestPriceBreakdown();
-                            const shippingCost = breakdown.shipping || parseFloat(product.shipping) || 0;
-                            const basePrice = breakdown.price || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                            
-                            // Always show breakdown - even if shipping is 0
                             return (
                               <div style={{
                                 fontSize: '0.65rem', 
@@ -4140,7 +4120,10 @@ _This quotation was generated from PoundlandWholesale.com_
                                 border: '1px solid rgba(107, 114, 128, 0.2)'
                               }}>
                                 <i className="fas fa-calculator" style={{ fontSize: '0.55rem', marginRight: '3px' }}></i>
-                                £{basePrice.toFixed(2)} + £{shippingCost.toFixed(2)} shipping
+                                {currency === 'PKR'
+                                  ? `${formatPrice(breakdown.price)}`
+                                  : `${formatPrice(breakdown.price)} + ${formatPrice(breakdown.shipping)} shipping`
+                                }
                               </div>
                             );
                           })()}

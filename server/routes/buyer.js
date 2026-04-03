@@ -120,7 +120,7 @@ router.post('/register', authLimiter, validateBuyerRegister, async (req, res) =>
     const token = jwt.sign(
       { id: buyer._id, role: 'buyer' },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '12h' }
     );
 
     res.status(201).json({
@@ -171,7 +171,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { id: buyer._id, role: 'buyer' },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '12h' }
     );
 
     res.json({

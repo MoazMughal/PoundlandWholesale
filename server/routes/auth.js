@@ -95,7 +95,7 @@ router.post('/login', authLimiter, validateLogin, async (req, res) => {
     const token = jwt.sign(
       tokenPayload,
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '12h' }
     );
 
     // Return admin data without password
@@ -941,7 +941,7 @@ router.post('/refresh', async (req, res) => {
     const newToken = jwt.sign(
       { id: admin._id, role: admin.role },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '12h' }
     );
 
     // Return new token and admin data

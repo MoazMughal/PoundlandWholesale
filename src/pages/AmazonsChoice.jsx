@@ -1381,7 +1381,7 @@ const AmazonsChoice = () => {
                 color: '#ff6600',
                 letterSpacing: '0.2px'
               }}>
-                Poundland Wholesale
+                Poundland Wholesalesss
               </h1>
               <p style={{
                 margin: 0,
@@ -2417,52 +2417,37 @@ const AmazonsChoice = () => {
                 <div style={{ marginTop: windowWidth < 576 ? '0px' : '1px' }}>
                   <div style={{
                     background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)', 
-                    padding: windowWidth < 576 ? '3px 4px' : '1px 2px',
-                    borderRadius: windowWidth < 576 ? '3px' : '3px',
-                    border: '1px solid #1a1a1a', 
-                    boxShadow: windowWidth < 576 ? '0 1px 3px rgba(0, 0, 0, 0.08)' : '0 1px 4px rgba(0, 0, 0, 0.08)',
+                    padding: windowWidth < 576 ? '3px 4px' : '2px 3px',
+                    borderRadius: '3px',
+                    border: '1px solid #1a1a1a',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                     display: 'flex',
-                    justifyContent: 'space-between',
                     alignItems: 'center',
-                    minWidth: windowWidth < 576 ? '100%' : 'auto',
+                    justifyContent: 'space-between',
                     width: '100%',
-                    gap: windowWidth < 576 ? '6px' : '4px',
-                    minHeight: windowWidth < 576 ? '18px' : '20px',
-                    maxHeight: windowWidth < 576 ? '20px' : '22px',
-                    boxSizing: 'border-box'
+                    gap: '4px',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden'
                   }}>
-                    <div style={{
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: windowWidth < 576 ? '8px' : '4px',
-                      flex: 1,
-                      minWidth: 0
+                    <span style={{
+                      fontSize: windowWidth < 576 ? '6px' : '7px',
+                      color: '#1a1a1a',
+                      fontWeight: '700',
+                      flex: '1 1 0',
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
                     }}>
-                      <span style={{
-                        fontSize: '7px', // Fixed size for all devices
-                        color: '#1a1a1a', 
-                        fontWeight: '700',
-                        whiteSpace: 'nowrap',
-                        overflow: 'visible',
-                        textOverflow: windowWidth < 576 ? 'ellipsis' : 'clip',
-                        maxWidth: windowWidth < 576 ? 'calc(100% - 40px)' : 'none',
-                        flex: '0 1 auto'
-                      }}>
-                        💰 Deal Cost Price / {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
-                      </span>
-                      <span style={{
-                        fontSize: '7px', // Fixed size for all devices
-                        fontWeight: '800', 
-                        color: '#1a1a1a',
-                        whiteSpace: 'nowrap',
-                        minWidth: windowWidth < 576 ? '30px' : '40px',
-                        display: 'inline-block',
-                        textAlign: windowWidth < 576 ? 'left' : 'center',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        flex: '0 0 auto',
-                        marginLeft: windowWidth < 576 ? '-3px' : '0px' // Move left on mobile
-                      }}>
+                      💰 Deal Cost Price / {product.dealUnits || 1} unit{(product.dealUnits || 1) !== 1 ? 's' : ''}:
+                    </span>
+                    <span style={{
+                      fontSize: windowWidth < 576 ? '7px' : '8px',
+                      fontWeight: '800',
+                      color: '#1a1a1a',
+                      flex: '0 0 auto',
+                      whiteSpace: 'nowrap'
+                    }}>
                         {(() => {
                           try {
                             // Use raw price (per unit) from database
@@ -2511,7 +2496,6 @@ const AmazonsChoice = () => {
                           }
                         })()}
                       </span>
-                    </div>
                   </div>
                 </div>
                   );
@@ -2583,38 +2567,39 @@ const AmazonsChoice = () => {
                   }
 
                   return (
-                    <div style={{ marginTop: windowWidth < 576 ? '1px' : '1px' }}>
+                    <div style={{ marginTop: '1px' }}>
                       <div style={{
                         background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)', 
-                        padding: windowWidth < 576 ? '3px 4px' : '1px 2px',
-                        borderRadius: windowWidth < 576 ? '3px' : '3px',
+                        padding: windowWidth < 576 ? '3px 4px' : '2px 3px',
+                        borderRadius: '3px',
                         border: '1px solid #1a1a1a', 
-                        boxShadow: windowWidth < 576 ? '0 1px 3px rgba(0, 0, 0, 0.08)' : '0 1px 4px rgba(0, 0, 0, 0.08)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                         display: 'flex',
-                        justifyContent: 'space-between',
                         alignItems: 'center',
-                        minWidth: windowWidth < 576 ? '100%' : 'auto',
+                        justifyContent: 'space-between',
                         width: '100%',
-                        gap: windowWidth < 576 ? '6px' : '4px',
-                        minHeight: windowWidth < 576 ? '18px' : '20px',
-                        maxHeight: windowWidth < 576 ? '20px' : '22px',
-                        boxSizing: 'border-box'
+                        gap: '4px',
+                        boxSizing: 'border-box',
+                        overflow: 'hidden'
                       }}>
                         <span style={{
-                          fontSize: '7px', // Fixed size for all devices
+                          fontSize: windowWidth < 576 ? '6px' : '7px',
                           color: '#1a1a1a', 
                           fontWeight: '700',
-                          whiteSpace: 'nowrap',
-                          flex: '0 1 auto'
+                          flex: '1 1 0',
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
                         }}>
                           📈 Profit Cost Price / {dealUnits} unit{dealUnits !== 1 ? 's' : ''}:
                         </span>
                         <span style={{
-                          fontSize: '7px', // Fixed size for all devices
+                          fontSize: windowWidth < 576 ? '7px' : '8px',
                           fontWeight: '800', 
                           color: '#1a1a1a',
-                          whiteSpace: 'nowrap',
-                          textAlign: 'right'
+                          flex: '0 0 auto',
+                          whiteSpace: 'nowrap'
                         }}>
                           {(() => {
                             const formatted = formatPrice(totalProfit);
@@ -2630,8 +2615,8 @@ const AmazonsChoice = () => {
                             return formatted;
                           })()}
                         </span>
-                      </div>
                     </div>
+                  </div>
                   );
                 })()}
 

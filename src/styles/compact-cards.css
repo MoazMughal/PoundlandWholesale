@@ -9,7 +9,6 @@ div[class*="product-card"],
 div[class*="enhanced-card"] {
   /* Force compact dimensions immediately */
   min-height: 220px !important;
-  max-height: 250px !important;
   height: auto !important;
   padding: 4px !important;
   margin: 0 !important;
@@ -21,7 +20,7 @@ div[class*="enhanced-card"] {
   
   /* Override any conflicting positioning */
   position: relative !important;
-  overflow: hidden !important;
+  overflow: visible !important;
 }
 
 /* Mobile specific overrides */
@@ -136,7 +135,7 @@ div[class*="enhanced-card"] {
   display: flex !important;
   flex-direction: column !important;
   gap: 1px !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   flex: 1 !important;
   justify-content: space-between !important;
 }

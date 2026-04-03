@@ -1,7 +1,7 @@
 // Authentication Session Manager
 // Handles auto-logout on browser close and inactivity
 
-const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
+const SESSION_TIMEOUT = 12 * 60 * 60 * 1000; // 12 hours
 const ACTIVITY_CHECK_INTERVAL = 60 * 1000; // Check every minute
 
 class AuthSessionManager {

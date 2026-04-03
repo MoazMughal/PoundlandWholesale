@@ -1621,7 +1621,7 @@ router.get('/public/fast', mobileImageOptimization, optimizeProductImages, addRe
         
         fastProducts = await Product.find(fallbackQuery)
         .limit(50)
-        .select('name price category brand images dealUnits currency rating reviews isAmazonsChoice isBestSeller profitCalculations profitEvaluation platformComparison showEvaluation asin sku variations')
+        .select('name price shipping category brand images dealUnits currency rating reviews isAmazonsChoice isBestSeller profitCalculations profitEvaluation platformComparison showEvaluation asin sku variations sellers sellerInfo')
         .lean()
         .maxTimeMS(3000);
         
@@ -1734,12 +1734,13 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
     
     if (search) {
       // Escape special regex characters to prevent MongoDB errors
-      const escapeRegex = (str) => {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      };
+      const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+
       
       const escapedSearch = escapeRegex(search);
-      const searchTerms = search.toLowerCase().split(' ').filter(term => term.length > 2);
+      // Use all words including short ones like G10, 4, MoD
+      const searchTerms = search.toLowerCase().split(/\s+/).filter(term => term.length >= 1);
       const escapedTerms = searchTerms.map(term => escapeRegex(term));
       
       // Check if search looks like a MongoDB ObjectId (24 hex characters)
@@ -2095,19 +2096,20 @@ router.get('/public/:id', async (req, res) => {
           return {
             sellerId: seller.sellerId._id,
             username: seller.sellerId.username || seller.username,
-            whatsappNo: seller.sellerId.whatsappNo || seller.whatsappNo, // Use fresh WhatsApp from Seller model
+            whatsappNo: seller.sellerId.whatsappNo || seller.whatsappNo,
             city: seller.sellerId.city || seller.city,
             country: seller.sellerId.country || seller.country,
             businessName: seller.sellerId.businessName || seller.businessName,
             sellerPrice: seller.sellerPrice,
             sellerShipping: seller.sellerShipping,
+            moq: seller.moq || 1,
             listedAt: seller.listedAt,
             verificationStatus: seller.sellerId.verificationStatus
           };
         }
         // Fallback to cached data if sellerId not populated
         const { email, transactionId, paymentMethod, notes, ...publicSellerInfo } = seller;
-        return publicSellerInfo;
+        return { ...publicSellerInfo, moq: seller.moq || 1 };
       });
     }
     
@@ -2287,7 +2289,8 @@ router.get('/', authenticateAdmin, async (req, res) => {
       };
       
       const escapedSearch = escapeRegex(search);
-      const searchTerms = search.toLowerCase().split(' ').filter(term => term.length > 2);
+      // Use all words including short ones like G10, 4, MoD
+      const searchTerms = search.toLowerCase().split(/\s+/).filter(term => term.length >= 1);
       const escapedTerms = searchTerms.map(term => escapeRegex(term));
       
       // Check if search looks like a MongoDB ObjectId (24 hex characters)
@@ -3941,8 +3944,9 @@ router.get('/admin/all-seller-listings', authenticateAdmin, async (req, res) => 
               seller: sellerInfo,
               sellerUsername: sellerInfo.username || sellerEntry.username || 'Unknown',
               sellerEmail: sellerInfo.email || sellerEntry.email || 'unknown',
-              sellerPrice: sellerEntry.price,
+              sellerPrice: sellerEntry.sellerPrice || sellerEntry.price,
               sellerStock: sellerEntry.stock,
+              moq: sellerEntry.moq || 1,
               listedAt: sellerEntry.listedAt
             });
           });
@@ -4339,7 +4343,8 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
             sellerPrice: sellerEntry.sellerPrice,
             sellerShipping: sellerEntry.sellerShipping || 0
           })
-        }
+        },
+        sellerMoq: sellerEntry?.moq || 1
       };
     });
     
@@ -4382,6 +4387,7 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
             originalRequestId: request._id,
             rejectionReason: request.rejectionReason,
             rejectedAt: request.rejectedAt,
+            sellerMoq: request.moq || 1,
             sellerInfo: {
               username: seller.username,
               _id: seller._id

@@ -6,7 +6,7 @@ class SessionManager {
     this.SESSION_KEY = 'admin_session_id';
     this.LOGOUT_FLAG = 'admin_logged_out';
     this.SESSION_TIMESTAMP = 'admin_session_timestamp';
-    this.SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    this.SESSION_TIMEOUT = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
   }
 
   // Initialize a new session

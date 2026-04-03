@@ -82,6 +82,11 @@ const productSchema = new mongoose.Schema({
       type: Number,
       default: 0
     },
+    moq: { // Minimum Order Quantity set by seller
+      type: Number,
+      default: 1,
+      min: 1
+    },
     stock: { // Seller's stock quantity
       type: Number,
       default: 0

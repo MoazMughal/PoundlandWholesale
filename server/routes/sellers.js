@@ -123,7 +123,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { id: seller._id, role: 'seller', supplierId: seller.supplierId },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '12h' }
     );
 
     res.json({
@@ -898,7 +898,8 @@ router.post('/request-admin-product-listing', authenticateSeller, async (req, re
       productName,
       productPrice,
       sellerPrice,
-      sellerShipping = 0, // Add shipping field with default value
+      sellerShipping = 0,
+      moq = 1,
       notes = 'Seller requested to list admin product'
     } = req.body;
 
@@ -962,7 +963,8 @@ router.post('/request-admin-product-listing', authenticateSeller, async (req, re
       productName: adminProduct.name,
       productPrice: adminProduct.price,
       sellerPrice: sellerPrice ? parseFloat(sellerPrice) : parseFloat(adminProduct.price),
-      sellerShipping: sellerShipping ? parseFloat(sellerShipping) : 0, // Add shipping to request
+      sellerShipping: sellerShipping ? parseFloat(sellerShipping) : 0,
+      moq: moq ? Math.max(1, parseInt(moq)) : 1,
       transactionId: `REQ_${Date.now()}`,
       paymentMethod: 'Pending Admin Approval',
       notes,
@@ -1250,7 +1252,8 @@ router.put('/admin/listing-requests/:sellerId/:requestId/approve', authenticateA
       country: seller.country,
       verificationStatus: seller.verificationStatus,
       sellerPrice: request.sellerPrice,
-      sellerShipping: request.sellerShipping || 0, // Add seller shipping
+      sellerShipping: request.sellerShipping || 0,
+      moq: request.moq || 1,
       listedAt: new Date(),
       transactionId: request.transactionId,
       paymentMethod: 'Admin Approved',
@@ -1388,7 +1391,7 @@ router.post('/cleanup-duplicate-sellers', authenticateAdmin, async (req, res) =>
 router.put('/update-inventory/:productId', authenticateSeller, async (req, res) => {
   try {
     const { productId } = req.params;
-    const { price, stock, shipping } = req.body;
+    const { price, stock, shipping, moq } = req.body;
     
     // Import Product model
     const Product = (await import('../models/Product.js')).default;
@@ -1443,11 +1446,12 @@ router.put('/update-inventory/:productId', authenticateSeller, async (req, res) 
     // Update the seller's specific stock in the sellers array
     if (stock !== undefined) {
       product.sellers[sellerIndex].stock = parseInt(stock);
-      console.log('✅ Updated seller stock in sellers array:', {
-        sellerUsername: product.sellers[sellerIndex].username,
-        oldStock: product.sellers[sellerIndex].stock,
-        newStock: parseInt(stock)
-      });
+    }
+
+    // Update the seller's MOQ in the sellers array
+    if (moq !== undefined) {
+      const parsedMoq = Math.max(1, parseInt(moq));
+      product.sellers[sellerIndex].moq = parsedMoq;
     }
 
     // Also update the primary sellerInfo if this seller is the primary seller
@@ -1480,7 +1484,8 @@ router.put('/update-inventory/:productId', authenticateSeller, async (req, res) 
         _id: product._id,
         sellerPrice: product.sellers[sellerIndex].sellerPrice,
         sellerStock: product.sellers[sellerIndex].stock,
-        sellerShipping: product.sellers[sellerIndex].sellerShipping
+        sellerShipping: product.sellers[sellerIndex].sellerShipping,
+        sellerMoq: product.sellers[sellerIndex].moq || 1
       },
       sellerInfo: {
         username: product.sellers[sellerIndex].username,
@@ -1572,6 +1577,7 @@ router.get('/my-listed-products', authenticateSeller, async (req, res) => {
         sellerTransactionId: sellerEntry?.transactionId,
         sellerPaymentMethod: sellerEntry?.paymentMethod,
         sellerNotes: sellerEntry?.notes,
+        sellerMoq: sellerEntry?.moq || 1,
         // Add seller's individual price if they have one
         ...(sellerEntry?.sellerPrice && {
           sellerInfo: {
@@ -1612,6 +1618,53 @@ router.get('/my-listed-products', authenticateSeller, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching seller listed products:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Update seller's MOQ for a listed product
+router.put('/update-moq/:productId', authenticateSeller, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { moq } = req.body;
+
+    const parsedMoq = parseInt(moq);
+    if (!parsedMoq || parsedMoq < 1) {
+      return res.status(400).json({ message: 'MOQ must be a positive integer (minimum 1)' });
+    }
+
+    const Product = (await import('../models/Product.js')).default;
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const sellerEntry = product.sellers?.find(
+      s => s.sellerId.toString() === req.seller._id.toString()
+    );
+
+    if (!sellerEntry) {
+      return res.status(400).json({ message: 'You have not listed this product' });
+    }
+
+    sellerEntry.moq = parsedMoq;
+    await product.save();
+
+    // Also update in seller's listing requests
+    const seller = await Seller.findById(req.seller._id);
+    if (seller?.productListingRequests) {
+      const request = seller.productListingRequests.find(
+        r => r.productId.toString() === productId
+      );
+      if (request) {
+        request.moq = parsedMoq;
+        await seller.save();
+      }
+    }
+
+    res.json({ success: true, message: 'MOQ updated successfully', moq: parsedMoq });
+  } catch (error) {
+    console.error('Update MOQ error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

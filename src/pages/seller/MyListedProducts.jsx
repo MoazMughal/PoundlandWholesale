@@ -15,6 +15,8 @@ const MyListedProducts = () => {
   const [counts, setCounts] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 })
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+  const [editingMoq, setEditingMoq] = useState({}) // { productId: value }
+  const [savingMoq, setSavingMoq] = useState({})   // { productId: bool }
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth)
@@ -95,6 +97,34 @@ const MyListedProducts = () => {
     } catch (error) {
       console.error('Unlist product error:', error)
       alert('❌ Failed to unlist product')
+    }
+  }
+
+  const handleSaveMoq = async (productId) => {
+    const moqValue = editingMoq[productId]
+    const parsed = parseInt(moqValue)
+    if (!parsed || parsed < 1) { alert('MOQ must be 1 or greater'); return }
+
+    setSavingMoq(prev => ({ ...prev, [productId]: true }))
+    try {
+      const token = localStorage.getItem('sellerToken')
+      const response = await fetch(getApiUrl(`sellers/update-moq/${productId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ moq: parsed })
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setProducts(prev => prev.map(p => p._id === productId ? { ...p, sellerMoq: parsed } : p))
+        setEditingMoq(prev => { const n = { ...prev }; delete n[productId]; return n })
+        alert('✅ MOQ updated successfully!')
+      } else {
+        alert('❌ ' + (data.message || 'Failed to update MOQ'))
+      }
+    } catch (error) {
+      alert('❌ Failed to update MOQ')
+    } finally {
+      setSavingMoq(prev => ({ ...prev, [productId]: false }))
     }
   }
 
@@ -578,6 +608,39 @@ const MyListedProducts = () => {
                     {product.sellerTransactionId && (
                       <div><strong>Transaction:</strong> {product.sellerTransactionId}</div>
                     )}
+                    {/* MOQ inline editor */}
+                    <div style={{ marginTop: '8px', padding: '6px', background: '#fff3cd', borderRadius: '4px', border: '1px solid #ffc107' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: '#856404', marginBottom: '4px' }}>
+                        <i className="fas fa-boxes" style={{ marginRight: '4px' }}></i>
+                        Min. Order Quantity (MOQ)
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <input
+                          type="number"
+                          min="1"
+                          value={editingMoq[product._id] !== undefined ? editingMoq[product._id] : (product.sellerMoq || 1)}
+                          onChange={e => setEditingMoq(prev => ({ ...prev, [product._id]: e.target.value }))}
+                          style={{
+                            width: '60px', padding: '3px 6px', border: '1px solid #ffc107',
+                            borderRadius: '4px', fontSize: '12px', fontWeight: '700', textAlign: 'center'
+                          }}
+                        />
+                        <span style={{ fontSize: '11px', color: '#856404' }}>units</span>
+                        {editingMoq[product._id] !== undefined && (
+                          <button
+                            onClick={() => handleSaveMoq(product._id)}
+                            disabled={savingMoq[product._id]}
+                            style={{
+                              padding: '3px 8px', background: '#28a745', color: 'white',
+                              border: 'none', borderRadius: '4px', fontSize: '11px',
+                              fontWeight: '600', cursor: 'pointer'
+                            }}
+                          >
+                            {savingMoq[product._id] ? '...' : 'Save'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                     {product.sellerInfo && (
                       <div style={{ marginTop: '8px', padding: '6px', background: '#e8f5e9', borderRadius: '4px' }}>
                         <div style={{ fontSize: '10px', fontWeight: '600', color: '#28a745', marginBottom: '4px' }}>

@@ -58,3 +58,77 @@
     display: block;
   }
 }
+
+/* ============================================
+   PRODUCTS GRID - Fully Responsive (no overflow)
+   ============================================ */
+
+#products-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)) !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Mobile: min 2 columns */
+@media (max-width: 575px) {
+  #products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+}
+
+/* Small tablet: min 3 columns */
+@media (min-width: 576px) and (max-width: 767px) {
+  #products-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+}
+
+/* Tablet: 4 columns */
+@media (min-width: 768px) and (max-width: 991px) {
+  #products-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+}
+
+/* Desktop: wider cards */
+@media (min-width: 992px) {
+  #products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)) !important;
+    gap: 15px !important;
+  }
+}
+
+/* Prevent any card from overflowing its column */
+.product-card,
+.enhanced-card,
+#products-grid > div {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+
+/* Keep image container clipped */
+.product-image-container,
+.product-card .product-image-container,
+.enhanced-card .product-image-container {
+  overflow: hidden !important;
+}
+
+/* ============================================
+   DEAL COST & PROFIT COST PRICE - Larger text
+   ============================================ */
+
+/* Increase font size for deal/profit price rows on desktop */
+@media (min-width: 576px) {
+  .product-info [style*="Deal Cost"],
+  .product-info [style*="Profit Cost"] {
+    font-size: 9px !important;
+  }
+}

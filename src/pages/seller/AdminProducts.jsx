@@ -145,6 +145,7 @@ const AdminProducts = () => {
       // Check if there are existing sellers and show confirmation
       let sellerPrice = null;
       let sellerShipping = null;
+      let sellerMoq = 1;
       
       if (product.sellers && product.sellers.length > 0) {
         const existingSellers = product.sellers
@@ -155,7 +156,7 @@ const AdminProducts = () => {
           })
           .map((s, index) => {
             const price = parseFloat(s.sellerPrice) || parseFloat(product.price) || 0;
-            return `${index + 1}. ${s.username} - £${price.toFixed(2)}${index === 0 ? ' (Lowest)' : ''}`;
+            return `${index + 1}. ${s.username} - £${price.toFixed(2)} (MOQ: ${s.moq || 1})${index === 0 ? ' (Lowest)' : ''}`;
           })
           .join('\n');
         
@@ -163,88 +164,68 @@ const AdminProducts = () => {
           ...product.sellers.map(s => parseFloat(s.sellerPrice) || parseFloat(product.price) || 0)
         );
         
-        const confirmMessage = `This product is already listed by ${product.sellers.length} seller${product.sellers.length > 1 ? 's' : ''}:\n\n${existingSellers}\n\nCurrent lowest price: £${lowestPrice.toFixed(2)}\n\nDo you want to request to list this product to compete with existing sellers?\n\nNote: Your request will be sent to admin for approval.`;
+        const confirmMessage = `This product is already listed by ${product.sellers.length} seller${product.sellers.length > 1 ? 's' : ''}:\n\n${existingSellers}\n\nCurrent lowest price: £${lowestPrice.toFixed(2)}\n\nDo you want to request to list this product?\n\nNote: Your request will be sent to admin for approval.`;
         
-        if (!window.confirm(confirmMessage)) {
-          return; // User cancelled
-        }
+        if (!window.confirm(confirmMessage)) return;
         
-        // Ask for seller's competitive price
         const priceInput = window.prompt(
           `Set your competitive price for "${product.name}":\n\nCurrent lowest price: £${lowestPrice.toFixed(2)}\nAdmin price: £${parseFloat(product.price).toFixed(2)}\n\nEnter your price (in GBP, without £ symbol):`,
           Math.max(0.01, lowestPrice - 0.01).toFixed(2)
         );
-        
-        if (priceInput === null) {
-          return; // User cancelled
-        }
-        
+        if (priceInput === null) return;
         const parsedPrice = parseFloat(priceInput);
-        if (isNaN(parsedPrice) || parsedPrice <= 0) {
-          alert('❌ Invalid price. Please enter a valid positive number.');
-          return;
-        }
-        
+        if (isNaN(parsedPrice) || parsedPrice <= 0) { alert('❌ Invalid price.'); return; }
         sellerPrice = parsedPrice;
         
-        // Ask for seller's shipping cost
         const shippingInput = window.prompt(
-          `Set your shipping cost for "${product.name}":\n\nAdmin shipping: £${parseFloat(product.shipping || 0).toFixed(2)}\n\nEnter your shipping cost (in GBP, without £ symbol):`,
+          `Set your shipping cost for "${product.name}":\n\nAdmin shipping: £${parseFloat(product.shipping || 0).toFixed(2)}\n\nEnter your shipping cost (0 or greater):`,
           parseFloat(product.shipping || 0).toFixed(2)
         );
-        
-        if (shippingInput === null) {
-          return; // User cancelled
-        }
-        
+        if (shippingInput === null) return;
         const parsedShipping = parseFloat(shippingInput);
-        if (isNaN(parsedShipping) || parsedShipping < 0) {
-          alert('❌ Invalid shipping cost. Please enter a valid number (0 or greater).');
-          return;
-        }
-        
+        if (isNaN(parsedShipping) || parsedShipping < 0) { alert('❌ Invalid shipping cost.'); return; }
         sellerShipping = parsedShipping;
+
+        const moqInput = window.prompt(
+          `Set your Minimum Order Quantity (MOQ) for "${product.name}":\n\nThis is the minimum number of units a buyer must order from you.\n\nEnter MOQ (minimum 1):`,
+          '1'
+        );
+        if (moqInput === null) return;
+        const parsedMoq = parseInt(moqInput);
+        if (isNaN(parsedMoq) || parsedMoq < 1) { alert('❌ Invalid MOQ. Must be 1 or greater.'); return; }
+        sellerMoq = parsedMoq;
+
       } else {
-        // First seller - ask for their price
         const priceInput = window.prompt(
           `Set your price for "${product.name}":\n\nAdmin price: £${parseFloat(product.price).toFixed(2)}\n\nEnter your price (in GBP, without £ symbol):`,
           parseFloat(product.price).toFixed(2)
         );
-        
-        if (priceInput === null) {
-          return; // User cancelled
-        }
-        
+        if (priceInput === null) return;
         const parsedPrice = parseFloat(priceInput);
-        if (isNaN(parsedPrice) || parsedPrice <= 0) {
-          alert('❌ Invalid price. Please enter a valid positive number.');
-          return;
-        }
-        
+        if (isNaN(parsedPrice) || parsedPrice <= 0) { alert('❌ Invalid price.'); return; }
         sellerPrice = parsedPrice;
         
-        // Ask for seller's shipping cost
         const shippingInput = window.prompt(
-          `Set your shipping cost for "${product.name}":\n\nAdmin shipping: £${parseFloat(product.shipping || 0).toFixed(2)}\n\nEnter your shipping cost (in GBP, without £ symbol):`,
+          `Set your shipping cost for "${product.name}":\n\nAdmin shipping: £${parseFloat(product.shipping || 0).toFixed(2)}\n\nEnter your shipping cost (0 or greater):`,
           parseFloat(product.shipping || 0).toFixed(2)
         );
-        
-        if (shippingInput === null) {
-          return; // User cancelled
-        }
-        
+        if (shippingInput === null) return;
         const parsedShipping = parseFloat(shippingInput);
-        if (isNaN(parsedShipping) || parsedShipping < 0) {
-          alert('❌ Invalid shipping cost. Please enter a valid number (0 or greater).');
-          return;
-        }
-        
+        if (isNaN(parsedShipping) || parsedShipping < 0) { alert('❌ Invalid shipping cost.'); return; }
         sellerShipping = parsedShipping;
+
+        const moqInput = window.prompt(
+          `Set your Minimum Order Quantity (MOQ) for "${product.name}":\n\nThis is the minimum number of units a buyer must order from you.\n\nEnter MOQ (minimum 1):`,
+          '1'
+        );
+        if (moqInput === null) return;
+        const parsedMoq = parseInt(moqInput);
+        if (isNaN(parsedMoq) || parsedMoq < 1) { alert('❌ Invalid MOQ. Must be 1 or greater.'); return; }
+        sellerMoq = parsedMoq;
       }
       
       const token = localStorage.getItem('sellerToken')
       
-      // Use the new request system instead of direct listing
       const response = await fetch(getApiUrl('sellers/request-admin-product-listing'), {
         method: 'POST',
         headers: {
@@ -257,22 +238,21 @@ const AdminProducts = () => {
           productPrice: product.price,
           sellerPrice: sellerPrice,
           sellerShipping: sellerShipping,
-          notes: `Seller requested to list "${product.name}" at £${sellerPrice.toFixed(2)} + £${sellerShipping.toFixed(2)} shipping`
+          moq: sellerMoq,
+          notes: `Seller requested to list "${product.name}" at £${sellerPrice.toFixed(2)} + £${sellerShipping.toFixed(2)} shipping, MOQ: ${sellerMoq}`
         })
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        const totalCost = sellerPrice + sellerShipping;
-        alert(`✅ Listing request submitted successfully!\n\nProduct: ${product.name}\nYour Price: £${sellerPrice.toFixed(2)}\nYour Shipping: £${sellerShipping.toFixed(2)}\nTotal Cost: £${totalCost.toFixed(2)}\nStatus: Pending Admin Approval\n\nYou will be notified once the admin reviews your request.`)
-        fetchAdminProducts() // Refresh to show updated status
+        alert(`✅ Listing request submitted!\n\nProduct: ${product.name}\nYour Price: £${sellerPrice.toFixed(2)}\nShipping: £${sellerShipping.toFixed(2)}\nMOQ: ${sellerMoq} unit${sellerMoq > 1 ? 's' : ''}\nStatus: Pending Admin Approval`)
+        fetchAdminProducts()
       } else {
-        // Enhanced error handling
         if (data.error === 'REQUEST_EXISTS') {
-          alert('⚠️ Request Already Exists: You already have a pending or approved request for this product.')
+          alert('⚠️ You already have a pending or approved request for this product.')
         } else if (data.error === 'ALREADY_LISTED') {
-          alert('⚠️ Already Listed: You have already listed this product.')
+          alert('⚠️ You have already listed this product.')
         } else {
           alert('❌ Error: ' + (data.message || 'Failed to submit listing request'))
         }
@@ -282,7 +262,6 @@ const AdminProducts = () => {
       alert('❌ Failed to submit listing request')
     }
   }
-
   const handleEditProduct = (product) => {
     // Navigate to seller edit page with product data
     navigate(`/seller/edit-product/${product._id}`, {

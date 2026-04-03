@@ -170,7 +170,6 @@ const ListedProducts = () => {
       handleEditChange(productId, field, newValue)
     }
   }
-
   const handleSaveEdit = async (productId, field) => {
     const cellKey = `${productId}-${field}`
     const newValue = editValues[cellKey]
@@ -182,6 +181,12 @@ const ListedProducts = () => {
 
     const numericValue = (field === 'price' || field === 'shipping') ? parseFloat(newValue) : parseInt(newValue)
     if (numericValue < 0) {
+      setEditingCell(null)
+      return
+    }
+
+    // MOQ must be at least 1
+    if (field === 'moq' && numericValue < 1) {
       setEditingCell(null)
       return
     }
@@ -225,7 +230,9 @@ const ListedProducts = () => {
                       ...product.sellerInfo,
                       sellerShipping: numericValue
                     }
-                  })
+                  }),
+                  // Update MOQ
+                  ...(field === 'moq' && { sellerMoq: numericValue })
                 }
               : product
           )
@@ -476,9 +483,11 @@ const ListedProducts = () => {
                   <tr>
                     <th style={{ width: '60px' }}>Image</th>
                     <th>Product Name</th>
+                    <th>SKU</th>
                     <th>Price</th>
                     <th>Shipping</th>
                     <th>Stock</th>
+                    <th>MOQ</th>
                     <th>Category</th>
                     <th>Marketplace</th>
                     <th>Status</th>
@@ -562,6 +571,26 @@ const ListedProducts = () => {
                             <small className="text-muted">ASIN: {product.asin}</small>
                           )}
                         </div>
+                      </td>
+                      {/* SKU Column */}
+                      <td style={{ padding: '8px', verticalAlign: 'middle' }}>
+                        {product.sku ? (
+                          <span style={{
+                            display: 'inline-block',
+                            background: '#f0f4ff',
+                            border: '1px solid #c7d2fe',
+                            borderRadius: '4px',
+                            padding: '2px 6px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            color: '#3730a3',
+                            fontFamily: 'monospace'
+                          }}>
+                            {product.sku}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>—</span>
+                        )}
                       </td>
                       <td
                         style={{ 
@@ -712,6 +741,63 @@ const ListedProducts = () => {
                             {product.isListingRequest ? 'Pending' : product.stock}
                             {!product.isListingRequest && (
                               <span style={{ marginLeft: '4px', fontSize: '0.6rem', color: '#999' }}>✏️</span>
+                            )}
+                          </span>
+                        )}
+                      </td>
+                      {/* MOQ Column - editable like Price */}
+                      <td
+                        style={{
+                          cursor: product.isListingRequest ? 'default' : 'pointer',
+                          transition: 'background 0.2s',
+                          padding: '8px',
+                          verticalAlign: 'middle'
+                        }}
+                        onClick={() => !product.isListingRequest && handleCellClick(product._id, 'moq', product.sellerMoq || 1)}
+                        onMouseEnter={(e) => !product.isListingRequest && (e.currentTarget.style.background = '#fffbeb')}
+                        onMouseLeave={(e) => e.currentTarget.style.background = ''}
+                        title={product.isListingRequest ? 'MOQ not editable for pending requests' : 'Click to edit MOQ'}
+                      >
+                        {editingCell === `${product._id}-moq` && !product.isListingRequest ? (
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={editValues[`${product._id}-moq`] || ''}
+                            onChange={(e) => handleEditChange(product._id, 'moq', e.target.value)}
+                            onInput={(e) => handleInputEvent(e, product._id, 'moq')}
+                            onWheel={(e) => handleMouseWheel(e, product._id, 'moq')}
+                            onBlur={() => handleSaveEdit(product._id, 'moq')}
+                            onKeyDown={(e) => handleKeyPress(e, product._id, 'moq')}
+                            autoFocus
+                            disabled={updatingProducts.has(product._id)}
+                            style={{
+                              width: '70px',
+                              padding: '4px',
+                              fontSize: '0.85rem',
+                              border: '2px solid #ffc107',
+                              borderRadius: '4px',
+                              outline: 'none'
+                            }}
+                          />
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            background: '#fff3cd',
+                            border: '1px solid #ffc107',
+                            borderRadius: '4px',
+                            padding: '2px 6px',
+                            fontSize: '0.75rem',
+                            fontWeight: '700',
+                            color: '#856404',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            <i className="fas fa-boxes" style={{ fontSize: '0.65rem' }}></i>
+                            {product.sellerMoq || 1}
+                            {!product.isListingRequest && (
+                              <span style={{ fontSize: '0.6rem', color: '#999' }}>✏️</span>
                             )}
                           </span>
                         )}

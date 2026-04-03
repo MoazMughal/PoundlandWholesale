@@ -314,6 +314,20 @@ const SellerInformation = ({
                         {sellerEntry.whatsappNo}
                       </a>
                     </div>
+                    <div style={{fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px'}}>
+                      <span style={{
+                        background: '#fff3cd',
+                        border: '1px solid #ffc107',
+                        borderRadius: '4px',
+                        padding: '2px 6px',
+                        fontWeight: '700',
+                        color: '#856404',
+                        fontSize: '0.65rem'
+                      }}>
+                        <i className="fas fa-boxes me-1"></i>
+                        MOQ: {sellerEntry.moq || 1} unit{(sellerEntry.moq || 1) > 1 ? 's' : ''}
+                      </span>
+                    </div>
                     <div style={{fontSize: '0.7rem'}}>
                       <strong>Listed:</strong> {new Date(sellerEntry.listedAt).toLocaleDateString()}
                     </div>

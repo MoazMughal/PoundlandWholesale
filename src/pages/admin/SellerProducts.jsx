@@ -149,6 +149,7 @@ const AdminSellerProducts = () => {
               name: request.productName,
               price: request.sellerPrice,
               shipping: request.sellerShipping || 0,
+              moq: request.moq || 1,
               currency: 'GBP',
               approvalStatus: 'pending',
               images: adminProductImages,
@@ -204,6 +205,7 @@ const AdminSellerProducts = () => {
               name: request.productName,
               price: request.sellerPrice,
               shipping: request.sellerShipping || 0,
+              moq: request.moq || 1,
               currency: 'GBP',
               approvalStatus: 'rejected',
               rejectionReason: request.rejectionReason,
@@ -1408,6 +1410,17 @@ const AdminSellerProducts = () => {
                           +£{product.shipping}
                         </span>
                       )}
+                    </div>
+
+                    {/* MOQ Badge */}
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '4px',
+                      background: '#fff3cd', border: '1px solid #ffc107',
+                      borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem',
+                      fontWeight: '700', color: '#856404', marginBottom: '4px'
+                    }}>
+                      <i className="fas fa-boxes"></i>
+                      MOQ: {product.moq || 1}
                     </div>
 
                     {/* Category and Date */}

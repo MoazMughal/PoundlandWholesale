@@ -117,6 +117,11 @@ const sellerSchema = new mongoose.Schema({
       type: Number,
       default: 0
     },
+    moq: { // Minimum Order Quantity
+      type: Number,
+      default: 1,
+      min: 1
+    },
     transactionId: String,
     paymentMethod: String,
     notes: String,
