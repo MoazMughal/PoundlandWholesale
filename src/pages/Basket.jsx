@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useBasket } from '../context/BasketContext'
 import { useCurrency } from '../context/CurrencyContext'
+import { useBuyer } from '../context/BuyerContext'
 import { getImageUrl } from '../utils/imageImports'
 import { optimizeImageUrl } from '../utils/imageOptimization'
+import { getApiUrl } from '../utils/api'
 import MobileImage from '../components/MobileImage'
 import ScrollToTop from '../components/ScrollToTop'
 import '../styles/basket-responsive.css'
@@ -233,7 +235,7 @@ const Basket = () => {
       let userType = 'Guest'
 
       if (buyerToken) {
-        const buyerData = JSON.parse(localStorage.getItem('buyer') || '{}')
+        const buyerData = JSON.parse(localStorage.getItem('buyerData') || localStorage.getItem('buyer') || '{}')
         userName = buyerData.name || 
                    (buyerData.firstName && buyerData.lastName ? `${buyerData.firstName} ${buyerData.lastName}` : '') ||
                    buyerData.email?.split('@')[0] || 
@@ -313,8 +315,44 @@ _This quotation was generated from PoundlandWholesale.com_
 
         // Clean WhatsApp number
         const cleanWhatsApp = whatsappNo.replace(/[^0-9+]/g, '')
-        console.log(`   Cleaned WhatsApp: ${cleanWhatsApp}`)
         
+        // Save quotation to DB for each product in this seller group
+        for (const product of products) {
+          try {
+            const lowestSeller = product.sellers?.length > 0
+              ? product.sellers.reduce((lowest, current) => {
+                  const ct = (parseFloat(current.sellerPrice) || 0) + (parseFloat(current.sellerShipping) || 0);
+                  const lt = (parseFloat(lowest.sellerPrice) || 0) + (parseFloat(lowest.sellerShipping) || 0);
+                  return ct < lt ? current : lowest;
+                })
+              : null;
+            const sellerId = lowestSeller?.sellerId || lowestSeller?._id || null;
+            const sellerPrice = lowestSeller?.sellerPrice || null;
+            const productId = product._id || product.id;
+
+            if (!productId) continue; // skip if no product ID
+
+            await fetch(getApiUrl('sellers/quotation'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                productId,
+                sellerId,
+                sellerUsername: sellerName,
+                sellerWhatsapp: whatsappNo,
+                buyerName: userName,
+                buyerEmail: userEmail,
+                buyerPhone: userPhone,
+                quantity: product.quantity || 1,
+                sellerPrice,
+                message: `Basket checkout — ${products.length} product(s) in order to ${sellerName}`
+              })
+            });
+          } catch (err) {
+            console.error('Failed to save quotation for', product.name, err);
+          }
+        }
+
         // Create WhatsApp URL
         const whatsappUrl = `https://wa.me/${cleanWhatsApp}?text=${encodeURIComponent(message)}`
         console.log(`   Opening WhatsApp tab in ${quotationsSent * 500}ms...`)

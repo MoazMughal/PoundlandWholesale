@@ -130,7 +130,11 @@ router.post('/register', authLimiter, validateBuyerRegister, async (req, res) =>
       buyer: {
         id: buyer._id,
         name: buyer.getFullName(),
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
         email: buyer.email,
+        phone: buyer.phone || '',
+        whatsappNo: buyer.whatsappNo || '',
         userType: buyer.userType,
         status: buyer.status
       }
@@ -181,7 +185,11 @@ router.post('/login', async (req, res) => {
       buyer: {
         id: buyer._id,
         name: buyer.getFullName(),
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
         email: buyer.email,
+        phone: buyer.phone || '',
+        whatsappNo: buyer.whatsappNo || '',
         userType: buyer.userType,
         status: buyer.status,
         lastLogin: buyer.lastLogin

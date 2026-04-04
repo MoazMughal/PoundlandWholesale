@@ -1997,22 +1997,24 @@ router.post('/quotation', async (req, res) => {
       quantity, sellerPrice, message
     } = req.body;
 
-    if (!productId || !sellerId || !buyerName || !buyerPhone) {
-      return res.status(400).json({ message: 'productId, sellerId, buyerName and buyerPhone are required' });
+    if (!productId || !buyerName) {
+      return res.status(400).json({ message: 'productId and buyerName are required' });
     }
 
-    // Rate limit: same buyer (by phone) to same seller on same product: max 5 in 24hrs
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentCount = await Quotation.countDocuments({
-      productId, sellerId,
-      buyerPhone,
-      submittedAt: { $gte: since }
-    });
-
-    if (recentCount >= 5) {
-      return res.status(429).json({
-        message: 'You have already sent 5 quotations to this seller for this product in the last 24 hours. Please try a different seller or wait 24 hours.'
+    // Rate limit only when we have enough info
+    if (sellerId && buyerPhone) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentCount = await Quotation.countDocuments({
+        productId, sellerId,
+        buyerPhone,
+        submittedAt: { $gte: since }
       });
+
+      if (recentCount >= 5) {
+        return res.status(429).json({
+          message: 'You have already sent 5 quotations to this seller for this product in the last 24 hours.'
+        });
+      }
     }
 
     // Get product name

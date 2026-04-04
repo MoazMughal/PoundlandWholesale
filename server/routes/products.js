@@ -1790,8 +1790,13 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
         });
       }
       
-      // Combine with existing query
-      query = { ...query, ...searchQuery };
+      // Combine with existing query — use $and to preserve both status filter and search
+      query = {
+        $and: [
+          ...(query.$and || [{ $or: [{ status: 'active' }, { status: { $exists: false } }] }, { status: { $ne: 'inactive' } }]),
+          searchQuery
+        ]
+      };
     }
     
     if (category && category !== 'all') {

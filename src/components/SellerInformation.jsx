@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
+import { useBuyer } from '../context/BuyerContext';
 import { getApiUrl } from '../utils/api';
 
 const SellerInformation = ({
@@ -14,13 +15,13 @@ const SellerInformation = ({
 }) => {
   const { convertPrice, currency } = useCurrency();
   const { addToBasket } = useBasket();
+  const { buyer, isLoggedIn: isBuyerLoggedIn } = useBuyer();
   const [newPrice, setNewPrice] = useState('');
   const [updating, setUpdating] = useState(false);
   const [unlisting, setUnlisting] = useState(false);
   const [showAllSellers, setShowAllSellers] = useState(false);
   const [sellerQty, setSellerQty] = useState({});
-  // Per-seller buyer form: { sellerId: { open, name, phone, sending } }
-  const [buyerForm, setBuyerForm] = useState({});
+  const [sending, setSending] = useState({});
 
   const handleUpdatePrice = async () => {
     if (!newPrice || newPrice <= 0) return;
@@ -55,19 +56,16 @@ const SellerInformation = ({
     setSellerQty(prev => ({ ...prev, [sid]: Math.max(min, parseInt(val) || min) }));
   };
 
-  const openBuyerForm = (sid) => setBuyerForm(prev => ({ ...prev, [sid]: { open: true, name: '', phone: '', sending: false } }));
-  const closeBuyerForm = (sid) => setBuyerForm(prev => ({ ...prev, [sid]: { ...prev[sid], open: false } }));
-  const updateBuyerField = (sid, field, val) => setBuyerForm(prev => ({ ...prev, [sid]: { ...prev[sid], [field]: val } }));
-
   const handleContactSupplier = async (se) => {
     const sid = se.sellerId || se._id;
-    const form = buyerForm[sid] || {};
-    if (!form.name?.trim() || !form.phone?.trim()) {
-      alert('Please enter your name and phone number.');
-      return;
-    }
 
-    setBuyerForm(prev => ({ ...prev, [sid]: { ...prev[sid], sending: true } }));
+    // Get buyer info from logged-in buyer profile
+    const buyerName = buyer
+      ? `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim()
+      : 'Guest';
+    const buyerPhone = buyer?.whatsappNo || buyer?.phone || '';
+
+    setSending(prev => ({ ...prev, [sid]: true }));
 
     const mainPrice = parseFloat(String(product.price || '0').replace(/[£₨$€]/g, '')) || 0;
     const sp = parseFloat(se.sellerPrice) || mainPrice;
@@ -85,8 +83,9 @@ const SellerInformation = ({
           sellerId: sid,
           sellerUsername: se.username,
           sellerWhatsapp: se.whatsappNo,
-          buyerName: form.name,
-          buyerPhone: form.phone,
+          buyerName,
+          buyerEmail: buyer?.email || '',
+          buyerPhone,
           quantity: qty,
           sellerPrice: sp,
           message: `Buyer contacted via WhatsApp. Qty: ${qty}, Total: £${total.toFixed(2)}`
@@ -107,8 +106,9 @@ const SellerInformation = ({
       `💵 Total: ${currency === 'PKR' ? convertPrice(`£${total}`) : `£${total.toFixed(2)}`}`,
       ``,
       `👤 Buyer Info:`,
-      `Name: ${form.name}`,
-      `Phone: ${form.phone}`,
+      `Name: ${buyerName}`,
+      ...(buyerPhone ? [`Phone/WhatsApp: ${buyerPhone}`] : []),
+      ...(buyer?.email ? [`Email: ${buyer.email}`] : []),
       ``,
       `Please confirm availability.`
     ].join('\n');
@@ -116,7 +116,7 @@ const SellerInformation = ({
     const phone = se.whatsappNo?.replace(/[^0-9]/g, '');
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
 
-    setBuyerForm(prev => ({ ...prev, [sid]: { ...prev[sid], sending: false, open: false } }));
+    setSending(prev => ({ ...prev, [sid]: false }));
   };
 
   const maskPhone = (phone) => {
@@ -174,7 +174,6 @@ const SellerInformation = ({
           const moq = se.moq || 1;
           const qty = getQty(sid, moq);
           const isMine = isSellerLoggedIn && currentSeller && sid?.toString() === currentSeller._id?.toString();
-          const form = buyerForm[sid] || {};
 
           return (
             <div key={`si-${sid}-${index}`} style={{
@@ -206,70 +205,51 @@ const SellerInformation = ({
               </div>
 
               {/* Location + MOQ + Qty on one line */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.65rem', color: '#6b7280', flex: '1 1 auto' }}>📍 {se.city}, {se.country}</span>
-                <span style={{ background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px', padding: '1px 5px', fontSize: '0.65rem', fontWeight: '700', color: '#856404', whiteSpace: 'nowrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px', flexWrap: 'nowrap', overflow: 'hidden' }}>
+                <span style={{ fontSize: '0.65rem', color: '#6b7280', flex: '1 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {se.city}, {se.country}</span>
+                <span style={{ background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px', padding: '1px 5px', fontSize: '0.65rem', fontWeight: '700', color: '#856404', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
                   <i className="fas fa-boxes me-1"></i>MOQ:{moq}
                 </span>
                 {!isMine && (
-                  <>
-                    <span style={{ fontSize: '0.65rem', fontWeight: '600', color: '#374151' }}>Qty:</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flex: '0 0 auto' }}>
+                    <span style={{ fontSize: '0.65rem', fontWeight: '600', color: '#374151', whiteSpace: 'nowrap' }}>Qty:</span>
                     <button onClick={() => setQty(sid, qty - 1, moq)} disabled={qty <= moq}
-                      style={{ width: '20px', height: '20px', border: '1px solid #d1d5db', borderRadius: '3px', background: '#f9fafb', cursor: qty <= moq ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: qty <= moq ? 0.4 : 1 }}>−</button>
+                      style={{ width: '20px', height: '20px', border: '1px solid #d1d5db', borderRadius: '3px', background: '#f9fafb', cursor: qty <= moq ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: qty <= moq ? 0.4 : 1, flexShrink: 0 }}>−</button>
                     <input type="number" value={qty} min={moq} onChange={e => setQty(sid, e.target.value, moq)}
-                      style={{ width: '60px', textAlign: 'center', padding: '2px 4px', fontSize: '0.75rem', fontWeight: '700', border: '1px solid #d1d5db', borderRadius: '3px' }} />
+                      style={{ width: '44px', textAlign: 'center', padding: '2px 3px', fontSize: '0.75rem', fontWeight: '700', border: '1px solid #d1d5db', borderRadius: '3px', flexShrink: 0 }} />
                     <button onClick={() => setQty(sid, qty + 1, moq)}
-                      style={{ width: '20px', height: '20px', border: '1px solid #d1d5db', borderRadius: '3px', background: '#f9fafb', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                  </>
+                      style={{ width: '20px', height: '20px', border: '1px solid #d1d5db', borderRadius: '3px', background: '#f9fafb', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
+                  </div>
                 )}
               </div>
 
               {/* Buyer actions — only for buyers */}
               {!isMine && isBuyer && (
-                <>
-                  {/* Buyer info form — shown before opening WhatsApp */}
-                  {!form.open ? (
-                    <button onClick={() => openBuyerForm(sid)}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                        background: '#25d366', color: 'white', padding: '7px 10px',
-                        borderRadius: '5px', fontSize: '0.7rem', fontWeight: '700', border: 'none', cursor: 'pointer'
-                      }}>
-                      <i className="fab fa-whatsapp" style={{ fontSize: '0.9rem' }}></i>
-                      Contact Supplier &nbsp;<span style={{ opacity: 0.85 }}>{maskPhone(se.whatsappNo)}</span>
-                    </button>
-                  ) : (
-                    <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', padding: '10px' }}>
-                      <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#15803d', marginBottom: '8px' }}>
-                        <i className="fab fa-whatsapp me-1"></i>Contact {se.username} — Enter your details
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <input type="text" placeholder="Your Name *" value={form.name || ''}
-                          onChange={e => updateBuyerField(sid, 'name', e.target.value)}
-                          style={{ padding: '6px 8px', fontSize: '0.72rem', border: '1px solid #d1d5db', borderRadius: '4px', outline: 'none' }} />
-                        <input type="tel" placeholder="Your Phone / WhatsApp *" value={form.phone || ''}
-                          onChange={e => updateBuyerField(sid, 'phone', e.target.value)}
-                          style={{ padding: '6px 8px', fontSize: '0.72rem', border: '1px solid #d1d5db', borderRadius: '4px', outline: 'none' }} />
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button onClick={() => handleContactSupplier(se)} disabled={form.sending}
-                            style={{
-                              flex: '1', padding: '7px', fontSize: '0.7rem', fontWeight: '700',
-                              background: '#25d366', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px'
-                            }}>
-                            {form.sending
-                              ? <><i className="fas fa-spinner fa-spin"></i> Sending...</>
-                              : <><i className="fab fa-whatsapp"></i> Send & Open WhatsApp</>}
-                          </button>
-                          <button onClick={() => closeBuyerForm(sid)}
-                            style={{ padding: '7px 12px', fontSize: '0.7rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <a
+                    href="#"
+                    onClick={e => { e.preventDefault(); handleContactSupplier(se); }}
+                    style={{
+                      flex: '3', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                      background: '#25d366', color: 'white', padding: '7px 8px',
+                      borderRadius: '5px', fontSize: '0.65rem', fontWeight: '700', textDecoration: 'none',
+                      cursor: sending[sid] ? 'not-allowed' : 'pointer', opacity: sending[sid] ? 0.7 : 1
+                    }}>
+                    {sending[sid]
+                      ? <><i className="fas fa-spinner fa-spin"></i> Sending...</>
+                      : <><i className="fab fa-whatsapp" style={{ fontSize: '0.85rem' }}></i> Contact Supplier &nbsp;<span style={{ opacity: 0.85 }}>{maskPhone(se.whatsappNo)}</span></>}
+                  </a>
+                  <button onClick={() => addToBasket({ ...product, selectedSeller: se })}
+                    style={{
+                      flex: '1', padding: '7px 4px', fontSize: '0.55rem', fontWeight: '600',
+                      background: 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)',
+                      color: 'white', border: '1px solid #ff9900', borderRadius: '5px', cursor: 'pointer',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1px'
+                    }}>
+                    <i className="fas fa-shopping-cart" style={{ fontSize: '0.65rem' }}></i>
+                    <span style={{ whiteSpace: 'nowrap' }}>Add to Cart</span>
+                  </button>
+                </div>
               )}
 
               {/* Seller management panel */}

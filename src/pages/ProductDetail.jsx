@@ -3755,35 +3755,7 @@ _This quotation was generated from PoundlandWholesale.com_
                   {/* Stock Status Check */}
                   {hasStock() ? (
                     <>
-                      {/* Compact Quantity Selector */}
-                      <div className="mb-2" style={{
-                        background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
-                        border: '1px solid #e1e5e9',
-                        borderRadius: '6px',
-                        padding: '8px'
-                      }}>
-                        <label className="form-label fw-bold mb-1" style={{fontSize: '0.7rem', color: '#232f3e', letterSpacing: '0.2px'}}>Quantity:</label>
-                        <div className="d-flex align-items-center gap-1 mb-1">
-                          <button onClick={() => setQuantity(Math.max(getLowestPriceBreakdown().moq, quantity - 1))}
-                            style={{ background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)', border: '1px solid #e1e5e9', borderRadius: '4px', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', color: '#232f3e' }}
-                            onMouseEnter={e => { e.target.style.borderColor = '#ff9900'; }} onMouseLeave={e => { e.target.style.borderColor = '#e1e5e9'; }}>−</button>
-                          <input type="number" className="form-control text-center"
-                            style={{ fontSize: '0.8rem', color: '#232f3e', backgroundColor: '#ffffff', border: '1px solid #e1e5e9', borderRadius: '4px', fontWeight: '700', maxWidth: '80px', padding: '4px', height: '24px' }}
-                            value={quantity} min={getLowestPriceBreakdown().moq} step="1"
-                            onChange={e => { const v = e.target.value; setQuantity(v === '' || v === '0' ? '' : parseInt(v)); }}
-                            onBlur={e => { const moq = getLowestPriceBreakdown().moq; const v = parseInt(e.target.value); if (isNaN(v) || v < moq) setQuantity(moq); }}
-                            placeholder={String(getLowestPriceBreakdown().moq)} />
-                          <button onClick={() => setQuantity(quantity + 1)}
-                            style={{ background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)', border: '1px solid #e1e5e9', borderRadius: '4px', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', color: '#232f3e' }}
-                            onMouseEnter={e => { e.target.style.borderColor = '#ff9900'; }} onMouseLeave={e => { e.target.style.borderColor = '#e1e5e9'; }}>+</button>
-                        </div>
-                        <small style={{ fontSize: '0.6rem', color: '#565959', fontWeight: '500' }}>
-                          <i className="fas fa-info-circle me-1"></i>
-                          MOQ: {getLowestPriceBreakdown().moq} unit{getLowestPriceBreakdown().moq > 1 ? 's' : ''} • Changes affect Platform Comparison gross profit
-                        </small>
-                      </div>
-
-                      {/* Available for Purchase — shown after quantity */}
+                      {/* Available for Purchase */}
                       <div className="mb-2" style={{
                         background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
                         border: '1px solid #0ea5e9', borderRadius: '6px', padding: '6px 8px'
