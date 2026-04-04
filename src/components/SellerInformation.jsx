@@ -1,601 +1,315 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../context/CurrencyContext';
+import { useBasket } from '../context/BasketContext';
+import { getApiUrl } from '../utils/api';
 
-const SellerInformation = ({ 
-  product, 
-  isSellerLoggedIn, 
-  currentSeller, 
+const SellerInformation = ({
+  product,
+  isSellerLoggedIn,
+  isAdmin,
+  currentSeller,
   onUpdatePrice,
-  onRefreshProduct 
+  onRefreshProduct,
+  quantity: globalQty = 1
 }) => {
-  const navigate = useNavigate();
   const { convertPrice, currency } = useCurrency();
+  const { addToBasket } = useBasket();
   const [newPrice, setNewPrice] = useState('');
   const [updating, setUpdating] = useState(false);
   const [unlisting, setUnlisting] = useState(false);
   const [showAllSellers, setShowAllSellers] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-
-  // Track window width for responsive design
-  useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const handleRefresh = async () => {
-    if (!onRefreshProduct) return;
-    
-    setRefreshing(true);
-    try {
-      await onRefreshProduct();
-      // Show a brief success message
-      setTimeout(() => setRefreshing(false), 1000);
-    } catch (error) {
-      console.error('Error refreshing:', error);
-      setRefreshing(false);
-    }
-  };
+  const [sellerQty, setSellerQty] = useState({});
+  // Per-seller buyer form: { sellerId: { open, name, phone, sending } }
+  const [buyerForm, setBuyerForm] = useState({});
 
   const handleUpdatePrice = async () => {
     if (!newPrice || newPrice <= 0) return;
-    
     setUpdating(true);
     try {
       await onUpdatePrice(newPrice);
       setNewPrice('');
-      // Refresh the product data to show updated price
-      if (onRefreshProduct) {
-        await onRefreshProduct();
-      }
-    } catch (error) {
-      console.error('Error updating price:', error);
-      alert('❌ Failed to update price. Please try again.');
-    } finally {
-      setUpdating(false);
-    }
+      if (onRefreshProduct) await onRefreshProduct();
+    } catch { alert('Failed to update price.'); }
+    finally { setUpdating(false); }
   };
 
   const handleUnlistProduct = async () => {
-    if (!window.confirm('Are you sure you want to remove your listing for this product? This action cannot be undone.')) {
-      return;
-    }
-
+    if (!window.confirm('Remove your listing?')) return;
     setUnlisting(true);
     try {
       const token = localStorage.getItem('sellerToken');
-      const response = await fetch(`http://localhost:5000/api/sellers/unlist-product/${product.id || product._id}`, {
+      const res = await fetch(getApiUrl(`sellers/unlist-product/${product.id || product._id}`), {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
+      const data = await res.json();
+      if (res.ok) { alert('Unlisted successfully!'); if (onRefreshProduct) await onRefreshProduct(); }
+      else alert(data.message || 'Failed to unlist');
+    } catch { alert('Failed to unlist.'); }
+    finally { setUnlisting(false); }
+  };
 
-      const data = await response.json();
+  const getQty = (sid, moq) => sellerQty[sid] ?? Math.max(1, moq || 1);
+  const setQty = (sid, val, moq) => {
+    const min = Math.max(1, moq || 1);
+    setSellerQty(prev => ({ ...prev, [sid]: Math.max(min, parseInt(val) || min) }));
+  };
 
-      if (response.ok) {
-        alert('✅ Product unlisted successfully! Your listing has been removed.');
-        // Refresh the product data to show updated seller list
-        if (onRefreshProduct) {
-          await onRefreshProduct();
-        }
-      } else {
-        alert('❌ ' + (data.message || 'Failed to unlist product'));
-      }
-    } catch (error) {
-      console.error('Error unlisting product:', error);
-      alert('❌ Failed to unlist product. Please try again.');
-    } finally {
-      setUnlisting(false);
+  const openBuyerForm = (sid) => setBuyerForm(prev => ({ ...prev, [sid]: { open: true, name: '', phone: '', sending: false } }));
+  const closeBuyerForm = (sid) => setBuyerForm(prev => ({ ...prev, [sid]: { ...prev[sid], open: false } }));
+  const updateBuyerField = (sid, field, val) => setBuyerForm(prev => ({ ...prev, [sid]: { ...prev[sid], [field]: val } }));
+
+  const handleContactSupplier = async (se) => {
+    const sid = se.sellerId || se._id;
+    const form = buyerForm[sid] || {};
+    if (!form.name?.trim() || !form.phone?.trim()) {
+      alert('Please enter your name and phone number.');
+      return;
     }
-  };
 
-  // Get current seller's total price (price + shipping) from the sellers array
-  const getCurrentSellerPrice = () => {
-    if (!currentSeller || !product.sellers) return null;
-    const currentSellerEntry = product.sellers.find(s => s.sellerId?.toString() === currentSeller._id?.toString());
-    if (!currentSellerEntry) return null;
-    
-    const price = parseFloat(currentSellerEntry.sellerPrice) || 0;
-    const shipping = parseFloat(currentSellerEntry.sellerShipping) || 0;
-    return price + shipping;
-  };
+    setBuyerForm(prev => ({ ...prev, [sid]: { ...prev[sid], sending: true } }));
 
-  // Get the lowest price from all sellers (including shipping)
-  const getLowestPrice = () => {
-    if (!product) return 0;
-    
-    // Parse the main product price and shipping, handling currency symbols
-    const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-    const mainShipping = parseFloat(product.shipping) || 0;
-    const mainTotal = mainPrice + mainShipping;
-    
-    if (!product.sellers || product.sellers.length === 0) {
-      return mainTotal;
+    const mainPrice = parseFloat(String(product.price || '0').replace(/[£₨$€]/g, '')) || 0;
+    const sp = parseFloat(se.sellerPrice) || mainPrice;
+    const ss = parseFloat(se.sellerShipping) || 0;
+    const qty = getQty(sid, se.moq);
+    const total = (sp + ss) * qty;
+
+    // Save quotation to DB
+    try {
+      await fetch(getApiUrl('sellers/quotation'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product._id || product.id,
+          sellerId: sid,
+          sellerUsername: se.username,
+          sellerWhatsapp: se.whatsappNo,
+          buyerName: form.name,
+          buyerPhone: form.phone,
+          quantity: qty,
+          sellerPrice: sp,
+          message: `Buyer contacted via WhatsApp. Qty: ${qty}, Total: £${total.toFixed(2)}`
+        })
+      });
+    } catch (err) {
+      console.error('Failed to save quotation:', err);
     }
-    
-    const sellerTotals = product.sellers
-      .map(seller => {
-        const price = parseFloat(seller.sellerPrice);
-        const shipping = parseFloat(seller.sellerShipping) || 0;
-        const total = (isNaN(price) ? mainPrice : price) + shipping;
-        return total;
-      })
-      .filter(total => total > 0);
-    
-    const allTotals = [mainTotal, ...sellerTotals];
-    const result = Math.min(...allTotals);
-    
-    // Final safety check to ensure we never return NaN
-    return isNaN(result) ? mainTotal : result;
+
+    // Build WhatsApp message with buyer info
+    const msg = [
+      `Hi ${se.username},`,
+      ``,
+      `I'm interested in buying *${product.name}*.`,
+      ``,
+      `📦 Quantity: ${qty} units`,
+      `💰 Price/unit: ${currency === 'PKR' ? convertPrice(`£${sp}`) : `£${sp.toFixed(2)}`}${ss > 0 ? ` + £${ss.toFixed(2)} shipping` : ''}`,
+      `💵 Total: ${currency === 'PKR' ? convertPrice(`£${total}`) : `£${total.toFixed(2)}`}`,
+      ``,
+      `👤 Buyer Info:`,
+      `Name: ${form.name}`,
+      `Phone: ${form.phone}`,
+      ``,
+      `Please confirm availability.`
+    ].join('\n');
+
+    const phone = se.whatsappNo?.replace(/[^0-9]/g, '');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+
+    setBuyerForm(prev => ({ ...prev, [sid]: { ...prev[sid], sending: false, open: false } }));
   };
 
-  const lowestPrice = getLowestPrice();
+  const maskPhone = (phone) => {
+    if (!phone) return '';
+    const c = phone.replace(/[^0-9+]/g, '');
+    return c.length <= 4 ? c : c.slice(0, 4) + '****' + c.slice(-2);
+  };
 
-  // Debug: Log the product data to understand the structure
-  console.log('🔍 SellerInformation Debug:', {
-    productId: product?.id || product?._id,
-    hasSellerInfo: !!product?.sellerInfo,
-    hasSellerData: !!product?.sellerData,
-    hasSeller: !!product?.seller,
-    hasSellersArray: !!(product?.sellers && product.sellers.length > 0),
-    sellersCount: product?.sellers?.length || 0,
-    sellerInfoUsername: product?.sellerInfo?.username,
-    sellersArrayUsernames: product?.sellers?.map(s => s.username) || [],
-    sellersArrayIds: product?.sellers?.map(s => s.sellerId || s._id) || [],
-    duplicateSellerIds: product?.sellers ? 
-      product.sellers.map(s => s.sellerId || s._id).filter((id, index, arr) => arr.indexOf(id) !== index) : [],
-    showingSellersArray: !!(product?.sellers && product.sellers.length > 0),
-    willShowLegacySellerInfo: !(product?.sellers && product.sellers.length > 0) && (product?.sellerInfo || product?.sellerData || product?.seller)
+  const mainPrice = parseFloat(String(product.price || '0').replace(/[£₨$€]/g, '')) || 0;
+
+  // Determine if current user is a buyer (not seller, not admin)
+  const isBuyer = !isSellerLoggedIn && !isAdmin;
+
+  if (!product.sellers || product.sellers.length === 0) {
+    return (
+      <div className="mb-2">
+        <h3 className="fw-bold mb-2" style={{ fontSize: '0.85rem', color: '#1f2937' }}>Seller Information</h3>
+        <div className="alert alert-info border-0 p-2" style={{ fontSize: '0.7rem' }}>
+          <i className="fas fa-info-circle me-1"></i>No seller information available
+        </div>
+      </div>
+    );
+  }
+
+  const uniqueSellers = product.sellers.reduce((acc, s) => {
+    const id = s.sellerId || s._id;
+    if (!id || acc.find(x => (x.sellerId || x._id) === id)) return acc;
+    acc.push(s);
+    return acc;
+  }, []).sort((a, b) => {
+    const ta = (parseFloat(a.sellerPrice) || mainPrice) + (parseFloat(a.sellerShipping) || 0);
+    const tb = (parseFloat(b.sellerPrice) || mainPrice) + (parseFloat(b.sellerShipping) || 0);
+    return ta - tb;
   });
+
+  const visible = showAllSellers ? uniqueSellers : uniqueSellers.slice(0, 1);
 
   return (
     <div className="mb-2">
-      <h3 className="fw-bold mb-0" style={{fontSize: '0.85rem', color: '#1f2937'}}>
-        Seller Information
+      <h3 className="fw-bold mb-2" style={{ fontSize: '0.85rem', color: '#1f2937' }}>
+        <i className="fas fa-store me-1 text-success"></i>Seller Information
       </h3>
-      
-      {/* Show seller information to everyone - ONLY show sellers array if it exists, otherwise show legacy seller info */}
-      {product.sellers && product.sellers.length > 0 ? (
-        <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9', position: 'relative'}}>
-          
-          <div className="mb-2">
-            <div className="d-flex align-items-center mb-1">
-              <i className="fas fa-store text-success me-1" style={{fontSize: '0.75rem'}}></i>
-              <span className="fw-semibold text-success" style={{fontSize: '0.75rem'}}>
-                Available Sellers
-              </span>
-            </div>
-          </div>
-          
-          <div>
-            {(() => {
-              // Remove duplicates based on sellerId and ensure unique sellers
-              const uniqueSellers = product.sellers.reduce((acc, seller) => {
-                const sellerId = seller.sellerId || seller._id;
-                if (!sellerId) return acc; // Skip sellers without valid ID
-                
-                // Check if this seller is already in our unique list
-                const existingSeller = acc.find(s => (s.sellerId || s._id) === sellerId);
-                if (!existingSeller) {
-                  acc.push(seller);
-                }
-                return acc;
-              }, []);
-              
-              return (
+
+      <div style={{ background: '#e8f5e9', borderRadius: '8px', padding: '10px', border: '1px solid #c8e6c9' }}>
+        <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#2e7d32', marginBottom: '10px' }}>
+          <i className="fas fa-users me-1"></i>
+          Available from {uniqueSellers.length} seller{uniqueSellers.length > 1 ? 's' : ''}:
+        </div>
+
+        {visible.map((se, index) => {
+          const sid = se.sellerId || se._id;
+          const sp = parseFloat(se.sellerPrice) || mainPrice;
+          const ss = parseFloat(se.sellerShipping) || 0;
+          const total = sp + ss;
+          const moq = se.moq || 1;
+          const qty = getQty(sid, moq);
+          const isMine = isSellerLoggedIn && currentSeller && sid?.toString() === currentSeller._id?.toString();
+          const form = buyerForm[sid] || {};
+
+          return (
+            <div key={`si-${sid}-${index}`} style={{
+              background: index === 0 ? '#f0f9ff' : '#f8f9fa',
+              border: `1px solid ${index === 0 ? '#bae6fd' : '#e5e7eb'}`,
+              borderRadius: '8px', padding: '10px', marginBottom: '8px'
+            }}>
+              {index === 0 && (
+                <div className="lowest-price-badge mb-2" style={{
+                  display: 'inline-block', fontSize: '0.6rem', color: '#fff',
+                  backgroundColor: '#16a34a', fontWeight: '700', padding: '3px 8px',
+                  borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.5px'
+                }}>
+                  <i className="fas fa-tag me-1"></i>Lowest Price
+                </div>
+              )}
+
+              {/* Seller name + price */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#1f2937' }}>
+                  {se.username}
+                  <span style={{ fontSize: '0.62rem', fontWeight: '400', color: '#6b7280', marginLeft: '4px' }}>
+                    ({currency === 'PKR' ? convertPrice(`£${sp}`) : (ss > 0 ? `${convertPrice(`£${sp}`)} + ${convertPrice(`£${ss}`)} shipping` : convertPrice(`£${sp}`))})
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#059669', whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                  {currency === 'PKR' ? convertPrice(`£${sp}`) : convertPrice(`£${total}`)}
+                </div>
+              </div>
+
+              {/* Location + MOQ + Qty on one line */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.65rem', color: '#6b7280', flex: '1 1 auto' }}>📍 {se.city}, {se.country}</span>
+                <span style={{ background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px', padding: '1px 5px', fontSize: '0.65rem', fontWeight: '700', color: '#856404', whiteSpace: 'nowrap' }}>
+                  <i className="fas fa-boxes me-1"></i>MOQ:{moq}
+                </span>
+                {!isMine && (
+                  <>
+                    <span style={{ fontSize: '0.65rem', fontWeight: '600', color: '#374151' }}>Qty:</span>
+                    <button onClick={() => setQty(sid, qty - 1, moq)} disabled={qty <= moq}
+                      style={{ width: '20px', height: '20px', border: '1px solid #d1d5db', borderRadius: '3px', background: '#f9fafb', cursor: qty <= moq ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: qty <= moq ? 0.4 : 1 }}>−</button>
+                    <input type="number" value={qty} min={moq} onChange={e => setQty(sid, e.target.value, moq)}
+                      style={{ width: '60px', textAlign: 'center', padding: '2px 4px', fontSize: '0.75rem', fontWeight: '700', border: '1px solid #d1d5db', borderRadius: '3px' }} />
+                    <button onClick={() => setQty(sid, qty + 1, moq)}
+                      style={{ width: '20px', height: '20px', border: '1px solid #d1d5db', borderRadius: '3px', background: '#f9fafb', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                  </>
+                )}
+              </div>
+
+              {/* Buyer actions — only for buyers */}
+              {!isMine && isBuyer && (
                 <>
-                  <div style={{fontSize: '0.7rem', marginBottom: '8px'}}>
-                    <strong>Available from {uniqueSellers.length} seller{uniqueSellers.length > 1 ? 's' : ''}:</strong>
-                  </div>
-                  {uniqueSellers
-                    .sort((a, b) => {
-                      const priceA = parseFloat(a.sellerPrice) || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                      const shippingA = parseFloat(a.sellerShipping) || 0;
-                      const totalA = priceA + shippingA;
-                      
-                      const priceB = parseFloat(b.sellerPrice) || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                      const shippingB = parseFloat(b.sellerShipping) || 0;
-                      const totalB = priceB + shippingB;
-                      
-                      return totalA - totalB;
-                    })
-                    .slice(0, showAllSellers ? uniqueSellers.length : 1)
-                    .map((sellerEntry, index) => {
-                const sellerPrice = parseFloat(sellerEntry.sellerPrice) || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                const sellerShipping = parseFloat(sellerEntry.sellerShipping) || 0;
-                const sellerTotal = sellerPrice + sellerShipping;
-                const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                const mainShipping = parseFloat(product.shipping) || 0;
-                const mainTotal = mainPrice + mainShipping;
-                
-                return (
-                  <div key={`seller-${sellerEntry.sellerId || sellerEntry._id}-${sellerEntry.username}-${index}`} className="border rounded p-2 mb-2" style={{background: index === 0 ? '#f0f9ff' : '#f8f9fa'}}>
-                    {index === 0 && (
-                      <div 
-                        className="lowest-price-badge mb-2" 
-                        style={{
-                          display: 'inline-block',
-                          fontSize: windowWidth < 576 ? '0.55rem' : '0.6rem', 
-                          color: '#ffffff',
-                          backgroundColor: '#16a34a',
-                          fontWeight: '700',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          border: 'none',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}
-                      >
-                        <i className="fas fa-tag me-1" style={{color: '#ffffff'}}></i>
-                        <span style={{color: '#ffffff'}}>Lowest Price</span>
-                      </div>
-                    )}
-                    <div className="d-flex justify-content-between align-items-start mb-2">
-                      <div>
-                        <div style={{fontSize: '0.7rem'}}>
-                          <strong>Seller:</strong> {sellerEntry.username}
-                        </div>
-                        <div style={{fontSize: '0.7rem'}}>
-                          <strong>Location:</strong> 📍 {sellerEntry.city}, {sellerEntry.country}
-                        </div>
-                      </div>
-                      <div className="text-end">
-                        <div className="fw-bold text-success" style={{fontSize: '0.8rem'}}>
-                          {(() => {
-                            const sellerPrice = parseFloat(sellerEntry.sellerPrice) || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                            const sellerShipping = parseFloat(sellerEntry.sellerShipping) || 0;
-                            const sellerTotal = sellerPrice + sellerShipping;
-                            
-                            // Hide shipping if currency is PKR
-                            if (currency === 'PKR') {
-                              return convertPrice(`£${sellerPrice}`);
-                            }
-                            
-                            return sellerShipping > 0 ? (
-                              <div>
-                                <div>{convertPrice(`£${sellerTotal}`)}</div>
-                                <div style={{fontSize: '0.6rem', color: '#6c757d'}}>
-                                  {convertPrice(`£${sellerPrice}`)} + {convertPrice(`£${sellerShipping}`)} shipping
-                                </div>
-                              </div>
-                            ) : (
-                              convertPrice(`£${sellerPrice}`)
-                            );
-                          })()}
-                        </div>
-                        {/* Show crossed out prices for higher prices */}
-                        {index === 0 && sellerTotal < mainTotal && (
-                          <div style={{fontSize: '0.6rem', textDecoration: 'line-through', color: '#999'}}>
-                            {currency === 'PKR' ? (
-                              <span>Admin: {convertPrice(`£${mainPrice}`)}</span>
-                            ) : (
-                              mainShipping > 0 ? (
-                                <span>Admin: {convertPrice(`£${mainTotal}`)} ({convertPrice(`£${mainPrice}`)} + {convertPrice(`£${mainShipping}`)} shipping)</span>
-                              ) : (
-                                <span>Admin: {convertPrice(`£${mainPrice}`)}</span>
-                              )
-                            )}
-                          </div>
-                        )}
-                        {/* Show crossed out prices for other sellers with higher prices */}
-                        {index > 0 && (
-                          <div style={{fontSize: '0.6rem', textDecoration: 'line-through', color: '#999'}}>
-                            {(() => {
-                              const firstSellerPrice = parseFloat(uniqueSellers[0].sellerPrice) || mainPrice;
-                              const firstSellerShipping = parseFloat(uniqueSellers[0].sellerShipping) || 0;
-                              const firstSellerTotal = firstSellerPrice + firstSellerShipping;
-                              
-                              // Hide shipping if currency is PKR
-                              if (currency === 'PKR') {
-                                return `Was: ${convertPrice(`£${firstSellerPrice}`)}`;
-                              }
-                              
-                              return firstSellerShipping > 0 ? 
-                                `Was: ${convertPrice(`£${firstSellerTotal}`)} (${convertPrice(`£${firstSellerPrice}`)} + ${convertPrice(`£${firstSellerShipping}`)} shipping)` :
-                                `Was: ${convertPrice(`£${firstSellerPrice}`)}`;
-                            })()}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{fontSize: '0.7rem'}}>
-                      <strong>Chat with Seller:</strong> 
-                      <a 
-                        href={`https://wa.me/${sellerEntry.whatsappNo?.replace(/[^0-9]/g, '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-success ms-1"
-                      >
-                        <i className="fab fa-whatsapp me-1"></i>
-                        {sellerEntry.whatsappNo}
-                      </a>
-                    </div>
-                    <div style={{fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px'}}>
-                      <span style={{
-                        background: '#fff3cd',
-                        border: '1px solid #ffc107',
-                        borderRadius: '4px',
-                        padding: '2px 6px',
-                        fontWeight: '700',
-                        color: '#856404',
-                        fontSize: '0.65rem'
+                  {/* Buyer info form — shown before opening WhatsApp */}
+                  {!form.open ? (
+                    <button onClick={() => openBuyerForm(sid)}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                        background: '#25d366', color: 'white', padding: '7px 10px',
+                        borderRadius: '5px', fontSize: '0.7rem', fontWeight: '700', border: 'none', cursor: 'pointer'
                       }}>
-                        <i className="fas fa-boxes me-1"></i>
-                        MOQ: {sellerEntry.moq || 1} unit{(sellerEntry.moq || 1) > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    <div style={{fontSize: '0.7rem'}}>
-                      <strong>Listed:</strong> {new Date(sellerEntry.listedAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                );
-              })}
-                  
-                  {/* See More Button */}
-                  {uniqueSellers.length > 1 && !showAllSellers && (
-                    <button
-                      onClick={() => setShowAllSellers(true)}
-                      className="btn btn-outline-success btn-sm w-100 mt-2"
-                      style={{fontSize: '0.7rem', padding: '6px 12px'}}
-                    >
-                      <i className="fas fa-chevron-down me-1"></i>
-                      See More ({uniqueSellers.length - 1} more seller{uniqueSellers.length - 1 > 1 ? 's' : ''})
+                      <i className="fab fa-whatsapp" style={{ fontSize: '0.9rem' }}></i>
+                      Contact Supplier &nbsp;<span style={{ opacity: 0.85 }}>{maskPhone(se.whatsappNo)}</span>
                     </button>
-                  )}
-                  
-                  {/* See Less Button */}
-                  {uniqueSellers.length > 1 && showAllSellers && (
-                    <button
-                      onClick={() => setShowAllSellers(false)}
-                      className="btn btn-outline-secondary btn-sm w-100 mt-2"
-                      style={{fontSize: '0.7rem', padding: '6px 12px'}}
-                    >
-                      <i className="fas fa-chevron-up me-1"></i>
-                      See Less
-                    </button>
+                  ) : (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', padding: '10px' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#15803d', marginBottom: '8px' }}>
+                        <i className="fab fa-whatsapp me-1"></i>Contact {se.username} — Enter your details
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <input type="text" placeholder="Your Name *" value={form.name || ''}
+                          onChange={e => updateBuyerField(sid, 'name', e.target.value)}
+                          style={{ padding: '6px 8px', fontSize: '0.72rem', border: '1px solid #d1d5db', borderRadius: '4px', outline: 'none' }} />
+                        <input type="tel" placeholder="Your Phone / WhatsApp *" value={form.phone || ''}
+                          onChange={e => updateBuyerField(sid, 'phone', e.target.value)}
+                          style={{ padding: '6px 8px', fontSize: '0.72rem', border: '1px solid #d1d5db', borderRadius: '4px', outline: 'none' }} />
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button onClick={() => handleContactSupplier(se)} disabled={form.sending}
+                            style={{
+                              flex: '1', padding: '7px', fontSize: '0.7rem', fontWeight: '700',
+                              background: '#25d366', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px'
+                            }}>
+                            {form.sending
+                              ? <><i className="fas fa-spinner fa-spin"></i> Sending...</>
+                              : <><i className="fab fa-whatsapp"></i> Send & Open WhatsApp</>}
+                          </button>
+                          <button onClick={() => closeBuyerForm(sid)}
+                            style={{ padding: '7px 12px', fontSize: '0.7rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </>
-              );
-            })()}
-          </div>
-        </div>
-      ) : (product.sellerInfo || product.sellerData || product.seller) ? (
-        /* FALLBACK: Show legacy single seller info only if sellers array is empty */
-        <div className="border rounded p-2 mb-2" style={{background: '#e8f5e9'}}>
-          <div className="mb-2">
-            <div className="d-flex align-items-center mb-1">
-              <i className="fas fa-store text-success me-1" style={{fontSize: '0.75rem'}}></i>
-              <span className="fw-semibold text-success" style={{fontSize: '0.75rem'}}>
-                Available from Seller
-              </span>
-            </div>
-          </div>
-          
-          {(() => {
-            const sellerData = product.sellerData || product.sellerInfo || (product.seller && typeof product.seller === 'object' ? product.seller : null);
-            if (!sellerData) {
-              return (
-                <div style={{fontSize: '0.7rem'}}>
-                  <strong>Seller ID:</strong> {product.seller}<br/>
-                  <small className="text-muted">Loading seller information...</small>
-                </div>
-              );
-            }
-            
-            return (
-              <div className="d-flex justify-content-between align-items-start">
-                <div>
-                  <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                    <strong>Seller:</strong> {sellerData.username}
-                  </div>
-                  {sellerData.supplierId && (
-                    <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                      <strong>Supplier ID:</strong> {sellerData.supplierId}
-                    </div>
-                  )}
-                  <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                    <strong>Location:</strong> 📍 {sellerData.city}, {sellerData.country}
-                  </div>
-                  <div className="mb-1" style={{fontSize: '0.7rem'}}>
-                    <strong>Chat with Seller:</strong> 
-                    <a 
-                      href={`https://wa.me/${sellerData.whatsappNo?.replace(/[^0-9]/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-success ms-1"
-                    >
-                      <i className="fab fa-whatsapp me-1"></i>
-                      {sellerData.whatsappNo}
-                    </a>
-                  </div>
-                </div>
-                <div className="text-end">
-                  <div className="fw-bold text-success" style={{fontSize: '0.8rem'}}>
-                    {(() => {
-                      const sellerPrice = parseFloat(sellerData.sellerPrice) || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                      const sellerShipping = parseFloat(sellerData.sellerShipping) || 0;
-                      const sellerTotal = sellerPrice + sellerShipping;
-                      
-                      // Hide shipping if currency is PKR
-                      if (currency === 'PKR') {
-                        return convertPrice(`£${sellerPrice}`);
-                      }
-                      
-                      if (sellerShipping > 0) {
-                        return (
-                          <div>
-                            <div>{convertPrice(`£${sellerTotal}`)}</div>
-                            <div style={{fontSize: '0.6rem', color: '#6c757d'}}>
-                              {convertPrice(`£${sellerPrice}`)} + {convertPrice(`£${sellerShipping}`)} shipping
-                            </div>
-                          </div>
-                        );
-                      } else {
-                        return convertPrice(`£${sellerPrice}`);
-                      }
-                    })()}
-                  </div>
-                  {(() => {
-                    const sellerPrice = parseFloat(sellerData.sellerPrice);
-                    const sellerShipping = parseFloat(sellerData.sellerShipping) || 0;
-                    const sellerTotal = sellerPrice + sellerShipping;
-                    const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-                    const mainShipping = parseFloat(product.shipping) || 0;
-                    const mainTotal = mainPrice + mainShipping;
-                    
-                    return sellerData.sellerPrice && !isNaN(sellerPrice) && sellerTotal < mainTotal && (
-                      <div style={{fontSize: '0.6rem', textDecoration: 'line-through', color: '#999'}}>
-                        {currency === 'PKR' ? (
-                          convertPrice(`£${mainPrice}`)
-                        ) : (
-                          mainShipping > 0 ? (
-                            <span>{convertPrice(`£${mainTotal}`)} ({convertPrice(`£${mainPrice}`)} + {convertPrice(`£${mainShipping}`)} shipping)</span>
-                          ) : (
-                            convertPrice(`£${mainPrice}`)
-                          )
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      ) : (
-        /* No seller information available */
-        <div className="alert alert-info border-0 p-2 mb-2" style={{fontSize: '0.7rem'}}>
-          <i className="fas fa-info-circle me-1"></i>
-          No seller information available for this product
-        </div>
-      )}
+              )}
 
-      {/* Price Management for Current Seller */}
-      {isSellerLoggedIn && currentSeller && (
-        (product.sellers && product.sellers.some(s => s.sellerId?.toString() === currentSeller._id?.toString())) ||
-        (product.seller && product.seller?.toString() === currentSeller._id?.toString())
-      ) && (
-        <div className="border rounded p-2 mb-2" style={{background: '#fff3cd'}}>
-          <div className="mb-2">
-            <div className="d-flex align-items-center justify-content-between mb-1">
-              <div className="d-flex align-items-center">
-                <i className="fas fa-edit text-warning me-1" style={{fontSize: '0.75rem'}}></i>
-                <span className="fw-semibold text-warning" style={{fontSize: '0.75rem'}}>
-                  Manage Your Listing
-                </span>
-              </div>
-              <button 
-                className="btn btn-danger btn-sm" 
-                style={{fontSize: '0.6rem', padding: '2px 6px'}}
-                onClick={handleUnlistProduct}
-                disabled={unlisting}
-                title="Remove your listing for this product"
-              >
-                {unlisting ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin me-1"></i>
-                    Removing...
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-trash me-1"></i>
-                    Unlist
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-          
-          {/* Show current seller's price */}
-          {(() => {
-            const currentSellerEntry = currentSeller && product.sellers ? 
-              product.sellers.find(s => s.sellerId?.toString() === currentSeller._id?.toString()) : null;
-            
-            if (currentSellerEntry) {
-              const price = parseFloat(currentSellerEntry.sellerPrice) || 0;
-              const shipping = parseFloat(currentSellerEntry.sellerShipping) || 0;
-              const total = price + shipping;
-              
-              return (
-                <div className="mb-2" style={{fontSize: '0.7rem'}}>
-                  <strong>Your Current Price:</strong> 
-                  <div className="text-success ms-1 fw-bold">
-                    {currency === 'PKR' ? (
-                      convertPrice(`£${price}`)
-                    ) : (
-                      shipping > 0 ? (
-                        <div>
-                          <div>{convertPrice(`£${total}`)}</div>
-                          <div style={{fontSize: '0.6rem', color: '#6c757d'}}>
-                            {convertPrice(`£${price}`)} + {convertPrice(`£${shipping}`)} shipping
-                          </div>
-                        </div>
-                      ) : (
-                        convertPrice(`£${price}`)
-                      )
-                    )}
+              {/* Seller management panel */}
+              {isMine && (
+                <div style={{ marginTop: '8px', background: '#fff3cd', borderRadius: '6px', padding: '8px', border: '1px solid #ffc107' }}>
+                  <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#856404', marginBottom: '6px' }}>
+                    <i className="fas fa-edit me-1"></i>Manage Your Listing
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.65rem' }}>£</span>
+                    <input type="number" placeholder="New price" value={newPrice}
+                      onChange={e => setNewPrice(e.target.value)} step="0.01"
+                      style={{ flex: 1, padding: '4px 6px', fontSize: '0.65rem', border: '1px solid #d1d5db', borderRadius: '4px' }} />
+                    <button onClick={handleUpdatePrice} disabled={updating || !newPrice}
+                      style={{ padding: '4px 8px', fontSize: '0.65rem', background: '#16a34a', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                      {updating ? '...' : 'Update'}
+                    </button>
+                    <button onClick={handleUnlistProduct} disabled={unlisting}
+                      style={{ padding: '4px 8px', fontSize: '0.65rem', background: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                      {unlisting ? '...' : 'Unlist'}
+                    </button>
                   </div>
                 </div>
-              );
-            }
-            return null;
-          })()}
-          
-          <div className="mb-2">
-            <label style={{fontSize: '0.7rem', fontWeight: 'bold'}}>Update Your Price:</label>
-            <div className="input-group input-group-sm">
-              <span className="input-group-text">£</span>
-              <input 
-                type="number" 
-                className="form-control" 
-                placeholder={getCurrentSellerPrice() || parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0}
-                value={newPrice}
-                onChange={(e) => setNewPrice(e.target.value)}
-                step="0.01"
-                style={{fontSize: '0.7rem'}}
-                disabled={updating}
-              />
-              <button 
-                className="btn btn-success" 
-                type="button" 
-                style={{fontSize: '0.7rem'}}
-                onClick={handleUpdatePrice}
-                disabled={updating || !newPrice}
-              >
-                {updating ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin me-1"></i>
-                    Updating...
-                  </>
-                ) : (
-                  'Update Price'
-                )}
-              </button>
+              )}
             </div>
-          </div>
-          <div style={{fontSize: '0.65rem', color: '#666'}}>
-            <i className="fas fa-info-circle me-1"></i>
-            Set your competitive price. Lower prices appear first.
-            {(() => {
-              const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
-              const mainShipping = parseFloat(product.shipping) || 0;
-              const mainTotal = mainPrice + mainShipping;
-              const lowestPrice = getLowestPrice();
-              
-              return lowestPrice < mainTotal && (
-                <div className="mt-1">
-                  <i className="fas fa-exclamation-triangle text-warning me-1"></i>
-                  Current lowest total: {convertPrice(`£${lowestPrice}`)}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
+          );
+        })}
+
+        {uniqueSellers.length > 1 && (
+          <button onClick={() => setShowAllSellers(!showAllSellers)}
+            style={{
+              width: '100%', padding: '6px', fontSize: '0.7rem', fontWeight: '600',
+              background: 'transparent', border: '1px solid #16a34a', color: '#16a34a',
+              borderRadius: '5px', cursor: 'pointer', marginTop: '4px'
+            }}>
+            <i className={`fas fa-chevron-${showAllSellers ? 'up' : 'down'} me-1`}></i>
+            {showAllSellers ? 'See Less' : `See More (${uniqueSellers.length - 1} more seller${uniqueSellers.length - 1 > 1 ? 's' : ''})`}
+          </button>
+        )}
+      </div>
     </div>
   );
 };

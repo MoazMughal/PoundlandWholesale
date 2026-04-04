@@ -1777,19 +1777,45 @@ router.get('/admin/sellers', authenticateAdmin, async (req, res) => {
   }
 });
 
-// Get products by seller ID for admin
+// Get products by seller ID for admin (includes both primary and listed products)
 router.get('/admin/seller/:sellerId', authenticateAdmin, async (req, res) => {
   try {
     const { sellerId } = req.params;
-    
-    const products = await Product.find({ seller: sellerId })
-      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images originalProductId')
-      .sort({ createdAt: -1 });
+    const Product = (await import('../models/Product.js')).default;
 
-    res.json({
-      success: true,
-      products
+    const [primaryProducts, listedProducts] = await Promise.all([
+      // Products where seller is primary
+      Product.find({ seller: sellerId })
+        .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images asin sku sellers')
+        .sort({ createdAt: -1 })
+        .lean(),
+      // Products where seller is in sellers array
+      Product.find({ 'sellers.sellerId': sellerId })
+        .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images asin sku sellers')
+        .sort({ createdAt: -1 })
+        .lean()
+    ]);
+
+    // Merge and deduplicate
+    const allIds = new Set();
+    const allProducts = [];
+    [...primaryProducts, ...listedProducts].forEach(p => {
+      const id = p._id.toString();
+      if (!allIds.has(id)) {
+        allIds.add(id);
+        // Find this seller's specific price/moq from sellers array
+        const sellerEntry = p.sellers?.find(s => s.sellerId?.toString() === sellerId);
+        allProducts.push({
+          ...p,
+          sellerPrice: sellerEntry?.sellerPrice || p.price,
+          sellerShipping: sellerEntry?.sellerShipping || 0,
+          sellerMoq: sellerEntry?.moq || 1,
+          listingType: sellerEntry ? 'listed' : 'primary'
+        });
+      }
     });
+
+    res.json({ success: true, products: allProducts, total: allProducts.length });
   } catch (error) {
     console.error('Error fetching seller products:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -1952,6 +1978,115 @@ router.get('/debug/product-seller-info/:productId', authenticateSeller, async (r
       message: 'Debug failed', 
       error: error.message 
     });
+  }
+});
+
+// ============================================
+// QUOTATION ROUTES
+// ============================================
+
+// Submit a quotation to a specific seller
+router.post('/quotation', async (req, res) => {
+  try {
+    const Quotation = (await import('../models/Quotation.js')).default;
+    const Product = (await import('../models/Product.js')).default;
+
+    const {
+      productId, sellerId, sellerUsername, sellerWhatsapp,
+      buyerName, buyerEmail, buyerPhone,
+      quantity, sellerPrice, message
+    } = req.body;
+
+    if (!productId || !sellerId || !buyerName || !buyerPhone) {
+      return res.status(400).json({ message: 'productId, sellerId, buyerName and buyerPhone are required' });
+    }
+
+    // Rate limit: same buyer (by phone) to same seller on same product: max 5 in 24hrs
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentCount = await Quotation.countDocuments({
+      productId, sellerId,
+      buyerPhone,
+      submittedAt: { $gte: since }
+    });
+
+    if (recentCount >= 5) {
+      return res.status(429).json({
+        message: 'You have already sent 5 quotations to this seller for this product in the last 24 hours. Please try a different seller or wait 24 hours.'
+      });
+    }
+
+    // Get product name
+    const product = await Product.findById(productId).select('name').lean();
+
+    const quotation = await Quotation.create({
+      productId,
+      productName: product?.name || 'Unknown Product',
+      sellerId,
+      sellerUsername,
+      sellerWhatsapp,
+      buyerName,
+      buyerEmail,
+      buyerPhone,
+      quantity: quantity || 1,
+      sellerPrice,
+      message,
+      ipAddress: req.ip
+    });
+
+    res.json({ success: true, message: 'Quotation sent successfully!', quotationId: quotation._id });
+  } catch (error) {
+    console.error('Quotation error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin: Get all quotations
+router.get('/admin/quotations', authenticateAdmin, async (req, res) => {
+  try {
+    const Quotation = (await import('../models/Quotation.js')).default;
+    const { page = 1, limit = 50, status, sellerId } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const query = {};
+    if (status) query.status = status;
+    if (sellerId) query.sellerId = sellerId;
+
+    const [quotations, total] = await Promise.all([
+      Quotation.find(query).sort({ submittedAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      Quotation.countDocuments(query)
+    ]);
+
+    // Stats
+    const stats = await Quotation.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+
+    res.json({
+      success: true,
+      quotations,
+      total,
+      totalPages: Math.ceil(total / parseInt(limit)),
+      currentPage: parseInt(page),
+      stats: stats.reduce((acc, s) => { acc[s._id] = s.count; return acc; }, {})
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin: Update quotation status
+router.put('/admin/quotations/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const Quotation = (await import('../models/Quotation.js')).default;
+    const quotation = await Quotation.findByIdAndUpdate(
+      req.params.id,
+      { status: req.body.status },
+      { new: true }
+    );
+    if (!quotation) return res.status(404).json({ message: 'Quotation not found' });
+    res.json({ success: true, quotation });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

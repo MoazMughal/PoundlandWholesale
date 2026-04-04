@@ -1060,6 +1060,12 @@ const AdminDashboard = () => {
         <button onClick={() => navigate('/admin/payment-verifications')} className="tool-btn info">
           💰 Payment Verifications
         </button>
+        <button onClick={() => navigate('/admin/quotations')} className="tool-btn warning">
+          📩 Buyer Quotations
+        </button>
+        <button onClick={() => navigate('/admin/seller-catalog')} className="tool-btn success" style={{color: 'black'}}>
+          🗂️ Seller Catalog
+        </button>
         <button onClick={bulkDeleteProducts} className="tool-btn danger">
           🗑️ Delete All
         </button>

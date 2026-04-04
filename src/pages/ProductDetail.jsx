@@ -3343,7 +3343,7 @@ _This quotation was generated from PoundlandWholesale.com_
                             {convertTotalPrice(product.price, product.shipping)}
                           </span>
                         )}
-                        {hasStock() && (
+                        {hasStock() && currency === 'GBP' && (
                           <span className="text-muted" style={{
                             fontSize: '0.75rem',
                             fontWeight: '500'
@@ -3747,43 +3747,10 @@ _This quotation was generated from PoundlandWholesale.com_
                       marginTop: '6px',
                       textAlign: 'center'
                     }}>
-                      (DDP to Amazon Warehouse)
+                      {currency === 'GBP' ? '(DDP to Amazon Warehouse)' : ''}
                     </div>
                   </div>
                   )}
-
-                  {/* Compact In Stock Status */}
-                  {/* Stock Status Display */}
-                  <div className="mb-2" style={{
-                    background: hasStock() 
-                      ? 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)' 
-                      : 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-                    border: hasStock() ? '1px solid #0ea5e9' : '1px solid #ef4444',
-                    borderRadius: '6px',
-                    padding: '6px 8px'
-                  }}>
-                    <div className="fw-bold d-flex align-items-center mb-1" style={{
-                      fontSize: '0.7rem', 
-                      color: hasStock() ? '#0369a1' : '#dc2626'
-                    }}>
-                      <i className={`fas ${hasStock() ? 'fa-check-circle' : 'fa-times-circle'} me-1`} style={{color: hasStock() ? '#059669' : '#dc2626', fontSize: '0.6rem'}}></i>
-                      {hasStock() ? 'Available for Purchase' : 'Currently Out of Stock'}
-                    </div>
-                    {hasStock() ? (
-                      <small style={{fontSize: '0.6rem', color: '#0369a1', fontWeight: '500'}}>
-                        <i className="fas fa-shipping-fast me-1"></i>
-                        {product.sellers && product.sellers.length > 0 
-                          ? `Listed by ${product.sellers.length} seller${product.sellers.length > 1 ? 's' : ''}`
-                          : 'Delivery in 15 days to Amazon Warehouse'
-                        }
-                      </small>
-                    ) : (
-                      <small style={{fontSize: '0.6rem', color: '#991b1b', fontWeight: '500'}}>
-                        <i className="fas fa-info-circle me-1"></i>
-                        Contact us for availability updates
-                      </small>
-                    )}
-                  </div>
 
                   {/* Stock Status Check */}
                   {hasStock() ? (
@@ -3795,214 +3762,51 @@ _This quotation was generated from PoundlandWholesale.com_
                         borderRadius: '6px',
                         padding: '8px'
                       }}>
-                        <label className="form-label fw-bold mb-1" style={{
-                          fontSize: '0.7rem', 
-                          color: '#232f3e',
-                          letterSpacing: '0.2px'
-                        }}>Quantity:</label>
+                        <label className="form-label fw-bold mb-1" style={{fontSize: '0.7rem', color: '#232f3e', letterSpacing: '0.2px'}}>Quantity:</label>
                         <div className="d-flex align-items-center gap-1 mb-1">
-                          <button
-                            onClick={() => setQuantity(Math.max(getLowestPriceBreakdown().moq, quantity - 1))}
-                            style={{
-                              background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                              border: '1px solid #e1e5e9',
-                              borderRadius: '4px',
-                              width: '24px',
-                              height: '24px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              fontSize: '0.8rem',
-                              fontWeight: '600',
-                              color: '#232f3e'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.target.style.borderColor = '#ff9900';
-                              e.target.style.transform = 'scale(1.05)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.borderColor = '#e1e5e9';
-                              e.target.style.transform = 'scale(1)';
-                            }}
-                          >
-                            −
-                          </button>
-                          <input 
-                            type="number" 
-                            className="form-control text-center" 
-                            style={{
-                              fontSize: '0.8rem', 
-                              color: '#232f3e', 
-                              backgroundColor: '#ffffff', 
-                              border: '1px solid #e1e5e9',
-                              borderRadius: '4px',
-                              fontWeight: '700',
-                              maxWidth: '80px',
-                              padding: '4px',
-                              height: '24px',
-                              fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-                            }}
-                            value={quantity}
-                            min={getLowestPriceBreakdown().moq}
-                            step="1"
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === '' || value === '0') {
-                                setQuantity('');
-                              } else {
-                                setQuantity(parseInt(value));
-                              }
-                            }}
-                            onBlur={(e) => {
-                              const moq = getLowestPriceBreakdown().moq;
-                              const value = parseInt(e.target.value);
-                              if (isNaN(value) || value < moq) {
-                                setQuantity(moq);
-                              }
-                              e.target.style.borderColor = '#e1e5e9';
-                              e.target.style.boxShadow = 'none';
-                            }}
-                            onFocus={(e) => {
-                              e.target.style.borderColor = '#ff9900';
-                              e.target.style.boxShadow = '0 0 0 2px rgba(255, 153, 0, 0.1)';
-                            }}
-                            placeholder={String(getLowestPriceBreakdown().moq)}
-                          />
-                          <button
-                            onClick={() => setQuantity(quantity + 1)}
-                            style={{
-                              background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                              border: '1px solid #e1e5e9',
-                              borderRadius: '4px',
-                              width: '24px',
-                              height: '24px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              fontSize: '0.8rem',
-                              fontWeight: '600',
-                              color: '#232f3e'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.target.style.borderColor = '#ff9900';
-                              e.target.style.transform = 'scale(1.05)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.borderColor = '#e1e5e9';
-                              e.target.style.transform = 'scale(1)';
-                            }}
-                          >
-                            +
-                          </button>
+                          <button onClick={() => setQuantity(Math.max(getLowestPriceBreakdown().moq, quantity - 1))}
+                            style={{ background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)', border: '1px solid #e1e5e9', borderRadius: '4px', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', color: '#232f3e' }}
+                            onMouseEnter={e => { e.target.style.borderColor = '#ff9900'; }} onMouseLeave={e => { e.target.style.borderColor = '#e1e5e9'; }}>−</button>
+                          <input type="number" className="form-control text-center"
+                            style={{ fontSize: '0.8rem', color: '#232f3e', backgroundColor: '#ffffff', border: '1px solid #e1e5e9', borderRadius: '4px', fontWeight: '700', maxWidth: '80px', padding: '4px', height: '24px' }}
+                            value={quantity} min={getLowestPriceBreakdown().moq} step="1"
+                            onChange={e => { const v = e.target.value; setQuantity(v === '' || v === '0' ? '' : parseInt(v)); }}
+                            onBlur={e => { const moq = getLowestPriceBreakdown().moq; const v = parseInt(e.target.value); if (isNaN(v) || v < moq) setQuantity(moq); }}
+                            placeholder={String(getLowestPriceBreakdown().moq)} />
+                          <button onClick={() => setQuantity(quantity + 1)}
+                            style={{ background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)', border: '1px solid #e1e5e9', borderRadius: '4px', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', color: '#232f3e' }}
+                            onMouseEnter={e => { e.target.style.borderColor = '#ff9900'; }} onMouseLeave={e => { e.target.style.borderColor = '#e1e5e9'; }}>+</button>
                         </div>
-                        <small style={{
-                          fontSize: '0.6rem', 
-                          color: '#565959',
-                          fontWeight: '500'
-                        }}>
+                        <small style={{ fontSize: '0.6rem', color: '#565959', fontWeight: '500' }}>
                           <i className="fas fa-info-circle me-1"></i>
                           MOQ: {getLowestPriceBreakdown().moq} unit{getLowestPriceBreakdown().moq > 1 ? 's' : ''} • Changes affect Platform Comparison gross profit
                         </small>
                       </div>
 
-                      {/* Compact Buy Now Button */}
-                      <div className="d-grid gap-1 mb-2">
-                        <button 
-                          className="enhanced-btn" 
-                          style={{
-                            fontSize: '0.7rem', 
-                            padding: '8px 12px',
-                            background: 'linear-gradient(135deg, #ff9900 0%, #ff7700 100%)',
-                            color: '#ffffff',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontWeight: '700',
-                            letterSpacing: '0.3px',
-                            boxShadow: '0 2px 6px rgba(255, 153, 0, 0.25)',
-                            position: 'relative',
-                            overflow: 'hidden'
-                          }}
-                          onClick={() => {
-                            handleBuyNow();
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.transform = 'translateY(-1px)';
-                            e.target.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.35)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.transform = 'translateY(0)';
-                            e.target.style.boxShadow = '0 2px 6px rgba(255, 153, 0, 0.25)';
-                          }}
-                        >
-                          <i className="fas fa-bolt me-1"></i>Buy Now  <span style={{fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontWeight: '800'}}>{quantity || 1}</span> Units
-                        </button>
-                        
-                        <button 
-                          className="enhanced-btn" 
-                          style={{
-                            fontSize: '0.65rem', 
-                            padding: '6px 10px',
-                            background: product && isInBasket(product.id || product._id) 
-                              ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
-                              : 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)',
-                            color: '#ffffff !important',
-                            border: product && isInBasket(product.id || product._id) 
-                              ? '1px solid #10b981' 
-                              : '1px solid #ff9900',
-                            borderRadius: '6px',
-                            fontWeight: '600',
-                            letterSpacing: '0.2px',
-                            boxShadow: '0 2px 6px rgba(35, 47, 62, 0.25)'
-                          }}
-                          onClick={() => {
-                            // Add to cart functionality
-                            if (product) {
-                              addToBasket(product);
-                            }
-                          }}
-                          onMouseEnter={(e) => {
-                            if (product && isInBasket(product.id || product._id)) {
-                              e.target.style.background = 'linear-gradient(135deg, #059669 0%, #047857 100%)';
-                              e.target.style.borderColor = '#10b981';
-                            } else {
-                              e.target.style.background = 'linear-gradient(135deg, #ff9900 0%, #ff7700 100%)';
-                              e.target.style.borderColor = '#ffffff';
-                            }
-                            e.target.style.transform = 'translateY(-1px)';
-                            e.target.style.boxShadow = '0 4px 12px rgba(255, 153, 0, 0.35)';
-                          }}
-                          onMouseLeave={(e) => {
-                            if (product && isInBasket(product.id || product._id)) {
-                              e.target.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-                              e.target.style.borderColor = '#10b981';
-                            } else {
-                              e.target.style.background = 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)';
-                              e.target.style.borderColor = '#ff9900';
-                            }
-                            e.target.style.transform = 'translateY(0)';
-                            e.target.style.boxShadow = '0 2px 6px rgba(35, 47, 62, 0.25)';
-                          }}
-                        >
-                          <i className={product && isInBasket(product.id || product._id) ? 'fas fa-check me-1' : 'fas fa-shopping-cart me-1'}></i>
-                          {product && isInBasket(product.id || product._id) ? 'In Basket' : 'Add to Cart'}
-                        </button>
+                      {/* Available for Purchase — shown after quantity */}
+                      <div className="mb-2" style={{
+                        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                        border: '1px solid #0ea5e9', borderRadius: '6px', padding: '6px 8px'
+                      }}>
+                        <div className="fw-bold d-flex align-items-center mb-1" style={{ fontSize: '0.7rem', color: '#0369a1' }}>
+                          <i className="fas fa-check-circle me-1" style={{ color: '#059669', fontSize: '0.6rem' }}></i>
+                          Available for Purchase
+                        </div>
+                        <small style={{ fontSize: '0.6rem', color: '#0369a1', fontWeight: '500' }}>
+                          <i className="fas fa-shipping-fast me-1"></i>
+                          {product.sellers && product.sellers.length > 0
+                            ? `Listed by ${product.sellers.length} seller${product.sellers.length > 1 ? 's' : ''}`
+                            : 'Delivery in 15 days to Amazon Warehouse'}
+                        </small>
                       </div>
                     </>
                   ) : (
                     /* Out of Stock Message */
                     <div className="mb-2" style={{
                       background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
-                      border: '1px solid #ef4444',
-                      borderRadius: '6px',
-                      padding: '12px',
-                      textAlign: 'center'
+                      border: '1px solid #ef4444', borderRadius: '6px', padding: '12px', textAlign: 'center'
                     }}>
-                      <div className="fw-bold d-flex align-items-center justify-content-center mb-1" style={{
-                        fontSize: '0.8rem', 
+                      <div className="fw-bold d-flex align-items-center justify-content-center mb-1" style={{ fontSize: '0.8rem', 
                         color: '#dc2626'
                       }}>
                         <i className="fas fa-exclamation-circle me-2" style={{fontSize: '1rem'}}></i>
@@ -4022,6 +3826,7 @@ _This quotation was generated from PoundlandWholesale.com_
                     isAdmin={isAdmin}
                     onUpdatePrice={handleUpdateSellerPrice}
                     onRefreshProduct={refreshProductData}
+                    quantity={quantity}
                   />
 
                   
