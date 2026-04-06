@@ -367,7 +367,9 @@ const SearchAnalyticsTab = ({ data, loading, sort, setSort, onRefresh }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {sorted.map((q, idx) => {
             const isOpen = expandedQuery === q._id;
-            const uniqueBuyers = [...new Map((q.buyers || []).map(b => [b.email || b.name, b])).values()];
+            const uniqueUsers = [...new Map((q.users || []).map(u => [(u.email || u.name), u])).values()];
+            const sellerCount = uniqueUsers.filter(u => u.page === 'seller-products').length;
+            const buyerCount = uniqueUsers.filter(u => u.page !== 'seller-products').length;
             return (
               <div key={q._id} style={{
                 background: 'white', borderRadius: '10px',
@@ -406,38 +408,48 @@ const SearchAnalyticsTab = ({ data, loading, sort, setSort, onRefresh }) => {
                     <span style={{ fontSize: '0.7rem', color: '#9ca3af' }}>times</span>
                   </div>
 
-                  {/* Buyers badge */}
-                  {uniqueBuyers.length > 0 && (
-                    <span style={{
-                      background: '#fef3c7', color: '#92400e', borderRadius: '12px',
-                      padding: '2px 8px', fontSize: '0.7rem', fontWeight: '700', whiteSpace: 'nowrap'
-                    }}>
-                      <i className="fas fa-users me-1"></i>{uniqueBuyers.length} buyer{uniqueBuyers.length !== 1 ? 's' : ''}
-                    </span>
-                  )}
+                  {/* User breakdown badges */}
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap' }}>
+                    {buyerCount > 0 && (
+                      <span style={{ background: '#dbeafe', color: '#1d4ed8', borderRadius: '12px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                        <i className="fas fa-user me-1"></i>{buyerCount} buyer{buyerCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {sellerCount > 0 && (
+                      <span style={{ background: '#d1fae5', color: '#065f46', borderRadius: '12px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                        <i className="fas fa-store me-1"></i>{sellerCount} seller{sellerCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
 
                   <i className={`fas fa-chevron-${isOpen ? 'up' : 'down'}`}
                     style={{ color: '#9ca3af', fontSize: '0.75rem' }} />
                 </div>
 
-                {/* Expanded buyer list */}
-                {isOpen && uniqueBuyers.length > 0 && (
+                {/* Expanded user list */}
+                {isOpen && uniqueUsers.length > 0 && (
                   <div style={{ borderTop: '1px solid #e5e7eb', padding: '12px 16px', background: '#fafafa' }}>
                     <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#374151', marginBottom: '8px' }}>
-                      Buyers who searched this:
+                      Users who searched this:
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {uniqueBuyers.map((b, bi) => (
-                        <span key={bi} style={{
-                          background: 'white', border: '1px solid #e5e7eb', borderRadius: '20px',
-                          padding: '4px 10px', fontSize: '0.75rem', color: '#374151'
-                        }}>
-                          {b.name === 'Guest'
-                            ? <span style={{ color: '#9ca3af' }}>Guest</span>
-                            : <><i className="fas fa-user-circle me-1" style={{ color: '#f59e0b' }}></i>{b.name}{b.email ? ` (${b.email})` : ''}</>
-                          }
-                        </span>
-                      ))}
+                      {uniqueUsers.map((u, ui) => {
+                        const isSeller = u.page === 'seller-products';
+                        return (
+                          <span key={ui} style={{
+                            background: 'white', border: `1px solid ${isSeller ? '#a7f3d0' : '#e5e7eb'}`,
+                            borderRadius: '20px', padding: '4px 10px', fontSize: '0.75rem', color: '#374151',
+                            display: 'flex', alignItems: 'center', gap: '5px'
+                          }}>
+                            {u.name === 'Guest'
+                              ? <><i className="fas fa-user-slash" style={{ color: '#9ca3af' }}></i><span style={{ color: '#9ca3af' }}>Guest</span></>
+                              : isSeller
+                                ? <><i className="fas fa-store" style={{ color: '#065f46' }}></i><span style={{ color: '#065f46', fontWeight: '600' }}>{u.name}</span>{u.email ? <span style={{ color: '#9ca3af' }}>({u.email})</span> : null}</>
+                                : <><i className="fas fa-user-circle" style={{ color: '#1d4ed8' }}></i><span>{u.name}</span>{u.email ? <span style={{ color: '#9ca3af' }}>({u.email})</span> : null}</>
+                            }
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

@@ -339,18 +339,25 @@ const AdminProducts = () => {
     // Track seller search for admin analytics
     if (term && term.trim().length >= 2) {
       try {
+        // authManager stores all data in localStorage regardless of user type
         const sellerData = (() => {
-          try { return JSON.parse(localStorage.getItem('sellerData') || 'null'); } catch { return null; }
+          try {
+            const raw = localStorage.getItem('sellerData');
+            return raw ? JSON.parse(raw) : null;
+          } catch { return null; }
         })();
+        const sellerName = sellerData?.username || sellerData?.businessName || sellerData?.name || '';
+        const sellerEmail = sellerData?.email || '';
+        const sellerId = sellerData?._id || sellerData?.id || '';
         fetch(getApiUrl('products/public/search-log'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             query: term.trim(),
             page: 'seller-products',
-            buyerId: sellerData?._id || sellerData?.id || '',
-            buyerName: sellerData?.businessName || sellerData?.username || sellerData?.name || 'Seller',
-            buyerEmail: sellerData?.email || ''
+            buyerId: sellerId,
+            buyerName: sellerName || 'Unknown Seller',
+            buyerEmail: sellerEmail
           })
         }).catch(() => {});
       } catch (_) {}

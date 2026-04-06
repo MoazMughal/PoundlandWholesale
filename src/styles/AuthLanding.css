@@ -62,3 +62,106 @@
   transform: translateY(-2px);
   box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
 }
+
+/* ============================================
+   FORCE LIGHT MODE on all auth/login/register cards
+   Prevents browser dark mode from inverting colors
+   ============================================ */
+
+/* Force light color scheme on the entire auth page */
+.min-vh-100 {
+  color-scheme: light !important;
+}
+
+/* bg-light override for dark mode */
+.min-vh-100.bg-light {
+  background-color: #f8f9fa !important;
+}
+
+.min-vh-100 .card,
+.min-vh-100 .card * {
+  color-scheme: light !important;
+}
+
+.min-vh-100 .card {
+  background: #ffffff !important;
+  color: #212529 !important;
+}
+
+.min-vh-100 .card-body {
+  background: #ffffff !important;
+  color: #212529 !important;
+}
+
+.min-vh-100 .card .form-control,
+.min-vh-100 .card .form-select,
+.min-vh-100 .card input,
+.min-vh-100 .card textarea,
+.min-vh-100 .card select {
+  background-color: #ffffff !important;
+  color: #212529 !important;
+  border-color: #ced4da !important;
+  -webkit-text-fill-color: #212529 !important;
+}
+
+.min-vh-100 .card .form-control::placeholder,
+.min-vh-100 .card input::placeholder {
+  color: #6c757d !important;
+  -webkit-text-fill-color: #6c757d !important;
+  opacity: 1 !important;
+}
+
+/* Fix autofill dark background in Chrome */
+.min-vh-100 .card input:-webkit-autofill,
+.min-vh-100 .card input:-webkit-autofill:hover,
+.min-vh-100 .card input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #212529 !important;
+  background-color: #ffffff !important;
+}
+
+.min-vh-100 .card .input-group-text {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+  color: #495057 !important;
+  border-color: #ced4da !important;
+}
+
+.min-vh-100 .card .form-label,
+.min-vh-100 .card label,
+.min-vh-100 .card .form-check-label {
+  color: #495057 !important;
+  -webkit-text-fill-color: #495057 !important;
+}
+
+.min-vh-100 .card h3,
+.min-vh-100 .card h4,
+.min-vh-100 .card h5,
+.min-vh-100 .card .text-dark,
+.min-vh-100 .card .fw-bold,
+.min-vh-100 .card .fw-semibold {
+  color: #212529 !important;
+  -webkit-text-fill-color: #212529 !important;
+}
+
+.min-vh-100 .card .text-muted,
+.min-vh-100 .card p.text-muted,
+.min-vh-100 .card small.text-muted,
+.min-vh-100 .card .small {
+  color: #6c757d !important;
+  -webkit-text-fill-color: #6c757d !important;
+}
+
+.min-vh-100 .card .form-text {
+  color: #6c757d !important;
+}
+
+.min-vh-100 .card .form-check-input {
+  background-color: #ffffff !important;
+  border-color: #adb5bd !important;
+}
+
+/* Links */
+.min-vh-100 .card a.text-primary,
+.min-vh-100 .card .text-primary {
+  color: #0d6efd !important;
+}

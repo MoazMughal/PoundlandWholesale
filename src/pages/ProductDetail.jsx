@@ -2386,11 +2386,12 @@ _This quotation was generated from PoundlandWholesale.com_
           };
         }
         if (activeType === 'seller') {
+          // authManager stores all data in localStorage
           const d = JSON.parse(localStorage.getItem('sellerData') || 'null');
           if (d) return {
             viewerType: 'seller',
             viewerId: d._id || d.id || '',
-            viewerName: d.businessName || d.username || d.name || 'Seller',
+            viewerName: d.username || d.businessName || d.name || 'Seller',
             viewerEmail: d.email || ''
           };
         }

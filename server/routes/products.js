@@ -2237,26 +2237,26 @@ router.get('/admin/product-views', authenticateAdmin, async (req, res) => {
   }
 });
 
-// Log a search query (public, called by AmazonsChoice page)
+// Log a search query (public, called by AmazonsChoice page or seller products page)
 router.post('/public/search-log', async (req, res) => {
   try {
-    const { query, resultsCount, buyerId, buyerName, buyerEmail } = req.body;
+    const { query, resultsCount, buyerId, buyerName, buyerEmail, page: sourcePage } = req.body;
     if (!query || !query.trim()) return res.json({ success: true, skipped: true });
 
     const SearchLog = (await import('../models/SearchLog.js')).default;
 
-    // Dedup: same buyer/guest same query within 5 minutes = skip
-    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+    // Dedup: same buyer/guest same query within 30 seconds = skip (prevents double-fire, not re-testing)
+    const thirtySecsAgo = new Date(Date.now() - 30 * 1000);
     const dupQuery = buyerId && mongoose.Types.ObjectId.isValid(buyerId)
-      ? { query: query.trim().toLowerCase(), buyerId, searchedAt: { $gte: fiveMinsAgo } }
-      : { query: query.trim().toLowerCase(), buyerName: buyerName || 'Guest', searchedAt: { $gte: fiveMinsAgo } };
+      ? { query: query.trim().toLowerCase(), buyerId, searchedAt: { $gte: thirtySecsAgo } }
+      : { query: query.trim().toLowerCase(), buyerName: buyerName || 'Guest', searchedAt: { $gte: thirtySecsAgo } };
 
     const already = await SearchLog.findOne(dupQuery).lean();
     if (already) return res.json({ success: true, skipped: true });
 
     await SearchLog.create({
       query: query.trim().toLowerCase(),
-      page: 'amazons-choice',
+      page: sourcePage || 'amazons-choice',
       buyerId: buyerId && mongoose.Types.ObjectId.isValid(buyerId) ? buyerId : null,
       buyerName: buyerName || 'Guest',
       buyerEmail: buyerEmail || '',
@@ -2282,7 +2282,7 @@ router.get('/admin/search-logs', authenticateAdmin, async (req, res) => {
         count: { $sum: 1 },
         avgResults: { $avg: '$resultsCount' },
         lastSearched: { $max: '$searchedAt' },
-        buyers: { $addToSet: { name: '$buyerName', email: '$buyerEmail' } }
+        users: { $addToSet: { name: '$buyerName', email: '$buyerEmail', page: '$page' } }
       }},
       { $sort: { count: -1 } },
       { $limit: parseInt(limit) }
