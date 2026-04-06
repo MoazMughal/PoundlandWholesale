@@ -300,6 +300,16 @@ const productSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // View tracking
+  viewCount: {
+    type: Number,
+    default: 0
+  },
+  // View tracking
+  viewCount: {
+    type: Number,
+    default: 0
+  },
   // Product Variations
   variations: [{
     type: {

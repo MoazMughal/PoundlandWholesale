@@ -1061,7 +1061,7 @@ const AdminDashboard = () => {
           💰 Payment Verifications
         </button>
         <button onClick={() => navigate('/admin/quotations')} className="tool-btn warning">
-          📩 Buyer Quotations
+          📊 User Analytics
         </button>
         <button onClick={() => navigate('/admin/seller-catalog')} className="tool-btn success" style={{color: 'black'}}>
           🗂️ Seller Catalog

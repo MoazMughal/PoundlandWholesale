@@ -827,6 +827,8 @@ _This quotation was generated from PoundlandWholesale.com_
             sellerInfo: dbProduct.sellerInfo,
             sellers: dbProduct.sellers || [], // Add sellers array for multiple sellers support
             save: parseFloat(dbProduct.savings) || 0, // Add the single savings field
+            sku: dbProduct.sku || '',
+            asin: dbProduct.asin || '',
             showEvaluation: dbProduct.name.toLowerCase().includes('nose ring') ||
                            dbProduct.name.toLowerCase().includes('bulb') ||
                            dbProduct.name.toLowerCase().includes('fuse') ||
@@ -850,7 +852,8 @@ _This quotation was generated from PoundlandWholesale.com_
             specifications: {
               'Material': 'Premium Quality',
               'Condition': 'New',
-              'Origin': 'International'
+              'Origin': 'International',
+              ...(dbProduct.sku ? { 'SKU': dbProduct.sku } : {})
             },
             platforms: [
               { name: 'RRP', price: '?420.99', grossProfit: '?328.39', markup: '354.63%' },
@@ -2360,6 +2363,49 @@ _This quotation was generated from PoundlandWholesale.com_
     fetchProduct()
   }, [id, searchParams])
 
+  // Track product view for admin analytics — once per product per browser session
+  useEffect(() => {
+    if (!id) return;
+
+    // Deduplicate: only count once per product per session tab
+    const sessionKey = `viewed_${id}`;
+    if (sessionStorage.getItem(sessionKey)) return;
+    sessionStorage.setItem(sessionKey, '1');
+
+    // Detect who is viewing — buyer, seller, or guest
+    const getViewerInfo = () => {
+      try {
+        const activeType = localStorage.getItem('activeUserType');
+        if (activeType === 'buyer') {
+          const d = JSON.parse(localStorage.getItem('buyerData') || 'null');
+          if (d) return {
+            viewerType: 'buyer',
+            viewerId: d._id || d.id || '',
+            viewerName: `${d.firstName || ''} ${d.lastName || ''}`.trim() || d.username || 'Buyer',
+            viewerEmail: d.email || ''
+          };
+        }
+        if (activeType === 'seller') {
+          const d = JSON.parse(localStorage.getItem('sellerData') || 'null');
+          if (d) return {
+            viewerType: 'seller',
+            viewerId: d._id || d.id || '',
+            viewerName: d.businessName || d.username || d.name || 'Seller',
+            viewerEmail: d.email || ''
+          };
+        }
+      } catch (_) {}
+      return { viewerType: 'guest', viewerId: '', viewerName: 'Guest', viewerEmail: '' };
+    };
+
+    const viewer = getViewerInfo();
+    fetch(apiConfig.getApiUrl(`products/public/${id}/view`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(viewer)
+    }).catch(() => {});
+  }, [id])
+
   // Listen for product updates from admin panel
   useEffect(() => {
     const handleProductUpdate = (event) => {
@@ -3270,6 +3316,16 @@ _This quotation was generated from PoundlandWholesale.com_
                   >
                     {product.reviews} reviews
                   </Link>
+                  {product.sku && (
+                    <span style={{ fontSize: '0.7rem', color: '#565959' }}>
+                      <span style={{ fontWeight: '600', color: '#232f3e' }}>SKU:</span>{' '}
+                      <span style={{
+                        fontFamily: 'monospace', background: '#f3f4f6',
+                        padding: '1px 6px', borderRadius: '4px',
+                        border: '1px solid #e5e7eb', letterSpacing: '0.5px'
+                      }}>{product.sku}</span>
+                    </span>
+                  )}
                   {(() => {
                     // Use Amazon markup from Platform Comparison, fallback to product.markup
                     const amazonMarkup = getAmazonMarkupFromPlatforms();
@@ -3295,7 +3351,7 @@ _This quotation was generated from PoundlandWholesale.com_
                   })()}
 
                 </div>
-                  
+
                 {/* Enhanced Price Section */}
                 <div className="price-section mb-3" style={{
                   background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',

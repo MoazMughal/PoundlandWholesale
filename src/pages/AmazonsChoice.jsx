@@ -937,6 +937,28 @@ const AmazonsChoice = () => {
   // Server-side filtering - fetch products with filters and pagination
   const applyFilters = async (category, search, page = currentPage) => {
     await fetchProducts(category, search, page)
+
+    // Track non-empty searches for admin analytics
+    if (search && search.trim().length >= 2) {
+      try {
+        const buyerData = (() => {
+          try { return JSON.parse(localStorage.getItem('buyerData') || 'null'); } catch { return null; }
+        })();
+        fetch(getApiUrl('products/public/search-log'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: search.trim(),
+            resultsCount: 0, // will be approximate; server just needs the query
+            buyerId: buyerData?._id || buyerData?.id || '',
+            buyerName: buyerData
+              ? `${buyerData.firstName || ''} ${buyerData.lastName || ''}`.trim() || buyerData.username || 'Buyer'
+              : 'Guest',
+            buyerEmail: buyerData?.email || ''
+          })
+        }).catch(() => {});
+      } catch (_) {}
+    }
   }
 
   // Check admin status

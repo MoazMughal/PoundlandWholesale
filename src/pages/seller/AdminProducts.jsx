@@ -335,6 +335,26 @@ const AdminProducts = () => {
     setCurrentPage(1)
     setShowSuggestions(false)
     fetchAdminProducts()
+
+    // Track seller search for admin analytics
+    if (term && term.trim().length >= 2) {
+      try {
+        const sellerData = (() => {
+          try { return JSON.parse(localStorage.getItem('sellerData') || 'null'); } catch { return null; }
+        })();
+        fetch(getApiUrl('products/public/search-log'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: term.trim(),
+            page: 'seller-products',
+            buyerId: sellerData?._id || sellerData?.id || '',
+            buyerName: sellerData?.businessName || sellerData?.username || sellerData?.name || 'Seller',
+            buyerEmail: sellerData?.email || ''
+          })
+        }).catch(() => {});
+      } catch (_) {}
+    }
   }
 
   const clearSearch = () => {

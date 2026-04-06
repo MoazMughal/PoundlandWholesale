@@ -2148,6 +2148,161 @@ router.get('/public/:id', async (req, res) => {
   } 
 });
 
+// Track a product view (public, called by buyer on product detail page)
+router.post('/public/:id/view', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid product ID' });
+    }
+
+    // Support both old field names (buyerId/buyerName) and new (viewerId/viewerName/viewerType)
+    const viewerType  = req.body.viewerType  || 'guest';
+    const viewerId    = req.body.viewerId    || req.body.buyerId    || null;
+    const viewerName  = req.body.viewerName  || req.body.buyerName  || 'Guest';
+    const viewerEmail = req.body.viewerEmail || req.body.buyerEmail || '';
+
+    // Server-side dedup: same viewer within 30 minutes = skip
+    const ProductView = (await import('../models/ProductView.js')).default;
+    const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+    const validId = viewerId && mongoose.Types.ObjectId.isValid(viewerId);
+    const dupQuery = validId
+      ? { productId: id, buyerId: viewerId, viewedAt: { $gte: thirtyMinsAgo } }
+      : { productId: id, buyerName: viewerName, buyerEmail: viewerEmail, viewedAt: { $gte: thirtyMinsAgo } };
+
+    const alreadyViewed = await ProductView.findOne(dupQuery).lean();
+    if (alreadyViewed) return res.json({ success: true, skipped: true });
+
+    // Increment viewCount on product
+    const product = await Product.findByIdAndUpdate(
+      id,
+      { $inc: { viewCount: 1 } },
+      { new: false }
+    ).select('name').lean();
+
+    // Save detailed view record
+    await ProductView.create({
+      productId: id,
+      productName: product?.name || '',
+      viewerType,
+      buyerId: validId ? viewerId : null,
+      buyerName: viewerName,
+      buyerEmail: viewerEmail
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: Get top viewed products with buyer details
+router.get('/admin/product-views', authenticateAdmin, async (req, res) => {
+  try {
+    const { limit = 50 } = req.query;
+    const ProductView = (await import('../models/ProductView.js')).default;
+
+    // Get products sorted by viewCount
+    const products = await Product.find({ viewCount: { $gt: 0 } })
+      .select('name category viewCount images price status')
+      .sort({ viewCount: -1 })
+      .limit(parseInt(limit))
+      .lean();
+
+    const totalViews = products.reduce((sum, p) => sum + (p.viewCount || 0), 0);
+
+    // For each product, get the last 20 viewer records
+    const productIds = products.map(p => p._id);
+    const viewRecords = await ProductView.find({ productId: { $in: productIds } })
+      .sort({ viewedAt: -1 })
+      .select('productId buyerName buyerEmail viewerType viewedAt')
+      .lean();
+
+    // Group view records by productId
+    const viewsByProduct = {};
+    for (const v of viewRecords) {
+      const key = v.productId.toString();
+      if (!viewsByProduct[key]) viewsByProduct[key] = [];
+      if (viewsByProduct[key].length < 20) viewsByProduct[key].push(v);
+    }
+
+    const productsWithViewers = products.map(p => ({
+      ...p,
+      viewers: viewsByProduct[p._id.toString()] || []
+    }));
+
+    res.json({ success: true, products: productsWithViewers, totalViews });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Log a search query (public, called by AmazonsChoice page)
+router.post('/public/search-log', async (req, res) => {
+  try {
+    const { query, resultsCount, buyerId, buyerName, buyerEmail } = req.body;
+    if (!query || !query.trim()) return res.json({ success: true, skipped: true });
+
+    const SearchLog = (await import('../models/SearchLog.js')).default;
+
+    // Dedup: same buyer/guest same query within 5 minutes = skip
+    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const dupQuery = buyerId && mongoose.Types.ObjectId.isValid(buyerId)
+      ? { query: query.trim().toLowerCase(), buyerId, searchedAt: { $gte: fiveMinsAgo } }
+      : { query: query.trim().toLowerCase(), buyerName: buyerName || 'Guest', searchedAt: { $gte: fiveMinsAgo } };
+
+    const already = await SearchLog.findOne(dupQuery).lean();
+    if (already) return res.json({ success: true, skipped: true });
+
+    await SearchLog.create({
+      query: query.trim().toLowerCase(),
+      page: 'amazons-choice',
+      buyerId: buyerId && mongoose.Types.ObjectId.isValid(buyerId) ? buyerId : null,
+      buyerName: buyerName || 'Guest',
+      buyerEmail: buyerEmail || '',
+      resultsCount: resultsCount || 0
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: Get search analytics
+router.get('/admin/search-logs', authenticateAdmin, async (req, res) => {
+  try {
+    const { limit = 200 } = req.query;
+    const SearchLog = (await import('../models/SearchLog.js')).default;
+
+    // Top queries by frequency
+    const topQueries = await SearchLog.aggregate([
+      { $group: {
+        _id: '$query',
+        count: { $sum: 1 },
+        avgResults: { $avg: '$resultsCount' },
+        lastSearched: { $max: '$searchedAt' },
+        buyers: { $addToSet: { name: '$buyerName', email: '$buyerEmail' } }
+      }},
+      { $sort: { count: -1 } },
+      { $limit: parseInt(limit) }
+    ]);
+
+    // Recent individual searches
+    const recent = await SearchLog.find()
+      .sort({ searchedAt: -1 })
+      .limit(50)
+      .select('query buyerName buyerEmail resultsCount searchedAt page')
+      .lean();
+
+    const totalSearches = await SearchLog.countDocuments();
+
+    res.json({ success: true, topQueries, recent, totalSearches });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Specific endpoint for Excel products (for sellers)
 router.get('/excel-products', async (req, res) => {
   try {
