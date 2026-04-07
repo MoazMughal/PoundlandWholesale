@@ -552,7 +552,7 @@ const AmazonsChoice = () => {
   // Pagination state
   const [totalPages, setTotalPages] = useState(1)
   const [totalProducts, setTotalProducts] = useState(0)
-  const [productsPerPage] = useState(100) // Show 100 products per page
+  const [productsPerPage, setProductsPerPage] = useState(100) // Configurable products per page
 
   // Context hooks
   const { formatPrice } = useCurrency()
@@ -619,25 +619,8 @@ const AmazonsChoice = () => {
     }
   }
 
-  // Pagination - now using server-side pagination with seller filter
-  const currentProducts = showAllProducts 
-    ? products // Show all products when checkbox is checked
-    : products.filter(product => {
-        // Only show products that have sellers (sellers array with at least one seller)
-        const hasSellers = product.sellers && product.sellers.length > 0;
-        
-        // Debug logging for first few products
-        if (products.indexOf(product) < 3) {
-          console.log('Product filter check:', {
-            name: product.name,
-            hasSellers,
-            sellersCount: product.sellers ? product.sellers.length : 0,
-            sellers: product.sellers
-          });
-        }
-        
-        return hasSellers;
-      })
+  // Server handles seller filtering via hasSellerListings param — just use products directly
+  const currentProducts = products
   
   // Handle page change
   const handlePageChange = (page) => {
@@ -651,10 +634,10 @@ const AmazonsChoice = () => {
   }
 
   // Fetch products with server-side filtering and pagination
-  const fetchProducts = async (category = null, search = null, page = 1) => {
+  const fetchProducts = async (category = null, search = null, page = 1, showAll = showAllProducts) => {
     try {
       // Create a key for this fetch to avoid duplicate requests
-      const fetchKey = `${category || 'all'}-${search || ''}-${page}`
+      const fetchKey = `${category || 'all'}-${search || ''}-${page}-${productsPerPage}-${showAll}`
       
       // Skip if we just fetched the same data and we have products
       if (fetchKey === lastFetchKey && products.length > 0 && !loading) {
@@ -679,6 +662,11 @@ const AmazonsChoice = () => {
       params.append('isAmazonsChoice', 'true') // Always filter for Amazon Choice products
       params.append('limit', productsPerPage.toString()) // Use our products per page
       params.append('page', page.toString()) // Add page parameter
+      
+      // Only fetch products with sellers unless showAll is checked
+      if (!showAll) {
+        params.append('hasSellerListings', 'true')
+      }
       
       // Add image optimization parameters for mobile
       params.append('imageWidth', '300')
@@ -935,8 +923,8 @@ const AmazonsChoice = () => {
   }
 
   // Server-side filtering - fetch products with filters and pagination
-  const applyFilters = async (category, search, page = currentPage) => {
-    await fetchProducts(category, search, page)
+  const applyFilters = async (category, search, page = currentPage, showAll = showAllProducts) => {
+    await fetchProducts(category, search, page, showAll)
 
     // Track non-empty searches for admin analytics
     if (search && search.trim().length >= 2) {
@@ -1005,6 +993,14 @@ const AmazonsChoice = () => {
       applyFilters(catParam, searchParam, pageParam)
     }
   }, [searchParams, hasLoadedOnce, lastFetchKey])
+
+  // Re-fetch when productsPerPage changes
+  useEffect(() => {
+    if (hasLoadedOnce) {
+      setLastFetchKey('')
+      applyFilters(selectedCategory, searchQuery, 1)
+    }
+  }, [productsPerPage])
 
   // Health check on component mount with production optimizations
   useEffect(() => {
@@ -1533,56 +1529,65 @@ const AmazonsChoice = () => {
 
           </div>
 
-          {/* Seller Filter Checkbox */}
+          {/* Seller Filter + Per-page selector */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '12px',
             marginBottom: '15px',
             padding: '10px 15px',
             background: 'white',
             borderRadius: '8px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            border: '1px solid #e1e5e9'
+            border: '1px solid #e1e5e9',
+            flexWrap: 'wrap'
           }}>
+            {/* Checkbox */}
             <input
               type="checkbox"
               id="showAllProducts"
               checked={showAllProducts}
-              onChange={(e) => setShowAllProducts(e.target.checked)}
-              style={{
-                width: '18px',
-                height: '18px',
-                cursor: 'pointer',
-                accentColor: '#ff6600'
+              onChange={(e) => {
+                const newVal = e.target.checked
+                setShowAllProducts(newVal)
+                setCurrentPage(1)
+                setLastFetchKey('')
+                applyFilters(selectedCategory, searchQuery, 1, newVal)
               }}
+              style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ff6600' }}
             />
-            <label
-              htmlFor="showAllProducts"
-              style={{
-                fontSize: '0.9rem',
-                fontWeight: '500',
-                color: '#232f3e',
-                cursor: 'pointer',
-                userSelect: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                margin: 0
-              }}
-            >
-              <span>Include out of stock products</span>
-              <span style={{
-                fontSize: '0.75rem',
-                color: '#666',
-                fontWeight: '400'
-              }}>
-                {showAllProducts 
-                  ? `(Showing all ${products.length} products)` 
-                  : `(Showing ${currentProducts.length} products with sellers only)`
-                }
-              </span>
+            <label htmlFor="showAllProducts" style={{
+              fontSize: '0.9rem', fontWeight: '500', color: '#232f3e',
+              cursor: 'pointer', userSelect: 'none', margin: 0
+            }}>
+              Include out of stock products
             </label>
+
+            {/* Divider */}
+            <div style={{ width: '1px', height: '20px', background: '#e1e5e9', margin: '0 4px' }} />
+
+            {/* Per-page selector */}
+            <span style={{ fontSize: '0.85rem', color: '#555', fontWeight: '500' }}>Show:</span>
+            {[100, 200, 300, 400, 500].map(n => (
+              <button
+                key={n}
+                onClick={() => {
+                  setProductsPerPage(n)
+                  setCurrentPage(1)
+                  setLastFetchKey('')
+                }}
+                style={{
+                  padding: '3px 10px', fontSize: '0.8rem', fontWeight: '600',
+                  border: '1px solid #e1e5e9', borderRadius: '6px', cursor: 'pointer',
+                  background: productsPerPage === n ? '#ff6600' : 'white',
+                  color: productsPerPage === n ? 'white' : '#374151'
+                }}
+              >{n}</button>
+            ))}
+
+            <span style={{ fontSize: '0.75rem', color: '#888', marginLeft: 'auto' }}>
+              {currentProducts.length} products shown
+            </span>
           </div>
           </>
         )}

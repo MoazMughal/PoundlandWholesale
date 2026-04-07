@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useAdmin } from '../context/AdminContext'
 import { useSeller } from '../context/SellerContext'
 import { useBuyer } from '../context/BuyerContext'
+import { getApiUrl } from '../utils/api'
 
 const Navbar = () => {
   const location = useLocation()
@@ -11,9 +12,19 @@ const Navbar = () => {
   const { admin, isLoggedIn: isAdminLoggedIn, logout: adminLogout } = useAdmin()
   const { buyer, isLoggedIn: isBuyerLoggedIn, logout: buyerLogout } = useBuyer()
 
-  // No need for useEffect since we're using context hooks
+  const [categoryHierarchy, setCategoryHierarchy] = useState([]) // [{parent, children}]
+  const [hoveredCategory, setHoveredCategory] = useState(null)
 
-  // Logout functions now use context logout methods
+  useEffect(() => {
+    fetch(getApiUrl('products/public/category-hierarchy'))
+      .then(r => r.ok ? r.json() : { hierarchy: [] })
+      .then(d => {
+        const h = d.hierarchy || [];
+        console.log('📂 Navbar category hierarchy loaded:', h);
+        setCategoryHierarchy(h);
+      })
+      .catch(e => console.warn('Navbar hierarchy fetch failed:', e));
+  }, [])
 
   return (
     <nav className="navbar navbar-expand-lg navbar-dark sticky-top">
@@ -71,6 +82,62 @@ const Navbar = () => {
                 Deals
               </Link>
             </li>
+
+            {/* Dynamic category dropdowns */}
+            {categoryHierarchy.map(h => (
+              <li
+                key={h.parent}
+                className="nav-item"
+                style={{ position: 'relative' }}
+                onMouseEnter={() => setHoveredCategory(h.parent)}
+                onMouseLeave={() => setHoveredCategory(null)}
+              >
+                <Link
+                  className="nav-link"
+                  to={`/?cat=${encodeURIComponent(h.parent)}`}
+                  style={{ fontSize: '0.85rem', padding: '0.4rem 0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  {h.parent}
+                  <i className="fas fa-chevron-down" style={{ fontSize: '0.6rem', opacity: 0.7 }}></i>
+                </Link>
+                {hoveredCategory === h.parent && h.children.length > 0 && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0,
+                    background: 'white', borderRadius: '8px', minWidth: '180px',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 9999,
+                    border: '1px solid #e5e7eb', overflow: 'hidden'
+                  }}>
+                    {/* All items in parent */}
+                    <Link
+                      to={`/?cat=${encodeURIComponent(h.parent)}`}
+                      style={{
+                        display: 'block', padding: '9px 14px', fontSize: '0.82rem',
+                        color: '#374151', textDecoration: 'none', fontWeight: '600',
+                        borderBottom: '1px solid #f3f4f6', background: '#f9fafb'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#f9fafb'}
+                    >
+                      All {h.parent}
+                    </Link>
+                    {h.children.map(child => (
+                      <Link
+                        key={child}
+                        to={`/?cat=${encodeURIComponent(child)}`}
+                        style={{
+                          display: 'block', padding: '8px 14px 8px 22px', fontSize: '0.8rem',
+                          color: '#6b7280', textDecoration: 'none'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; e.currentTarget.style.color = '#7c3aed'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6b7280'; }}
+                      >
+                        ↳ {child}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </li>
+            ))}
             <li className="nav-item">
               <Link 
                 className={`nav-link ${location.pathname === '/contact' ? 'active' : ''}`} 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { adminGet, adminPost, adminPut, adminDelete } from '../utils/adminApi';
 import { getValidAdminToken, cleanupAuthTokens } from '../utils/authFix';
+import { getApiUrl } from '../utils/api';
 
 const CategoryManagementModal = ({ isOpen, onClose, onCategoriesUpdated }) => {
   const [categories, setCategories] = useState([]);
@@ -31,18 +32,36 @@ const CategoryManagementModal = ({ isOpen, onClose, onCategoriesUpdated }) => {
   const [availableSubcategories, setAvailableSubcategories] = useState([]);
   const [categoryHierarchy, setCategoryHierarchy] = useState({});
 
+  // Subcategory dropdown management state
+  const [hierarchyData, setHierarchyData] = useState([]); // [{parent, children}]
+  const [hierParent, setHierParent] = useState('');
+  const [hierChildren, setHierChildren] = useState([]); // current children being edited
+  const [hierChildInput, setHierChildInput] = useState('');
+  const [hierSaving, setHierSaving] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       fetchCategories();
+      fetchHierarchy();
     }
   }, [isOpen]);
+
+  const fetchHierarchy = async () => {
+    try {
+      const res = await fetch(getApiUrl('products/public/category-hierarchy'));
+      if (res.ok) {
+        const data = await res.json();
+        setHierarchyData(data.hierarchy || []);
+      }
+    } catch (e) { console.error('Error fetching hierarchy:', e); }
+  };
 
   const fetchCategories = async () => {
     try {
       setLoading(true);
       // Add cache busting to ensure fresh data
       const cacheBuster = `_t=${Date.now()}`;
-      const response = await fetch(`http://localhost:5000/api/products/public/categories?${cacheBuster}`, {
+      const response = await fetch(getApiUrl(`products/public/categories?${cacheBuster}`), {
         headers: {
           'Cache-Control': 'no-cache',
           'Pragma': 'no-cache'
@@ -519,42 +538,55 @@ const CategoryManagementModal = ({ isOpen, onClose, onCategoriesUpdated }) => {
       return;
     }
 
-    const selectedSubcategories = Object.keys(categoryHierarchy).filter(cat => 
+    const selectedSubcategoryValues = Object.keys(categoryHierarchy).filter(cat =>
       categoryHierarchy[cat] === selectedMainCategory
     );
 
-    if (selectedSubcategories.length === 0) {
+    if (selectedSubcategoryValues.length === 0) {
       alert('Please select at least one category to make a subcategory');
       return;
     }
 
-    const mainCategoryName = categories.find(c => c.value === selectedMainCategory)?.label;
-    const subcategoryNames = selectedSubcategories.map(val => 
-      categories.find(c => c.value === val)?.label
+    const mainCategoryName = categories.find(c => c.value === selectedMainCategory)?.label || selectedMainCategory;
+    const subcategoryNames = selectedSubcategoryValues.map(val =>
+      categories.find(c => c.value === val)?.label || val
     );
 
-    const confirmMessage = `Convert the following categories into subcategories of "${mainCategoryName}"?\n\n` +
-      subcategoryNames.map(name => `• ${name}`).join('\n') +
-      `\n\nThis will move all products from these categories into "${mainCategoryName}" with appropriate subcategory labels.`;
-
-    if (!confirm(confirmMessage)) {
-      return;
-    }
+    if (!confirm(
+      `Add the following as dropdown subcategories under "${mainCategoryName}"?\n\n` +
+      subcategoryNames.map(n => `• ${n}`).join('\n') +
+      `\n\nThis will make "${mainCategoryName}" appear in the navbar with a hover dropdown showing these subcategories. No products will be moved.`
+    )) return;
 
     try {
       setLoading(true);
-      
-      alert(`✅ Successfully organized categories!\n\n${selectedSubcategories.length} categories have been converted to subcategories of "${mainCategoryName}".\n\n🚧 Note: This is a preview. Backend implementation needed for actual product moving.`);
-      
-      // Reset states
+      const token = localStorage.getItem('adminToken');
+
+      // Merge with any existing children for this parent
+      const existing = hierarchyData.find(h => h.parent === mainCategoryName);
+      const existingChildren = existing ? existing.children : [];
+      const merged = [...new Set([...existingChildren, ...subcategoryNames])];
+
+      const res = await fetch(
+        getApiUrl(`products/admin/category-hierarchy/${encodeURIComponent(mainCategoryName)}`),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ children: merged })
+        }
+      );
+
+      if (!res.ok) throw new Error('Save failed');
+
+      alert(`✅ Done!\n\n"${mainCategoryName}" now has a dropdown in the navbar with:\n${subcategoryNames.map(n => `  ↳ ${n}`).join('\n')}\n\nHover over "${mainCategoryName}" in the header to see the dropdown.`);
+
       setSelectedMainCategory('');
       setCategoryHierarchy({});
-      fetchCategories();
+      fetchHierarchy();
       onCategoriesUpdated?.();
-      
     } catch (error) {
       console.error('Error organizing categories:', error);
-      alert('❌ Failed to organize categories');
+      alert('❌ Failed to save. Make sure you are logged in as admin.');
     } finally {
       setLoading(false);
     }
@@ -592,6 +624,34 @@ const CategoryManagementModal = ({ isOpen, onClose, onCategoriesUpdated }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const saveHierarchy = async () => {
+    if (!hierParent) { alert('Select a parent category'); return; }
+    setHierSaving(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(getApiUrl(`products/admin/category-hierarchy/${encodeURIComponent(hierParent)}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ children: hierChildren })
+      });
+      if (res.ok) {
+        alert(`✅ Subcategories saved for "${hierParent}"`);
+        fetchHierarchy();
+        setHierParent(''); setHierChildren([]); setHierChildInput('');
+      } else { alert('❌ Failed to save'); }
+    } catch (e) { alert('❌ Error saving'); }
+    finally { setHierSaving(false); }
+  };
+
+  const deleteHierarchyEntry = async (parent) => {
+    if (!confirm(`Remove all subcategory dropdowns for "${parent}"?`)) return;
+    const token = localStorage.getItem('adminToken');
+    await fetch(getApiUrl(`products/admin/category-hierarchy/${encodeURIComponent(parent)}`), {
+      method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }
+    });
+    fetchHierarchy();
   };
 
   const addSubcategory = () => {
@@ -688,7 +748,8 @@ const CategoryManagementModal = ({ isOpen, onClose, onCategoriesUpdated }) => {
             { id: 'move', label: '🔄 Move Products' },
             { id: 'organize', label: '🏗️ Organize Categories' },
             { id: 'create', label: '➕ Create Category' },
-            { id: 'restore', label: '🔄 Restore Hidden' }
+            { id: 'restore', label: '🔄 Restore Hidden' },
+            { id: 'subcategories', label: '🗂️ Dropdown Menus' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -1204,20 +1265,22 @@ const CategoryManagementModal = ({ isOpen, onClose, onCategoriesUpdated }) => {
               )}
 
               {selectedMainCategory && Object.keys(categoryHierarchy).length > 0 && (
-                <div style={{ 
-                  background: '#f0fdf4', 
-                  border: '1px solid #16a34a', 
-                  borderRadius: '8px', 
-                  padding: '15px', 
-                  marginBottom: '20px' 
+                <div style={{
+                  background: '#f0fdf4',
+                  border: '1px solid #16a34a',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  marginBottom: '20px'
                 }}>
-                  <h4 style={{ margin: '0 0 10px 0', color: '#16a34a' }}>Preview Organization:</h4>
+                  <h4 style={{ margin: '0 0 10px 0', color: '#16a34a' }}>Preview — Navbar Dropdown:</h4>
                   <div style={{ fontSize: '14px' }}>
-                    <strong>📂 {categories.find(c => c.value === selectedMainCategory)?.label}</strong> (Main Category)
+                    <strong>📂 {categories.find(c => c.value === selectedMainCategory)?.label}</strong>
+                    <span style={{ fontSize: '12px', color: '#6b7280', marginLeft: '8px' }}>(hover in navbar → shows dropdown)</span>
                     <div style={{ marginLeft: '20px', marginTop: '5px' }}>
                       {Object.keys(categoryHierarchy).map(subcatValue => (
-                        <div key={subcatValue} style={{ marginBottom: '3px' }}>
-                          └── 📁 {categories.find(c => c.value === subcatValue)?.label} (Subcategory)
+                        <div key={subcatValue} style={{ marginBottom: '3px', color: '#374151' }}>
+                          └── 📁 {categories.find(c => c.value === subcatValue)?.label}
+                          <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: '6px' }}>click → shows only this category's products</span>
                         </div>
                       ))}
                     </div>
@@ -1240,7 +1303,7 @@ const CategoryManagementModal = ({ isOpen, onClose, onCategoriesUpdated }) => {
                   width: '100%'
                 }}
               >
-                {loading ? 'Organizing...' : '🏗️ Organize Categories'}
+                {loading ? 'Saving...' : '✅ Save to Navbar Dropdown'}
               </button>
             </div>
           )}
@@ -1492,6 +1555,122 @@ const CategoryManagementModal = ({ isOpen, onClose, onCategoriesUpdated }) => {
                   </div>
                 );
               })()}
+            </div>
+          )}
+
+          {/* ===== DROPDOWN MENUS TAB ===== */}
+          {activeTab === 'subcategories' && (
+            <div>
+              <h3 style={{ marginBottom: '6px' }}>🗂️ Category Dropdown Menus</h3>
+              <p style={{ fontSize: '0.82rem', color: '#6b7280', marginBottom: '20px' }}>
+                Set up hover dropdown menus in the navbar. Choose a parent category and add subcategories to it.
+                Clicking the parent shows all products in parent + all subcategories. Clicking a subcategory shows only that subcategory's products.
+              </p>
+
+              {/* Editor */}
+              <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '16px', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Parent Category</label>
+                    <select
+                      value={hierParent}
+                      onChange={e => {
+                        setHierParent(e.target.value);
+                        const existing = hierarchyData.find(h => h.parent === e.target.value);
+                        setHierChildren(existing ? [...existing.children] : []);
+                      }}
+                      style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem' }}
+                    >
+                      <option value="">-- Select parent --</option>
+                      {categories.map(c => <option key={c.value} value={c.label}>{c.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Add child */}
+                <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Add Subcategory (existing or new name)</label>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                  <input
+                    list="cat-suggestions"
+                    value={hierChildInput}
+                    onChange={e => setHierChildInput(e.target.value)}
+                    placeholder="Type or pick a category name..."
+                    style={{ flex: 1, padding: '8px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem' }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && hierChildInput.trim()) {
+                        if (!hierChildren.includes(hierChildInput.trim())) setHierChildren(prev => [...prev, hierChildInput.trim()]);
+                        setHierChildInput('');
+                      }
+                    }}
+                  />
+                  <datalist id="cat-suggestions">
+                    {categories.map(c => <option key={c.value} value={c.label} />)}
+                  </datalist>
+                  <button
+                    onClick={() => {
+                      if (hierChildInput.trim() && !hierChildren.includes(hierChildInput.trim())) {
+                        setHierChildren(prev => [...prev, hierChildInput.trim()]);
+                        setHierChildInput('');
+                      }
+                    }}
+                    style={{ padding: '8px 14px', background: '#667eea', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}
+                  >+ Add</button>
+                </div>
+
+                {/* Current children */}
+                {hierChildren.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                    {hierChildren.map((child, i) => (
+                      <span key={i} style={{ background: '#ede9fe', color: '#5b21b6', borderRadius: '20px', padding: '3px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {child}
+                        <button onClick={() => setHierChildren(prev => prev.filter((_, idx) => idx !== i))}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7c3aed', fontWeight: '700', padding: 0 }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  onClick={saveHierarchy}
+                  disabled={hierSaving || !hierParent}
+                  style={{ padding: '9px 20px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}
+                >
+                  {hierSaving ? 'Saving...' : '💾 Save Dropdown'}
+                </button>
+              </div>
+
+              {/* Existing hierarchy */}
+              <h4 style={{ marginBottom: '10px', fontSize: '0.95rem' }}>Existing Dropdown Menus</h4>
+              {hierarchyData.length === 0 ? (
+                <p style={{ color: '#9ca3af', fontSize: '0.85rem' }}>No dropdown menus configured yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {hierarchyData.map(h => (
+                    <div key={h.parent} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px', background: 'white' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>📁 {h.parent}</span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={() => { setHierParent(h.parent); setHierChildren([...h.children]); setActiveTab('subcategories'); }}
+                            style={{ padding: '4px 10px', background: '#667eea', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.75rem' }}
+                          >✏️ Edit</button>
+                          <button
+                            onClick={() => deleteHierarchyEntry(h.parent)}
+                            style={{ padding: '4px 10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.75rem' }}
+                          >🗑️ Remove</button>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {h.children.map((child, i) => (
+                          <span key={i} style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '2px 10px', fontSize: '0.78rem', color: '#374151' }}>
+                            ↳ {child}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

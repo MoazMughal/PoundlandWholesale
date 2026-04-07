@@ -437,6 +437,49 @@ router.get('/public/categories', async (req, res) => {
   }
 });
 
+// ============================================
+// CATEGORY HIERARCHY ROUTES (subcategory dropdowns)
+// ============================================
+
+// Public: get all hierarchy entries (for navbar dropdowns)
+router.get('/public/category-hierarchy', async (req, res) => {
+  try {
+    const CategoryHierarchy = (await import('../models/CategoryHierarchy.js')).default;
+    const hierarchy = await CategoryHierarchy.find().lean();
+    res.json({ success: true, hierarchy });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: upsert hierarchy for a parent category
+router.put('/admin/category-hierarchy/:parent', authenticateAdmin, async (req, res) => {
+  try {
+    const { parent } = req.params;
+    const { children } = req.body; // array of child category strings
+    const CategoryHierarchy = (await import('../models/CategoryHierarchy.js')).default;
+    const doc = await CategoryHierarchy.findOneAndUpdate(
+      { parent: parent.trim() },
+      { parent: parent.trim(), children: (children || []).map(c => c.trim()).filter(Boolean) },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, hierarchy: doc });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin: delete hierarchy entry for a parent
+router.delete('/admin/category-hierarchy/:parent', authenticateAdmin, async (req, res) => {
+  try {
+    const CategoryHierarchy = (await import('../models/CategoryHierarchy.js')).default;
+    await CategoryHierarchy.deleteOne({ parent: req.params.parent });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get Amazon's Choice product counts by category (admin only)
 router.get('/admin/amazons-choice-counts', authenticateAdmin, async (req, res) => {
   try {
