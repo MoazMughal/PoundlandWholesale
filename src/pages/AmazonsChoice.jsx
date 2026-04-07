@@ -1403,8 +1403,8 @@ const AmazonsChoice = () => {
           marginBottom: windowWidth < 576 ? '5px' : '6px',
           background: 'linear-gradient(135deg, #fff8f5 0%, #ffede0 100%)',
           borderRadius: '6px',
-          border: '1px solid #ff6600',
-          boxShadow: '0 1px 4px rgba(255, 102, 0, 0.08)'
+          border: 'none',
+          boxShadow: 'none'
         }}>
           {windowWidth < 768 ? (
             // Mobile/Tablet: Stack vertically
@@ -1502,40 +1502,7 @@ const AmazonsChoice = () => {
           </div>
         )}
 
-        {/* Enhanced Product Count Header */}
-        {!loading && currentProducts.length > 0 && (
-          <>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            marginBottom: windowWidth < 576 ? '10px' : '10px', // Consistent margin
-            padding: windowWidth < 576 ? '8px 16px' : '10px 18px', // Reduced padding for smaller height
-            background: 'linear-gradient(135deg, #f09d5aff 0%, #ff7733 100%)',
-            borderRadius: windowWidth < 576 ? '12px' : '12px', // Consistent radius
-            color: 'white',
-            boxShadow: '0 4px 15px rgba(255, 102, 0, 0.3)', // Enhanced shadow
-            border: '1px solid rgba(255, 255, 255, 0.2)', // Subtle border
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            {/* Background decoration */}
-            <div style={{
-              position: 'absolute',
-              top: '-50%',
-              right: '-20%',
-              width: '100px',
-              height: '100px',
-              background: 'radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%)',
-              borderRadius: '50%',
-              pointerEvents: 'none'
-            }} />
-            
-           
-
-          </div>
-
-          {/* Seller Filter + Per-page selector */}
+        {/* Seller Filter + Per-page selector */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -1595,8 +1562,6 @@ const AmazonsChoice = () => {
               {currentProducts.length} products shown
             </span>
           </div>
-          </>
-        )}
 
         {/* Product Count Info */}
 
