@@ -1514,18 +1514,7 @@ const AmazonsChoice = () => {
               pointerEvents: 'none'
             }} />
             
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <h2 style={{ 
-                margin: 0, 
-                fontSize: windowWidth < 576 ? '1.1rem' : '1.3rem', // Reduced font size
-                fontWeight: '700',
-                textAlign: 'center',
-                textShadow: '0 2px 4px rgba(255, 255, 255, 0.3)', // Better text shadow
-                letterSpacing: '0.5px' // Improved letter spacing
-              }}>
-                🏆 Best Sellers
-              </h2>
-            </div>
+           
 
           </div>
 
