@@ -1063,6 +1063,9 @@ const AdminDashboard = () => {
         <button onClick={() => navigate('/admin/quotations')} className="tool-btn warning">
           📊 User Analytics
         </button>
+        <button onClick={() => navigate('/admin/category-manager')} className="tool-btn info">
+          🗂️ Category Manager
+        </button>
         <button onClick={() => navigate('/admin/seller-catalog')} className="tool-btn success" style={{color: 'black'}}>
           🗂️ Seller Catalog
         </button>

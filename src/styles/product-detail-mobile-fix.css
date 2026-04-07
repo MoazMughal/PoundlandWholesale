@@ -270,9 +270,9 @@ div.badge.bg-success *,
     margin-bottom: 16px !important;
   }
   
-  /* All buttons */
+  /* All buttons — exclude seller info controls */
   .product-detail-page .d-grid button,
-  .product-detail-page button {
+  .product-detail-page button:not(.seller-qty-btn):not(.seller-add-to-cart-btn) {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -300,8 +300,8 @@ div.badge.bg-success *,
     background: linear-gradient(to bottom, #f0c14b, #f7dfa5) !important;
   }
   
-  /* Add to Cart button (Amazon dark) */
-  .product-detail-page button[style*="linear-gradient(135deg, #232f3e"],
+  /* Add to Cart button in main buy box only (NOT seller info) */
+  .product-detail-page .d-grid button[style*="linear-gradient(135deg, #232f3e"],
   .product-detail-page .btn-secondary {
     background: linear-gradient(to bottom, #f7f8fa, #e7e9ec) !important;
     border: 1px solid #ADB1B8 !important;
@@ -309,7 +309,7 @@ div.badge.bg-success *,
     box-shadow: 0 1px 0 rgba(255,255,255,.6) inset !important;
   }
   
-  .product-detail-page button[style*="linear-gradient(135deg, #232f3e"]:active {
+  .product-detail-page .d-grid button[style*="linear-gradient(135deg, #232f3e"]:active {
     background: linear-gradient(to bottom, #e7e9ec, #f7f8fa) !important;
   }
   
@@ -329,6 +329,7 @@ div.badge.bg-success *,
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
+    color-scheme: light !important;
   }
   
   /* Seller info heading */
@@ -373,34 +374,15 @@ div.badge.bg-success *,
     max-height: none !important;
   }
   
-  /* Seller info text */
-  .product-detail-page .seller-information p,
-  .product-detail-page .seller-information div {
-    display: block !important;
+  /* Seller info text — only paragraphs, not divs (divs may be flex/grid) */
+  .product-detail-page .seller-information p {
     visibility: visible !important;
     opacity: 1 !important;
     font-size: 0.875rem !important;
     line-height: 1.5 !important;
-    color: #0F1111 !important;
-    margin-bottom: 8px !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
-  }
-  
-  /* "Available from X seller(s)" text - CRITICAL */
-  .product-detail-page .seller-information strong,
-  .product-detail-page .seller-information [style*="fontSize: '0.7rem'"],
-  .product-detail-page .seller-information [style*="fontSize:'0.7rem'"],
-  .product-detail-page .seller-information div[style*="0.7rem"] {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    font-weight: 600 !important;
-    color: #0F1111 !important;
-    margin-bottom: 10px !important;
-    height: auto !important;
-    max-height: none !important;
   }
   
   /* Seller info small text */
@@ -414,15 +396,14 @@ div.badge.bg-success *,
     max-height: none !important;
   }
   
-  /* Seller info buttons */
-  .product-detail-page .seller-information button,
-  .product-detail-page .seller-information .btn {
+  /* Seller info buttons — only the "See More" toggle, NOT qty/cart buttons */
+  .product-detail-page .seller-information > div > button {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
     width: 100% !important;
-    min-height: 44px !important;
-    margin-top: 10px !important;
+    min-height: 36px !important;
+    margin-top: 4px !important;
   }
   
   /* Seller info links */
@@ -673,15 +654,15 @@ div.badge.bg-success *,
     font-size: 1.1rem !important;
   }
   
-  /* Larger touch targets */
-  .product-detail-page .d-flex.align-items-center.gap-1 button {
+  /* Larger touch targets — main qty controls only, not seller info */
+  .product-detail-page .d-flex.align-items-center.gap-1 button:not(.seller-qty-btn) {
     width: 48px !important;
     height: 48px !important;
     min-width: 48px !important;
     min-height: 48px !important;
   }
   
-  .product-detail-page .d-flex.align-items-center.gap-1 input[type="number"] {
+  .product-detail-page .d-flex.align-items-center.gap-1 input[type="number"]:not(.seller-qty-input) {
     width: 80px !important;
     height: 48px !important;
   }
@@ -744,17 +725,22 @@ div.badge.bg-success *,
    ============================================ */
 @media (hover: none) and (pointer: coarse) {
   
-  /* Minimum tap target size */
-  .product-detail-page button,
+  /* Minimum tap target size — exclude seller qty controls */
+  .product-detail-page button:not(.seller-qty-btn):not(.seller-add-to-cart-btn),
   .product-detail-page .btn,
-  .product-detail-page input,
   .product-detail-page a.btn {
     min-height: 44px !important;
     min-width: 44px !important;
   }
   
-  /* Prevent zoom on input focus */
-  .product-detail-page input[type="number"],
+  /* Seller add to cart — reasonable tap size but not huge */
+  .seller-add-to-cart-btn {
+    min-height: 40px !important;
+    min-width: 60px !important;
+  }
+  
+  /* Prevent zoom on input focus — but not seller qty input */
+  .product-detail-page input[type="number"]:not(.seller-qty-input),
   .product-detail-page input[type="text"] {
     font-size: 16px !important;
   }
@@ -1568,4 +1554,81 @@ div.badge.bg-success *,
   .product-detail-page .most-popular-section .card-title {
     margin-bottom: 6px !important; /* Space after title */
   }
+}
+
+/* ============================================
+   SELLER INFO CONTROLS — FINAL OVERRIDE
+   These classes win against everything above
+   ============================================ */
+
+/* Add to Cart button — Amazon orange, black text, auto width */
+.seller-add-to-cart-btn,
+.seller-add-to-cart-btn:hover,
+.seller-add-to-cart-btn:active,
+.seller-add-to-cart-btn:focus {
+  color: #000000 !important;
+  background: #ff9900 !important;
+  width: auto !important;
+  min-height: unset !important;
+  min-width: unset !important;
+  padding: 7px 6px !important;
+  font-size: 0.6rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 1 !important;
+  color-scheme: light !important;
+}
+
+.seller-add-to-cart-btn *,
+.seller-add-to-cart-btn span,
+.seller-add-to-cart-btn i {
+  color: #000000 !important;
+}
+
+/* Qty +/- buttons — small square, not full width */
+.seller-qty-btn,
+.seller-qty-btn:hover,
+.seller-qty-btn:active {
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  min-height: unset !important;
+  max-width: 26px !important;
+  max-height: 26px !important;
+  flex: 0 0 26px !important;
+  padding: 0 !important;
+  margin-top: 0 !important;
+  color: #374151 !important;
+  font-size: 0.9rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Qty number input — fixed narrow width */
+.seller-qty-input,
+.seller-qty-input:focus {
+  width: 44px !important;
+  max-width: 44px !important;
+  min-width: 44px !important;
+  flex: 0 0 44px !important;
+  height: 26px !important;
+  max-height: 26px !important;
+  min-height: unset !important;
+  font-size: 0.8rem !important;
+  color: #1f2937 !important;
+  padding: 2px 3px !important;
+  box-sizing: border-box !important;
+}
+
+/* Qty row container — always flex, never block */
+.seller-qty-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-wrap: nowrap !important;
+  width: auto !important;
+  margin-bottom: 8px !important;
 }

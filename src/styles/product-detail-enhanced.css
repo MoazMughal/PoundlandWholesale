@@ -555,7 +555,6 @@ button[style*="background: linear-gradient"][style*="#1a1a1a"] * {
   
   /* Seller information text */
   .product-detail-page .seller-information p,
-  .product-detail-page .seller-information div,
   .product-detail-page .seller-information strong {
     display: block !important;
     visibility: visible !important;

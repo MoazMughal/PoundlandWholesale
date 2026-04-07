@@ -204,24 +204,36 @@ const SellerInformation = ({
                 </div>
               </div>
 
-              {/* Location + MOQ + Qty on one line */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px', flexWrap: 'nowrap', overflow: 'hidden' }}>
-                <span style={{ fontSize: '0.65rem', color: '#6b7280', flex: '1 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {se.city}, {se.country}</span>
+              {/* Location + MOQ */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.65rem', color: '#6b7280', flex: '1 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>📍 {se.city}, {se.country}</span>
                 <span style={{ background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px', padding: '1px 5px', fontSize: '0.65rem', fontWeight: '700', color: '#856404', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
                   <i className="fas fa-boxes me-1"></i>MOQ:{moq}
                 </span>
-                {!isMine && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flex: '0 0 auto' }}>
-                    <span style={{ fontSize: '0.65rem', fontWeight: '600', color: '#374151', whiteSpace: 'nowrap' }}>Qty:</span>
-                    <button onClick={() => setQty(sid, qty - 1, moq)} disabled={qty <= moq}
-                      style={{ width: '20px', height: '20px', border: '1px solid #d1d5db', borderRadius: '3px', background: '#f9fafb', cursor: qty <= moq ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: qty <= moq ? 0.4 : 1, flexShrink: 0 }}>−</button>
-                    <input type="number" value={qty} min={moq} onChange={e => setQty(sid, e.target.value, moq)}
-                      style={{ width: '44px', textAlign: 'center', padding: '2px 3px', fontSize: '0.75rem', fontWeight: '700', border: '1px solid #d1d5db', borderRadius: '3px', flexShrink: 0 }} />
-                    <button onClick={() => setQty(sid, qty + 1, moq)}
-                      style={{ width: '20px', height: '20px', border: '1px solid #d1d5db', borderRadius: '3px', background: '#f9fafb', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
-                  </div>
-                )}
               </div>
+
+              {/* Qty row — separate line so it never gets cut */}
+              {!isMine && (
+                <div className="seller-qty-row" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.65rem', fontWeight: '600', color: '#374151', whiteSpace: 'nowrap', flexShrink: 0 }}>Qty:</span>
+                  <button
+                    onClick={() => setQty(sid, qty - 1, moq)}
+                    disabled={qty <= moq}
+                    className="seller-qty-btn"
+                    style={{ width: '26px', height: '26px', minWidth: '26px', maxWidth: '26px', minHeight: '26px', maxHeight: '26px', border: '1px solid #d1d5db', borderRadius: '4px', background: '#f9fafb', cursor: qty <= moq ? 'not-allowed' : 'pointer', fontSize: '0.9rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: qty <= moq ? 0.4 : 1, flexShrink: 0, color: '#374151', padding: '0', lineHeight: 1 }}>−</button>
+                  <input
+                    type="number"
+                    value={qty}
+                    min={moq}
+                    onChange={e => setQty(sid, e.target.value, moq)}
+                    className="seller-qty-input"
+                    style={{ width: '44px', minWidth: '44px', maxWidth: '44px', height: '26px', minHeight: '26px', maxHeight: '26px', textAlign: 'center', padding: '2px 3px', fontSize: '0.8rem', fontWeight: '700', border: '1px solid #d1d5db', borderRadius: '4px', flexShrink: 0, color: '#1f2937', background: '#fff', boxSizing: 'border-box' }} />
+                  <button
+                    onClick={() => setQty(sid, qty + 1, moq)}
+                    className="seller-qty-btn"
+                    style={{ width: '26px', height: '26px', minWidth: '26px', maxWidth: '26px', minHeight: '26px', maxHeight: '26px', border: '1px solid #d1d5db', borderRadius: '4px', background: '#f9fafb', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#374151', padding: '0', lineHeight: 1 }}>+</button>
+                </div>
+              )}
 
               {/* Buyer actions — only for buyers */}
               {!isMine && isBuyer && (
@@ -230,24 +242,32 @@ const SellerInformation = ({
                     href="#"
                     onClick={e => { e.preventDefault(); handleContactSupplier(se); }}
                     style={{
-                      flex: '3', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-                      background: '#25d366', color: 'white', padding: '7px 8px',
+                      flex: '3', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      background: '#25d366', color: 'white', padding: '6px 8px',
                       borderRadius: '5px', fontSize: '0.65rem', fontWeight: '700', textDecoration: 'none',
-                      cursor: sending[sid] ? 'not-allowed' : 'pointer', opacity: sending[sid] ? 0.7 : 1
+                      cursor: sending[sid] ? 'not-allowed' : 'pointer', opacity: sending[sid] ? 0.7 : 1,
+                      gap: '2px'
                     }}>
                     {sending[sid]
-                      ? <><i className="fas fa-spinner fa-spin"></i> Sending...</>
-                      : <><i className="fab fa-whatsapp" style={{ fontSize: '0.85rem' }}></i> Contact Supplier &nbsp;<span style={{ opacity: 0.85 }}>{maskPhone(se.whatsappNo)}</span></>}
+                      ? <><i className="fas fa-spinner fa-spin"></i><span>Sending...</span></>
+                      : <>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                            <i className="fab fa-whatsapp" style={{ fontSize: '0.85rem' }}></i> Contact Supplier
+                          </span>
+                          <span style={{ opacity: 0.9, fontSize: '0.6rem', whiteSpace: 'nowrap' }}>{maskPhone(se.whatsappNo)}</span>
+                        </>}
                   </a>
                   <button onClick={() => addToBasket({ ...product, selectedSeller: se })}
+                    className="seller-add-to-cart-btn"
                     style={{
-                      flex: '1', padding: '7px 4px', fontSize: '0.55rem', fontWeight: '600',
-                      background: 'linear-gradient(135deg, #232f3e 0%, #1a1a1a 100%)',
-                      color: 'white', border: '1px solid #ff9900', borderRadius: '5px', cursor: 'pointer',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1px'
+                      flex: '1', padding: '7px 6px', fontSize: '0.6rem', fontWeight: '700',
+                      background: '#ff9900',
+                      color: '#000000', border: 'none', borderRadius: '5px', cursor: 'pointer',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                      minWidth: '70px', colorScheme: 'light'
                     }}>
-                    <i className="fas fa-shopping-cart" style={{ fontSize: '0.65rem' }}></i>
-                    <span style={{ whiteSpace: 'nowrap' }}>Add to Cart</span>
+                    <i className="fas fa-shopping-cart" style={{ fontSize: '0.7rem', color: '#000000' }}></i>
+                    <span style={{ whiteSpace: 'nowrap', color: '#000000' }}>Add to Cart</span>
                   </button>
                 </div>
               )}

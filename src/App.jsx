@@ -68,6 +68,7 @@ const AdminListingRequests = lazy(() => import('./pages/admin/ListingRequests'))
 const PaymentVerifications = lazy(() => import('./pages/admin/PaymentVerifications'))
 const AdminQuotations = lazy(() => import('./pages/admin/Quotations'))
 const AdminSellerCatalog = lazy(() => import('./pages/admin/SellerCatalog'))
+const AdminCategoryManager = lazy(() => import('./pages/admin/CategoryManager'))
 const BuyerDashboard = lazy(() => import('./pages/buyer/Dashboard'))
 const BuyerEditProfile = lazy(() => import('./pages/buyer/EditProfile'))
 const BuyerTestAuth = lazy(() => import('./pages/buyer/TestAuth'))
@@ -192,6 +193,7 @@ function App() {
           <Route path="/admin/payment-verifications" element={<ProtectedRoute><PaymentVerifications /></ProtectedRoute>} />
           <Route path="/admin/quotations" element={<ProtectedRoute><AdminQuotations /></ProtectedRoute>} />
           <Route path="/admin/seller-catalog" element={<ProtectedRoute><AdminSellerCatalog /></ProtectedRoute>} />
+          <Route path="/admin/category-manager" element={<ProtectedRoute><AdminCategoryManager /></ProtectedRoute>} />
           <Route path="/admin/excel-import" element={<ProtectedRoute><ExcelImport /></ProtectedRoute>} />
           <Route path="/admin/excel-manager" element={<ProtectedRoute><ExcelManager /></ProtectedRoute>} />
           <Route path="/admin/excel-products/:uploadId" element={<ProtectedRoute><AdminExcelProducts /></ProtectedRoute>} />

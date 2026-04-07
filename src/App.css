@@ -582,3 +582,38 @@ h1, h2, h3, h4, h5, h6 {
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* ============================================
+   Navbar category hover dropdown
+   ============================================ */
+.navbar-nav .nav-item:hover .navbar-cat-dropdown {
+  display: block !important;
+}
+
+.navbar-cat-dropdown a:hover {
+  background: #f5f3ff !important;
+  color: #7c3aed !important;
+}
+
+/* Ensure navbar doesn't clip the dropdown */
+.navbar .navbar-collapse,
+.navbar .navbar-nav {
+  overflow: visible !important;
+}
+
+/* ============================================
+   CompactHeader category hover dropdown
+   ============================================ */
+.header-cat-item:hover .header-cat-dropdown {
+  display: block !important;
+}
+
+.header-cat-dropdown a:hover {
+  background: #fff7ed !important;
+  color: #c2410c !important;
+}
+
+/* Keep the orange bar from clipping the dropdown */
+.header-cat-item {
+  overflow: visible !important;
+}

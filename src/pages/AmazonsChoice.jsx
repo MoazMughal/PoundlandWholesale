@@ -1428,7 +1428,7 @@ const AmazonsChoice = () => {
                 letterSpacing: '0.2px',
                 whiteSpace: 'nowrap'
               }}>
-                Poundland Wholesale
+                PoundlandWholesale
               </h1>
               <span style={{
                 fontSize: '0.7rem',

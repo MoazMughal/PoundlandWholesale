@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAdmin } from '../context/AdminContext';
 import { useSeller } from '../context/SellerContext';
@@ -6,6 +7,7 @@ import { useBuyer } from '../context/BuyerContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
 import CurrencySelector from './CurrencySelector';
+import { getApiUrl } from '../utils/api';
 
 import '../styles/mobile-header.css';
 
@@ -75,14 +77,14 @@ const CompactHeader = () => {
     { value: 'lampshade', label: 'Lampshades' }
     // Note: Excel categories (UAE Products, UK Products, Amazon10) are intentionally excluded
   ]);
-
+  const [hierarchy, setHierarchy] = useState({}); // { "Automotive": ["Car Bulb", "Car Accessories"] }
   // Fetch dynamic categories
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         // Add cache buster to ensure fresh data
         const cacheBuster = `_t=${Date.now()}`;
-        const response = await fetch(`http://localhost:5000/api/products/public/categories?${cacheBuster}`, {
+        const response = await fetch(getApiUrl(`products/public/categories?${cacheBuster}`), {
           headers: {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
@@ -114,6 +116,20 @@ const CompactHeader = () => {
     };
 
     fetchCategories();
+
+    // Fetch category hierarchy for dropdowns
+    const fetchHierarchy = () => {
+      fetch(getApiUrl('products/public/category-hierarchy'))
+        .then(r => r.ok ? r.json() : { hierarchy: [] })
+        .then(d => {
+          const map = {};
+          (d.hierarchy || []).forEach(h => { map[h.parent] = h.children; });
+          console.log('[Header] hierarchy loaded:', map);
+          setHierarchy(map);
+        })
+        .catch(e => console.warn('Hierarchy fetch failed:', e));
+    };
+    fetchHierarchy();
 
     // Listen for category refresh events
     const handleCategoryRefresh = () => {
@@ -585,35 +601,129 @@ const CompactHeader = () => {
         padding: '4px 12px',
         background: '#ffb84d',
         overflowX: 'auto',
-        whiteSpace: 'nowrap'
+        overflowY: 'visible',
+        whiteSpace: 'nowrap',
+        position: 'relative'
       }}>
-        <div style={{
-          display: 'flex',
-          gap: '10px',
-          alignItems: 'center'
-        }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {categories.map(cat => (
-            <Link
+            <CategoryItem
               key={cat.value}
-              to={cat.value === 'all' ? '/' : `/?cat=${encodeURIComponent(cat.label)}`}
-              style={{
-                fontSize: '10px',
-                color: '#111',
-                textDecoration: 'none',
-                fontWeight: '600',
-                padding: '2px 0',
-                borderBottom: '2px solid transparent',
-                transition: 'border-color 0.2s'
-              }}
-              onMouseEnter={(e) => e.target.style.borderBottomColor = '#ff9900'}
-              onMouseLeave={(e) => e.target.style.borderBottomColor = 'transparent'}
-            >
-              {cat.label}
-            </Link>
+              cat={cat}
+              hierarchy={hierarchy}
+            />
           ))}
         </div>
       </div>
     </header>
+    </>
+  );
+};
+
+// Self-contained category item with its own hover state
+const CategoryItem = ({ cat, hierarchy }) => {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const timerRef = useRef(null);
+  const itemRef = useRef(null);
+  // Keep a ref to the latest hierarchy so the show handler is never stale
+  const hierarchyRef = useRef(hierarchy);
+  hierarchyRef.current = hierarchy;
+
+  const children = hierarchy[cat.label] || hierarchy[cat.value] || [];
+
+  const show = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    const latest = hierarchyRef.current;
+    const kids = latest[cat.label] || latest[cat.value] || [];
+    console.log(`[Header] hover "${cat.label}" | kids:`, kids, '| hierarchy keys:', Object.keys(latest));
+    if (kids.length > 0 && itemRef.current) {
+      const rect = itemRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 2, left: rect.left });
+      setOpen(true);
+    }
+  };
+
+  const hide = () => {
+    timerRef.current = setTimeout(() => setOpen(false), 150);
+  };
+
+  const keepOpen = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  };
+
+  return (
+    <>
+      <div
+        ref={itemRef}
+        style={{ display: 'inline-block', flexShrink: 0 }}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+      >
+        <Link
+          to={cat.value === 'all' ? '/' : `/?cat=${encodeURIComponent(cat.label)}`}
+          style={{
+            fontSize: '10px', color: '#111', textDecoration: 'none', fontWeight: '600',
+            padding: '4px 0', display: 'inline-flex', alignItems: 'center', gap: '3px',
+            whiteSpace: 'nowrap', borderBottom: '2px solid transparent'
+          }}
+          onMouseEnter={e => e.currentTarget.style.borderBottomColor = '#ff9900'}
+          onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}
+        >
+          {cat.label}
+          {children.length > 0 && <span style={{ fontSize: '7px', opacity: 0.7 }}>▼</span>}
+        </Link>
+      </div>
+
+      {open && children.length > 0 && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            top: pos.top,
+            left: pos.left,
+            background: 'white',
+            borderRadius: '8px',
+            minWidth: '200px',
+            boxShadow: '0 8px 28px rgba(0,0,0,0.2)',
+            zIndex: 999999,
+            border: '1px solid #e5e7eb',
+            overflow: 'hidden'
+          }}
+          onMouseEnter={keepOpen}
+          onMouseLeave={hide}
+        >
+          <Link
+            to={`/?cat=${encodeURIComponent(cat.label)}`}
+            onClick={() => setOpen(false)}
+            style={{
+              display: 'block', padding: '11px 16px', fontSize: '13px',
+              color: '#1f2937', textDecoration: 'none', fontWeight: '700',
+              borderBottom: '2px solid #f3f4f6', background: '#fafafa'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+            onMouseLeave={e => e.currentTarget.style.background = '#fafafa'}
+          >
+            All {cat.label}
+          </Link>
+          {children.map(child => (
+            <Link
+              key={child}
+              to={`/?cat=${encodeURIComponent(child)}`}
+              onClick={() => setOpen(false)}
+              style={{
+                display: 'block', padding: '10px 16px 10px 28px', fontSize: '13px',
+                color: '#374151', textDecoration: 'none', borderBottom: '1px solid #f9fafb',
+                background: 'white'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#fff7ed'; e.currentTarget.style.color = '#c2410c'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#374151'; }}
+            >
+              ↳ {child}
+            </Link>
+          ))}
+        </div>,
+        document.body
+      )}
     </>
   );
 };

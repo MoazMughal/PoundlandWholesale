@@ -13,7 +13,6 @@ const Navbar = () => {
   const { buyer, isLoggedIn: isBuyerLoggedIn, logout: buyerLogout } = useBuyer()
 
   const [categoryHierarchy, setCategoryHierarchy] = useState([]) // [{parent, children}]
-  const [hoveredCategory, setHoveredCategory] = useState(null)
 
   useEffect(() => {
     fetch(getApiUrl('products/public/category-hierarchy'))
@@ -89,8 +88,6 @@ const Navbar = () => {
                 key={h.parent}
                 className="nav-item"
                 style={{ position: 'relative' }}
-                onMouseEnter={() => setHoveredCategory(h.parent)}
-                onMouseLeave={() => setHoveredCategory(null)}
               >
                 <Link
                   className="nav-link"
@@ -100,23 +97,21 @@ const Navbar = () => {
                   {h.parent}
                   <i className="fas fa-chevron-down" style={{ fontSize: '0.6rem', opacity: 0.7 }}></i>
                 </Link>
-                {hoveredCategory === h.parent && h.children.length > 0 && (
-                  <div style={{
+                {h.children.length > 0 && (
+                  <div className="navbar-cat-dropdown" style={{
+                    display: 'none',
                     position: 'absolute', top: '100%', left: 0,
-                    background: 'white', borderRadius: '8px', minWidth: '180px',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 9999,
+                    background: 'white', borderRadius: '8px', minWidth: '200px',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.18)', zIndex: 99999,
                     border: '1px solid #e5e7eb', overflow: 'hidden'
                   }}>
-                    {/* All items in parent */}
                     <Link
                       to={`/?cat=${encodeURIComponent(h.parent)}`}
                       style={{
-                        display: 'block', padding: '9px 14px', fontSize: '0.82rem',
-                        color: '#374151', textDecoration: 'none', fontWeight: '600',
-                        borderBottom: '1px solid #f3f4f6', background: '#f9fafb'
+                        display: 'block', padding: '10px 16px', fontSize: '0.83rem',
+                        color: '#1f2937', textDecoration: 'none', fontWeight: '700',
+                        borderBottom: '2px solid #f3f4f6', background: '#f9fafb'
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
-                      onMouseLeave={e => e.currentTarget.style.background = '#f9fafb'}
                     >
                       All {h.parent}
                     </Link>
@@ -125,11 +120,9 @@ const Navbar = () => {
                         key={child}
                         to={`/?cat=${encodeURIComponent(child)}`}
                         style={{
-                          display: 'block', padding: '8px 14px 8px 22px', fontSize: '0.8rem',
-                          color: '#6b7280', textDecoration: 'none'
+                          display: 'block', padding: '9px 16px 9px 28px', fontSize: '0.82rem',
+                          color: '#374151', textDecoration: 'none', borderBottom: '1px solid #f9fafb'
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; e.currentTarget.style.color = '#7c3aed'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6b7280'; }}
                       >
                         ↳ {child}
                       </Link>
