@@ -2746,7 +2746,30 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
     // Handle image uploads to Cloudinary
     const imageUrls = [];
     
-    // First, add any fetched images (from ASIN lookup)
+    // First, upload new files to Cloudinary (user-uploaded files take priority / come first)
+    if (req.files && req.files.length > 0 && isCloudinaryConfigured()) {
+      console.log(`📤 Uploading ${req.files.length} images to Cloudinary...`);
+      
+      for (let i = 0; i < req.files.length; i++) {
+        const file = req.files[i];
+        tempFiles.push(file.path);
+        
+        try {
+          // Use timestamp suffix to guarantee each image gets a unique public_id
+          const baseId = productData.asin || `product_${Date.now()}`;
+          const publicId = i === 0 ? `${baseId}_img0_${Date.now()}` : `${baseId}_img${i}_${Date.now()}`;
+          
+          const cloudinaryResult = await uploadToCloudinary(file.path, publicId, 'products');
+          imageUrls.push(cloudinaryResult.secure_url);
+          
+          console.log(`✅ Uploaded image ${i + 1} to Cloudinary: ${cloudinaryResult.secure_url}`);
+        } catch (uploadError) {
+          console.error(`❌ Failed to upload image ${i + 1} to Cloudinary:`, uploadError.message);
+        }
+      }
+    }
+    
+    // Then, append any fetched images (from ASIN lookup) that weren't replaced by uploads
     if (productData.fetchedImages) {
       try {
         const fetchedImageUrls = JSON.parse(productData.fetchedImages);
@@ -2754,28 +2777,6 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
         console.log(`📷 Added ${fetchedImageUrls.length} fetched images from ASIN lookup`);
       } catch (parseError) {
         console.warn('⚠️ Failed to parse fetched images:', parseError.message);
-      }
-    }
-    
-    // Then, upload new files to Cloudinary
-    if (req.files && req.files.length > 0 && isCloudinaryConfigured()) {
-      console.log(`📤 Uploading ${req.files.length} images to Cloudinary...`);
-      
-      for (const file of req.files) {
-        tempFiles.push(file.path);
-        
-        try {
-          // Use ASIN as public_id if available, otherwise generate one
-          const publicId = productData.asin || `product_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          
-          const cloudinaryResult = await uploadToCloudinary(file.path, publicId, 'products');
-          imageUrls.push(cloudinaryResult.secure_url);
-          
-          console.log(`✅ Uploaded image to Cloudinary: ${cloudinaryResult.secure_url}`);
-        } catch (uploadError) {
-          console.error(`❌ Failed to upload image to Cloudinary:`, uploadError.message);
-          // Continue with other images even if one fails
-        }
       }
     }
     
@@ -3172,20 +3173,29 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
     const newImageUrls = [];
     if (req.files && req.files.length > 0 && isCloudinaryConfigured()) {
       console.log(`📤 Uploading ${req.files.length} new images to Cloudinary...`);
-      
-      for (const file of req.files) {
+
+      // Count how many existing images are being preserved so we offset the public_id index
+      let existingCount = 0;
+      if (req.body.existingImages) {
+        try { existingCount = JSON.parse(req.body.existingImages).length; } catch (_) {}
+      }
+
+      for (let i = 0; i < req.files.length; i++) {
+        const file = req.files[i];
         tempFiles.push(file.path);
         
         try {
-          // Use ASIN as public_id if available, otherwise use existing or generate one
-          const publicId = req.body.asin || existingProduct.asin || `product_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          // Use a timestamp-based suffix so new uploads never collide with existing Cloudinary assets
+          const baseId = req.body.asin || existingProduct.asin || `product_${Date.now()}`;
+          const slotIndex = existingCount + i; // offset by existing images
+          const publicId = `${baseId}_img${slotIndex}_${Date.now()}`;
           
           const cloudinaryResult = await uploadToCloudinary(file.path, publicId, 'products');
           newImageUrls.push(cloudinaryResult.secure_url);
           
-          console.log(`✅ Uploaded image to Cloudinary: ${cloudinaryResult.secure_url}`);
+          console.log(`✅ Uploaded image ${i + 1} to Cloudinary: ${cloudinaryResult.secure_url}`);
         } catch (uploadError) {
-          console.error(`❌ Failed to upload image to Cloudinary:`, uploadError.message);
+          console.error(`❌ Failed to upload image ${i + 1} to Cloudinary:`, uploadError.message);
           // Continue with other images even if one fails
         }
       }

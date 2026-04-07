@@ -1041,8 +1041,8 @@ const AmazonsChoice = () => {
 
   // Initial load - will be triggered by URL params useEffect
 
-  // Loading state
-  if (loading) {
+  // Loading state — only show full loading screen on very first load
+  if (loading && !hasLoadedOnce) {
     return (
       <div className="container products-container enhanced-container" style={{
         maxWidth: '100%', 
@@ -1379,6 +1379,23 @@ const AmazonsChoice = () => {
       }}>
         <ProductionStatus />
 
+        {/* Subtle top loading bar — only shown during category switches, not initial load */}
+        {loading && hasLoadedOnce && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, height: '3px',
+            background: 'linear-gradient(90deg, #ff6600, #ffaa44, #ff6600)',
+            backgroundSize: '200% 100%',
+            animation: 'headerLoadingBar 1s linear infinite',
+            zIndex: 9999
+          }} />
+        )}
+        <style>{`
+          @keyframes headerLoadingBar {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+        `}</style>
+
         {/* SEO Header Section */}
         <div style={{
           textAlign: 'center',
@@ -1408,7 +1425,7 @@ const AmazonsChoice = () => {
                 lineHeight: '1.2',
                 fontWeight: '400'
               }}>
-                Online wholesale store offering quality products at competitive prices for retailers and resellers.
+                Online wholesale store offering quality products at competitive prices — multiple wholesaler suppliers available in one place.
               </p>
             </>
           ) : (
@@ -1436,7 +1453,7 @@ const AmazonsChoice = () => {
                 fontWeight: '400',
                 whiteSpace: 'nowrap'
               }}>
-                - Online wholesale store offering quality products at competitive prices
+                - Online wholesale store offering quality products at competitive prices — multiple wholesaler suppliers available in one place.
               </span>
             </div>
           )}
@@ -1638,7 +1655,10 @@ const AmazonsChoice = () => {
           border: windowWidth < 576 ? 'none' : '1px solid rgba(255, 102, 0, 0.15)',
           position: 'relative',
           overflow: 'hidden',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          opacity: loading && hasLoadedOnce ? 0.5 : 1,
+          transition: 'opacity 0.2s ease',
+          pointerEvents: loading && hasLoadedOnce ? 'none' : 'auto'
         }}>
           {/* Background pattern */}
           <div style={{

@@ -809,9 +809,8 @@ const EditProduct = () => {
         
         // Add new image files for Cloudinary upload
         setUploadingImages(true);
-        console.log(`📤 Adding ${validFiles.length} image files to form data for Cloudinary upload...`);
         
-        validFiles.forEach((file, index) => {
+        validFiles.forEach((file) => {
           formDataToSend.append('images', file);
         });
         

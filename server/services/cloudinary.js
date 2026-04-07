@@ -37,7 +37,7 @@ export const uploadToCloudinary = async (imagePath, publicId, folder = 'products
     const result = await cloudinary.uploader.upload(imagePath, {
       public_id: publicId,
       folder: folder,
-      overwrite: true,
+      overwrite: false,
       resource_type: 'image',
       transformation: [
         { width: 1500, height: 1500, crop: 'limit' },

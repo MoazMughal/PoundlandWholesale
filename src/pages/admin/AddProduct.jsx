@@ -675,31 +675,23 @@ const AddProduct = () => {
       formDataToSend.append('listedBy', 'admin');
 
       // Add image files (these will be uploaded to Cloudinary by the server)
-      const filesToUpload = imageFiles.filter(file => file !== null);
+      // Send files in slot order — only actual File objects
+      const filesToUpload = imageFiles.filter(file => file instanceof File);
       if (filesToUpload.length > 0) {
         setUploadingImages(true);
-        console.log(`📤 Adding ${filesToUpload.length} image files to form data for Cloudinary upload...`);
-        
-        filesToUpload.forEach((file, index) => {
+        filesToUpload.forEach((file) => {
           formDataToSend.append('images', file);
         });
       }
 
       // Add any image URLs that were fetched from ASIN (not uploaded files)
-      const fetchedImageUrls = [];
-      imageUrls.forEach((url, index) => {
-        if (url && url.trim() !== '' && !imageFiles[index]) {
-          // Only include URLs where there's no corresponding file
-          fetchedImageUrls.push(url);
-        }
-      });
+      // These are existing URLs in slots where no new file was selected
+      const fetchedImageUrls = imageUrls
+        .filter((url, index) => url && url.trim() !== '' && !(imageFiles[index] instanceof File));
       
       if (fetchedImageUrls.length > 0) {
         formDataToSend.append('fetchedImages', JSON.stringify(fetchedImageUrls));
-        console.log('📷 Adding fetched image URLs:', fetchedImageUrls);
       }
-
-      console.log('📦 Sending product data with files to server for Cloudinary upload...');
 
       // Send to server with files - server will handle Cloudinary upload
       const token = localStorage.getItem('adminToken');
