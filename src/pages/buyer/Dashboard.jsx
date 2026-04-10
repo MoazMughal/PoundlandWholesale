@@ -270,6 +270,21 @@ const BuyerDashboard = () => {
         </h2>
         <div style={{display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap'}}>
           <button
+            onClick={() => navigate('/buyer/wishlist')}
+            style={{
+              padding: '12px 24px',
+              background: 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)',
+              color: 'white', border: 'none', borderRadius: '8px',
+              fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '8px',
+              boxShadow: '0 3px 10px rgba(231,76,60,0.3)', transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 5px 15px rgba(231,76,60,0.4)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(231,76,60,0.3)'; }}
+          >
+            ❤️ My Wishlist & Queries
+          </button>
+          <button
             onClick={() => navigate('/buyer/edit-profile')}
             style={{
               padding: '12px 24px',

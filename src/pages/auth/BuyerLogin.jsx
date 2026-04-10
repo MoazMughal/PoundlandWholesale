@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getApiUrl } from '../../utils/api'
 import { useBuyer } from '../../context/BuyerContext'
@@ -6,7 +6,14 @@ import '../../styles/AuthLanding.css'
 
 const BuyerLogin = () => {
   const navigate = useNavigate()
-  const { login } = useBuyer()
+  const { login, isLoggedIn, authResolved } = useBuyer()
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (authResolved && isLoggedIn) {
+      navigate('/buyer/dashboard', { replace: true })
+    }
+  }, [isLoggedIn, authResolved, navigate])
   const [formData, setFormData] = useState({
     email: '',
     password: '',

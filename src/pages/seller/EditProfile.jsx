@@ -82,6 +82,7 @@ const EditProfile = () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
+          username: formData.username,
           whatsappNo: formData.whatsappNo,
           contactNo: formData.contactNo,
           country: formData.country,
@@ -226,8 +227,14 @@ const EditProfile = () => {
       <div className="row justify-content-center">
         <div className="col-lg-8">
           <div className="card">
-            <div className="card-header">
-              <h4><i className="fas fa-user-edit"></i> Edit Profile</h4>
+            <div className="card-header d-flex align-items-center justify-content-between">
+              <h4 className="mb-0"><i className="fas fa-user-edit me-2"></i>Edit Profile</h4>
+              <button
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => navigate('/seller/dashboard')}
+              >
+                <i className="fas fa-arrow-left me-1"></i>Back to Dashboard
+              </button>
             </div>
             <div className="card-body">
               <form onSubmit={handleSubmit}>
@@ -237,11 +244,15 @@ const EditProfile = () => {
                     <input
                       type="text"
                       className="form-control"
+                      name="username"
                       value={formData.username}
-                      disabled
-                      style={{backgroundColor: '#f8f9fa'}}
+                      onChange={handleChange}
+                      placeholder="Enter username"
+                      minLength={3}
+                      maxLength={30}
+                      required
                     />
-                    <small className="text-muted">Username cannot be changed</small>
+                    <small className="text-muted">Changing username updates your display name everywhere.</small>
                   </div>
                   <div className="col-md-6 mb-3">
                     <label className="form-label">Email</label>
@@ -319,14 +330,35 @@ const EditProfile = () => {
                   >
                     <option value="">Select Category</option>
                     <option value="Electronics">Electronics</option>
-                    <option value="Clothing">Clothing & Fashion</option>
-                    <option value="Home & Garden">Home & Garden</option>
-                    <option value="Sports">Sports & Outdoors</option>
-                    <option value="Health">Health & Beauty</option>
+                    <option value="Computers & Accessories">Computers &amp; Accessories</option>
+                    <option value="Mobile Phones & Accessories">Mobile Phones &amp; Accessories</option>
+                    <option value="Clothing">Clothing &amp; Fashion</option>
+                    <option value="Shoes & Footwear">Shoes &amp; Footwear</option>
+                    <option value="Bags & Luggage">Bags &amp; Luggage</option>
+                    <option value="Jewelry & Accessories">Jewelry &amp; Accessories</option>
+                    <option value="Watches">Watches</option>
+                    <option value="Home & Garden">Home &amp; Garden</option>
+                    <option value="Kitchen & Dining">Kitchen &amp; Dining</option>
+                    <option value="Furniture">Furniture</option>
+                    <option value="Bedding & Bath">Bedding &amp; Bath</option>
+                    <option value="DIY & Tools">DIY &amp; Tools</option>
+                    <option value="Sports">Sports &amp; Outdoors</option>
+                    <option value="Fitness & Exercise">Fitness &amp; Exercise</option>
+                    <option value="Health">Health &amp; Beauty</option>
+                    <option value="Baby & Kids">Baby &amp; Kids</option>
+                    <option value="Toys">Toys &amp; Games</option>
                     <option value="Automotive">Automotive</option>
-                    <option value="Books">Books & Media</option>
-                    <option value="Toys">Toys & Games</option>
-                    <option value="Food">Food & Beverages</option>
+                    <option value="Motorcycle & Cycling">Motorcycle &amp; Cycling</option>
+                    <option value="Books">Books &amp; Media</option>
+                    <option value="Music & Instruments">Music &amp; Instruments</option>
+                    <option value="Art & Craft">Art &amp; Craft</option>
+                    <option value="Office & Stationery">Office &amp; Stationery</option>
+                    <option value="Pet Supplies">Pet Supplies</option>
+                    <option value="Food">Food &amp; Beverages</option>
+                    <option value="Party Supplies">Party Supplies</option>
+                    <option value="Lighting">Lighting</option>
+                    <option value="Security & Surveillance">Security &amp; Surveillance</option>
+                    <option value="Industrial & Scientific">Industrial &amp; Scientific</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>

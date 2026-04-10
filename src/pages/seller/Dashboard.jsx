@@ -192,18 +192,9 @@ const SellerDashboard = () => {
     }
   }
 
-  // Show loading spinner only while context is loading (not dashboard data)
+  // Don't render anything while auth is resolving — redirect happens in useEffect
   if (contextLoading || !authResolved) {
-    return (
-      <div className="container mt-5">
-        <div className="text-center">
-          <div className="spinner-border text-success" role="status" style={{width: '3rem', height: '3rem'}}>
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-3 text-muted">Authenticating...</p>
-        </div>
-      </div>
-    )
+    return null;
   }
 
   // Show verification required screen if access is blocked (trial expired)
@@ -433,10 +424,10 @@ const SellerDashboard = () => {
                 </button>
                 <button 
                   className="btn btn-outline-light btn-sm"
-                  onClick={() => navigate('/seller/profile')}
+                  onClick={() => navigate('/seller/profile/edit')}
                 >
-                  <i className="fas fa-user me-1"></i>
-                  View Profile
+                  <i className="fas fa-edit me-1"></i>
+                  Edit Profile
                 </button>
               </div>
             </div>
@@ -467,8 +458,8 @@ const SellerDashboard = () => {
               <button className="btn btn-success btn-sm" onClick={handleRefreshProfile}>
                 <i className="fas fa-sync"></i> <span className="mobile-hide">Refresh Data</span>
               </button>
-              <button className="btn btn-primary btn-sm" onClick={() => navigate('/seller/profile')}>
-                <i className="fas fa-user"></i> <span className="mobile-hide">Profile</span>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate('/seller/profile/edit')}>
+                <i className="fas fa-edit"></i> <span className="mobile-hide">Edit Profile</span>
               </button>
             </div>
           </div>
@@ -957,6 +948,16 @@ const SellerDashboard = () => {
                     <i className="fas fa-edit fa-2x mb-2"></i>
                     <span className="fw-bold">Edit Profile</span>
                     <small className="opacity-75">Update information</small>
+                  </button>
+                </div>
+                <div className="col-6 col-md-3 mb-3">
+                  <button 
+                    className="btn btn-danger w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                    onClick={() => navigate('/seller/buyer-queries')}
+                  >
+                    <i className="fas fa-inbox fa-2x mb-2"></i>
+                    <span className="fw-bold">Buyer Queries</span>
+                    <small className="opacity-75">Product demands</small>
                   </button>
                 </div>
               </div>

@@ -1895,6 +1895,26 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
       query.sellers = { $exists: true, $ne: [], $not: { $size: 0 } };
     }
 
+    // Filter sellers by listing countries based on selected currency
+    const currencyFilter = req.query.currency;
+    if (currencyFilter && ['GBP', 'PKR', 'AED', 'USD'].includes(currencyFilter)) {
+      if (req.query.hasSellerListings === 'true') {
+        query['sellers'] = {
+          $elemMatch: {
+            $or: [
+              { listingCountries: currencyFilter },          // new array field contains this currency
+              { listingCountries: { $size: 0 } },           // empty array = all countries
+              { listingCountries: { $exists: false } },      // legacy: no field = all countries
+              { listingCountry: currencyFilter },            // legacy single-value field
+              { listingCountry: { $exists: false } },        // legacy: no field
+              { listingCountry: null },
+              { listingCountry: '' }
+            ]
+          }
+        };
+      }
+    }
+
     // Enhanced query execution with multiple fallback strategies
     let products;
     let querySource = 'database';
@@ -2152,12 +2172,13 @@ router.get('/public/:id', async (req, res) => {
             sellerShipping: seller.sellerShipping,
             moq: seller.moq || 1,
             listedAt: seller.listedAt,
-            verificationStatus: seller.sellerId.verificationStatus
+            verificationStatus: seller.sellerId.verificationStatus,
+            listingCountries: seller.listingCountries || []
           };
         }
         // Fallback to cached data if sellerId not populated
         const { email, transactionId, paymentMethod, notes, ...publicSellerInfo } = seller;
-        return { ...publicSellerInfo, moq: seller.moq || 1 };
+        return { ...publicSellerInfo, moq: seller.moq || 1, listingCountries: seller.listingCountries || [] };
       });
     }
     
@@ -6850,6 +6871,7 @@ router.get('/public/:id', async (req, res) => {
     // Find the product and populate seller information
     const product = await Product.findById(id)
       .populate('seller', 'username email whatsappNo city country verificationStatus _id')
+      .populate('sellers.sellerId', 'username whatsappNo city country verificationStatus businessName')
       .lean();
     
     if (!product) {
@@ -6869,10 +6891,22 @@ router.get('/public/:id', async (req, res) => {
 
     // For public access, show all verified sellers in the sellers array
     if (product.sellers && product.sellers.length > 0) {
-      // Filter to show only verified sellers for public access
-      product.sellers = product.sellers.filter(seller => 
-        seller.verificationStatus === 'approved'
-      );
+      // Filter to show only verified sellers and merge fresh data from populated sellerId
+      product.sellers = product.sellers
+        .filter(seller => seller.verificationStatus === 'approved')
+        .map(seller => {
+          if (seller.sellerId && typeof seller.sellerId === 'object') {
+            return {
+              ...seller,
+              whatsappNo: seller.sellerId.whatsappNo || seller.whatsappNo,
+              username: seller.sellerId.username || seller.username,
+              city: seller.sellerId.city || seller.city,
+              country: seller.sellerId.country || seller.country,
+              listingCountries: seller.listingCountries || []
+            };
+          }
+          return { ...seller, listingCountries: seller.listingCountries || [] };
+        });
       console.log(`✅ Showing ${product.sellers.length} verified sellers (public access)`);
     }
 

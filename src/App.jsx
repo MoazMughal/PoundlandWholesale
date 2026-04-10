@@ -63,17 +63,18 @@ const ImageViewer = lazy(() => import('./pages/admin/ImageViewer'))
 const ImageDebug = lazy(() => import('./pages/admin/ImageDebug'))
 const AdminBuyers = lazy(() => import('./pages/admin/Buyers'))
 const AdminPendingPayments = lazy(() => import('./pages/admin/PendingPayments'))
-const AdminSellerListings = lazy(() => import('./pages/admin/SellerListings'))
 const AdminListingRequests = lazy(() => import('./pages/admin/ListingRequests'))
 const PaymentVerifications = lazy(() => import('./pages/admin/PaymentVerifications'))
 const AdminQuotations = lazy(() => import('./pages/admin/Quotations'))
+const AdminWishlistQueries = lazy(() => import('./pages/admin/WishlistQueries'))
 const AdminSellerCatalog = lazy(() => import('./pages/admin/SellerCatalog'))
 const AdminCategoryManager = lazy(() => import('./pages/admin/CategoryManager'))
 const BuyerDashboard = lazy(() => import('./pages/buyer/Dashboard'))
 const BuyerEditProfile = lazy(() => import('./pages/buyer/EditProfile'))
+const BuyerWishlist = lazy(() => import('./pages/buyer/Wishlist'))
 const BuyerTestAuth = lazy(() => import('./pages/buyer/TestAuth'))
 const SellerDashboard = lazy(() => import('./pages/seller/Dashboard'))
-const SellerProfile = lazy(() => import('./pages/seller/Profile'))
+const SellerBuyerQueries = lazy(() => import('./pages/seller/BuyerQueries'))
 const SellerProducts = lazy(() => import('./pages/seller/Products'))
 const SellerAddProduct = lazy(() => import('./pages/seller/AddProduct'))
 const SellerAddProducts = lazy(() => import('./pages/seller/AddProducts'))
@@ -160,11 +161,12 @@ function App() {
           {/* Buyer Routes */}
           <Route path="/buyer/dashboard" element={<BuyerDashboard />} />
           <Route path="/buyer/edit-profile" element={<BuyerEditProfile />} />
+          <Route path="/buyer/wishlist" element={<BuyerWishlist />} />
           <Route path="/buyer/test-auth" element={<BuyerTestAuth />} />
           
           {/* Seller Routes */}
           <Route path="/seller/dashboard" element={<SellerDashboard />} />
-          <Route path="/seller/profile" element={<SellerProfile />} />
+          <Route path="/seller/buyer-queries" element={<SellerBuyerQueries />} />
           <Route path="/seller/profile/edit" element={<SellerEditProfile />} />
           <Route path="/seller/products" element={<SellerProducts />} />
           <Route path="/seller/products/add" element={<SellerAddProduct />} />
@@ -188,10 +190,10 @@ function App() {
           <Route path="/admin/seller-verifications" element={<ProtectedRoute><AdminSellerVerifications /></ProtectedRoute>} />
           <Route path="/admin/buyers" element={<ProtectedRoute><AdminBuyers /></ProtectedRoute>} />
           <Route path="/admin/pending-payments" element={<ProtectedRoute><AdminPendingPayments /></ProtectedRoute>} />
-          <Route path="/admin/seller-listings" element={<ProtectedRoute><AdminSellerListings /></ProtectedRoute>} />
           <Route path="/admin/listing-requests" element={<ProtectedRoute><AdminListingRequests /></ProtectedRoute>} />
           <Route path="/admin/payment-verifications" element={<ProtectedRoute><PaymentVerifications /></ProtectedRoute>} />
           <Route path="/admin/quotations" element={<ProtectedRoute><AdminQuotations /></ProtectedRoute>} />
+          <Route path="/admin/wishlist-queries" element={<ProtectedRoute><AdminWishlistQueries /></ProtectedRoute>} />
           <Route path="/admin/seller-catalog" element={<ProtectedRoute><AdminSellerCatalog /></ProtectedRoute>} />
           <Route path="/admin/category-manager" element={<ProtectedRoute><AdminCategoryManager /></ProtectedRoute>} />
           <Route path="/admin/excel-import" element={<ProtectedRoute><ExcelImport /></ProtectedRoute>} />

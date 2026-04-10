@@ -3,6 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { useSeller } from '../../context/SellerContext';
 import { getApiUrl } from '../../utils/api';
 
+const COUNTRY_OPTIONS = [
+  { code: 'GBP', label: 'UK (£ GBP)' },
+  { code: 'PKR', label: 'Pakistan (Rs PKR)' },
+  { code: 'AED', label: 'UAE (AED)' },
+  { code: 'USD', label: 'USA ($ USD)' },
+];
+
+// Render flag using regional indicator letters (encoding-safe)
+const countryFlag = (code) => {
+  const flags = { GBP: 'GB', PKR: 'PK', AED: 'AE', USD: 'US' };
+  const cc = flags[code];
+  if (!cc) return '\uD83C\uDF0D'; // 🌍 globe fallback
+  return String.fromCodePoint(...[...cc].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+};
+
 const ListedProducts = () => {
   const navigate = useNavigate();
   const { seller, isLoggedIn, loading, authResolved } = useSeller();
@@ -10,14 +25,15 @@ const ListedProducts = () => {
   const [pageLoading, setPageLoading] = useState(false);
   const [counts, setCounts] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
   const [activeTab, setActiveTab] = useState('approved');
-  const [editingCell, setEditingCell] = useState(null); // Track which cell is being edited (productId-field)
-  const [editValues, setEditValues] = useState({}); // Store edit values
-  const [updatingProducts, setUpdatingProducts] = useState(new Set()); // Track which products are being updated
+  const [editingCell, setEditingCell] = useState(null);
+  const [editValues, setEditValues] = useState({});
+  const [updatingProducts, setUpdatingProducts] = useState(new Set());
   const [retryCount, setRetryCount] = useState(0);
   const [showRetryButton, setShowRetryButton] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const itemsPerPage = 50; // Fixed at 50 items per page
+  const [updatingCountry, setUpdatingCountry] = useState(new Set());
+  const itemsPerPage = 50;
 
   useEffect(() => {
     // Wait for authentication to be resolved before checking login status
@@ -68,7 +84,13 @@ const ListedProducts = () => {
       const data = await response.json();
       
       if (response.ok) {
-        setProducts(data.products || []);
+        // Enrich each product with the current seller's listingCountry
+        const enriched = (data.products || []).map(p => {
+          const sellerId = seller?._id?.toString();
+          const sellerEntry = p.sellers?.find(s => s.sellerId?.toString() === sellerId);
+          return { ...p, sellerListingCountries: sellerEntry?.listingCountries || [] };
+        });
+        setProducts(enriched);
         setCounts(data.counts || { total: 0, pending: 0, approved: 0, rejected: 0 });
         setTotalPages(data.totalPages || 1);
         setRetryCount(0); // Reset retry count on success
@@ -136,6 +158,30 @@ const ListedProducts = () => {
     } catch (error) {
       console.error('Unlist product error:', error);
       alert('❌ Failed to unlist product');
+    }
+  };
+
+  const handleUpdateCountry = async (productId, countries) => {
+    setUpdatingCountry(prev => new Set(prev).add(productId));
+    try {
+      const token = localStorage.getItem('sellerToken');
+      const response = await fetch(getApiUrl(`sellers/update-inventory/${productId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ listingCountries: countries })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setProducts(prev => prev.map(p =>
+          p._id === productId ? { ...p, sellerListingCountries: countries } : p
+        ));
+      } else {
+        alert('❌ ' + (data.message || 'Failed to update countries'));
+      }
+    } catch (err) {
+      alert('❌ Failed to update countries');
+    } finally {
+      setUpdatingCountry(prev => { const n = new Set(prev); n.delete(productId); return n; });
     }
   };
 
@@ -284,16 +330,7 @@ const ListedProducts = () => {
   };
 
   if (loading || !authResolved) {
-    return (
-      <div className="container-fluid mt-3">
-        <div className="text-center py-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-3">Checking authentication...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (pageLoading) {
@@ -488,6 +525,7 @@ const ListedProducts = () => {
                     <th>Shipping</th>
                     <th>Stock</th>
                     <th>MOQ</th>
+                    <th>Country</th>
                     <th>Category</th>
                     <th>Marketplace</th>
                     <th>Status</th>
@@ -800,6 +838,55 @@ const ListedProducts = () => {
                               <span style={{ fontSize: '0.6rem', color: '#999' }}>✏️</span>
                             )}
                           </span>
+                        )}
+                      </td>
+                      {/* Country Column - multi-select inline toggles */}
+                      <td style={{ verticalAlign: 'middle', minWidth: '160px' }}>
+                        {!product.isListingRequest ? (
+                          <div>
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '3px' }}>
+                              {COUNTRY_OPTIONS.map(c => {
+                                const selected = (product.sellerListingCountries || []).includes(c.code)
+                                return (
+                                  <button
+                                    key={c.code}
+                                    type="button"
+                                    disabled={updatingCountry.has(product._id)}
+                                    onClick={() => {
+                                      const current = product.sellerListingCountries || []
+                                      const next = selected
+                                        ? current.filter(x => x !== c.code)
+                                        : [...current, c.code]
+                                      handleUpdateCountry(product._id, next)
+                                    }}
+                                    title={c.label}
+                                    style={{
+                                      fontSize: '14px', padding: '2px 5px',
+                                      borderRadius: '5px', cursor: 'pointer',
+                                      border: selected ? '2px solid #ff6600' : '2px solid #dee2e6',
+                                      background: selected ? '#fff5f0' : '#f8f9fa',
+                                      opacity: updatingCountry.has(product._id) ? 0.5 : 1,
+                                      transition: 'all 0.15s', lineHeight: 1
+                                    }}
+                                  >
+                                    {countryFlag(c.code)}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                            <div style={{ fontSize: '9px', color: '#888' }}>
+                              {updatingCountry.has(product._id)
+                                ? <><i className="fas fa-spinner fa-spin"></i> Saving...</>
+                                : (product.sellerListingCountries || []).length === 0
+                                  ? <span style={{ color: '#28a745' }}>All countries</span>
+                                  : (product.sellerListingCountries || []).map(c => (
+                                      <span key={c} style={{ marginRight: '3px' }}>{countryFlag(c)} {c}</span>
+                                    ))
+                              }
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '0.7rem', color: '#aaa' }}>—</span>
                         )}
                       </td>
                       <td>

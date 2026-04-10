@@ -112,6 +112,10 @@ const buyerSchema = new mongoose.Schema({
   lastLogin: {
     type: Date
   },
+  wishlistLastSeen: {
+    type: Date,
+    default: new Date(0)
+  },
   // Password reset fields (OTP-based)
   passwordResetOTP: String,
   passwordResetOTPSalt: String,

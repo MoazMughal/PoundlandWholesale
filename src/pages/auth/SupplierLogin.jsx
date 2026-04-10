@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getApiUrl } from '../../utils/api'
 import { useSeller } from '../../context/SellerContext'
@@ -6,7 +6,14 @@ import '../../styles/AuthLanding.css'
 
 const SupplierLogin = () => {
   const navigate = useNavigate()
-  const { login: sellerLogin } = useSeller()
+  const { login: sellerLogin, isLoggedIn, authResolved } = useSeller()
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (authResolved && isLoggedIn) {
+      navigate('/seller/dashboard', { replace: true })
+    }
+  }, [isLoggedIn, authResolved, navigate])
   const [formData, setFormData] = useState({
     username: '',
     password: '',

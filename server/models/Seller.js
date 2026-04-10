@@ -148,7 +148,12 @@ const sellerSchema = new mongoose.Schema({
       ref: 'Admin'
     },
     rejectionReason: String,
-    requestType: String // Add request type field
+    requestType: String,
+    listingCountries: {
+      type: [String],
+      enum: ['GBP', 'PKR', 'AED', 'USD'],
+      default: []
+    }
   }],
   // Password reset fields (OTP-based)
   passwordResetOTP: String,
@@ -160,7 +165,11 @@ const sellerSchema = new mongoose.Schema({
   },
   // Password reset fields (Token-based)
   passwordResetToken: String,
-  passwordResetTokenExpiry: Date
+  passwordResetTokenExpiry: Date,
+  queriesLastSeen: {
+    type: Date,
+    default: new Date(0)
+  }
 }, { timestamps: true });
 
 // Generate unique supplier ID

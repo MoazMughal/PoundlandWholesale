@@ -311,7 +311,7 @@ router.get('/profile', authenticateSeller, async (req, res) => {
 // Update seller profile
 router.put('/profile', authenticateSeller, async (req, res) => {
   try {
-    const { whatsappNo, contactNo, country, city, productCategory, password } = req.body;
+    const { whatsappNo, contactNo, country, city, productCategory, password, username } = req.body;
     
     // Require password for profile updates
     if (!password) {
@@ -330,12 +330,34 @@ router.put('/profile', authenticateSeller, async (req, res) => {
       return res.status(401).json({ message: 'Invalid password. Please enter your correct password to update profile.' });
     }
     
+    // Build update object — only include username if provided and non-empty
+    const updateFields = { whatsappNo, contactNo, country, city, productCategory };
+    if (username && username.trim().length >= 3) {
+      updateFields.username = username.trim();
+    }
+
     // Update profile
     const updatedSeller = await Seller.findByIdAndUpdate(
       req.seller._id,
-      { whatsappNo, contactNo, country, city, productCategory },
+      updateFields,
       { new: true }
     ).select('-password');
+
+    // Sync updated contact info + username to all products this seller has listed (cached copy)
+    const Product = (await import('../models/Product.js')).default;
+    const syncFields = {};
+    if (whatsappNo) syncFields['sellers.$[elem].whatsappNo'] = whatsappNo;
+    if (city)       syncFields['sellers.$[elem].city']       = city;
+    if (country)    syncFields['sellers.$[elem].country']    = country;
+    if (updateFields.username) syncFields['sellers.$[elem].username'] = updateFields.username;
+
+    if (Object.keys(syncFields).length > 0) {
+      await Product.updateMany(
+        { 'sellers.sellerId': req.seller._id },
+        { $set: syncFields },
+        { arrayFilters: [{ 'elem.sellerId': req.seller._id }], multi: true }
+      );
+    }
 
     res.json({ message: 'Profile updated successfully', seller: updatedSeller });
   } catch (error) {
@@ -900,7 +922,8 @@ router.post('/request-admin-product-listing', authenticateSeller, async (req, re
       sellerPrice,
       sellerShipping = 0,
       moq = 1,
-      notes = 'Seller requested to list admin product'
+      notes = 'Seller requested to list admin product',
+      listingCountries = []
     } = req.body;
 
     console.log('🔄 Processing admin product listing request:', {
@@ -968,6 +991,7 @@ router.post('/request-admin-product-listing', authenticateSeller, async (req, re
       transactionId: `REQ_${Date.now()}`,
       paymentMethod: 'Pending Admin Approval',
       notes,
+      listingCountries: Array.isArray(listingCountries) ? listingCountries : [],
       status: 'pending_approval',
       submittedAt: new Date(),
       requestType: 'admin_product_listing'
@@ -1254,6 +1278,7 @@ router.put('/admin/listing-requests/:sellerId/:requestId/approve', authenticateA
       sellerPrice: request.sellerPrice,
       sellerShipping: request.sellerShipping || 0,
       moq: request.moq || 1,
+      listingCountries: Array.isArray(request.listingCountries) ? request.listingCountries : [],
       listedAt: new Date(),
       transactionId: request.transactionId,
       paymentMethod: 'Admin Approved',
@@ -1391,7 +1416,7 @@ router.post('/cleanup-duplicate-sellers', authenticateAdmin, async (req, res) =>
 router.put('/update-inventory/:productId', authenticateSeller, async (req, res) => {
   try {
     const { productId } = req.params;
-    const { price, stock, shipping, moq } = req.body;
+    const { price, stock, shipping, moq, listingCountries } = req.body;
     
     // Import Product model
     const Product = (await import('../models/Product.js')).default;
@@ -1452,6 +1477,15 @@ router.put('/update-inventory/:productId', authenticateSeller, async (req, res) 
     if (moq !== undefined) {
       const parsedMoq = Math.max(1, parseInt(moq));
       product.sellers[sellerIndex].moq = parsedMoq;
+    }
+
+    // Update listing countries (array)
+    if (listingCountries !== undefined) {
+      const valid = ['GBP', 'PKR', 'AED', 'USD'];
+      const arr = Array.isArray(listingCountries)
+        ? listingCountries.filter(c => valid.includes(c))
+        : [];
+      product.sellers[sellerIndex].listingCountries = arr;
     }
 
     // Also update the primary sellerInfo if this seller is the primary seller

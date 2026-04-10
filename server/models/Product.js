@@ -97,7 +97,12 @@ const productSchema = new mongoose.Schema({
     },
     transactionId: String,
     paymentMethod: String,
-    notes: String
+    notes: String,
+    listingCountries: {
+      type: [String],
+      enum: ['GBP', 'PKR', 'AED', 'USD'],
+      default: []
+    }
   }],
   isAmazonsChoice: {
     type: Boolean,

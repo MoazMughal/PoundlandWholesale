@@ -138,19 +138,31 @@ const ProductDetail = () => {
   const hasStock = () => {
     if (!product) return false;
     
-    // Check if admin has stock
     const adminStock = product.stock || 0;
     
-    // Check if any seller has listed this product
-    const hasSellers = product.sellers && product.sellers.length > 0;
-    
-    // Logic:
-    // 1. If any seller has listed the product → Show quantity & Buy button (regardless of stock)
-    // 2. If admin has stock and no sellers → Show quantity & Buy button
-    // 3. If admin has NO stock and NO sellers → Show "Out of Stock"
-    const isAvailable = hasSellers || adminStock > 0;
-    
-    return isAvailable;
+    // Filter sellers to only those listed for the active currency/country
+    // Empty listingCountries = visible in all countries (legacy behaviour)
+    const countrySellers = product.sellers
+      ? product.sellers.filter(s =>
+          !s.listingCountries || s.listingCountries.length === 0 || s.listingCountries.includes(currency)
+        )
+      : [];
+
+    // Available if there's a country-matching seller OR admin has direct stock
+    // NOTE: adminStock alone does NOT override country filtering for seller-listed products.
+    // If the product has sellers but none match this country, show Out of Stock.
+    const hasMatchingSellers = countrySellers.length > 0;
+    const hasAdminStock = adminStock > 0 && (!product.sellers || product.sellers.length === 0);
+
+    return hasMatchingSellers || hasAdminStock;
+  };
+
+  // Returns only sellers visible for the active currency/country
+  const getCountrySellers = () => {
+    if (!product || !product.sellers) return [];
+    return product.sellers.filter(s =>
+      !s.listingCountries || s.listingCountries.length === 0 || s.listingCountries.includes(currency)
+    );
   };
 
   const handleProductChange = (productId) => {
@@ -214,16 +226,14 @@ const ProductDetail = () => {
   const getLowestPrice = () => {
     if (!product) return 0;
     
-    // Parse the main product price and shipping, handling currency symbols
     const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
     const mainShipping = parseFloat(product.shipping) || 0;
     const mainTotal = mainPrice + mainShipping;
     
-    if (!product.sellers || product.sellers.length === 0) {
-      return mainTotal;
-    }
+    const countrySellers = getCountrySellers();
+    if (countrySellers.length === 0) return mainTotal;
     
-    const sellerTotals = product.sellers
+    const sellerTotals = countrySellers
       .map(seller => {
         const price = parseFloat(seller.sellerPrice);
         const shipping = parseFloat(seller.sellerShipping) || 0;
@@ -234,12 +244,9 @@ const ProductDetail = () => {
     
     const allTotals = [mainTotal, ...sellerTotals];
     const result = Math.min(...allTotals);
-    
-    // Final safety check to ensure we never return NaN
     return isNaN(result) ? mainTotal : result;
   };
 
-  // Function to get price breakdown for the lowest price
   const getLowestPriceBreakdown = () => {
     if (!product) return { total: 0, price: 0, shipping: 0, isSellerPrice: false, moq: 1 };
     
@@ -247,7 +254,6 @@ const ProductDetail = () => {
     const mainShipping = parseFloat(product.shipping) || 0;
     const mainTotal = mainPrice + mainShipping;
 
-    // Start with admin price as the default
     let lowest = {
       price: mainPrice,
       shipping: mainShipping,
@@ -256,32 +262,30 @@ const ProductDetail = () => {
       moq: 1
     };
 
-    // Compare every seller's total (price + shipping) and pick the lowest
-    if (product.sellers && product.sellers.length > 0) {
-      product.sellers.forEach(seller => {
-        const sellerPrice = parseFloat(seller.sellerPrice);
-        if (isNaN(sellerPrice)) return; // skip sellers with no price
-        const sellerShipping = parseFloat(seller.sellerShipping) || 0;
-        const sellerTotal = sellerPrice + sellerShipping;
-
-        if (sellerTotal < lowest.total) {
-          lowest = {
-            price: sellerPrice,
-            shipping: sellerShipping,
-            total: sellerTotal,
-            isSellerPrice: true,
-            moq: seller.moq || 1
-          };
-        }
-      });
-    }
+    const countrySellers = getCountrySellers();
+    countrySellers.forEach(seller => {
+      const sellerPrice = parseFloat(seller.sellerPrice);
+      if (isNaN(sellerPrice)) return;
+      const sellerShipping = parseFloat(seller.sellerShipping) || 0;
+      const sellerTotal = sellerPrice + sellerShipping;
+      if (sellerTotal < lowest.total) {
+        lowest = {
+          price: sellerPrice,
+          shipping: sellerShipping,
+          total: sellerTotal,
+          isSellerPrice: true,
+          moq: seller.moq || 1
+        };
+      }
+    });
 
     return lowest;
   };
 
   // Function to check if there's a lower seller price than the main product price (including shipping)
   const hasLowerSellerPrice = () => {
-    if (!product || !product.sellers || product.sellers.length === 0) return false;
+    const countrySellers = getCountrySellers();
+    if (!product || countrySellers.length === 0) return false;
     
     const mainPrice = parseFloat(String(product.price).replace(/[£₨$€]/g, '')) || 0;
     const mainShipping = parseFloat(product.shipping) || 0;
@@ -333,18 +337,16 @@ const ProductDetail = () => {
     let sellerWhatsApp = '';
     let sellerName = '';
     
-    // Check if there are sellers for this product
-    if (product.sellers && product.sellers.length > 0) {
-      // Get the seller with the lowest price
+    // Check if there are sellers for this country
+    const countrySellers = getCountrySellers();
+    if (countrySellers.length > 0) {
       const breakdown = getLowestPriceBreakdown();
       if (breakdown.isSellerPrice) {
-        // Find the seller with the lowest price
-        const lowestSeller = product.sellers.find(s => {
+        const lowestSeller = countrySellers.find(s => {
           const price = parseFloat(s.sellerPrice) || 0;
           const shipping = parseFloat(s.sellerShipping) || 0;
           return (price + shipping) === breakdown.total;
         });
-        
         if (lowestSeller) {
           sellerWhatsApp = lowestSeller.whatsappNo;
           sellerName = lowestSeller.username;
@@ -3823,9 +3825,12 @@ _This quotation was generated from PoundlandWholesale.com_
                         </div>
                         <small style={{ fontSize: '0.6rem', color: '#0369a1', fontWeight: '500' }}>
                           <i className="fas fa-shipping-fast me-1"></i>
-                          {product.sellers && product.sellers.length > 0
-                            ? `Listed by ${product.sellers.length} seller${product.sellers.length > 1 ? 's' : ''}`
-                            : 'Delivery in 15 days to Amazon Warehouse'}
+                          {(() => {
+                            const cs = getCountrySellers();
+                            return cs.length > 0
+                              ? `Listed by ${cs.length} seller${cs.length > 1 ? 's' : ''}`
+                              : 'Delivery in 15 days to Amazon Warehouse';
+                          })()}
                         </small>
                       </div>
                     </>
@@ -3849,7 +3854,7 @@ _This quotation was generated from PoundlandWholesale.com_
 
                   {/* New Seller Information Component - Open to All Users */}
                   <SellerInformation 
-                    product={product}
+                    product={{ ...product, sellers: getCountrySellers() }}
                     isSellerLoggedIn={isSellerLoggedIn}
                     currentSeller={currentSeller}
                     isAdmin={isAdmin}
@@ -3871,10 +3876,10 @@ _This quotation was generated from PoundlandWholesale.com_
                   {/* Regular mobile layout for tablets and larger phones */}
                   <div className="border rounded p-3 mb-3" style={{background: '#ffffff', border: '2px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', color: '#1f2937'}}>
                     <div className="text-center">
-                      <div className="fw-bold mb-2" style={{fontSize: '1.2rem', color: '#dc2626'}}>
-                        {convertPrice(`£${getLowestPrice()}`)}
+                      <div className="fw-bold mb-2" style={{fontSize: '1.2rem', color: hasStock() ? '#dc2626' : '#6b7280'}}>
+                        {hasStock() ? convertPrice(`£${getLowestPrice()}`) : 'Out of Stock'}
                       </div>
-                      {(() => {
+                      {hasStock() && (() => {
                         const breakdown = getLowestPriceBreakdown();
                         return (
                           <div style={{
@@ -3895,7 +3900,7 @@ _This quotation was generated from PoundlandWholesale.com_
                           </div>
                         );
                       })()}
-                      {hasLowerSellerPrice() && (
+                      {hasStock() && hasLowerSellerPrice() && (
                         <div style={{
                           fontSize: '0.8rem',
                           color: '#999',
@@ -3939,9 +3944,9 @@ _This quotation was generated from PoundlandWholesale.com_
                       <div className="row align-items-center">
                         <div className="col-6">
                           <div className="fw-bold text-danger" style={{fontSize: '1.1rem'}}>
-                            {convertPrice(`£${getLowestPrice()}`)}
+                            {hasStock() ? convertPrice(`£${getLowestPrice()}`) : <span style={{color:'#6b7280'}}>Out of Stock</span>}
                           </div>
-                          {(() => {
+                          {hasStock() && (() => {
                             const breakdown = getLowestPriceBreakdown();
                             return (
                               <div style={{
@@ -3961,7 +3966,7 @@ _This quotation was generated from PoundlandWholesale.com_
                               </div>
                             );
                           })()}
-                          {hasLowerSellerPrice() && (
+                          {hasStock() && hasLowerSellerPrice() && (
                             <div style={{
                               fontSize: '0.7rem',
                               color: '#999',
@@ -4010,8 +4015,8 @@ _This quotation was generated from PoundlandWholesale.com_
           <div className="row mt-4">
             <div className="col-12">
               
-              {/* Platform Comparison and Profit Evaluation Side by Side - Only show if in stock */}
-              {hasStock() && (
+              {/* Platform Comparison and Profit Evaluation Side by Side */}
+              {(
               <div className="row g-3">
                 {/* Platform Pricing Table - Left Side */}
                 {(hasValidPlatformData() || product?.forceShowPlatforms || (product?.platforms && product.platforms.length > 0)) && (

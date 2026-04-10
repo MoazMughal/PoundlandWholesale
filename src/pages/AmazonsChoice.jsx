@@ -554,10 +554,17 @@ const AmazonsChoice = () => {
   const [totalProducts, setTotalProducts] = useState(0)
   const [productsPerPage, setProductsPerPage] = useState(100) // Configurable products per page
 
+  // Request-to-list modal state
+  const [listingModal, setListingModal] = useState({ open: false, product: null })
+  const [listingForm, setListingForm] = useState({ price: '', shipping: '0.00', moq: '1', notes: '', listingCountries: [] })
+  const [listingSubmitting, setListingSubmitting] = useState(false)
+  const [listingSuccess, setListingSuccess] = useState(false)
+
   // Context hooks
-  const { formatPrice } = useCurrency()
+  const { formatPrice, currency } = useCurrency()
   const { addToBasket, isInBasket } = useBasket()
   const { isLoggedIn: isAdminContextLoggedIn } = useAdmin()
+  const { seller: currentSeller, isLoggedIn: isSellerLoggedIn } = useSeller()
 
   // Helper function to format price with smaller Rs symbol
   const formatPriceWithSmallRs = (price) => {
@@ -633,6 +640,67 @@ const AmazonsChoice = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  // Handle seller "Request to List" for out-of-stock products — opens advanced modal
+  const handleRequestToList = (product) => {
+    const rawPrice = product.rawPrice || 0
+    const lowestPrice = product.sellers && product.sellers.length > 0
+      ? Math.min(...product.sellers.map(s => parseFloat(s.sellerPrice) || rawPrice))
+      : rawPrice
+    setListingForm({
+      price: lowestPrice > 0 ? Math.max(0.01, lowestPrice - 0.01).toFixed(2) : rawPrice.toFixed(2),
+      shipping: '0.00',
+      moq: '1',
+      notes: '',
+      listingCountries: currency ? [currency] : []
+    })
+    setListingSuccess(false)
+    setListingModal({ open: true, product })
+  }
+
+  const handleListingSubmit = async () => {
+    const { product } = listingModal
+    const rawPrice = product.rawPrice || 0
+    const sellerPrice = parseFloat(listingForm.price)
+    const sellerShipping = parseFloat(listingForm.shipping)
+    const sellerMoq = parseInt(listingForm.moq)
+
+    if (isNaN(sellerPrice) || sellerPrice <= 0) { alert('❌ Please enter a valid price.'); return }
+    if (isNaN(sellerShipping) || sellerShipping < 0) { alert('❌ Please enter a valid shipping cost.'); return }
+    if (isNaN(sellerMoq) || sellerMoq < 1) { alert('❌ MOQ must be at least 1.'); return }
+
+    setListingSubmitting(true)
+    try {
+      const token = localStorage.getItem('sellerToken')
+      const response = await fetch(getApiUrl('sellers/request-admin-product-listing'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          adminProductId: product.id,
+          productName: product.name,
+          productPrice: rawPrice,
+          sellerPrice,
+          sellerShipping,
+          moq: sellerMoq,
+          listingCountries: listingForm.listingCountries || [],
+          notes: listingForm.notes || `Seller requested to list "${product.name}" at £${sellerPrice.toFixed(2)} + £${sellerShipping.toFixed(2)} shipping, MOQ: ${sellerMoq}`
+        })
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setListingSuccess(true)
+      } else {
+        if (data.error === 'REQUEST_EXISTS') alert('⚠️ You already have a pending or approved request for this product.')
+        else if (data.error === 'ALREADY_LISTED') alert('⚠️ You have already listed this product.')
+        else alert('❌ ' + (data.message || 'Failed to submit listing request'))
+      }
+    } catch (err) {
+      console.error('Request to list error:', err)
+      alert('❌ Failed to submit listing request')
+    } finally {
+      setListingSubmitting(false)
+    }
+  }
+
   // Fetch products with server-side filtering and pagination
   const fetchProducts = async (category = null, search = null, page = 1, showAll = showAllProducts) => {
     try {
@@ -666,6 +734,7 @@ const AmazonsChoice = () => {
       // Only fetch products with sellers unless showAll is checked
       if (!showAll) {
         params.append('hasSellerListings', 'true')
+        params.append('currency', currency) // pass active currency for country filtering
       }
       
       // Add image optimization parameters for mobile
@@ -994,13 +1063,13 @@ const AmazonsChoice = () => {
     }
   }, [searchParams, hasLoadedOnce, lastFetchKey])
 
-  // Re-fetch when productsPerPage changes
+  // Re-fetch when productsPerPage or currency changes
   useEffect(() => {
     if (hasLoadedOnce) {
       setLastFetchKey('')
       applyFilters(selectedCategory, searchQuery, 1)
     }
-  }, [productsPerPage])
+  }, [productsPerPage, currency])
 
   // Health check on component mount with production optimizations
   useEffect(() => {
@@ -1370,6 +1439,470 @@ const AmazonsChoice = () => {
   // Rendering with current state
 
   return (
+    <>
+      {/* ── Request-to-List Modal ── */}
+      {listingModal.open && listingModal.product && (
+        <div
+          onClick={() => !listingSubmitting && setListingModal({ open: false, product: null })}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 99999,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '16px'
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fff',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '480px',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+              overflow: 'hidden',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #ff6600 0%, #ff8533 100%)',
+              padding: '18px 22px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '36px', height: '36px', borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <i className="fas fa-paper-plane" style={{ color: '#fff', fontSize: '15px' }}></i>
+                </div>
+                <div>
+                  <div style={{ color: '#fff', fontWeight: '700', fontSize: '15px', lineHeight: 1.2 }}>
+                    Request to List
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '11px' }}>
+                    Submit for admin approval
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => !listingSubmitting && setListingModal({ open: false, product: null })}
+                style={{
+                  background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%',
+                  width: '32px', height: '32px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: '14px', transition: 'background 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.35)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+
+            {listingSuccess ? (
+              /* ── Success State ── */
+              <div style={{ padding: '40px 24px', textAlign: 'center' }}>
+                <div style={{
+                  width: '64px', height: '64px', borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #28a745, #20c997)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  margin: '0 auto 16px',
+                  boxShadow: '0 8px 20px rgba(40,167,69,0.35)'
+                }}>
+                  <i className="fas fa-check" style={{ color: '#fff', fontSize: '26px' }}></i>
+                </div>
+                <h5 style={{ color: '#1a1a1a', fontWeight: '700', marginBottom: '8px', fontSize: '17px' }}>
+                  Request Submitted!
+                </h5>
+                <p style={{ color: '#666', fontSize: '13px', marginBottom: '6px' }}>
+                  Your listing request for
+                </p>
+                <p style={{
+                  color: '#ff6600', fontWeight: '600', fontSize: '13px',
+                  background: '#fff5f0', padding: '8px 14px', borderRadius: '8px',
+                  border: '1px solid #ffd0b0', marginBottom: '16px'
+                }}>
+                  {listingModal.product.name}
+                </p>
+                <div style={{
+                  display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr',
+                  gap: '10px', marginBottom: '20px'
+                }}>
+                  {[
+                    { label: 'Your Price', value: `£${parseFloat(listingForm.price).toFixed(2)}`, icon: 'fa-tag', color: '#28a745' },
+                    { label: 'Shipping', value: `£${parseFloat(listingForm.shipping).toFixed(2)}`, icon: 'fa-truck', color: '#007bff' },
+                    { label: 'MOQ', value: `${listingForm.moq} unit${parseInt(listingForm.moq) > 1 ? 's' : ''}`, icon: 'fa-boxes', color: '#6f42c1' },
+                    { label: 'Countries', value: listingForm.listingCountries.length === 0 ? '🌍 All' : listingForm.listingCountries.map(c => ({ GBP: '🇬🇧', PKR: '🇵🇰', AED: '🇦🇪', USD: '🇺🇸' })[c]).join(' '), icon: 'fa-globe', color: '#ff6600' }
+                  ].map(item => (
+                    <div key={item.label} style={{
+                      background: '#f8f9fa', borderRadius: '10px',
+                      padding: '10px 8px', textAlign: 'center',
+                      border: `1px solid ${item.color}22`
+                    }}>
+                      <i className={`fas ${item.icon}`} style={{ color: item.color, fontSize: '14px', marginBottom: '4px', display: 'block' }}></i>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#1a1a1a' }}>{item.value}</div>
+                      <div style={{ fontSize: '10px', color: '#888' }}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{
+                  background: '#fff8e1', border: '1px solid #ffc107',
+                  borderRadius: '8px', padding: '10px 14px',
+                  fontSize: '12px', color: '#856404', marginBottom: '20px',
+                  display: 'flex', alignItems: 'center', gap: '8px'
+                }}>
+                  <i className="fas fa-clock" style={{ fontSize: '13px' }}></i>
+                  Pending admin approval. You'll be notified once reviewed.
+                </div>
+                <button
+                  onClick={() => setListingModal({ open: false, product: null })}
+                  style={{
+                    background: 'linear-gradient(135deg, #ff6600, #ff8533)',
+                    color: '#fff', border: 'none', borderRadius: '10px',
+                    padding: '11px 28px', fontWeight: '700', fontSize: '14px',
+                    cursor: 'pointer', boxShadow: '0 4px 12px rgba(255,102,0,0.35)'
+                  }}
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              /* ── Form State ── */
+              <div style={{ padding: '20px 22px 22px' }}>
+                {/* Product info strip */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  background: '#f8f9fa', borderRadius: '10px',
+                  padding: '10px 14px', marginBottom: '18px',
+                  border: '1px solid #e9ecef'
+                }}>
+                  {listingModal.product.image && (
+                    <img
+                      src={listingModal.product.image}
+                      alt={listingModal.product.name}
+                      style={{ width: '44px', height: '44px', objectFit: 'contain', borderRadius: '6px', background: '#fff', flexShrink: 0 }}
+                      onError={e => e.target.style.display = 'none'}
+                    />
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{
+                      fontSize: '12px', fontWeight: '600', color: '#1a1a1a',
+                      overflow: 'hidden', display: '-webkit-box',
+                      WebkitLineClamp: 2, WebkitBoxOrient: 'vertical'
+                    }}>
+                      {listingModal.product.name}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
+                      Admin price: <strong style={{ color: '#ff6600' }}>£{(listingModal.product.rawPrice || 0).toFixed(2)}</strong>
+                      {listingModal.product.sellers && listingModal.product.sellers.length > 0 && (
+                        <span style={{ marginLeft: '8px', color: '#6c757d' }}>
+                          · {listingModal.product.sellers.length} existing seller{listingModal.product.sellers.length > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Existing sellers table */}
+                {listingModal.product.sellers && listingModal.product.sellers.length > 0 && (
+                  <div style={{ marginBottom: '18px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#495057', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <i className="fas fa-users" style={{ marginRight: '5px', color: '#ff6600' }}></i>
+                      Current Sellers
+                    </div>
+                    <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #e9ecef' }}>
+                      {listingModal.product.sellers
+                        .slice()
+                        .sort((a, b) => (parseFloat(a.sellerPrice) || 0) - (parseFloat(b.sellerPrice) || 0))
+                        .map((s, i) => (
+                          <div key={i} style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '7px 12px',
+                            background: i === 0 ? '#f0fff4' : i % 2 === 0 ? '#fff' : '#fafafa',
+                            borderBottom: i < listingModal.product.sellers.length - 1 ? '1px solid #e9ecef' : 'none'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              {i === 0 && <span style={{ fontSize: '9px', background: '#28a745', color: '#fff', padding: '1px 5px', borderRadius: '3px', fontWeight: '700' }}>LOWEST</span>}
+                              <span style={{ fontSize: '12px', color: '#495057', fontWeight: i === 0 ? '600' : '400' }}>{s.username}</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#6c757d' }}>
+                              <span><strong style={{ color: i === 0 ? '#28a745' : '#495057' }}>£{(parseFloat(s.sellerPrice) || listingModal.product.rawPrice || 0).toFixed(2)}</strong></span>
+                              <span>MOQ: {s.moq || 1}</span>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Form fields */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                  {/* Price */}
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#495057', display: 'block', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                      <i className="fas fa-tag" style={{ marginRight: '4px', color: '#28a745' }}></i>
+                      Your Price (£) <span style={{ color: '#dc3545' }}>*</span>
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{
+                        position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)',
+                        color: '#495057', fontWeight: '700', fontSize: '14px', pointerEvents: 'none'
+                      }}>£</span>
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={listingForm.price}
+                        onChange={e => setListingForm(f => ({ ...f, price: e.target.value }))}
+                        style={{
+                          width: '100%', padding: '9px 10px 9px 22px',
+                          border: '2px solid #e9ecef', borderRadius: '8px',
+                          fontSize: '14px', fontWeight: '600', color: '#1a1a1a',
+                          outline: 'none', boxSizing: 'border-box',
+                          transition: 'border-color 0.2s'
+                        }}
+                        onFocus={e => e.target.style.borderColor = '#ff6600'}
+                        onBlur={e => e.target.style.borderColor = '#e9ecef'}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Shipping */}
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#495057', display: 'block', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                      <i className="fas fa-truck" style={{ marginRight: '4px', color: '#007bff' }}></i>
+                      Shipping (£)
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{
+                        position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)',
+                        color: '#495057', fontWeight: '700', fontSize: '14px', pointerEvents: 'none'
+                      }}>£</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={listingForm.shipping}
+                        onChange={e => setListingForm(f => ({ ...f, shipping: e.target.value }))}
+                        style={{
+                          width: '100%', padding: '9px 10px 9px 22px',
+                          border: '2px solid #e9ecef', borderRadius: '8px',
+                          fontSize: '14px', fontWeight: '600', color: '#1a1a1a',
+                          outline: 'none', boxSizing: 'border-box',
+                          transition: 'border-color 0.2s'
+                        }}
+                        onFocus={e => e.target.style.borderColor = '#007bff'}
+                        onBlur={e => e.target.style.borderColor = '#e9ecef'}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* MOQ */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#495057', display: 'block', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                    <i className="fas fa-boxes" style={{ marginRight: '4px', color: '#6f42c1' }}></i>
+                    Minimum Order Quantity (MOQ) <span style={{ color: '#dc3545' }}>*</span>
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setListingForm(f => ({ ...f, moq: String(Math.max(1, parseInt(f.moq || 1) - 1)) }))}
+                      style={{
+                        width: '34px', height: '34px', borderRadius: '8px',
+                        border: '2px solid #e9ecef', background: '#f8f9fa',
+                        fontSize: '16px', cursor: 'pointer', fontWeight: '700',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#495057', flexShrink: 0, transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#6f42c1'; e.currentTarget.style.color = '#6f42c1' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e9ecef'; e.currentTarget.style.color = '#495057' }}
+                    >−</button>
+                    <input
+                      type="number"
+                      min="1"
+                      value={listingForm.moq}
+                      onChange={e => setListingForm(f => ({ ...f, moq: e.target.value }))}
+                      style={{
+                        flex: 1, padding: '9px 10px', textAlign: 'center',
+                        border: '2px solid #e9ecef', borderRadius: '8px',
+                        fontSize: '14px', fontWeight: '700', color: '#1a1a1a',
+                        outline: 'none', boxSizing: 'border-box',
+                        transition: 'border-color 0.2s'
+                      }}
+                      onFocus={e => e.target.style.borderColor = '#6f42c1'}
+                      onBlur={e => e.target.style.borderColor = '#e9ecef'}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setListingForm(f => ({ ...f, moq: String(parseInt(f.moq || 1) + 1) }))}
+                      style={{
+                        width: '34px', height: '34px', borderRadius: '8px',
+                        border: '2px solid #e9ecef', background: '#f8f9fa',
+                        fontSize: '16px', cursor: 'pointer', fontWeight: '700',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#495057', flexShrink: 0, transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#6f42c1'; e.currentTarget.style.color = '#6f42c1' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e9ecef'; e.currentTarget.style.color = '#495057' }}
+                    >+</button>
+                    <span style={{ fontSize: '11px', color: '#888', whiteSpace: 'nowrap' }}>units min.</span>
+                  </div>
+                </div>
+
+                {/* Listing Countries - multi-select */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#495057', display: 'block', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                    <i className="fas fa-globe" style={{ marginRight: '4px', color: '#ff6600' }}></i>
+                    List For Countries <span style={{ fontSize: '10px', color: '#aaa', textTransform: 'none', fontWeight: '400' }}>(select one or more — leave empty for all)</span>
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    {[
+                      { code: 'GBP', flag: '🇬🇧', label: 'UK (£ GBP)' },
+                      { code: 'PKR', flag: '🇵🇰', label: 'Pakistan (Rs PKR)' },
+                      { code: 'AED', flag: '🇦🇪', label: 'UAE (د.إ AED)' },
+                      { code: 'USD', flag: '🇺🇸', label: 'USA ($ USD)' }
+                    ].map(c => {
+                      const selected = listingForm.listingCountries.includes(c.code)
+                      return (
+                        <button
+                          key={c.code}
+                          type="button"
+                          onClick={() => setListingForm(f => ({
+                            ...f,
+                            listingCountries: selected
+                              ? f.listingCountries.filter(x => x !== c.code)
+                              : [...f.listingCountries, c.code]
+                          }))}
+                          style={{
+                            padding: '9px 10px', borderRadius: '8px',
+                            border: selected ? '2px solid #ff6600' : '2px solid #e9ecef',
+                            background: selected ? '#fff5f0' : '#fff',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '7px',
+                            fontSize: '12px', fontWeight: selected ? '700' : '500',
+                            color: selected ? '#ff6600' : '#495057',
+                            transition: 'all 0.15s',
+                            boxShadow: selected ? '0 2px 8px rgba(255,102,0,0.2)' : 'none'
+                          }}
+                        >
+                          <span style={{ fontSize: '16px' }}>{c.flag}</span>
+                          <span>{c.label}</span>
+                          {selected && <i className="fas fa-check-circle" style={{ marginLeft: 'auto', color: '#ff6600', fontSize: '12px' }}></i>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#888', marginTop: '5px' }}>
+                    <i className="fas fa-info-circle" style={{ marginRight: '3px' }}></i>
+                    {listingForm.listingCountries.length === 0
+                      ? 'No selection = visible in all countries.'
+                      : `Visible only to buyers using: ${listingForm.listingCountries.join(', ')}`}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div style={{ marginBottom: '18px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#495057', display: 'block', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                    <i className="fas fa-comment-alt" style={{ marginRight: '4px', color: '#6c757d' }}></i>
+                    Notes to Admin <span style={{ fontSize: '10px', color: '#aaa', textTransform: 'none', fontWeight: '400' }}>(optional)</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={listingForm.notes}
+                    onChange={e => setListingForm(f => ({ ...f, notes: e.target.value }))}
+                    placeholder="Any additional info for the admin..."
+                    style={{
+                      width: '100%', padding: '9px 12px',
+                      border: '2px solid #e9ecef', borderRadius: '8px',
+                      fontSize: '13px', color: '#1a1a1a', resize: 'none',
+                      outline: 'none', boxSizing: 'border-box',
+                      fontFamily: 'inherit', transition: 'border-color 0.2s'
+                    }}
+                    onFocus={e => e.target.style.borderColor = '#6c757d'}
+                    onBlur={e => e.target.style.borderColor = '#e9ecef'}
+                  />
+                </div>
+
+                {/* Summary bar */}
+                {listingForm.price && !isNaN(parseFloat(listingForm.price)) && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, #f0fff4, #e8f5e9)',
+                    border: '1px solid #c3e6cb', borderRadius: '10px',
+                    padding: '10px 14px', marginBottom: '16px',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    flexWrap: 'wrap', gap: '8px'
+                  }}>
+                    <span style={{ fontSize: '11px', color: '#155724', fontWeight: '600' }}>
+                      <i className="fas fa-receipt" style={{ marginRight: '5px' }}></i>
+                      Summary
+                    </span>
+                    <div style={{ display: 'flex', gap: '14px', fontSize: '12px', color: '#155724' }}>
+                      <span>Price: <strong>£{parseFloat(listingForm.price || 0).toFixed(2)}</strong></span>
+                      <span>+Ship: <strong>£{parseFloat(listingForm.shipping || 0).toFixed(2)}</strong></span>
+                      <span>Total: <strong>£{(parseFloat(listingForm.price || 0) + parseFloat(listingForm.shipping || 0)).toFixed(2)}</strong></span>
+                      <span>MOQ: <strong>{listingForm.moq}</strong></span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => setListingModal({ open: false, product: null })}
+                    disabled={listingSubmitting}
+                    style={{
+                      flex: 1, padding: '11px', borderRadius: '10px',
+                      border: '2px solid #e9ecef', background: '#f8f9fa',
+                      color: '#6c757d', fontWeight: '600', fontSize: '14px',
+                      cursor: 'pointer', transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#adb5bd'; e.currentTarget.style.color = '#495057' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#e9ecef'; e.currentTarget.style.color = '#6c757d' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleListingSubmit}
+                    disabled={listingSubmitting || !listingForm.price}
+                    style={{
+                      flex: 2, padding: '11px', borderRadius: '10px',
+                      border: 'none',
+                      background: listingSubmitting
+                        ? '#adb5bd'
+                        : 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+                      color: '#fff', fontWeight: '700', fontSize: '14px',
+                      cursor: listingSubmitting ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                      boxShadow: listingSubmitting ? 'none' : '0 4px 14px rgba(40,167,69,0.4)',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={e => { if (!listingSubmitting) e.currentTarget.style.transform = 'translateY(-1px)' }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+                  >
+                    {listingSubmitting ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin"></i>
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-paper-plane"></i>
+                        Submit Request
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="container products-container enhanced-container" style={{
         maxWidth: '100%', 
         padding: windowWidth < 576 ? '0 20px' : '0 15px', // Increased mobile padding from 15px to 20px
@@ -1986,7 +2519,7 @@ const AmazonsChoice = () => {
                   {/* Left side - Compact Enhanced Price or Out of Stock */}
                   {(() => {
                     // Check product availability - only show as available if there are sellers
-                    const hasSellers = product.sellers && product.sellers.length > 0;
+                    const hasSellers = product.sellers && product.sellers.some(s => !s.listingCountries || s.listingCountries.length === 0 || s.listingCountries.includes(currency));
                     const isAvailable = hasSellers;
                     
                     // If not available, show "Out of Stock"
@@ -2025,6 +2558,49 @@ const AmazonsChoice = () => {
                           }}>
                             No of sellers: {product.sellers ? product.sellers.length : 0}
                           </div>
+                          {/* Request to List button - only visible to logged-in sellers */}
+                          {isSellerLoggedIn && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleRequestToList(product)
+                              }}
+                              style={{
+                                marginTop: '3px',
+                                padding: windowWidth < 576 ? '2px 4px' : '3px 6px',
+                                fontSize: windowWidth < 576 ? '6px' : '8px',
+                                fontWeight: '700',
+                                background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                whiteSpace: 'nowrap',
+                                boxShadow: '0 2px 4px rgba(40,167,69,0.3)',
+                                pointerEvents: 'auto',
+                                zIndex: 200,
+                                position: 'relative',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.3px'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'linear-gradient(135deg, #20c997 0%, #28a745 100%)'
+                                e.currentTarget.style.transform = 'translateY(-1px)'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'
+                                e.currentTarget.style.transform = 'translateY(0)'
+                              }}
+                              title="Request to list this product in your store"
+                            >
+                              <i className="fas fa-paper-plane" style={{ fontSize: '6px' }}></i>
+                              Request to List
+                            </button>
+                          )}
                         </div>
                       );
                     }
@@ -2115,7 +2691,7 @@ const AmazonsChoice = () => {
                   {(() => {
                     // Check product availability using same logic as ProductDetail page
                     // Check product availability - only show as available if there are sellers
-                    const hasSellers = product.sellers && product.sellers.length > 0;
+                    const hasSellers = product.sellers && product.sellers.some(s => !s.listingCountries || s.listingCountries.length === 0 || s.listingCountries.includes(currency));
                     const isAvailable = hasSellers;
                     
                     // Don't show profit for out of stock products
@@ -2406,7 +2982,7 @@ const AmazonsChoice = () => {
                 {(() => {
                   // Check product availability using same logic as ProductDetail page
                   // Check product availability - only show as available if there are sellers
-                  const hasSellers = product.sellers && product.sellers.length > 0;
+                  const hasSellers = product.sellers && product.sellers.some(s => !s.listingCountries || s.listingCountries.length === 0 || s.listingCountries.includes(currency));
                   const isAvailable = hasSellers;
                   
                   // Don't show deal cost for out of stock products
@@ -2505,7 +3081,7 @@ const AmazonsChoice = () => {
                 {/* Profit for Deal Units Display - Below Deal Section */}
                 {(() => {
                   // Check product availability - only show as available if there are sellers
-                  const hasSellers = product.sellers && product.sellers.length > 0;
+                  const hasSellers = product.sellers && product.sellers.some(s => !s.listingCountries || s.listingCountries.length === 0 || s.listingCountries.includes(currency));
                   const isAvailable = hasSellers;
                   
                   // Don't show profit for out of stock products
@@ -2705,6 +3281,7 @@ const AmazonsChoice = () => {
           />
         )}
       </div>
+    </>
   )
 }
 

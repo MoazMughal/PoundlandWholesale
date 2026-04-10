@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getApiUrl } from '../../utils/api'
 
+// Render flag emoji from country code (encoding-safe)
+const countryFlag = (code) => {
+  const map = { GBP: 'GB', PKR: 'PK', AED: 'AE', USD: 'US' };
+  const cc = map[code];
+  if (!cc) return '';
+  return String.fromCodePoint(...[...cc].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+};
+const COUNTRY_LABEL = { GBP: 'UK', PKR: 'Pakistan', AED: 'UAE', USD: 'USA' };
+
 const SellerProductsSimple = () => {
   const navigate = useNavigate()
   const [products, setProducts] = useState([])
@@ -10,21 +19,28 @@ const SellerProductsSimple = () => {
   const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 })
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  const itemsPerPage = 10 // Increased from 5 to 10
+  const [sortBy, setSortBy] = useState('date_desc')
+  const [selectedIds, setSelectedIds] = useState([])
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [sellers, setSellers] = useState([])
+  const [sellerFilter, setSellerFilter] = useState('all')
+  const [itemsPerPage, setItemsPerPage] = useState(50)
 
-  // Load stats only once on mount
+  // Load stats and sellers once on mount
   useEffect(() => {
     loadStats()
+    loadSellers()
   }, [])
 
-  // Load products when filter or page changes
+  // Reset page and selection when filter or seller or perPage changes
   useEffect(() => {
-    setCurrentPage(1) // Reset to page 1 when filter changes
-  }, [filter])
+    setCurrentPage(1)
+    setSelectedIds([])
+  }, [filter, sellerFilter, itemsPerPage])
 
   useEffect(() => {
     fetchProducts()
-  }, [filter, currentPage])
+  }, [filter, currentPage, sellerFilter, itemsPerPage])
 
   const loadStats = async () => {
     try {
@@ -41,20 +57,37 @@ const SellerProductsSimple = () => {
     }
   }
 
+  const loadSellers = async () => {
+    try {
+      const token = localStorage.getItem('adminToken')
+      const response = await fetch(getApiUrl('sellers/admin/sellers'), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setSellers(data.sellers || [])
+      }
+    } catch (error) {
+      console.error('Error loading sellers:', error)
+    }
+  }
+
   const fetchProducts = async () => {
     setLoading(true)
+    setSelectedIds([])
     try {
       const token = localStorage.getItem('adminToken')
       let url = ''
+      const sellerParam = sellerFilter !== 'all' ? `&sellerId=${sellerFilter}` : ''
 
       if (filter === 'pending') {
-        url = `sellers/admin/listing-requests?status=pending_approval&limit=${itemsPerPage}&page=${currentPage}`
+        url = `sellers/admin/listing-requests?status=pending_approval&limit=${itemsPerPage}&page=${currentPage}${sellerParam}`
       } else if (filter === 'rejected') {
-        url = `sellers/admin/listing-requests?status=rejected&limit=${itemsPerPage}&page=${currentPage}`
+        url = `sellers/admin/listing-requests?status=rejected&limit=${itemsPerPage}&page=${currentPage}${sellerParam}`
       } else if (filter === 'approved') {
-        url = `products/admin/all-seller-listings?status=approved&limit=${itemsPerPage}&page=${currentPage}`
+        url = `products/admin/all-seller-listings?status=approved&limit=${itemsPerPage}&page=${currentPage}${sellerParam}`
       } else {
-        url = `products/admin/all-seller-listings?status=approved&limit=${itemsPerPage}&page=${currentPage}`
+        url = `products/admin/all-seller-listings?status=approved&limit=${itemsPerPage}&page=${currentPage}${sellerParam}`
       }
 
       const response = await fetch(getApiUrl(url), {
@@ -153,6 +186,52 @@ const SellerProductsSimple = () => {
     }
   }
 
+  const handleBulkApprove = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Approve ${selectedIds.length} selected product(s)?`)) return
+
+    setBulkLoading(true)
+    const token = localStorage.getItem('adminToken')
+    let successCount = 0
+    let failCount = 0
+
+    for (const id of selectedIds) {
+      const product = products.find(p => p._id === id || p.requestId === id)
+      if (!product) continue
+      try {
+        const response = await fetch(
+          getApiUrl(`sellers/admin/listing-requests/${product.sellerId}/${product.requestId}/approve`),
+          { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } }
+        )
+        if (response.ok) successCount++
+        else failCount++
+      } catch {
+        failCount++
+      }
+    }
+
+    setBulkLoading(false)
+    alert(`✅ Approved: ${successCount}${failCount > 0 ? `  ❌ Failed: ${failCount}` : ''}`)
+    setSelectedIds([])
+    fetchProducts()
+    loadStats()
+  }
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  const toggleSelectAll = () => {
+    const pendingIds = sortedProducts.filter(p => p.isRequest).map(p => p._id)
+    if (selectedIds.length === pendingIds.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(pendingIds)
+    }
+  }
+
   const handleDelete = async (product) => {
     if (!confirm('⚠️ Delete this product?')) return
 
@@ -185,8 +264,29 @@ const SellerProductsSimple = () => {
     }
   }
 
+  // Client-side sort
+  const sortedProducts = [...products].sort((a, b) => {
+    const sellerA = (a.seller?.username || a.sellerUsername || '').toLowerCase();
+    const sellerB = (b.seller?.username || b.sellerUsername || '').toLowerCase();
+    const priceA = parseFloat(a.sellerPrice || a.price || 0);
+    const priceB = parseFloat(b.sellerPrice || b.price || 0);
+    const dateA = new Date(a.createdAt || a.listedAt || 0);
+    const dateB = new Date(b.createdAt || b.listedAt || 0);
+    switch (sortBy) {
+      case 'seller_asc':  return sellerA.localeCompare(sellerB);
+      case 'seller_desc': return sellerB.localeCompare(sellerA);
+      case 'price_asc':   return priceA - priceB;
+      case 'price_desc':  return priceB - priceA;
+      case 'date_asc':    return dateA - dateB;
+      case 'date_desc':   return dateB - dateA;
+      case 'name_asc':    return (a.name || '').localeCompare(b.name || '');
+      case 'name_desc':   return (b.name || '').localeCompare(a.name || '');
+      default:            return dateB - dateA;
+    }
+  });
+
   return (
-    <div style={{ padding: '20px', maxWidth: '100%', margin: '0 auto' }}>
+    <div style={{ padding: '10px', maxWidth: '100%', margin: '0 auto' }}>
       {/* Responsive Styles */}
       <style>{`
         @keyframes shimmer {
@@ -271,9 +371,9 @@ const SellerProductsSimple = () => {
       {/* Header */}
       <div className="seller-products-header" style={{ 
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '20px',
+        padding: '10px 16px',
         borderRadius: '8px',
-        marginBottom: '20px',
+        marginBottom: '10px',
         color: 'white'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -299,9 +399,9 @@ const SellerProductsSimple = () => {
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
         gap: '10px',
-        marginBottom: '15px'
+        marginBottom: '10px'
       }}>
-        <div className="stat-card" style={{ background: '#fff3cd', padding: '10px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="stat-card" style={{ background: '#fff3cd', padding: '8px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div className="stat-number" style={{ fontSize: '24px', fontWeight: 'bold', color: '#856404' }}>{stats.pending}</div>
           <div className="stat-label" style={{ color: '#856404', fontSize: '14px' }}>Pending</div>
         </div>
@@ -322,9 +422,9 @@ const SellerProductsSimple = () => {
       {/* Filters */}
       <div className="filter-buttons" style={{ 
         background: 'white',
-        padding: '15px',
+        padding: '10px 15px',
         borderRadius: '8px',
-        marginBottom: '20px',
+        marginBottom: '10px',
         display: 'flex',
         gap: '10px',
         flexWrap: 'wrap'
@@ -391,6 +491,95 @@ const SellerProductsSimple = () => {
         </button>
       </div>
 
+      {/* Seller + Sort + Per Page — all on one line */}
+      <div style={{ background: 'white', padding: '8px 15px', borderRadius: '8px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1 1 180px', minWidth: 0 }}>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#495057', whiteSpace: 'nowrap' }}>👤 Seller:</span>
+          <select
+            value={sellerFilter}
+            onChange={e => setSellerFilter(e.target.value)}
+            style={{ padding: '5px 8px', borderRadius: '6px', border: '1px solid #dee2e6', fontSize: '13px', cursor: 'pointer', background: '#fff', flex: 1, minWidth: 0 }}
+          >
+            <option value="all">All Sellers</option>
+            {sellers.map(s => (
+              <option key={s._id} value={s._id}>
+                {s.username || s.businessName || s.email}
+              </option>
+            ))}
+          </select>
+          {sellerFilter !== 'all' && (
+            <button
+              onClick={() => setSellerFilter('all')}
+              style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #dee2e6', background: '#f8f9fa', cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap' }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1 1 160px', minWidth: 0 }}>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#495057', whiteSpace: 'nowrap' }}>⇅ Sort by:</span>
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            style={{ padding: '5px 8px', borderRadius: '6px', border: '1px solid #dee2e6', fontSize: '13px', cursor: 'pointer', background: '#fff', flex: 1, minWidth: 0 }}
+          >
+            <option value="date_desc">Date (Newest first)</option>
+            <option value="date_asc">Date (Oldest first)</option>
+            <option value="seller_asc">Seller (A → Z)</option>
+            <option value="seller_desc">Seller (Z → A)</option>
+            <option value="name_asc">Name (A → Z)</option>
+            <option value="name_desc">Name (Z → A)</option>
+            <option value="price_asc">Price (Low → High)</option>
+            <option value="price_desc">Price (High → Low)</option>
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '0 0 auto' }}>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#495057', whiteSpace: 'nowrap' }}>📄 Per page:</span>
+          <select
+            value={itemsPerPage}
+            onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+            style={{ padding: '5px 8px', borderRadius: '6px', border: '1px solid #dee2e6', fontSize: '13px', cursor: 'pointer', background: '#fff', width: '75px' }}
+          >
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={300}>300</option>
+            <option value={500}>500</option>
+          </select>
+        </div>
+
+        <span style={{ fontSize: '12px', color: '#888', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+          {sortedProducts.length} product{sortedProducts.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Bulk Actions Bar — only shown in pending tab when items are selected */}
+      {filter === 'pending' && selectedIds.length > 0 && (
+        <div style={{ background: '#e8f4fd', border: '1px solid #bee5eb', padding: '10px 15px', borderRadius: '8px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#0c5460' }}>
+            {selectedIds.length} selected
+          </span>
+          <button
+            onClick={handleBulkApprove}
+            disabled={bulkLoading}
+            style={{
+              padding: '6px 16px', borderRadius: '6px', border: 'none',
+              background: bulkLoading ? '#aaa' : '#28a745', color: 'white',
+              cursor: bulkLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: '600'
+            }}
+          >
+            {bulkLoading ? '⏳ Approving...' : `✓ Approve All Selected (${selectedIds.length})`}
+          </button>
+          <button
+            onClick={() => setSelectedIds([])}
+            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #aaa', background: 'white', cursor: 'pointer', fontSize: '13px' }}
+          >
+            ✕ Deselect All
+          </button>
+        </div>
+      )}
+
       {/* Loading Skeleton */}
       {loading && (
         <div style={{ background: 'white', borderRadius: '8px', overflow: 'hidden' }}>
@@ -400,6 +589,7 @@ const SellerProductsSimple = () => {
                 <th style={{ padding: '10px', textAlign: 'left', width: '70px' }}>IMAGE</th>
                 <th style={{ padding: '10px', textAlign: 'left' }}>PRODUCT</th>
                 <th style={{ padding: '10px', textAlign: 'left', width: '100px' }}>SELLER</th>
+                <th style={{ padding: '10px', textAlign: 'center', width: '120px' }}>COUNTRY</th>
                 <th style={{ padding: '10px', textAlign: 'right', width: '70px' }}>PRICE</th>
                 <th style={{ padding: '10px', textAlign: 'center', width: '80px' }}>STATUS</th>
                 <th style={{ padding: '10px', textAlign: 'center', width: '180px' }}>ACTIONS</th>
@@ -511,13 +701,14 @@ const SellerProductsSimple = () => {
                 <th style={{ padding: '10px', textAlign: 'left', width: '70px' }}>IMAGE</th>
                 <th style={{ padding: '10px', textAlign: 'left' }}>PRODUCT</th>
                 <th style={{ padding: '10px', textAlign: 'left', width: '100px' }}>SELLER</th>
+                <th style={{ padding: '10px', textAlign: 'center', width: '120px' }}>COUNTRY</th>
                 <th style={{ padding: '10px', textAlign: 'right', width: '70px' }}>PRICE</th>
                 <th style={{ padding: '10px', textAlign: 'center', width: '80px' }}>STATUS</th>
                 <th style={{ padding: '10px', textAlign: 'center', width: '180px' }}>ACTIONS</th>
               </tr>
             </thead>
             <tbody>
-              {products.map(product => {
+              {sortedProducts.map(product => {
                 // Get the first image from various possible sources
                 const imageUrl = product.images?.[0] || 
                                 product.image || 
@@ -570,6 +761,28 @@ const SellerProductsSimple = () => {
                     </td>
                     <td style={{ padding: '10px', fontSize: '13px' }}>
                       {product.seller?.username || product.sellerUsername || product.seller || 'Unknown'}
+                    </td>
+                    {/* Country column — read-only flag display */}
+                    <td style={{ padding: '10px', textAlign: 'center' }}>
+                      {(() => {
+                        // For admin_product_listing, get listingCountries from the seller entry
+                        const countries = product.listingCountries ||
+                          (product.sellers?.find(s => s.sellerId?.toString() === product.seller?._id?.toString())?.listingCountries) ||
+                          [];
+                        if (!countries || countries.length === 0) {
+                          return <span style={{ fontSize: '11px', color: '#888' }}>🌍 All</span>;
+                        }
+                        return (
+                          <div style={{ display: 'flex', gap: '3px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            {countries.map(c => (
+                              <span key={c} title={COUNTRY_LABEL[c] || c}
+                                style={{ fontSize: '16px', lineHeight: 1 }}>
+                                {countryFlag(c)}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', fontSize: '14px' }}>
                       £{parseFloat(product.price || product.sellerPrice || 0).toFixed(2)}

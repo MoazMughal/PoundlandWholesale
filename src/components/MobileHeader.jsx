@@ -5,6 +5,7 @@ import { useSeller } from '../context/SellerContext';
 import { useBuyer } from '../context/BuyerContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
+import useWishlistNotifications from '../hooks/useWishlistNotifications';
 import apiConfig from '../config/api.config';
 
 
@@ -18,11 +19,13 @@ const MobileHeader = () => {
   const { getBasketCount } = useBasket();
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  // Wishlist / query notification counts
+  const buyerNotif = useWishlistNotifications('buyer', 'buyerToken', isBuyerLoggedIn);
+  const sellerNotif = useWishlistNotifications('seller', 'sellerToken', isSellerLoggedIn);
   const [showLoginMenu, setShowLoginMenu] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const loginMenuRef = useRef(null);
-  const userMenuRef = useRef(null);
 
   const getUserInfo = () => {
     // Use context providers instead of sessionAuthManager to avoid async issues
@@ -60,9 +63,6 @@ const MobileHeader = () => {
       if (loginMenuRef.current && !loginMenuRef.current.contains(event.target)) {
         setShowLoginMenu(false);
       }
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-        setShowUserMenu(false);
-      }
     };
 
     const handleResize = () => {
@@ -79,7 +79,6 @@ const MobileHeader = () => {
   }, []);
 
   const handleLogout = () => {
-    // Simple logout based on context state - no async calls
     if (isAdminLoggedIn) {
       adminLogout();
     } else if (isSellerLoggedIn) {
@@ -87,8 +86,6 @@ const MobileHeader = () => {
     } else if (isBuyerLoggedIn) {
       buyerLogout();
     }
-    
-    setShowUserMenu(false);
   };
 
   const [categories, setCategories] = useState([
@@ -949,66 +946,97 @@ const MobileHeader = () => {
                   </Link>
                 </>
               ) : (
-                <div style={{ position: 'relative' }} ref={userMenuRef}>
-                  <button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {/* Wishlist / Queries notification bell */}
+                  {isBuyerLoggedIn && (
+                    <Link
+                      to="/buyer/wishlist"
+                      onClick={buyerNotif.markSeen}
+                      title="My Wishlist & Queries"
+                      style={{
+                        position: 'relative', fontSize: '9px', color: '#fff',
+                        background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)',
+                        borderRadius: '3px', padding: '2px 6px',
+                        display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none'
+                      }}
+                    >
+                      <i className="fas fa-heart"></i>
+                      {buyerNotif.count > 0 && (
+                        <span style={{
+                          position: 'absolute', top: '-5px', right: '-5px',
+                          background: '#dc3545', color: '#fff', borderRadius: '50%',
+                          width: '14px', height: '14px', fontSize: '8px', fontWeight: '700',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          border: '1px solid #ff9900'
+                        }}>{buyerNotif.count > 9 ? '9+' : buyerNotif.count}</span>
+                      )}
+                    </Link>
+                  )}
+                  {isSellerLoggedIn && (
+                    <Link
+                      to="/seller/buyer-queries"
+                      onClick={sellerNotif.markSeen}
+                      title="Buyer Queries"
+                      style={{
+                        position: 'relative', fontSize: '9px', color: '#fff',
+                        background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)',
+                        borderRadius: '3px', padding: '2px 6px',
+                        display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none'
+                      }}
+                    >
+                      <i className="fas fa-inbox"></i>
+                      {sellerNotif.count > 0 && (
+                        <span style={{
+                          position: 'absolute', top: '-5px', right: '-5px',
+                          background: '#dc3545', color: '#fff', borderRadius: '50%',
+                          width: '14px', height: '14px', fontSize: '8px', fontWeight: '700',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          border: '1px solid #ff9900'
+                        }}>{sellerNotif.count > 9 ? '9+' : sellerNotif.count}</span>
+                      )}
+                    </Link>
+                  )}
+                  {/* Name → dashboard */}
+                  <Link
+                    to={isAdminLoggedIn ? '/admin/dashboard' : isBuyerLoggedIn ? '/buyer/dashboard' : '/seller/dashboard'}
                     style={{
                       fontSize: '9px',
                       color: '#fff',
+                      textDecoration: 'none',
                       background: 'rgba(255,255,255,0.2)',
                       border: '1px solid rgba(255,255,255,0.3)',
                       borderRadius: '3px',
                       fontWeight: '600',
-                      cursor: 'pointer',
-                      padding: '2px 6px'
+                      padding: '2px 6px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px'
                     }}
                   >
                     <i className="fas fa-user-circle"></i> {userInfo.name}
+                  </Link>
+                  {/* Separate logout button */}
+                  <button
+                    onClick={handleLogout}
+                    title="Logout"
+                    style={{
+                      fontSize: '9px',
+                      color: '#fff',
+                      background: 'rgba(220,38,38,0.75)',
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      borderRadius: '3px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      padding: '2px 6px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(220,38,38,0.95)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(220,38,38,0.75)'}
+                  >
+                    <i className="fas fa-sign-out-alt"></i>
                   </button>
-                  {showUserMenu && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      right: 0,
-                      background: '#fff',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '4px',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                      marginTop: '4px',
-                      minWidth: '140px',
-                      zIndex: 1000
-                    }}>
-                      <Link 
-                        to={isAdminLoggedIn ? '/admin/dashboard' : isBuyerLoggedIn ? '/buyer/dashboard' : '/seller/dashboard'} 
-                        style={{
-                          display: 'block',
-                          padding: '8px 12px',
-                          fontSize: '11px',
-                          color: '#111',
-                          textDecoration: 'none',
-                          borderBottom: '1px solid #e5e7eb'
-                        }}
-                      >
-                        Dashboard
-                      </Link>
-                      <button
-                        onClick={handleLogout}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          padding: '8px 12px',
-                          fontSize: '11px',
-                          color: '#dc2626',
-                          background: 'none',
-                          border: 'none',
-                          textAlign: 'left',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <i className="fas fa-sign-out-alt"></i> Logout
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
 

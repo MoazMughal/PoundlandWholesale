@@ -1051,9 +1051,6 @@ const AdminDashboard = () => {
         <button onClick={() => navigate('/admin/seller-verifications')} className="tool-btn info">
           🆔 Seller Verifications ({stats?.verifications?.pending || 0} pending)
         </button>
-        <button onClick={() => navigate('/admin/seller-listings')} className="tool-btn success" style={{color: 'black'}}>
-          📋 Seller Listings ({stats?.sellerListings?.total || 0} total)
-        </button>
         <button onClick={() => navigate('/admin/pending-payments')} className="tool-btn warning">
           💳 Pending Payments ({stats?.pendingPayments || 0})
         </button>
@@ -1062,6 +1059,9 @@ const AdminDashboard = () => {
         </button>
         <button onClick={() => navigate('/admin/quotations')} className="tool-btn warning">
           📊 User Analytics
+        </button>
+        <button onClick={() => navigate('/admin/wishlist-queries')} className="tool-btn" style={{background: '#e74c3c', color: '#fff'}}>
+          ❤️ Buyer Wishlist Queries
         </button>
         <button onClick={() => navigate('/admin/category-manager')} className="tool-btn info">
           🗂️ Category Manager

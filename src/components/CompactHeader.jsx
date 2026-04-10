@@ -18,11 +18,9 @@ const CompactHeader = () => {
   const { getBasketCount } = useBasket();
   const [searchQuery, setSearchQuery] = useState('');
   const [showLoginMenu, setShowLoginMenu] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const isBuyerLoggedIn = !!localStorage.getItem('buyerToken');
   const isAdminLoggedIn = !!localStorage.getItem('adminToken');
   const loginMenuRef = useRef(null);
-  const userMenuRef = useRef(null);
 
   // Get user type and name
   const getUserInfo = () => {
@@ -39,9 +37,6 @@ const CompactHeader = () => {
     const handleClickOutside = (event) => {
       if (loginMenuRef.current && !loginMenuRef.current.contains(event.target)) {
         setShowLoginMenu(false);
-      }
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-        setShowUserMenu(false);
       }
     };
 
@@ -484,69 +479,54 @@ const CompactHeader = () => {
               </Link>
             </>
           ) : (
-            <div ref={userMenuRef} style={{ position: 'relative' }}>
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {/* User name → dashboard */}
+              <Link
+                to={isAdminLoggedIn ? '/admin/dashboard' : isBuyerLoggedIn ? '/buyer/dashboard' : '/seller/dashboard'}
                 style={{
                   fontSize: '11px',
                   color: '#fff',
+                  textDecoration: 'none',
+                  fontWeight: '600',
                   background: 'rgba(255,255,255,0.2)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  borderRadius: '4px',
+                  padding: '5px 10px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.35)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+              >
+                <i className="fas fa-user-circle"></i>
+                <span className="hide-mobile-text">{userInfo.type}</span>
+              </Link>
+              {/* Separate logout button */}
+              <button
+                onClick={handleLogout}
+                title="Logout"
+                style={{
+                  fontSize: '11px',
+                  color: '#fff',
+                  background: 'rgba(220,38,38,0.7)',
                   border: '1px solid rgba(255,255,255,0.3)',
                   borderRadius: '4px',
                   fontWeight: '600',
                   cursor: 'pointer',
-                  padding: '5px 12px',
+                  padding: '5px 8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
                   transition: 'all 0.2s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(220,38,38,0.9)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(220,38,38,0.7)'}
               >
-                <i className="fas fa-user-circle"></i> <span className="hide-mobile-text">{userInfo.type}</span>
+                <i className="fas fa-sign-out-alt"></i>
+                <span className="hide-mobile-text">Logout</span>
               </button>
-              {showUserMenu && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  background: '#fff',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '4px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                  marginTop: '4px',
-                  minWidth: '140px',
-                  zIndex: 1000
-                }}>
-                  <Link 
-                    to={isAdminLoggedIn ? '/admin/dashboard' : isBuyerLoggedIn ? '/buyer/dashboard' : '/seller/dashboard'} 
-                    style={{
-                      display: 'block',
-                      padding: '8px 12px',
-                      fontSize: '11px',
-                      color: '#111',
-                      textDecoration: 'none',
-                      borderBottom: '1px solid #e5e7eb'
-                    }}
-                  >
-                    Dashboard
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '8px 12px',
-                      fontSize: '11px',
-                      color: '#dc2626',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
             </div>
           )}
           
