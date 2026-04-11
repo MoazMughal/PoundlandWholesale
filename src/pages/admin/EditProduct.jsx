@@ -351,6 +351,12 @@ const EditProduct = () => {
       newFormData.dealUnits = Math.floor(platformUnits / 12);
     }
 
+    // When dealUnits is directly edited, back-calculate platformUnits
+    if (name === 'dealUnits') {
+      const dealUnits = parseInt(value) || 1;
+      newFormData.platformUnits = dealUnits * 12;
+    }
+
     // If price is manually changed, update the original price reference
     if (name === 'price' && value !== '') {
       const numericPrice = parseFloat(value);
@@ -791,7 +797,7 @@ const EditProduct = () => {
         formDataToSend.append('rating', Math.min(Math.max(parseFloat(formData.rating) || 4.5, 0), 5));
         formDataToSend.append('reviews', parseInt(formData.reviews) || 0);
         formDataToSend.append('stock', parseInt(formData.stock) || 0);
-        formDataToSend.append('dealUnits', Math.floor((formData.platformUnits || 2400) / 12));
+        formDataToSend.append('dealUnits', formData.dealUnits || Math.floor((formData.platformUnits || 2400) / 12));
         formDataToSend.append('isAmazonsChoice', formData.isAmazonsChoice || false);
         formDataToSend.append('status', formData.status || 'active');
         formDataToSend.append('platformUnits', formData.platformUnits || 2400);
@@ -1260,17 +1266,30 @@ const EditProduct = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label>No of Deal Units * (Auto-calculated)</label>
+              <label>Platform Units (Yearly)</label>
+              <input
+                type="number"
+                name="platformUnits"
+                value={formData.platformUnits}
+                onChange={handleChange}
+                min="12"
+                step="12"
+                placeholder="e.g. 2400"
+              />
+              <small>Total yearly units. No of Deal Units = this ÷ 12.</small>
+            </div>
+
+            <div className="form-group">
+              <label>No of Deal Units *</label>
               <input
                 type="number"
                 name="dealUnits"
                 value={formData.dealUnits}
-                readOnly
+                onChange={handleChange}
                 min="1"
-                placeholder="Auto-calculated from Platform Units ÷ 12"
-                style={{backgroundColor: '#f8f9fa', cursor: 'not-allowed'}}
+                placeholder="e.g. 200"
               />
-              <small>Auto-calculated as Platform Units ÷ 12 (currently: {formData.platformUnits || 2400} ÷ 12 = {formData.dealUnits})</small>
+              <small>Monthly units. Editing this sets Platform Units = this × 12. Currently: {formData.dealUnits} × 12 = {(formData.dealUnits || 1) * 12}</small>
             </div>
 
             <div className="form-group">

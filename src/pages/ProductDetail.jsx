@@ -3682,7 +3682,7 @@ _This quotation was generated from PoundlandWholesale.com_
                             <div style={{ marginTop: '8px', borderTop: '1px solid #e1e5e9', paddingTop: '8px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                                 <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#232f3e' }}>
-                                  <i className="fas fa-barcode me-1" style={{ color: '#ff6b35' }}></i>ASIN Bulk Listing
+                                  <i className="fas fa-barcode me-1" style={{ color: '#ff6b35' }}></i>Amazon ASIN Available for Reselling
                                 </span>
                                 <span style={{ background: '#28a745', color: '#fff', fontSize: '0.6rem', fontWeight: 700, padding: '1px 6px', borderRadius: '8px' }}>
                                   {asinSellers.length} seller{asinSellers.length > 1 ? 's' : ''}
@@ -3739,21 +3739,28 @@ _This quotation was generated from PoundlandWholesale.com_
                 }}></div>
 
                 {/* About this item / Description */}
-                {product.description && (
+                {(product.description || (product.features && product.features.length > 0)) && (
                   <div className="mb-3">
                     <h2 className="fw-bold mb-2" style={{fontSize: '0.95rem'}}>About this item</h2>
-                    <p style={{fontSize: '0.8rem', lineHeight: '1.5', color: '#0F1111'}}>
-                      {product.description}
-                    </p>
-                    {product.features && (
-                      <ul style={{paddingLeft: '20px', marginTop: '10px', marginBottom: 0}}>
-                        {product.features.map((feature, idx) => (
-                          <li key={idx} style={{fontSize: '0.8rem', color: '#0F1111', marginBottom: '6px', lineHeight: '1.4'}}>
-                            {feature}
+                    <ul style={{paddingLeft: '18px', margin: 0}}>
+                      {/* Description split into bullet points */}
+                      {product.description && product.description
+                        .split(/(?<=[.!?])\s+(?=[A-Z])|\s*[;]\s*/)
+                        .map(s => s.trim())
+                        .filter(s => s.length > 10)
+                        .map((point, idx) => (
+                          <li key={`desc-${idx}`} style={{fontSize: '0.8rem', color: '#0F1111', marginBottom: '6px', lineHeight: '1.5'}}>
+                            {point.endsWith('.') ? point : point + '.'}
                           </li>
-                        ))}
-                      </ul>
-                    )}
+                        ))
+                      }
+                      {/* Features as additional bullet points */}
+                      {product.features && product.features.map((feature, idx) => (
+                        <li key={`feat-${idx}`} style={{fontSize: '0.8rem', color: '#0F1111', marginBottom: '6px', lineHeight: '1.5'}}>
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
@@ -4572,28 +4579,29 @@ _This quotation was generated from PoundlandWholesale.com_
               {/* Product Description and Technical Specifications Side by Side */}
               <div className="row g-3" style={{marginTop: '20px'}}>
                 {/* Product Description - Left Side */}
-                {product.description && (
+                {(product.description || (product.features && product.features.length > 0)) && (
                   <div className={product.specifications ? "col-lg-6" : "col-12"}>
                     <div className="product-description" style={{background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', height: '100%'}}>
                       <h3 style={{fontSize: '1.1rem', fontWeight: '700', marginBottom: '12px', color: '#2d3748', borderBottom: '2px solid var(--bs-primary)', paddingBottom: '8px'}}>
                         <i className="fas fa-info-circle me-2"></i>Product Description
                       </h3>
-                      <p style={{fontSize: '0.9rem', lineHeight: '1.6', color: '#4a5568', marginBottom: '15px'}}>
-                        {product.description}
-                      </p>
-                      
-                      {product.features && (
-                        <div>
-                          <h4 style={{fontSize: '0.95rem', fontWeight: '600', marginBottom: '10px', color: '#2d3748'}}>Key Features:</h4>
-                          <ul style={{paddingLeft: '20px', marginBottom: 0}}>
-                            {product.features.map((feature, idx) => (
-                              <li key={idx} style={{fontSize: '0.85rem', color: '#4a5568', marginBottom: '6px'}}>
-                                <i className="fas fa-check-circle text-success me-2"></i>{feature}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      <ul style={{paddingLeft: '18px', margin: 0}}>
+                        {product.description && product.description
+                          .split(/(?<=[.!?])\s+(?=[A-Z])|\s*[;]\s*/)
+                          .map(s => s.trim())
+                          .filter(s => s.length > 10)
+                          .map((point, idx) => (
+                            <li key={`desc-${idx}`} style={{fontSize: '0.85rem', color: '#4a5568', marginBottom: '6px', lineHeight: '1.6'}}>
+                              {point.endsWith('.') ? point : point + '.'}
+                            </li>
+                          ))
+                        }
+                        {product.features && product.features.map((feature, idx) => (
+                          <li key={`feat-${idx}`} style={{fontSize: '0.85rem', color: '#4a5568', marginBottom: '6px', lineHeight: '1.6'}}>
+                            <i className="fas fa-check-circle text-success me-2"></i>{feature}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   </div>
                 )}
