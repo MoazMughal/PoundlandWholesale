@@ -903,6 +903,9 @@ const AdminProducts = () => {
   };
 
   useEffect(() => {
+    // Skip on first mount — initial load effect already handles URL params
+    if (!hasInitiallyLoaded) return;
+
     const urlParams = new URLSearchParams(location.search);
     const categoryFromState = location.state?.category;
     const categoryFromUrl = urlParams.get('category');
@@ -911,46 +914,34 @@ const AdminProducts = () => {
     const statusToRestore = statusFromUrl || '';
     const amazonsChoiceFromUrl = urlParams.get('amazonsChoice') === 'true';
 
-    console.log('🔄 Category restoration:', {
-      categoryFromState,
-      categoryFromUrl,
-      statusFromUrl,
-      categoryToRestore,
-      statusToRestore,
-      amazonsChoiceFromUrl,
-      currentCategory: filters.category,
-      currentStatus: filters.status,
-      locationSearch: location.search,
-      locationState: location.state
-    });
-
     setFilters(prev => {
       const newFilters = { ...prev };
-      if (prev.category !== categoryToRestore) {
-        console.log('📂 Updating category from', prev.category, 'to', categoryToRestore);
-        newFilters.category = categoryToRestore;
-      }
-      if (prev.status !== statusToRestore) {
-        console.log('📊 Updating status from', prev.status, 'to', statusToRestore);
-        newFilters.status = statusToRestore;
-      }
-      if (prev.isAmazonsChoice !== amazonsChoiceFromUrl) {
-        console.log('⭐ Updating Amazon\'s Choice from', prev.isAmazonsChoice, 'to', amazonsChoiceFromUrl);
-        newFilters.isAmazonsChoice = amazonsChoiceFromUrl;
-      }
+      if (prev.category !== categoryToRestore) newFilters.category = categoryToRestore;
+      if (prev.status !== statusToRestore) newFilters.status = statusToRestore;
+      if (prev.isAmazonsChoice !== amazonsChoiceFromUrl) newFilters.isAmazonsChoice = amazonsChoiceFromUrl;
       return newFilters;
     });
-  }, [location.pathname, location.search, location.state?.category]);
+  }, [location.pathname, location.search, location.state?.category, hasInitiallyLoaded]);
 
   // Initial load on component mount - ONLY ONCE
   useEffect(() => {
     if (!hasInitiallyLoaded) {
-      console.log('🚀 Component mounted, loading initial data...');
       fetchCategories();
-      fetchProducts(1);
+      // Apply URL params before first fetch so filter effect doesn't re-trigger
+      const urlParams = new URLSearchParams(location.search);
+      const categoryFromUrl = urlParams.get('category') || location.state?.category || '';
+      const statusFromUrl = urlParams.get('status') || '';
+      const amazonsChoiceFromUrl = urlParams.get('amazonsChoice') === 'true';
+      setFilters(prev => ({
+        ...prev,
+        category: categoryFromUrl,
+        status: statusFromUrl,
+        isAmazonsChoice: amazonsChoiceFromUrl
+      }));
       setHasInitiallyLoaded(true);
+      fetchProducts(1);
     }
-  }, [hasInitiallyLoaded]);
+  }, []); // empty deps — truly runs once
 
   // Handle search and filter changes - DEBOUNCED
   useEffect(() => {
@@ -961,27 +952,16 @@ const AdminProducts = () => {
     const hasSearchChanged = search !== '';
     const hasCategoryChanged = filters.category !== '';
     
-    // Debug logging for search
-    if (search) {
-      console.log('🔍 Search query:', {
-        query: search,
-        length: search.length,
-        isASIN: /^[A-Z0-9]{10}$/.test(search.toUpperCase()),
-        isSKU: /^[A-Z0-9-]{3,}$/.test(search.toUpperCase()) && !/^[A-Z0-9]{10}$/.test(search.toUpperCase()),
-        isID: /^[a-fA-F0-9]+$/.test(search)
-      });
-    }
-    
     if (hasSearchChanged || hasCategoryChanged) {
       cacheManager.clearAll();
     }
     
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
     
     // Debounce the fetch to prevent rapid successive calls
     const timeoutId = setTimeout(() => {
       fetchProducts(1);
-    }, 300); // 300ms debounce
+    }, 400);
     
     return () => clearTimeout(timeoutId);
   }, [search, filters.category, filters.status, filters.isAmazonsChoice]);

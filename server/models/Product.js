@@ -102,7 +102,12 @@ const productSchema = new mongoose.Schema({
       type: [String],
       enum: ['GBP', 'PKR', 'AED', 'USD'],
       default: []
-    }
+    },
+    // ASIN Bulk Listing data set by seller
+    asinAvailable: { type: Boolean, default: false },
+    asinYearlyCost: { type: Number, default: 0 },
+    asinReviews: { type: Number, default: 0 },
+    asinYearlyIncome: { type: Number, default: 0 }
   }],
   isAmazonsChoice: {
     type: Boolean,

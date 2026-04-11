@@ -35,6 +35,8 @@ const ListedProducts = () => {
   const [updatingCountry, setUpdatingCountry] = useState(new Set());
   const [sortField, setSortField] = useState('createdAt');
   const [sortDir, setSortDir] = useState('desc');
+  const [asinModal, setAsinModal] = useState(null); // { productId, asinAvailable, asinYearlyCost, asinReviews, asinYearlyIncome }
+  const [asinSaving, setAsinSaving] = useState(false);
   const itemsPerPage = 50;
 
   useEffect(() => {
@@ -90,7 +92,16 @@ const ListedProducts = () => {
         const enriched = (data.products || []).map(p => {
           const sellerId = seller?._id?.toString();
           const sellerEntry = p.sellers?.find(s => s.sellerId?.toString() === sellerId);
-          return { ...p, sellerListingCountries: sellerEntry?.listingCountries || [] };
+          return {
+            ...p,
+            sellerListingCountries: sellerEntry?.listingCountries || [],
+            sellerAsinData: {
+              asinAvailable: sellerEntry?.asinAvailable || false,
+              asinYearlyCost: sellerEntry?.asinYearlyCost || 0,
+              asinReviews: sellerEntry?.asinReviews || 0,
+              asinYearlyIncome: sellerEntry?.asinYearlyIncome || 0
+            }
+          };
         });
         setProducts(enriched);
         setCounts(data.counts || { total: 0, pending: 0, approved: 0, rejected: 0 });
@@ -311,6 +322,39 @@ const ListedProducts = () => {
       setEditingCell(null)
     }
   }
+
+  const handleSaveAsin = async () => {
+    if (!asinModal) return;
+    setAsinSaving(true);
+    try {
+      const token = localStorage.getItem('sellerToken');
+      const response = await fetch(getApiUrl(`sellers/update-inventory/${asinModal.productId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          asinAvailable: asinModal.asinAvailable,
+          asinYearlyCost: asinModal.asinYearlyCost,
+          asinReviews: asinModal.asinReviews,
+          asinYearlyIncome: asinModal.asinYearlyIncome
+        })
+      });
+      if (response.ok) {
+        setProducts(prev => prev.map(p =>
+          p._id === asinModal.productId
+            ? { ...p, sellerAsinData: { asinAvailable: asinModal.asinAvailable, asinYearlyCost: asinModal.asinYearlyCost, asinReviews: asinModal.asinReviews, asinYearlyIncome: asinModal.asinYearlyIncome } }
+            : p
+        ));
+        setAsinModal(null);
+      } else {
+        const d = await response.json();
+        alert('❌ ' + (d.message || 'Failed to save'));
+      }
+    } catch (e) {
+      alert('❌ Failed to save ASIN data');
+    } finally {
+      setAsinSaving(false);
+    }
+  };
 
   const getStatusBadge = (status) => {
     const badges = {
@@ -567,7 +611,7 @@ const ListedProducts = () => {
                     <th style={{ width: '55px', padding: '6px 4px' }}>MOQ</th>
                     <th style={{ width: '110px', padding: '6px 4px' }}>Country</th>
                     <th style={{ width: '80px', padding: '6px 4px' }}>Category</th>
-                    <th style={{ width: '70px', padding: '6px 4px' }}>Market</th>
+                    <th style={{ width: '80px', padding: '6px 4px' }}>ASIN Bulk</th>
                     <th style={{ width: '90px', cursor: 'pointer', padding: '6px 4px' }} onClick={() => handleSort('status')}>
                       Status <SortIcon field="status" />
                     </th>
@@ -935,10 +979,27 @@ const ListedProducts = () => {
                       <td>
                         <span className="badge bg-info">{product.category}</span>
                       </td>
-                      <td>
-                        <span className={`badge ${getMarketplaceBadge(product.marketplace)}`}>
-                          {product.marketplace}
-                        </span>
+                      <td style={{ padding: '4px 3px' }}>
+                        {!product.isListingRequest ? (
+                          <button
+                            onClick={() => setAsinModal({
+                              productId: product._id,
+                              asinAvailable: product.sellerAsinData?.asinAvailable || false,
+                              asinYearlyCost: product.sellerAsinData?.asinYearlyCost || '',
+                              asinReviews: product.sellerAsinData?.asinReviews || '',
+                              asinYearlyIncome: product.sellerAsinData?.asinYearlyIncome || ''
+                            })}
+                            style={{
+                              fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px',
+                              border: product.sellerAsinData?.asinAvailable ? '1px solid #28a745' : '1px solid #dee2e6',
+                              background: product.sellerAsinData?.asinAvailable ? '#d4edda' : '#f8f9fa',
+                              color: product.sellerAsinData?.asinAvailable ? '#155724' : '#6c757d',
+                              cursor: 'pointer', whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {product.sellerAsinData?.asinAvailable ? '✓ Set' : '+ Set'}
+                          </button>
+                        ) : <span style={{ color: '#9ca3af', fontSize: '0.7rem' }}>—</span>}
                       </td>
                       <td>
                         <span className={`badge ${getStatusBadge(product.approvalStatus)}`}>
@@ -1100,6 +1161,103 @@ const ListedProducts = () => {
           >
             Next →
           </button>
+        </div>
+      )}
+
+      {/* ASIN Bulk Listing Modal */}
+      {asinModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+          onClick={() => setAsinModal(null)}>
+          <div style={{ background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 50px rgba(0,0,0,0.25)', overflow: 'hidden' }}
+            onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.95rem' }}>
+                  <i className="fas fa-barcode me-2" style={{ color: '#ff6b35' }}></i>ASIN Bulk Listing
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.72rem' }}>Set ASIN availability & financial data for buyers</div>
+              </div>
+              <button onClick={() => setAsinModal(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', color: '#fff', cursor: 'pointer', fontSize: '0.85rem' }}>✕</button>
+            </div>
+            <div style={{ padding: '16px 18px' }}>
+              {/* ASIN Available toggle */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '6px' }}>
+                  <i className="fas fa-check-circle me-1" style={{ color: '#28a745' }}></i>ASIN Available for Buyers?
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {[true, false].map(val => (
+                    <button key={String(val)} type="button"
+                      onClick={() => setAsinModal(m => ({ ...m, asinAvailable: val }))}
+                      style={{ flex: 1, padding: '8px', borderRadius: '7px', border: `2px solid ${asinModal.asinAvailable === val ? '#28a745' : '#dee2e6'}`, background: asinModal.asinAvailable === val ? '#d4edda' : '#f8f9fa', color: asinModal.asinAvailable === val ? '#155724' : '#6c757d', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
+                      {val ? '✓ Yes, Available' : '✗ Not Available'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {asinModal.asinAvailable && (
+                <>
+                  {/* Yearly Cost */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                      <i className="fas fa-pound-sign me-1" style={{ color: '#dc3545' }}></i>Yearly Cost of ASIN (£)
+                    </label>
+                    <input type="number" min="0" step="0.01" placeholder="e.g. 299.99"
+                      value={asinModal.asinYearlyCost}
+                      onChange={e => setAsinModal(m => ({ ...m, asinYearlyCost: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 10px', border: '2px solid #e9ecef', borderRadius: '7px', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                      onFocus={e => e.target.style.borderColor = '#667eea'} onBlur={e => e.target.style.borderColor = '#e9ecef'} />
+                  </div>
+
+                  {/* ASIN Reviews */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                      <i className="fas fa-star me-1" style={{ color: '#ffc107' }}></i>ASIN Reviews (count)
+                    </label>
+                    <input type="number" min="0" step="1" placeholder="e.g. 1250"
+                      value={asinModal.asinReviews}
+                      onChange={e => setAsinModal(m => ({ ...m, asinReviews: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 10px', border: '2px solid #e9ecef', borderRadius: '7px', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                      onFocus={e => e.target.style.borderColor = '#667eea'} onBlur={e => e.target.style.borderColor = '#e9ecef'} />
+                  </div>
+
+                  {/* Yearly Income */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                      <i className="fas fa-chart-line me-1" style={{ color: '#28a745' }}></i>Estimated Yearly Income (£)
+                    </label>
+                    <input type="number" min="0" step="0.01" placeholder="e.g. 4800"
+                      value={asinModal.asinYearlyIncome}
+                      onChange={e => setAsinModal(m => ({ ...m, asinYearlyIncome: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 10px', border: '2px solid #e9ecef', borderRadius: '7px', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                      onFocus={e => e.target.style.borderColor = '#667eea'} onBlur={e => e.target.style.borderColor = '#e9ecef'} />
+                  </div>
+                </>
+              )}
+
+              {/* Summary preview */}
+              {asinModal.asinAvailable && (asinModal.asinYearlyCost || asinModal.asinReviews || asinModal.asinYearlyIncome) && (
+                <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '0.75rem', color: '#0c4a6e' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '4px' }}>📋 Preview for buyers:</div>
+                  {asinModal.asinYearlyCost && <div>💰 Yearly cost: <strong>£{parseFloat(asinModal.asinYearlyCost || 0).toFixed(2)}</strong></div>}
+                  {asinModal.asinReviews && <div>⭐ Reviews: <strong>{parseInt(asinModal.asinReviews || 0).toLocaleString()}</strong></div>}
+                  {asinModal.asinYearlyIncome && <div>📈 Est. yearly income: <strong>£{parseFloat(asinModal.asinYearlyIncome || 0).toFixed(2)}</strong></div>}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => setAsinModal(null)} style={{ flex: 1, padding: '9px', borderRadius: '8px', border: '2px solid #e9ecef', background: '#f8f9fa', color: '#6c757d', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button onClick={handleSaveAsin} disabled={asinSaving}
+                  style={{ flex: 2, padding: '9px', borderRadius: '8px', border: 'none', background: asinSaving ? '#adb5bd' : 'linear-gradient(135deg, #28a745, #20c997)', color: '#fff', fontWeight: 700, fontSize: '0.85rem', cursor: asinSaving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  {asinSaving ? <><i className="fas fa-spinner fa-spin"></i> Saving...</> : <><i className="fas fa-save"></i> Save ASIN Data</>}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

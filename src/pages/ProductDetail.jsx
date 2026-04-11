@@ -3670,6 +3670,61 @@ _This quotation was generated from PoundlandWholesale.com_
                             return formatPrice(totalCost);
                           })()}</span>
                         </div>
+
+                        {/* ASIN Bulk Listing — inline inside profit box */}
+                        {(() => {
+                          const asinSellers = (product?.sellers || []).filter(s =>
+                            s.asinAvailable &&
+                            (!s.listingCountries || s.listingCountries.length === 0 || s.listingCountries.includes(currency))
+                          );
+                          if (asinSellers.length === 0) return null;
+                          return (
+                            <div style={{ marginTop: '8px', borderTop: '1px solid #e1e5e9', paddingTop: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#232f3e' }}>
+                                  <i className="fas fa-barcode me-1" style={{ color: '#ff6b35' }}></i>ASIN Bulk Listing
+                                </span>
+                                <span style={{ background: '#28a745', color: '#fff', fontSize: '0.6rem', fontWeight: 700, padding: '1px 6px', borderRadius: '8px' }}>
+                                  {asinSellers.length} seller{asinSellers.length > 1 ? 's' : ''}
+                                </span>
+                              </div>
+                              {asinSellers.map((s, i) => (
+                                <div key={i} style={{ background: '#f8f9fa', borderRadius: '6px', padding: '6px 8px', marginBottom: i < asinSellers.length - 1 ? '4px' : 0, fontSize: '0.68rem' }}>
+                                  <div style={{ fontWeight: 700, color: '#374151', marginBottom: '3px' }}>
+                                    <i className="fas fa-user me-1" style={{ color: '#667eea', fontSize: '0.6rem' }}></i>{s.username || 'Seller'}
+                                  </div>
+                                  {s.asinYearlyCost > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <span style={{ color: '#6b7280' }}>Yearly Cost</span>
+                                      <span style={{ fontWeight: 700, color: '#dc3545' }}>{formatPrice(parseFloat(s.asinYearlyCost))}</span>
+                                    </div>
+                                  )}
+                                  {s.asinReviews > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <span style={{ color: '#6b7280' }}>⭐ Reviews</span>
+                                      <span style={{ fontWeight: 700, color: '#374151' }}>{parseInt(s.asinReviews).toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                  {s.asinYearlyIncome > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <span style={{ color: '#6b7280' }}>📈 Yearly Income</span>
+                                      <span style={{ fontWeight: 700, color: '#28a745' }}>{formatPrice(parseFloat(s.asinYearlyIncome))}</span>
+                                    </div>
+                                  )}
+                                  {s.asinYearlyCost > 0 && s.asinYearlyIncome > 0 && (
+                                    <div style={{ marginTop: '3px', background: '#d4edda', borderRadius: '4px', padding: '2px 6px', textAlign: 'center', fontWeight: 700, color: '#155724' }}>
+                                      Net/yr: {formatPrice(parseFloat(s.asinYearlyIncome) - parseFloat(s.asinYearlyCost))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                              <div style={{ fontSize: '0.6rem', color: '#9ca3af', textAlign: 'center', marginTop: '4px' }}>
+                                <i className="fab fa-whatsapp me-1" style={{ color: '#25d366' }}></i>Contact seller via WhatsApp to enquire
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                       </div>
                     )}
                   </div>

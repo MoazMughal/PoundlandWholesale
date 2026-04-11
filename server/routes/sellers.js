@@ -1416,7 +1416,7 @@ router.post('/cleanup-duplicate-sellers', authenticateAdmin, async (req, res) =>
 router.put('/update-inventory/:productId', authenticateSeller, async (req, res) => {
   try {
     const { productId } = req.params;
-    const { price, stock, shipping, moq, listingCountries } = req.body;
+    const { price, stock, shipping, moq, listingCountries, asinAvailable, asinYearlyCost, asinReviews, asinYearlyIncome } = req.body;
     
     // Import Product model
     const Product = (await import('../models/Product.js')).default;
@@ -1487,6 +1487,12 @@ router.put('/update-inventory/:productId', authenticateSeller, async (req, res) 
         : [];
       product.sellers[sellerIndex].listingCountries = arr;
     }
+
+    // Update ASIN bulk listing data
+    if (asinAvailable !== undefined) product.sellers[sellerIndex].asinAvailable = Boolean(asinAvailable);
+    if (asinYearlyCost !== undefined) product.sellers[sellerIndex].asinYearlyCost = parseFloat(asinYearlyCost) || 0;
+    if (asinReviews !== undefined) product.sellers[sellerIndex].asinReviews = parseInt(asinReviews) || 0;
+    if (asinYearlyIncome !== undefined) product.sellers[sellerIndex].asinYearlyIncome = parseFloat(asinYearlyIncome) || 0;
 
     // Also update the primary sellerInfo if this seller is the primary seller
     if (product.seller && product.seller.toString() === req.seller._id.toString() && product.sellerInfo) {
