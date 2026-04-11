@@ -77,7 +77,6 @@ const SellerDashboard = lazy(() => import('./pages/seller/Dashboard'))
 const SellerBuyerQueries = lazy(() => import('./pages/seller/BuyerQueries'))
 const SellerProducts = lazy(() => import('./pages/seller/Products'))
 const SellerAddProduct = lazy(() => import('./pages/seller/AddProduct'))
-const SellerAddProducts = lazy(() => import('./pages/seller/AddProducts'))
 const SellerEditProfile = lazy(() => import('./pages/seller/EditProfile'))
 const SellerAdminProducts = lazy(() => import('./pages/seller/AdminProducts'))
 const SellerAmazonsChoiceProducts = lazy(() => import('./pages/seller/AmazonsChoiceProducts'))
@@ -170,7 +169,6 @@ function App() {
           <Route path="/seller/profile/edit" element={<SellerEditProfile />} />
           <Route path="/seller/products" element={<SellerProducts />} />
           <Route path="/seller/products/add" element={<SellerAddProduct />} />
-          <Route path="/seller/add-products" element={<SellerAddProducts />} />
           <Route path="/seller/admin-products" element={<SellerAdminProducts />} />
           <Route path="/seller/amazons-choice-products" element={<SellerAmazonsChoiceProducts />} />
           <Route path="/seller/listed-products" element={<SellerListedProducts />} />

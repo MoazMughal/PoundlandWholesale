@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
 import ProductImage from '../../components/ProductImage'
@@ -368,31 +368,6 @@ const AdminProducts = () => {
     return pages
   }
 
-  if (loading && products.length === 0) {
-    return (
-      <div style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '60px',
-            height: '60px',
-            border: '4px solid #e3e3e3',
-            borderTop: '4px solid #007bff',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 20px'
-          }}></div>
-          <h5 style={{ color: '#6c757d', marginBottom: '10px' }}>Loading Products...</h5>
-          <p style={{ color: '#adb5bd', fontSize: '14px' }}>Fetching Amazon's Choice products</p>
-        </div>
-      </div>
-    )
-  }
 
   const COUNTRY_OPTIONS = [
     { code: 'GBP', flag: '🇬🇧', label: 'UK (£ GBP)' },
@@ -598,940 +573,200 @@ const AdminProducts = () => {
       </div>
     )}
 
-    <div style={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-      padding: windowWidth < 768 ? '10px' : '20px'
-    }}>
-      <style>
-        {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-          
-          /* Force ProductImage wrapper to fill the image container */
-          .product-image .product-image-wrapper {
-            width: 100% !important;
-            height: 100% !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-          }
-          
-          .product-image .product-image-wrapper img {
-            max-width: 100% !important;
-            max-height: 100% !important;
-            width: auto !important;
-            height: auto !important;
-            object-fit: contain !important;
-          }
-          
-          .admin-products-container {
-            max-width: 1800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            overflow: hidden;
-          }
-          
-          .header-section {
-            background: linear-gradient(135deg, #ff6600 0%, #ff8533 100%);
-            color: white;
-            padding: ${windowWidth < 768 ? '15px 20px' : '20px 30px'};
-            text-align: center;
-            min-height: 80px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          
-          .filters-section {
-            padding: ${windowWidth < 768 ? '15px' : '25px'};
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-          }
-          
-          .search-input {
-            flex: 1;
-            padding: 12px 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s ease;
-          }
-          
-          .search-input:focus {
-            outline: none;
-            border-color: #007bff;
-            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-          }
-          
-          .search-btn {
-            padding: 12px 20px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            margin-left: 10px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-          }
-          
-          .search-btn:hover {
-            background: #0056b3;
-            transform: translateY(-1px);
-          }
-          
-          .category-select {
-            padding: 12px 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 14px;
-            background: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-          }
-          
-          .category-select:focus {
-            outline: none;
-            border-color: #007bff;
-            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-          }
-          
-          .products-grid {
-            display: grid;
-            grid-template-columns: ${getGridColumns()};
-            gap: ${windowWidth < 768 ? '10px' : '15px'};
-            padding: ${windowWidth < 768 ? '15px' : '25px'};
-            min-height: 400px;
-          }
-          
-          .product-card {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            transition: all 0.3s ease;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            min-height: ${windowWidth < 576 ? '280px' : '320px'};
-            max-height: ${windowWidth < 576 ? '300px' : 'none'};
-            box-sizing: border-box;
-          }
-          
-          .product-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-          }
-          
-          .product-image {
-            width: 100%;
-            height: ${windowWidth < 576 ? '140px' : '160px'};
-            flex-shrink: 0;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #fff;
-            padding: ${windowWidth < 576 ? '8px' : '12px'};
-            overflow: visible;
-            box-sizing: border-box;
-          }
-          
-          .product-info {
-            padding: ${windowWidth < 576 ? '4px 6px' : '8px 10px'};
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            overflow: hidden;
-            min-height: 0;
-          }
-          
-          .product-title {
-            font-size: ${windowWidth < 768 ? '10px' : '11px'};
-            font-weight: 600;
-            color: #2c3e50;
-            line-height: 1.3;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            word-wrap: break-word;
-            hyphens: auto;
-            margin-bottom: 4px;
-            flex-shrink: 0;
-          }
-          
-          .product-category {
-            background: #e9ecef;
-            color: #6c757d;
-            padding: 2px 5px;
-            border-radius: 6px;
-            font-size: ${windowWidth < 768 ? '7px' : '8px'};
-            font-weight: 500;
-            display: inline-block;
-            width: fit-content;
-            margin-bottom: 2px;
-          }
-          
-          .product-price {
-            font-size: ${windowWidth < 768 ? '12px' : '14px'};
-            font-weight: bold;
-            color: #28a745;
-            margin-bottom: 2px;
-          }
-          
-          .product-rating {
-            font-size: ${windowWidth < 768 ? '7px' : '9px'};
-            color: #6c757d;
-            margin-bottom: 0px;
-          }
-          
-          .action-buttons {
-            display: flex;
-            gap: 4px;
-            margin-top: auto;
-            padding: 6px 0 0 0;
-            border-top: 1px solid #f0f0f0;
-            background: white;
-            flex-shrink: 0;
-          }
-          
-          .list-btn {
-            flex: 1;
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            color: white;
-            border: none;
-            padding: ${windowWidth < 768 ? '7px 5px' : '8px 6px'};
-            border-radius: 5px;
-            font-size: ${windowWidth < 768 ? '8px' : '9px'};
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 2px;
-            box-shadow: 0 2px 4px rgba(40,167,69,0.25);
-            text-transform: uppercase;
-            letter-spacing: 0.1px;
-            min-height: 28px;
-          }
-          
-          .list-btn:hover {
-            background: linear-gradient(135deg, #20c997 0%, #28a745 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 3px 8px rgba(40,167,69,0.35);
-          }
-          
-          .edit-btn {
-            flex: 0 0 auto;
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            color: white;
-            border: none;
-            padding: ${windowWidth < 768 ? '7px 5px' : '8px 6px'};
-            border-radius: 5px;
-            font-size: ${windowWidth < 768 ? '8px' : '9px'};
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 2px;
-            box-shadow: 0 2px 4px rgba(0,123,255,0.25);
-            min-width: ${windowWidth < 768 ? '45px' : '50px'};
-            min-height: 28px;
-          }
-          
-          .edit-btn:hover {
-            background: linear-gradient(135deg, #0056b3 0%, #007bff 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 3px 8px rgba(0,123,255,0.35);
-          }
-          
-          .pagination-section {
-            padding: ${windowWidth < 768 ? '15px' : '25px'};
-            background: #f8f9fa;
-            border-top: 1px solid #dee2e6;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-          }
-          
-          .page-btn {
-            padding: 8px 12px;
-            border: 2px solid #dee2e6;
-            background: white;
-            color: #6c757d;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 14px;
-            min-width: 40px;
-          }
-          
-          .page-btn:hover {
-            border-color: #007bff;
-            color: #007bff;
-          }
-          
-          .page-btn.active {
-            background: #007bff;
-            color: white;
-            border-color: #007bff;
-          }
-          
-          .page-ellipsis {
-            padding: 8px 4px;
-            color: #6c757d;
-          }
-          
-          .nav-btn {
-            padding: 8px 15px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 14px;
-          }
-          
-          .nav-btn:hover {
-            background: #0056b3;
-          }
-          
-          .nav-btn:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-          }
-          
-          .stats-info {
-            text-align: center;
-            color: #6c757d;
-            font-size: 14px;
-            margin-bottom: 15px;
-          }
-          
-          .no-products {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6c757d;
-          }
-          
-          .no-products i {
-            font-size: 48px;
-            margin-bottom: 20px;
-            opacity: 0.5;
-          }
-          
-          @media (max-width: 767px) {
-            .filters-section {
-              padding: 15px;
-            }
-            
-            .filters-section > div {
-              margin-bottom: 15px;
-            }
-            
-            .filters-section > div:last-child {
-              margin-bottom: 0;
-            }
-          }
-        `}
-      </style>
+    <div style={{ background: '#f4f6f9', minHeight: '100vh' }}>
+      <style>{`
+        @keyframes ap-shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+        .ap-shimmer { background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size:400px 100%; animation: ap-shimmer 1.4s infinite; }
+        .ap-card { background:#fff; border-radius:10px; border:1px solid #e8ecf0; overflow:hidden; display:flex; flex-direction:column; transition:transform 0.18s,box-shadow 0.18s; }
+        .ap-card:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,0.12); }
+        .ap-card img { width:100%; height:130px; object-fit:contain; background:#f8f9fa; padding:8px; }
+        .ap-card-body { padding:8px 10px; flex:1; display:flex; flex-direction:column; gap:4px; }
+        .ap-title { font-size:0.72rem; font-weight:600; color:#2d3748; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .ap-price { font-size:0.82rem; font-weight:800; color:#28a745; }
+        .ap-badge { font-size:0.6rem; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-block; }
+        .ap-listed { position:absolute; top:6px; left:6px; background:#28a745; color:#fff; font-size:0.6rem; font-weight:700; padding:2px 6px; border-radius:4px; z-index:2; }
+        .ap-req-btn { width:100%; padding:6px 4px; border:none; border-radius:6px; font-size:0.68rem; font-weight:700; cursor:pointer; background:linear-gradient(135deg,#28a745,#20c997); color:#fff; margin-top:auto; transition:opacity 0.15s; }
+        .ap-req-btn:hover { opacity:0.88; }
+        .ap-req-btn:disabled { background:#adb5bd; cursor:not-allowed; }
+        .ap-grid { display:grid; gap:10px; }
+        .ap-search { border:2px solid #e8ecf0; border-radius:8px; padding:8px 12px; font-size:0.85rem; outline:none; width:100%; transition:border-color 0.2s; }
+        .ap-search:focus { border-color:#667eea; }
+        .ap-select { border:2px solid #e8ecf0; border-radius:8px; padding:8px 10px; font-size:0.82rem; background:#fff; cursor:pointer; outline:none; }
+        .ap-select:focus { border-color:#667eea; }
+        .ap-page-btn { min-width:34px; height:34px; border:1px solid #dee2e6; background:#fff; border-radius:6px; cursor:pointer; font-size:0.82rem; transition:all 0.15s; }
+        .ap-page-btn:hover { border-color:#667eea; color:#667eea; }
+        .ap-page-btn.active { background:#667eea; color:#fff; border-color:#667eea; font-weight:700; }
+        @media(max-width:576px){ .ap-grid{ grid-template-columns:repeat(2,1fr)!important; } }
+        @media(min-width:577px) and (max-width:767px){ .ap-grid{ grid-template-columns:repeat(3,1fr)!important; } }
+        @media(min-width:768px) and (max-width:991px){ .ap-grid{ grid-template-columns:repeat(4,1fr)!important; } }
+        @media(min-width:992px) and (max-width:1199px){ .ap-grid{ grid-template-columns:repeat(5,1fr)!important; } }
+        @media(min-width:1200px) and (max-width:1399px){ .ap-grid{ grid-template-columns:repeat(6,1fr)!important; } }
+        @media(min-width:1400px){ .ap-grid{ grid-template-columns:repeat(7,1fr)!important; } }
+      `}</style>
 
-      <div className="admin-products-container">
-        {/* Header */}
-        <div className="header-section">
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            flexWrap: 'wrap', 
-            gap: '15px',
-            width: '100%',
-            maxWidth: '1200px'
-          }}>
-            <div style={{ textAlign: windowWidth < 768 ? 'center' : 'left', flex: 1 }}>
-              <h2 style={{ 
-                margin: '0 0 5px 0', 
-                fontSize: windowWidth < 768 ? '18px' : '22px',
-                color: 'white',
-                fontWeight: '700'
-              }}>
-                <i className="fas fa-star" style={{ marginRight: '8px' }}></i>
-                Amazon's Choice Products
-              </h2>
-              <p style={{ 
-                margin: 0, 
-                opacity: 0.95, 
-                fontSize: windowWidth < 768 ? '12px' : '14px',
-                color: 'white'
-              }}>
-                List verified products to your inventory
-              </p>
-            </div>
-            <button 
-              className="nav-btn" 
-              onClick={() => navigate('/seller/dashboard')}
-              style={{ 
-                fontSize: windowWidth < 768 ? '12px' : '14px',
-                background: 'rgba(255,255,255,0.2)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                color: 'white'
-              }}
-            >
-              <i className="fas fa-arrow-left" style={{ marginRight: '8px' }}></i>
-              Back to Dashboard
-            </button>
-          </div>
+      {/* ── HEADER ── */}
+      <div style={{ background:'linear-gradient(135deg,#1a1a2e,#16213e)', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'8px' }}>
+        <div>
+          <h5 style={{ color:'#fff', margin:0, fontWeight:700, fontSize:'1rem' }}>
+            <i className="fas fa-boxes me-2" style={{ color:'#ff6b35' }}></i>Available Products
+          </h5>
+          <small style={{ color:'rgba(255,255,255,0.65)', fontSize:'0.75rem' }}>Browse and request products to list in your store</small>
         </div>
+        <button onClick={() => navigate('/seller/dashboard')}
+          style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'6px 14px', fontSize:'0.8rem', cursor:'pointer' }}>
+          <i className="fas fa-arrow-left me-1"></i>Dashboard
+        </button>
+      </div>
 
-        {/* Filters */}
-        <div className="filters-section">
-          <div style={{ 
-            display: windowWidth < 768 ? 'block' : 'flex', 
-            gap: '15px', 
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}>
-            <form onSubmit={handleSearch} style={{ 
-              display: 'flex', 
-              flex: windowWidth < 768 ? 'none' : '1',
-              marginBottom: windowWidth < 768 ? '15px' : '0',
-              position: 'relative'
-            }}>
-              <div style={{ 
-                position: 'relative', 
-                flex: 1,
-                display: 'flex'
-              }}>
-                <input
-                  type="text"
-                  className="search-input"
-                  placeholder="Search by Product Name, ASIN, SKU, Brand..."
-                  value={searchQuery}
-                  onChange={handleSearchInputChange}
-                  onFocus={() => setShowSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                  style={{
-                    paddingRight: searchQuery ? '40px' : '15px'
-                  }}
-                />
-                
-                {/* Clear search button */}
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={clearSearch}
-                    style={{
-                      position: 'absolute',
-                      right: '50px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      color: '#6c757d',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      padding: '4px',
-                      borderRadius: '50%',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background = '#f8f9fa'
-                      e.target.style.color = '#dc3545'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = 'none'
-                      e.target.style.color = '#6c757d'
-                    }}
-                    title="Clear search"
-                  >
-                    <i className="fas fa-times"></i>
-                  </button>
-                )}
-                
-                {/* Search suggestions dropdown */}
-                {showSuggestions && (searchSuggestions.length > 0 || searchHistory.length > 0) && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    background: 'white',
-                    border: '1px solid #e9ecef',
-                    borderRadius: '0 0 8px 8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                    zIndex: 1000,
-                    maxHeight: '300px',
-                    overflowY: 'auto'
-                  }}>
-                    {/* Search History */}
-                    {searchHistory.length > 0 && !searchQuery && (
-                      <div>
-                        <div style={{
-                          padding: '8px 12px',
-                          background: '#f8f9fa',
-                          borderBottom: '1px solid #e9ecef',
-                          fontSize: '11px',
-                          fontWeight: '600',
-                          color: '#6c757d',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
-                        }}>
-                          <span><i className="fas fa-history" style={{marginRight: '4px'}}></i>Recent Searches</span>
-                          <button
-                            type="button"
-                            onClick={clearSearchHistory}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#dc3545',
-                              cursor: 'pointer',
-                              fontSize: '10px',
-                              padding: '2px 4px'
-                            }}
-                            title="Clear history"
-                          >
-                            Clear
-                          </button>
-                        </div>
-                        {searchHistory.map((term, index) => (
-                          <div
-                            key={index}
-                            onClick={() => handleSearch(null, term)}
-                            style={{
-                              padding: '8px 12px',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              borderBottom: index < searchHistory.length - 1 ? '1px solid #f8f9fa' : 'none',
-                              transition: 'background 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => e.target.style.background = '#f8f9fa'}
-                            onMouseLeave={(e) => e.target.style.background = 'white'}
-                          >
-                            <i className="fas fa-clock" style={{marginRight: '8px', color: '#6c757d', fontSize: '11px'}}></i>
-                            {term}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Live Suggestions */}
-                    {searchSuggestions.length > 0 && searchQuery && (
-                      <div>
-                        <div style={{
-                          padding: '8px 12px',
-                          background: '#f8f9fa',
-                          borderBottom: '1px solid #e9ecef',
-                          fontSize: '11px',
-                          fontWeight: '600',
-                          color: '#6c757d'
-                        }}>
-                          <i className="fas fa-search" style={{marginRight: '4px'}}></i>Suggestions
-                        </div>
-                        {searchSuggestions.map((suggestion, index) => (
-                          <div
-                            key={index}
-                            onClick={() => handleSearch(null, suggestion.text)}
-                            style={{
-                              padding: '8px 12px',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              borderBottom: index < searchSuggestions.length - 1 ? '1px solid #f8f9fa' : 'none',
-                              transition: 'background 0.2s ease',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}
-                            onMouseEnter={(e) => e.target.style.background = '#f8f9fa'}
-                            onMouseLeave={(e) => e.target.style.background = 'white'}
-                          >
-                            <span>
-                              <i className={`fas ${suggestion.type === 'asin' ? 'fa-barcode' : suggestion.type === 'sku' ? 'fa-tag' : 'fa-box'}`} 
-                                 style={{marginRight: '8px', color: '#007bff', fontSize: '11px'}}></i>
-                              {suggestion.text}
-                            </span>
-                            <span style={{fontSize: '10px', color: '#6c757d', textTransform: 'uppercase'}}>
-                              {suggestion.type}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              
-              <button type="submit" className="search-btn" disabled={isSearching}>
-                {isSearching ? (
-                  <i className="fas fa-spinner fa-spin"></i>
-                ) : (
-                  <i className="fas fa-search"></i>
-                )}
+      {/* ── FILTERS ── */}
+      <div style={{ background:'#fff', borderBottom:'1px solid #e8ecf0', padding:'10px 14px', display:'flex', gap:'8px', flexWrap:'wrap', alignItems:'center' }}>
+        <form onSubmit={handleSearch} style={{ flex:'1 1 220px', display:'flex', gap:'6px', minWidth:0 }}>
+          <div style={{ position:'relative', flex:1, minWidth:0 }}>
+            <i className="fas fa-search" style={{ position:'absolute', left:'10px', top:'50%', transform:'translateY(-50%)', color:'#aaa', fontSize:'0.8rem', pointerEvents:'none' }}></i>
+            <input className="ap-search" style={{ paddingLeft:'30px', paddingRight: searchQuery ? '30px' : '12px' }}
+              placeholder="Search by name, ASIN, SKU..."
+              value={searchQuery}
+              onChange={handleSearchInputChange}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} />
+            {searchQuery && (
+              <button type="button" onClick={clearSearch}
+                style={{ position:'absolute', right:'8px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:'#aaa', cursor:'pointer', fontSize:'0.8rem', padding:0 }}>
+                <i className="fas fa-times"></i>
               </button>
-            </form>
-            
-            <div style={{ 
-              display: 'flex', 
-              gap: '10px', 
-              alignItems: 'center',
-              flexWrap: 'wrap'
-            }}>
-              <select
-                className="category-select"
-                value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value)
-                  setCurrentPage(1)
-                }}
-                style={{ minWidth: windowWidth < 768 ? '150px' : '200px' }}
-              >
-                {categories.map(cat => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label} {cat.count ? `(${cat.count})` : ''}
-                  </option>
+            )}
+            {/* Suggestions */}
+            {showSuggestions && (searchSuggestions.length > 0 || (searchHistory.length > 0 && !searchQuery)) && (
+              <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#fff', border:'1px solid #e8ecf0', borderRadius:'0 0 8px 8px', boxShadow:'0 4px 12px rgba(0,0,0,0.1)', zIndex:1000, maxHeight:'240px', overflowY:'auto' }}>
+                {!searchQuery && searchHistory.length > 0 && (
+                  <div>
+                    <div style={{ padding:'6px 12px', background:'#f8f9fa', fontSize:'0.7rem', fontWeight:700, color:'#6b7280', display:'flex', justifyContent:'space-between' }}>
+                      <span><i className="fas fa-history me-1"></i>Recent</span>
+                      <button type="button" onClick={clearSearchHistory} style={{ background:'none', border:'none', color:'#dc3545', cursor:'pointer', fontSize:'0.7rem' }}>Clear</button>
+                    </div>
+                    {searchHistory.map((t,i) => (
+                      <div key={i} onClick={() => handleSearch(null, t)} style={{ padding:'7px 12px', cursor:'pointer', fontSize:'0.82rem', borderBottom:'1px solid #f8f9fa' }}
+                        onMouseEnter={e => e.currentTarget.style.background='#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                        <i className="fas fa-clock me-2" style={{ color:'#aaa', fontSize:'0.7rem' }}></i>{t}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {searchQuery && searchSuggestions.map((s,i) => (
+                  <div key={i} onClick={() => handleSearch(null, s.text)} style={{ padding:'7px 12px', cursor:'pointer', fontSize:'0.82rem', borderBottom:'1px solid #f8f9fa', display:'flex', justifyContent:'space-between' }}
+                    onMouseEnter={e => e.currentTarget.style.background='#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                    <span><i className="fas fa-search me-2" style={{ color:'#667eea', fontSize:'0.7rem' }}></i>{s.text}</span>
+                    <span style={{ fontSize:'0.65rem', color:'#aaa', textTransform:'uppercase' }}>{s.type}</span>
+                  </div>
                 ))}
-              </select>
-              
-              <select
-                className="category-select"
-                value={productsPerPage}
-                onChange={(e) => {
-                  setProductsPerPage(parseInt(e.target.value))
-                  setCurrentPage(1)
-                }}
-                style={{ minWidth: '80px' }}
-              >
-                <option value={100}>100</option>
-                <option value={200}>200</option>
-                <option value={300}>300</option>
-              </select>
-            </div>
+              </div>
+            )}
           </div>
-          
-          {totalProducts > 0 && (
-            <div className="stats-info">
-              {searchQuery ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <span>
-                    <i className="fas fa-search" style={{marginRight: '5px', color: '#007bff'}}></i>
-                    Search results for "<strong>{searchQuery}</strong>": 
-                    <strong style={{color: '#28a745', marginLeft: '5px'}}>{totalProducts}</strong> products found
-                  </span>
-                  <button
-                    onClick={clearSearch}
-                    style={{
-                      background: '#dc3545',
-                      color: 'white',
-                      border: 'none',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => e.target.style.background = '#c82333'}
-                    onMouseLeave={(e) => e.target.style.background = '#dc3545'}
-                  >
-                    <i className="fas fa-times" style={{marginRight: '3px'}}></i>
-                    Clear Search
-                  </button>
-                </div>
-              ) : (
-                <span>
-                  Showing {((currentPage - 1) * productsPerPage) + 1} - {Math.min(currentPage * productsPerPage, totalProducts)} of {totalProducts} products
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+          <button type="submit" disabled={isSearching}
+            style={{ background:'#667eea', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 14px', cursor:'pointer', fontSize:'0.82rem', flexShrink:0 }}>
+            {isSearching ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-search"></i>}
+          </button>
+        </form>
 
-        {/* Products Grid */}
-        {products.length === 0 ? (
-          <div className="no-products">
-            <i className="fas fa-box-open"></i>
-            <h5>No products found</h5>
-            <p>Try adjusting your search or category filter</p>
-          </div>
-        ) : (
-          <div className="products-grid">
-            {products.map(product => (
-              <div key={product._id} className="product-card">
-                <div style={{ position: 'relative' }}>
-                  <a 
-                    href={`/product/${product._id}`}
-                    style={{ 
-                      display: 'block',
-                      textDecoration: 'none',
-                      color: 'inherit'
-                    }}
-                  >
-                    {product.images && product.images.length > 0 ? (
-                      <div className="product-image">
-                        <ProductImage
-                          src={product.images[0]}
-                          alt={product.name}
-                          asin={product.asin}
-                          fallbackSrc={product.images[1]}
-                          loading="lazy"
-                          style={{
-                            maxWidth: '100%',
-                            maxHeight: '100%',
-                            width: 'auto',
-                            height: 'auto',
-                            objectFit: 'contain',
-                            padding: '0px',
-                            margin: '0 auto',
-                            display: 'block'
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div className="product-image">
-                        <i className="fas fa-image" style={{ fontSize: '28px', color: '#dee2e6' }}></i>
-                      </div>
-                    )}
-                  </a>
-                  
-                  {/* Already listed indicator */}
-                  {isAlreadyListed(product) && (
-                    <div 
-                      className="already-listed-badge"
-                      style={{
-                        position: 'absolute',
-                        top: '8px',
-                        left: '8px',
-                        backgroundColor: '#28a745',
-                        color: 'white',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        fontSize: '10px',
-                        fontWeight: 'bold',
-                        zIndex: 2
-                      }}
-                    >
-                      <i className="fas fa-check" style={{ marginRight: '2px' }}></i>
-                      LISTED
-                    </div>
-                  )}
-                </div>
-                
-                <div className="product-info">
-                  <a 
-                    href={`/product/${product._id}`}
-                    style={{ 
-                      textDecoration: 'none',
-                      color: 'inherit'
-                    }}
-                    onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                    onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                  >
-                    <div className="product-title" style={{ cursor: 'pointer' }}>{product.name}</div>
-                  </a>
-                  
-                  <div className="product-category">{product.category}</div>
-                  
-                  {/* Search match indicators */}
-                  {searchQuery && (
-                    <div style={{
-                      display: 'flex',
-                      gap: '4px',
-                      marginBottom: '4px',
-                      flexWrap: 'wrap'
-                    }}>
-                      {product.asin && product.asin.toLowerCase().includes(searchQuery.toLowerCase()) && (
-                        <span style={{
-                          fontSize: '7px',
-                          background: '#007bff',
-                          color: 'white',
-                          padding: '1px 4px',
-                          borderRadius: '3px',
-                          fontWeight: '600'
-                        }}>
-                          ASIN: {product.asin}
-                        </span>
-                      )}
-                      {product.sku && product.sku.toLowerCase().includes(searchQuery.toLowerCase()) && (
-                        <span style={{
-                          fontSize: '7px',
-                          background: '#28a745',
-                          color: 'white',
-                          padding: '1px 4px',
-                          borderRadius: '3px',
-                          fontWeight: '600'
-                        }}>
-                          SKU: {product.sku}
-                        </span>
-                      )}
-                      {product.brand && product.brand.toLowerCase().includes(searchQuery.toLowerCase()) && (
-                        <span style={{
-                          fontSize: '7px',
-                          background: '#ffc107',
-                          color: '#212529',
-                          padding: '1px 4px',
-                          borderRadius: '3px',
-                          fontWeight: '600'
-                        }}>
-                          BRAND: {product.brand}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="product-price">
-                    £{parseFloat(product.price).toFixed(2)}
-                    {product.originalPrice && (
-                      <span style={{ 
-                        fontSize: windowWidth < 768 ? '9px' : '11px',
-                        color: '#6c757d',
-                        textDecoration: 'line-through',
-                        marginLeft: '6px'
-                      }}>
-                        £{parseFloat(product.originalPrice).toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="product-rating">
-                    <i className="fas fa-star" style={{ color: '#ffc107', marginRight: '4px' }}></i>
-                    {product.rating || 4.5} ({product.reviews || 0} reviews)
-                  </div>
-                  
-                  {/* Existing sellers information */}
-                  {product.sellers && product.sellers.length > 0 && (
-                    <div style={{ 
-                      fontSize: windowWidth < 768 ? '7px' : '8px',
-                      color: '#6c757d',
-                      marginBottom: '4px',
-                      padding: '2px 4px',
-                      backgroundColor: '#f8f9fa',
-                      borderRadius: '3px',
-                      border: '1px solid #e9ecef'
-                    }}>
-                      <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
-                        <i className="fas fa-users" style={{ marginRight: '2px', fontSize: '6px' }}></i>
-                        {product.sellers.length} Seller{product.sellers.length > 1 ? 's' : ''}:
-                      </div>
-                      {product.sellers.slice(0, 2).map((sellerEntry, index) => {
-                        const sellerPrice = sellerEntry.sellerPrice ? parseFloat(sellerEntry.sellerPrice) : parseFloat(product.price);
-                        const countryLabel = sellerEntry.listingCountries && sellerEntry.listingCountries.length > 0
-                          ? sellerEntry.listingCountries.map(c => ({ GBP: '🇬🇧', PKR: '🇵🇰', AED: '🇦🇪', USD: '🇺🇸' })[c]).join('')
-                          : ''
-                        return (
-                          <div key={`seller-${index}`} style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: index < product.sellers.length - 1 ? '1px' : '0'
-                          }}>
-                            <span style={{ color: index === 0 ? '#28a745' : '#6c757d', fontWeight: index === 0 ? 'bold' : 'normal', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                              {sellerEntry.username}
-                              {index === 0 && ' (Lowest)'}
-                              {countryLabel && <span style={{ fontSize: '9px' }}>{countryLabel}</span>}
-                            </span>
-                            <span style={{ color: index === 0 ? '#28a745' : '#6c757d', fontWeight: 'bold' }}>
-                              £{sellerPrice.toFixed(2)}
-                            </span>
-                          </div>
-                        );
-                      })}
-                      {product.sellers.length > 2 && (
-                        <div style={{ 
-                          fontSize: windowWidth < 768 ? '6px' : '7px',
-                          color: '#999',
-                          textAlign: 'center',
-                          marginTop: '2px'
-                        }}>
-                          +{product.sellers.length - 2} more seller{product.sellers.length - 2 > 1 ? 's' : ''}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Action buttons container */}
-                  <div className="action-buttons">
-                    {isAlreadyListed(product) ? (
-                      <button 
-                        className="list-btn already-listed"
-                        disabled
-                        title="You have already listed this product"
-                        style={{
-                          backgroundColor: '#28a745',
-                          color: 'white',
-                          cursor: 'not-allowed',
-                          opacity: 0.8
-                        }}
-                      >
-                        <i className="fas fa-check" style={{ fontSize: '8px' }}></i>
-                        {windowWidth < 768 ? 'ALREADY LISTED' : 'ALREADY IN MY STORE'}
-                      </button>
-                    ) : (
-                      <button 
-                        className="list-btn"
-                        onClick={() => handleListProduct(product)}
-                        title="Request to add this product to your store (requires admin approval)"
-                      >
-                        <i className="fas fa-paper-plane" style={{ fontSize: '8px' }}></i>
-                        {windowWidth < 768 ? 'REQUEST TO LIST' : 'REQUEST TO LIST'}
-                      </button>
-                    )}
-                    
-                    <a
-                      href={`/product/${product._id}`}
-                      className="edit-btn"
-                      title="View Product Details"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        textDecoration: 'none',
-                        color: 'white',
-                        minWidth: windowWidth < 768 ? '45px' : '50px',
-                        minHeight: '28px'
-                      }}
-                    >
-                      <i className="fas fa-eye" style={{ fontSize: '8px' }}></i>
-                      {windowWidth >= 768 && <span style={{ marginLeft: '4px' }}>VIEW</span>}
-                    </a>
-                  </div>
+        <select className="ap-select" value={selectedCategory} onChange={e => { setSelectedCategory(e.target.value); setCurrentPage(1); }} style={{ flex:'0 1 180px' }}>
+          {categories.map(c => <option key={c.value} value={c.value}>{c.label}{c.count ? ` (${c.count})` : ''}</option>)}
+        </select>
+
+        <select className="ap-select" value={productsPerPage} onChange={e => { setProductsPerPage(parseInt(e.target.value)); setCurrentPage(1); }} style={{ flex:'0 0 80px' }}>
+          <option value={100}>100</option>
+          <option value={200}>200</option>
+          <option value={300}>300</option>
+        </select>
+
+        <span style={{ fontSize:'0.78rem', color:'#6b7280', whiteSpace:'nowrap' }}>
+          {totalProducts > 0 ? `${totalProducts} products` : ''}
+          {searchQuery && <button onClick={clearSearch} style={{ marginLeft:'6px', background:'#dc3545', color:'#fff', border:'none', borderRadius:'4px', padding:'2px 7px', fontSize:'0.7rem', cursor:'pointer' }}>✕ Clear</button>}
+        </span>
+      </div>
+
+      {/* ── PRODUCTS GRID ── */}
+      <div style={{ padding:'12px 14px' }}>
+        {loading ? (
+          /* Skeleton grid */
+          <div className="ap-grid">
+            {Array.from({ length: 14 }).map((_, i) => (
+              <div key={i} className="ap-card">
+                <div className="ap-shimmer" style={{ height:'130px' }}></div>
+                <div style={{ padding:'8px 10px', display:'flex', flexDirection:'column', gap:'6px' }}>
+                  <div className="ap-shimmer" style={{ height:'12px', borderRadius:'4px', width:'90%' }}></div>
+                  <div className="ap-shimmer" style={{ height:'12px', borderRadius:'4px', width:'60%' }}></div>
+                  <div className="ap-shimmer" style={{ height:'16px', borderRadius:'4px', width:'40%', marginTop:'4px' }}></div>
+                  <div className="ap-shimmer" style={{ height:'28px', borderRadius:'6px', marginTop:'6px' }}></div>
                 </div>
               </div>
             ))}
           </div>
+        ) : products.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'60px 20px', color:'#6b7280' }}>
+            <i className="fas fa-box-open" style={{ fontSize:'3rem', opacity:0.4, marginBottom:'12px', display:'block' }}></i>
+            <h5 style={{ fontWeight:700, color:'#374151' }}>No products found</h5>
+            <p style={{ fontSize:'0.85rem' }}>Try adjusting your search or category filter</p>
+          </div>
+        ) : (
+          <div className="ap-grid">
+            {products.map(product => {
+              const listed = isAlreadyListed(product);
+              const lowestSeller = product.sellers?.length > 0
+                ? product.sellers.slice().sort((a,b) => parseFloat(a.sellerPrice||0)-parseFloat(b.sellerPrice||0))[0]
+                : null;
+              return (
+                <div key={product._id} className="ap-card">
+                  <div style={{ position:'relative' }}>
+                    {listed && <span className="ap-listed"><i className="fas fa-check me-1"></i>LISTED</span>}
+                    <a href={`/product/${product._id}`} style={{ display:'block' }}>
+                      {product.images?.[0] ? (
+                        <img src={product.images[0]} alt={product.name}
+                          onError={e => { e.target.src='https://via.placeholder.com/130x130?text=No+Image'; }} />
+                      ) : (
+                        <div style={{ height:'130px', background:'#f8f9fa', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                          <i className="fas fa-image" style={{ fontSize:'2rem', color:'#dee2e6' }}></i>
+                        </div>
+                      )}
+                    </a>
+                  </div>
+                  <div className="ap-card-body">
+                    <a href={`/product/${product._id}`} style={{ textDecoration:'none', color:'inherit' }}>
+                      <div className="ap-title">{product.name}</div>
+                    </a>
+                    {product.category && (
+                      <span className="ap-badge" style={{ background:'#e9ecef', color:'#6b7280' }}>{product.category}</span>
+                    )}
+                    <div className="ap-price">£{parseFloat(product.price||0).toFixed(2)}</div>
+                    {lowestSeller && (
+                      <div style={{ fontSize:'0.62rem', color:'#6b7280' }}>
+                        <i className="fas fa-user me-1"></i>{lowestSeller.username} · £{parseFloat(lowestSeller.sellerPrice||0).toFixed(2)}
+                      </div>
+                    )}
+                    {product.sellers?.length > 0 && (
+                      <div style={{ fontSize:'0.62rem', color:'#aaa' }}>{product.sellers.length} seller{product.sellers.length>1?'s':''}</div>
+                    )}
+                    <button className="ap-req-btn" disabled={listed}
+                      onClick={() => !listed && handleListProduct(product)}>
+                      {listed
+                        ? <><i className="fas fa-check me-1"></i>In My Store</>
+                        : <><i className="fas fa-paper-plane me-1"></i>Request to List</>}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="pagination-section">
-            <button 
-              className="nav-btn"
-              onClick={() => setCurrentPage(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <i className="fas fa-chevron-left"></i>
-            </button>
-            
+        {/* ── PAGINATION ── */}
+        {!loading && totalPages > 1 && (
+          <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:'6px', flexWrap:'wrap', marginTop:'16px', paddingBottom:'8px' }}>
+            <button className="ap-page-btn" onClick={() => setCurrentPage(1)} disabled={currentPage===1}>«</button>
+            <button className="ap-page-btn" onClick={() => setCurrentPage(p => Math.max(1,p-1))} disabled={currentPage===1}>‹</button>
             {renderPagination()}
-            
-            <button 
-              className="nav-btn"
-              onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              <i className="fas fa-chevron-right"></i>
-            </button>
+            <button className="ap-page-btn" onClick={() => setCurrentPage(p => Math.min(totalPages,p+1))} disabled={currentPage===totalPages}>›</button>
+            <button className="ap-page-btn" onClick={() => setCurrentPage(totalPages)} disabled={currentPage===totalPages}>»</button>
+            <span style={{ fontSize:'0.78rem', color:'#6b7280', marginLeft:'4px' }}>Page {currentPage}/{totalPages}</span>
           </div>
         )}
       </div>

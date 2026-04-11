@@ -156,6 +156,52 @@ const SellerInformation = ({
 
   return (
     <div className="mb-2">
+      <style>{`
+        .seller-qty-input {
+          width: 80px !important;
+          height: 34px !important;
+          min-width: 80px !important;
+          max-width: 80px !important;
+          flex: 0 0 80px !important;
+          text-align: center !important;
+          padding: 0 8px !important;
+          font-size: 1rem !important;
+          font-weight: 700 !important;
+          border: 2px solid #d1d5db !important;
+          border-radius: 6px !important;
+          color: #1f2937 !important;
+          background: #fff !important;
+          box-sizing: border-box !important;
+          outline: none !important;
+          box-shadow: none !important;
+          -moz-appearance: textfield !important;
+        }
+        .seller-qty-input:focus {
+          outline: none !important;
+          box-shadow: 0 0 0 2px rgba(34,197,94,0.35) !important;
+          border-color: #22c55e !important;
+          width: 80px !important;
+          min-width: 80px !important;
+          max-width: 80px !important;
+          padding: 0 8px !important;
+        }
+        .seller-qty-input::-webkit-outer-spin-button,
+        .seller-qty-input::-webkit-inner-spin-button {
+          -webkit-appearance: none !important;
+          margin: 0 !important;
+        }
+        .seller-qty-btn {
+          width: 34px !important;
+          height: 34px !important;
+          min-width: 34px !important;
+          max-width: 34px !important;
+          min-height: 34px !important;
+          flex: 0 0 34px !important;
+        }
+        .seller-qty-row {
+          flex-wrap: nowrap !important;
+        }
+      `}</style>
       <h3 className="fw-bold mb-2" style={{ fontSize: '0.85rem', color: '#1f2937' }}>
         <i className="fas fa-store me-1 text-success"></i>Seller Information
       </h3>
@@ -220,18 +266,38 @@ const SellerInformation = ({
                     onClick={() => setQty(sid, qty - 1, moq)}
                     disabled={qty <= moq}
                     className="seller-qty-btn"
-                    style={{ width: '26px', height: '26px', minWidth: '26px', maxWidth: '26px', minHeight: '26px', maxHeight: '26px', border: '1px solid #d1d5db', borderRadius: '4px', background: '#f9fafb', cursor: qty <= moq ? 'not-allowed' : 'pointer', fontSize: '0.9rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: qty <= moq ? 0.4 : 1, flexShrink: 0, color: '#374151', padding: '0', lineHeight: 1 }}>−</button>
+                    style={{ width: '32px', height: '32px', minWidth: '32px', maxWidth: '32px', minHeight: '32px', maxHeight: '32px', border: '1px solid #d1d5db', borderRadius: '4px', background: '#f9fafb', cursor: qty <= moq ? 'not-allowed' : 'pointer', fontSize: '1rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: qty <= moq ? 0.4 : 1, flexShrink: 0, color: '#374151', padding: '0', lineHeight: 1 }}>−</button>
                   <input
                     type="number"
                     value={qty}
                     min={moq}
                     onChange={e => setQty(sid, e.target.value, moq)}
                     className="seller-qty-input"
-                    style={{ width: '44px', minWidth: '44px', maxWidth: '44px', height: '26px', minHeight: '26px', maxHeight: '26px', textAlign: 'center', padding: '2px 3px', fontSize: '0.8rem', fontWeight: '700', border: '1px solid #d1d5db', borderRadius: '4px', flexShrink: 0, color: '#1f2937', background: '#fff', boxSizing: 'border-box' }} />
+                    style={{
+                      width: '80px',
+                      height: '34px',
+                      flex: '0 0 80px',
+                      textAlign: 'center',
+                      padding: '0 8px',
+                      fontSize: '1rem',
+                      fontWeight: '700',
+                      border: '2px solid #d1d5db',
+                      borderRadius: '6px',
+                      flexShrink: 0,
+                      flexGrow: 0,
+                      color: '#1f2937',
+                      background: '#fff',
+                      boxSizing: 'border-box',
+                      outline: 'none',
+                      boxShadow: 'none',
+                      MozAppearance: 'textfield',
+                      WebkitAppearance: 'none',
+                      display: 'block'
+                    }} />
                   <button
                     onClick={() => setQty(sid, qty + 1, moq)}
                     className="seller-qty-btn"
-                    style={{ width: '26px', height: '26px', minWidth: '26px', maxWidth: '26px', minHeight: '26px', maxHeight: '26px', border: '1px solid #d1d5db', borderRadius: '4px', background: '#f9fafb', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#374151', padding: '0', lineHeight: 1 }}>+</button>
+                    style={{ width: '32px', height: '32px', minWidth: '32px', maxWidth: '32px', minHeight: '32px', maxHeight: '32px', border: '1px solid #d1d5db', borderRadius: '4px', background: '#f9fafb', cursor: 'pointer', fontSize: '1rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#374151', padding: '0', lineHeight: 1 }}>+</button>
                 </div>
               )}
 

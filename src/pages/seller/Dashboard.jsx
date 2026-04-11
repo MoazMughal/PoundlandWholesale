@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSeller } from '../../context/SellerContext'
 import { getApiUrl } from '../../utils/api'
@@ -22,6 +22,10 @@ const SellerDashboard = () => {
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [showVerificationModal, setShowVerificationModal] = useState(false)
+  const [showVerifiedBanner, setShowVerifiedBanner] = useState(() => {
+    // Only show if seller hasn't dismissed it before
+    return !localStorage.getItem('verifiedBannerDismissed')
+  })
   const [verificationDocs, setVerificationDocs] = useState({
     cnicNumber: '',
     idCardFront: '',
@@ -31,7 +35,7 @@ const SellerDashboard = () => {
 
   // Main useEffect - only depends on authResolved, isLoggedIn, and seller
   useEffect(() => {
-    console.log('🏠 Dashboard useEffect triggered:', {
+    console.log('ðŸ  Dashboard useEffect triggered:', {
       authResolved,
       isLoggedIn,
       hasSeller: !!seller,
@@ -40,28 +44,28 @@ const SellerDashboard = () => {
     
     // Wait for auth to be resolved
     if (!authResolved) {
-      console.log('🏠 Dashboard waiting for auth resolution...')
+      console.log('ðŸ  Dashboard waiting for auth resolution...')
       return
     }
     
     // If not logged in, redirect to login
     if (!isLoggedIn || !seller) {
-      console.log('🏠 Dashboard redirecting to login - not authenticated')
+      console.log('ðŸ  Dashboard redirecting to login - not authenticated')
       navigate('/login/supplier')
       return
     }
 
-    console.log('🏠 Dashboard authenticated, fetching data...')
+    console.log('ðŸ  Dashboard authenticated, fetching data...')
     
     // Fetch dashboard data only once when authenticated
-    const token = sessionStorage.getItem('sellerToken')
+    const token = localStorage.getItem('sellerToken') || sessionStorage.getItem('sellerToken')
     if (token) {
       fetchDashboardData(token)
     }
   }, [authResolved, isLoggedIn, seller?.username, navigate]) // Only re-run if these change
 
   const fetchDashboardData = async (token) => {
-    console.log('📊 Starting dashboard data fetch...')
+    console.log('ðŸ“Š Starting dashboard data fetch...')
     setDashboardLoading(true)
     setLoadingPreview(true)
     
@@ -101,7 +105,7 @@ const SellerDashboard = () => {
       // Process listing requests
       if (listingResponse.status === 'fulfilled' && listingResponse.value.ok) {
         const listingData = await listingResponse.value.json()
-        console.log('📋 Listing requests fetched:', listingData.requests)
+        console.log('ðŸ“‹ Listing requests fetched:', listingData.requests)
         setListingRequests(listingData.requests || [])
       }
 
@@ -111,9 +115,9 @@ const SellerDashboard = () => {
         setPreviewProducts(previewData.products || [])
       }
 
-      console.log('✅ Dashboard data fetch completed')
+      console.log('âœ… Dashboard data fetch completed')
     } catch (error) {
-      console.error('❌ Error fetching dashboard data:', error)
+      console.error('âŒ Error fetching dashboard data:', error)
     } finally {
       setDashboardLoading(false)
       setLoadingPreview(false)
@@ -138,20 +142,20 @@ const SellerDashboard = () => {
           const freshSellerData = await response.json()
           
           updateSeller(freshSellerData)
-          alert('✅ Profile refreshed successfully!')
+          alert('âœ… Profile refreshed successfully!')
         } else {
-          alert('❌ Failed to refresh profile')
+          alert('âŒ Failed to refresh profile')
         }
       }
     } catch (error) {
       console.error('Refresh error:', error)
-      alert('❌ Error refreshing profile')
+      alert('âŒ Error refreshing profile')
     }
   }
 
   const handleVerificationSubmit = async () => {
     if (!verificationDocs.cnicNumber || !verificationDocs.idCardFront || !verificationDocs.idCardBack || !verificationDocs.idCardWithFace) {
-      alert('❌ Please provide CNIC number and all three documents')
+      alert('âŒ Please provide CNIC number and all three documents')
       return
     }
 
@@ -159,7 +163,7 @@ const SellerDashboard = () => {
       const token = localStorage.getItem('sellerToken')
       
       if (!token) {
-        alert('❌ Authentication required. Please login again.')
+        alert('âŒ Authentication required. Please login again.')
         navigate('/login/supplier')
         return
       }
@@ -176,7 +180,7 @@ const SellerDashboard = () => {
       const data = await response.json()
 
       if (response.ok && data.success) {
-        alert('✅ Verification documents submitted successfully! Admin will review your documents.')
+        alert('âœ… Verification documents submitted successfully! Admin will review your documents.')
         setShowVerificationModal(false)
         // Refresh seller data
         if (seller) {
@@ -184,15 +188,15 @@ const SellerDashboard = () => {
         }
         fetchDashboardData(token)
       } else {
-        alert('❌ ' + (data.message || 'Failed to submit verification documents'))
+        alert('âŒ ' + (data.message || 'Failed to submit verification documents'))
       }
     } catch (error) {
       console.error('Verification error:', error)
-      alert('❌ Failed to submit verification documents. Error: ' + error.message)
+      alert('âŒ Failed to submit verification documents. Error: ' + error.message)
     }
   }
 
-  // Don't render anything while auth is resolving — redirect happens in useEffect
+  // Don't render anything while auth is resolving â€” redirect happens in useEffect
   if (contextLoading || !authResolved) {
     return null;
   }
@@ -371,736 +375,346 @@ const SellerDashboard = () => {
   }
 
   return (
-    <div className="container-fluid dashboard-container">
-      {/* Dashboard Loading Indicator - Less intrusive */}
-      {dashboardLoading && (
-        <div className="position-fixed top-0 end-0 m-3" style={{zIndex: 9999}}>
-          <div className="bg-white rounded shadow-lg p-3 d-flex align-items-center gap-2">
-            <div className="spinner-border spinner-border-sm text-success" role="status">
-              <span className="visually-hidden">Loading...</span>
-            </div>
-            <span className="text-muted small">Loading data...</span>
-          </div>
-        </div>
-      )}
+    <div style={{background: '#f4f6f9', minHeight: '100vh', padding: '0'}}>
+      <style>{`
+        .sd-page { padding: 12px 14px; max-width: 1400px; margin: 0 auto; }
+        .sd-header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; padding: 14px 18px; border-radius: 10px; margin-bottom: 12px; }
+        .sd-stat { border-radius: 10px; padding: 14px 16px; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+        .sd-card { background: #fff; border-radius: 10px; border: 1px solid #e8ecf0; overflow: hidden; margin-bottom: 12px; }
+        .sd-card-header { background: #f8f9fa; padding: 10px 16px; border-bottom: 1px solid #e8ecf0; font-weight: 700; font-size: 0.9rem; color: #2d3748; display: flex; align-items: center; gap: 8px; }
+        .sd-card-body { padding: 14px 16px; }
+        .sd-info-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid #f0f2f5; font-size: 0.85rem; }
+        .sd-info-row:last-child { border-bottom: none; }
+        .sd-info-label { color: #6b7280; font-weight: 600; }
+        .sd-qa-btn { border-radius: 8px; padding: 10px 12px; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font-weight: 700; font-size: 0.78rem; transition: transform 0.15s, box-shadow 0.15s; width: 100%; }
+        .sd-qa-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .sd-qa-btn i { font-size: 1.2rem; }
+        .sd-product-card { border-radius: 8px; border: 1px solid #e8ecf0; overflow: hidden; background: #fff; height: 100%; }
+        .sd-product-card img { height: 80px; width: 100%; object-fit: contain; background: #f8f9fa; padding: 6px; }
+        .sd-product-card .body { padding: 6px 8px; }
+        .sd-alert { border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; font-size: 0.85rem; border: none; }
+        .sd-alert-warning { background: #fff8e1; color: #856404; border-left: 4px solid #ffc107; }
+        .sd-alert-info { background: #e8f4fd; color: #0c5460; border-left: 4px solid #17a2b8; }
+        .sd-alert-success { background: #d4edda; color: #155724; border-left: 4px solid #28a745; }
+        .sd-alert-danger { background: #fde8e8; color: #721c24; border-left: 4px solid #dc3545; }
+        @media (max-width: 576px) {
+          .sd-page { padding: 8px 10px; }
+          .sd-header { padding: 10px 12px; }
+          .sd-stat { padding: 10px 12px; }
+          .sd-qa-btn { padding: 8px 6px; font-size: 0.72rem; }
+          .sd-qa-btn i { font-size: 1rem; }
+        }
+      `}</style>
 
-      {/* PROMINENT RED WARNING FOR UNVERIFIED ACCOUNTS */}
-      {seller && (seller.verificationStatus === 'required' || seller.verificationStatus === 'not_required' || seller.verificationStatus === 'rejected' || !seller.verificationStatus) && (
-        <div className="alert alert-danger alert-dismissible fade show mb-4" role="alert" style={{
-          background: 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)',
-          border: '2px solid #dc3545',
-          borderRadius: '10px',
-          boxShadow: '0 4px 15px rgba(220, 53, 69, 0.3)',
-          animation: 'pulse 2s infinite'
-        }}>
-          <div className="d-flex align-items-center">
-            <div className="me-3">
-              <i className="fas fa-exclamation-triangle fa-2x text-white"></i>
-            </div>
-            <div className="flex-grow-1">
-              <h5 className="alert-heading text-white mb-2">
-                <i className="fas fa-shield-alt me-2"></i>
-                Account Verification Required
-              </h5>
-              <p className="mb-2 text-white">
-                <strong>Your seller account is not verified!</strong> You have limited access to platform features.
-              </p>
-              <div className="mb-3">
-                <small className="text-white opacity-75">
-                  <i className="fas fa-clock me-1"></i>
-                  Verification Status: <span className="badge bg-light text-dark ms-1">
-                    {seller.verificationStatus === 'rejected' ? 'REJECTED - Resubmit Required' : 
-                     seller.verificationStatus === 'pending' ? 'UNDER REVIEW' : 'PENDING SUBMISSION'}
-                  </span>
-                </small>
-              </div>
-              <div className="d-flex gap-2 flex-wrap">
-                <button 
-                  className="btn btn-light btn-sm"
-                  onClick={() => setShowVerificationModal(true)}
-                >
-                  <i className="fas fa-upload me-1"></i>
-                  {seller.verificationStatus === 'rejected' ? 'Resubmit Documents' : 'Submit Verification'}
-                </button>
-                <button 
-                  className="btn btn-outline-light btn-sm"
-                  onClick={() => navigate('/seller/profile/edit')}
-                >
-                  <i className="fas fa-edit me-1"></i>
-                  Edit Profile
-                </button>
-              </div>
+      <div className="sd-page">
+        {/* Loading indicator */}
+        {dashboardLoading && (
+          <div className="position-fixed top-0 end-0 m-3" style={{zIndex: 9999}}>
+            <div className="bg-white rounded shadow p-2 d-flex align-items-center gap-2" style={{fontSize: '0.8rem'}}>
+              <div className="spinner-border spinner-border-sm text-success" role="status"></div>
+              <span className="text-muted">Loading...</span>
             </div>
           </div>
-          <button type="button" className="btn-close btn-close-white" data-bs-dismiss="alert"></button>
-          
-          <style>
-            {`
-              @keyframes pulse {
-                0% { box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3); }
-                50% { box-shadow: 0 6px 20px rgba(220, 53, 69, 0.5); }
-                100% { box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3); }
-              }
-            `}
-          </style>
-        </div>
-      )}
+        )}
 
-      {/* Header */}
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="dashboard-header d-flex justify-content-between align-items-center flex-wrap">
+        {/* â”€â”€ HEADER â”€â”€ */}
+        <div className="sd-header">
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-              <h2 className="mb-1">Seller Dashboard</h2>
-              <p className="text-muted mb-0">Manage your products and track your business</p>
+              <h5 className="mb-0 fw-bold" style={{color: '#fff'}}>Seller Dashboard</h5>
+              <small style={{color: 'rgba(255,255,255,0.7)'}}>Manage your products and track your business</small>
             </div>
             <div className="d-flex gap-2 flex-wrap">
-              <button className="btn btn-success btn-sm" onClick={handleRefreshProfile}>
-                <i className="fas fa-sync"></i> <span className="mobile-hide">Refresh Data</span>
+              <button className="btn btn-sm" style={{background: '#28a745', color: '#fff', borderRadius: '6px'}} onClick={handleRefreshProfile}>
+                <i className="fas fa-sync me-1"></i>Refresh
               </button>
-              <button className="btn btn-primary btn-sm" onClick={() => navigate('/seller/profile/edit')}>
-                <i className="fas fa-edit"></i> <span className="mobile-hide">Edit Profile</span>
+              <button className="btn btn-sm" style={{background: '#667eea', color: '#fff', borderRadius: '6px'}} onClick={() => navigate('/seller/profile/edit')}>
+                <i className="fas fa-edit me-1"></i>Edit Profile
               </button>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Status Alerts - Improved */}
-      {dashboardAccess && dashboardAccess.daysRemaining > 0 && dashboardAccess.daysRemaining <= 5 && (
-        <div className="alert alert-warning alert-dismissible fade show" role="alert">
-          <i className="fas fa-exclamation-triangle me-2"></i> 
-          <strong>Verification Required Soon!</strong> You have {dashboardAccess.daysRemaining} days remaining 
-          in your trial period. Please prepare your verification documents to avoid dashboard access interruption.
-          <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-      )}
-
-      {seller.verificationStatus === 'pending' && (
-        <div className="alert alert-info alert-dismissible fade show" role="alert">
-          <i className="fas fa-clock me-2"></i> Your verification documents are under review. 
-          You will receive an email once approved.
-          <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-      )}
-
-      {seller.verificationStatus === 'approved' && (
-        <div className="alert alert-success alert-dismissible fade show" role="alert">
-          <i className="fas fa-check-circle me-2"></i> Your account is fully verified! You have unlimited dashboard access.
-          <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-      )}
-
-      {seller.verificationStatus === 'required' && (
-        <div className="alert alert-warning" role="alert">
-          <div className="d-flex justify-content-between align-items-center flex-wrap">
-            <div>
-              <i className="fas fa-id-card me-2"></i> Profile verification pending - Please submit your CNIC documents.
-            </div>
-            <button 
-              className="btn btn-warning btn-sm mt-2 mt-md-0" 
-              onClick={() => setShowVerificationModal(true)}
-            >
-              <i className="fas fa-upload me-1"></i>Submit Documents
-            </button>
+        {/* â”€â”€ ALERTS â”€â”€ */}
+        {seller.verificationStatus === 'approved' && showVerifiedBanner && (
+          <div className="sd-alert sd-alert-success d-flex justify-content-between align-items-center">
+            <span><i className="fas fa-check-circle me-2"></i>Your account is fully verified! You have unlimited dashboard access.</span>
+            <button className="btn btn-sm p-0 ms-2" style={{background: 'none', border: 'none', color: '#155724', fontSize: '1rem'}} onClick={() => { localStorage.setItem('verifiedBannerDismissed', '1'); setShowVerifiedBanner(false); }}>âœ•</button>
           </div>
-        </div>
-      )}
-
-      {seller.verificationStatus === 'rejected' && (
-        <div className="alert alert-danger" role="alert">
-          <div className="d-flex justify-content-between align-items-center flex-wrap">
-            <div>
-              <i className="fas fa-times-circle me-2"></i> Your verification was rejected. Please resubmit your documents.
-            </div>
-            <button 
-              className="btn btn-danger btn-sm mt-2 mt-md-0" 
-              onClick={() => setShowVerificationModal(true)}
-            >
-              <i className="fas fa-redo me-1"></i>Resubmit Documents
-            </button>
+        )}
+        {seller.verificationStatus === 'pending' && (
+          <div className="sd-alert sd-alert-info"><i className="fas fa-clock me-2"></i>Your verification documents are under review. You'll be notified once approved.</div>
+        )}
+        {(seller.verificationStatus === 'required' || seller.verificationStatus === 'not_required' || !seller.verificationStatus) && (
+          <div className="sd-alert sd-alert-warning d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span><i className="fas fa-exclamation-triangle me-2"></i><strong>Verification required.</strong> Submit your CNIC documents to unlock full access.</span>
+            <button className="btn btn-sm btn-warning" onClick={() => setShowVerificationModal(true)}><i className="fas fa-upload me-1"></i>Submit Docs</button>
           </div>
-        </div>
-      )}
+        )}
+        {seller.verificationStatus === 'rejected' && (
+          <div className="sd-alert sd-alert-danger d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span><i className="fas fa-times-circle me-2"></i><strong>Verification rejected.</strong> Please resubmit your documents.</span>
+            <button className="btn btn-sm btn-danger" onClick={() => setShowVerificationModal(true)}><i className="fas fa-redo me-1"></i>Resubmit</button>
+          </div>
+        )}
+        {dashboardAccess?.daysRemaining > 0 && dashboardAccess.daysRemaining <= 5 && (
+          <div className="sd-alert sd-alert-warning"><i className="fas fa-clock me-2"></i><strong>{dashboardAccess.daysRemaining} days</strong> remaining in trial. Submit verification to avoid interruption.</div>
+        )}
+        {seller.canListProducts && (
+          <div className="sd-alert sd-alert-success"><i className="fas fa-check-circle me-2"></i>You can now list products! Start adding your inventory.</div>
+        )}
 
-      {seller.canListProducts && (
-        <div className="alert alert-success alert-dismissible fade show" role="alert">
-          <i className="fas fa-check-circle me-2"></i> You can now list products! Start adding your inventory.
-          <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-      )}
-
-      {/* Stats Cards - Improved Grid */}
-      <div className="row g-3 mb-4">
-        <div className="col-lg-3 col-md-6 col-sm-6">
-          <div className="card bg-primary text-white stats-card h-100">
-            <div className="card-body d-flex justify-content-between align-items-center">
+        {/* â”€â”€ STATS ROW â”€â”€ */}
+        <div className="row g-2 mb-3">
+          <div className="col-6 col-md-3">
+            <div className="sd-stat" style={{background: 'linear-gradient(135deg, #ff6b35, #f7931e)'}}>
               <div>
-                <h6 className="card-title mb-1">Supplier ID</h6>
-                <h4 className="mb-0">{seller.supplierId}</h4>
+                <div style={{fontSize: '0.65rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Supplier ID</div>
+                <div style={{fontSize: '1.1rem', fontWeight: 800}}>{seller.supplierId}</div>
               </div>
+              <i className="fas fa-id-card" style={{fontSize: '1.6rem', opacity: 0.5}}></i>
+            </div>
+          </div>
+          <div className="col-6 col-md-3">
+            <div className="sd-stat" style={{background: 'linear-gradient(135deg, #28a745, #20c997)'}}>
               <div>
-                <i className="fas fa-id-card fa-2x opacity-75"></i>
+                <div style={{fontSize: '0.65rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Status</div>
+                <div style={{fontSize: '1.1rem', fontWeight: 800, textTransform: 'capitalize'}}>{seller.status}</div>
               </div>
+              <i className="fas fa-check-circle" style={{fontSize: '1.6rem', opacity: 0.5}}></i>
+            </div>
+          </div>
+          <div className="col-6 col-md-3">
+            <div className="sd-stat" style={{background: 'linear-gradient(135deg, #17a2b8, #007bff)'}}>
+              <div>
+                <div style={{fontSize: '0.65rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Total Products</div>
+                <div style={{fontSize: '1.1rem', fontWeight: 800}}>{stats.totalProducts}</div>
+              </div>
+              <i className="fas fa-box" style={{fontSize: '1.6rem', opacity: 0.5}}></i>
+            </div>
+          </div>
+          <div className="col-6 col-md-3">
+            <div className="sd-stat" style={{background: 'linear-gradient(135deg, #ffc107, #fd7e14)'}}>
+              <div>
+                <div style={{fontSize: '0.65rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Listing Requests</div>
+                <div style={{fontSize: '1.1rem', fontWeight: 800}}>{listingRequests.length}</div>
+              </div>
+              <i className="fas fa-list-alt" style={{fontSize: '1.6rem', opacity: 0.5}}></i>
             </div>
           </div>
         </div>
 
-        <div className="col-lg-3 col-md-6 col-sm-6">
-          <div className="card bg-success text-white stats-card h-100">
-            <div className="card-body d-flex justify-content-between align-items-center">
-              <div>
-                <h6 className="card-title mb-1">Status</h6>
-                <h4 className="mb-0 text-capitalize">{seller.status}</h4>
-              </div>
-              <div>
-                <i className="fas fa-check-circle fa-2x opacity-75"></i>
-              </div>
+        {/* â”€â”€ QUICK ACTIONS â”€â”€ */}
+        <div className="sd-card mb-3">
+          <div className="sd-card-header"><i className="fas fa-bolt" style={{color: '#ffc107'}}></i>Quick Actions</div>
+          <div className="sd-card-body">
+            <div className="row g-2">
+              {[
+                { icon: 'fas fa-paper-plane', label: 'Request Products', sub: 'Browse & request', color: '#28a745', path: '/seller/admin-products', disabled: !(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active') },
+                { icon: 'fas fa-list', label: 'My Products', sub: 'View listings', color: '#17a2b8', path: '/seller/listed-products' },
+                { icon: 'fas fa-inbox', label: 'Buyer Queries', sub: 'Product demands', color: '#e74c3c', path: '/seller/buyer-queries' },
+                { icon: 'fas fa-edit', label: 'Edit Profile', sub: 'Update info', color: '#fd7e14', path: '/seller/profile/edit' },
+              ].map((a, i) => (
+                <div key={i} className="col-6 col-sm-3" style={{flex: '0 0 25%', maxWidth: '25%'}}>
+                  <button
+                    className="sd-qa-btn"
+                    style={{background: a.disabled ? '#e9ecef' : a.color + '18', color: a.disabled ? '#aaa' : a.color, border: `1.5px solid ${a.disabled ? '#dee2e6' : a.color + '44'}`}}
+                    onClick={() => !a.disabled && navigate(a.path)}
+                    disabled={a.disabled}
+                  >
+                    <i className={a.icon}></i>
+                    <span>{a.label}</span>
+                    <small style={{opacity: 0.7, fontSize: '0.68rem'}}>{a.sub}</small>
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        <div className="col-lg-3 col-md-6 col-sm-6">
-          <div className="card bg-info text-white stats-card h-100">
-            <div className="card-body d-flex justify-content-between align-items-center">
-              <div>
-                <h6 className="card-title mb-1">Total Products</h6>
-                <h4 className="mb-0">{stats.totalProducts}</h4>
-              </div>
-              <div>
-                <i className="fas fa-box fa-2x opacity-75"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-lg-3 col-md-6 col-sm-6">
-          <div className="card bg-warning text-white stats-card h-100">
-            <div className="card-body d-flex justify-content-between align-items-center">
-              <div>
-                <h6 className="card-title mb-1">Listing Requests</h6>
-                <h4 className="mb-0">{listingRequests.length}</h4>
-              </div>
-              <div>
-                <i className="fas fa-list-alt fa-2x opacity-75"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content - Improved Layout */}
-      <div className="row g-4">
-        {/* Seller Info - Improved Table */}
-        <div className="col-lg-6">
-          <div className="card h-100">
-            <div className="card-header bg-light">
-              <h5 className="mb-0"><i className="fas fa-user me-2"></i>Seller Information</h5>
-            </div>
-            <div className="card-body">
-              <div className="row g-3">
-                <div className="col-12">
-                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
-                    <strong className="text-muted">Username:</strong>
-                    <span>{seller?.username || 'Loading...'}</span>
-                  </div>
-                </div>
-                <div className="col-12">
-                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
-                    <strong className="text-muted">Email:</strong>
-                    <span className="text-break text-end">{seller?.email || 'Loading...'}</span>
-                  </div>
-                </div>
-                <div className="col-12">
-                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
-                    <strong className="text-muted">WhatsApp:</strong>
-                    <div>
-                      {seller?.whatsappNo ? (
-                        <a 
-                          href={`https://wa.me/${seller.whatsappNo.replace(/[^0-9]/g, '')}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="btn btn-success btn-sm"
-                        >
-                          <i className="fab fa-whatsapp me-1"></i>
-                          <span className="mobile-hide">{seller.whatsappNo}</span>
-                          <span className="mobile-show">Contact</span>
-                        </a>
-                      ) : (
-                        <span className="text-muted">Not provided</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="col-12">
-                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
-                    <strong className="text-muted">Location:</strong>
-                    <span>{seller?.city && seller?.country ? `${seller.city}, ${seller.country}` : 'Not provided'}</span>
-                  </div>
-                </div>
-                <div className="col-12">
-                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
-                    <strong className="text-muted">Category:</strong>
-                    <span>{seller?.productCategory || 'Not specified'}</span>
-                  </div>
-                </div>
-                <div className="col-12">
-                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
-                    <strong className="text-muted">Account Status:</strong>
-                    <span className={`badge bg-${seller?.status === 'active' ? 'success' : 'warning'}`}>
-                      {seller?.status?.toUpperCase() || 'ACTIVE'}
-                    </span>
-                  </div>
-                </div>
-                <div className="col-12">
-                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
-                    <strong className="text-muted">Verification:</strong>
+        {/* â”€â”€ MAIN CONTENT: Info + Requests side by side â”€â”€ */}
+        <div className="row g-3 mb-3">
+          {/* Seller Info */}
+          <div className="col-lg-5">
+            <div className="sd-card h-100">
+              <div className="sd-card-header"><i className="fas fa-user" style={{color: '#667eea'}}></i>Seller Information</div>
+              <div className="sd-card-body">
+                {[
+                  { label: 'Username', value: seller?.username },
+                  { label: 'Email', value: seller?.email },
+                  { label: 'WhatsApp', value: seller?.whatsappNo ? (
+                    <a href={`https://wa.me/${seller.whatsappNo.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="btn btn-success btn-sm py-0 px-2" style={{fontSize: '0.75rem'}}>
+                      <i className="fab fa-whatsapp me-1"></i>{seller.whatsappNo}
+                    </a>
+                  ) : 'Not provided' },
+                  { label: 'Location', value: seller?.city && seller?.country ? `${seller.city}, ${seller.country}` : 'Not provided' },
+                  { label: 'Category', value: seller?.productCategory || 'Not specified' },
+                  { label: 'Account Status', value: <span className={`badge bg-${seller?.status === 'active' ? 'success' : 'warning'}`}>{seller?.status?.toUpperCase()}</span> },
+                  { label: 'Verification', value: (
                     <div className="d-flex align-items-center gap-2">
-                      <span className={`badge bg-${
-                        seller?.verificationStatus === 'approved' ? 'success' : 
-                        seller?.verificationStatus === 'pending' ? 'warning' : 
-                        seller?.verificationStatus === 'rejected' ? 'danger' : 'warning'
-                      }`}>
-                        {seller?.verificationStatus === 'required' || seller?.verificationStatus === 'not_required' ? 'PENDING' : 
-                         seller?.verificationStatus === 'approved' ? 'VERIFIED' :
-                         seller?.verificationStatus === 'pending' ? 'UNDER REVIEW' :
-                         seller?.verificationStatus === 'rejected' ? 'REJECTED' : 'PENDING'}
+                      <span className={`badge bg-${seller?.verificationStatus === 'approved' ? 'success' : seller?.verificationStatus === 'pending' ? 'warning' : seller?.verificationStatus === 'rejected' ? 'danger' : 'secondary'}`}>
+                        {seller?.verificationStatus === 'approved' ? 'VERIFIED' : seller?.verificationStatus === 'pending' ? 'UNDER REVIEW' : seller?.verificationStatus === 'rejected' ? 'REJECTED' : 'PENDING'}
                       </span>
                       {(seller?.verificationStatus === 'required' || seller?.verificationStatus === 'not_required' || seller?.verificationStatus === 'rejected') && (
-                        <button 
-                          className="btn btn-warning btn-sm"
-                          onClick={() => setShowVerificationModal(true)}
-                        >
-                          <i className="fas fa-id-card"></i>
-                        </button>
+                        <button className="btn btn-warning btn-sm py-0 px-2" style={{fontSize: '0.7rem'}} onClick={() => setShowVerificationModal(true)}><i className="fas fa-id-card"></i></button>
                       )}
                     </div>
+                  )},
+                  { label: 'Can List Products', value: <span className={`badge bg-${(seller?.canListProducts || seller?.verificationStatus === 'approved') ? 'success' : 'danger'}`}>{(seller?.canListProducts || seller?.verificationStatus === 'approved') ? 'YES' : 'NO'}</span> },
+                  { label: 'Joined', value: seller?.createdAt ? new Date(seller.createdAt).toLocaleDateString() : 'Unknown' },
+                ].map((row, i) => (
+                  <div key={i} className="sd-info-row">
+                    <span className="sd-info-label">{row.label}</span>
+                    <span style={{fontSize: '0.85rem', textAlign: 'right', maxWidth: '60%', wordBreak: 'break-word'}}>{row.value}</span>
                   </div>
-                </div>
-                <div className="col-12">
-                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
-                    <strong className="text-muted">Can List Products:</strong>
-                    <span className={`badge bg-${(seller?.canListProducts || seller?.verificationStatus === 'approved') ? 'success' : 'danger'}`}>
-                      {(seller?.canListProducts || seller?.verificationStatus === 'approved') ? 'YES' : 'NO'}
-                    </span>
-                  </div>
-                </div>
-                <div className="col-12">
-                  <div className="d-flex justify-content-between align-items-center py-2">
-                    <strong className="text-muted">Joined:</strong>
-                    <span>{seller?.createdAt ? new Date(seller.createdAt).toLocaleDateString() : 'Unknown'}</span>
-                  </div>
-                </div>
-                {dashboardAccess && dashboardAccess.daysRemaining > 0 && seller.verificationStatus === 'not_required' && (
-                  <div className="col-12">
-                    <div className="d-flex justify-content-between align-items-center py-2">
-                      <strong className="text-muted">Trial Days:</strong>
-                      <span className={`badge bg-${dashboardAccess.daysRemaining <= 5 ? 'warning' : 'info'}`}>
-                        {dashboardAccess.daysRemaining} days
-                      </span>
-                    </div>
+                ))}
+                {dashboardAccess?.daysRemaining > 0 && seller.verificationStatus === 'not_required' && (
+                  <div className="sd-info-row">
+                    <span className="sd-info-label">Trial Days</span>
+                    <span className={`badge bg-${dashboardAccess.daysRemaining <= 5 ? 'warning' : 'info'}`}>{dashboardAccess.daysRemaining} days</span>
                   </div>
                 )}
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Product Listing Requests - Improved */}
-        <div className="col-lg-6">
-          <div className="card h-100">
-            <div className="card-header bg-light">
-              <h5 className="mb-0"><i className="fas fa-list-alt me-2"></i>Recent Listing Requests</h5>
-            </div>
-            <div className="card-body">
-              {listingRequests.length === 0 ? (
-                <div className="text-center py-4">
-                  <i className="fas fa-inbox fa-3x text-muted mb-3"></i>
-                  <p className="text-muted mb-0">No product listing requests yet.</p>
-                  <small className="text-muted">Start requesting products to see your requests here.</small>
-                </div>
-              ) : (
-                <div className="list-group list-group-flush">
-                  {listingRequests.slice(-5).map((request, index) => (
-                    <div key={index} className="list-group-item px-0 py-3">
-                      <div className="d-flex justify-content-between align-items-start">
-                        <div className="flex-grow-1">
-                          <h6 className="mb-1 text-truncate">{request.productName}</h6>
-                          <p className="mb-1 text-muted">
-                            Your Price: £{request.sellerPrice ? parseFloat(request.sellerPrice).toFixed(2) : 'N/A'}
-                          </p>
-                          <small className="text-muted">
-                            {request.submittedAt ? new Date(request.submittedAt).toLocaleDateString() : 
-                             new Date(request.submittedAt || Date.now()).toLocaleDateString()}
-                          </small>
-                        </div>
-                        <div className="text-end">
-                          <span className={`badge bg-${
-                            request.status === 'approved' ? 'success' : 
-                            request.status === 'rejected' ? 'danger' : 'warning'
-                          }`}>
-                            {request.status === 'pending_approval' ? 'PENDING APPROVAL' :
-                             request.status === 'approved' ? 'APPROVED' :
-                             request.status === 'rejected' ? 'REJECTED' :
-                             request.status?.replace('_', ' ').toUpperCase()}
-                          </span>
-                          {request.status === 'rejected' && request.rejectionReason && (
-                            <div className="mt-1">
-                              <small className="text-danger" title={request.rejectionReason}>
-                                <i className="fas fa-info-circle"></i> Reason available
-                              </small>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-    
-
-      {/* Product Listing Section - Improved */}
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="card amazon-choice-card">
-            <div className="card-header">
-              <h5 className="mb-1"><i className="fas fa-shopping-cart me-2"></i>Request Products from Amazon's Choice</h5>
-              <small className="opacity-75">Browse and request products from our catalog (requires admin approval)</small>
-            </div>
-            <div className="card-body">
-              {/* Product Preview Section */}
-              {previewProducts.length > 0 && (
-                <div className="mb-4">
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h6 className="mb-0">
-                      <i className="fas fa-star text-warning me-2"></i>
-                      Featured Products
-                    </h6>
-                    <button 
-                      className="btn btn-outline-primary btn-sm"
-                      onClick={() => navigate('/seller/admin-products')}
-                      disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}
-                    >
-                      <i className="fas fa-th-large me-1"></i>
-                      Show All
-                    </button>
-                  </div>
-                  
-                  {loadingPreview ? (
-                    <div className="text-center py-3">
-                      <div className="spinner-border spinner-border-sm text-primary" role="status">
-                        <span className="visually-hidden">Loading...</span>
-                      </div>
-                      <small className="text-muted ms-2">Loading products...</small>
-                    </div>
-                  ) : (
-                    <div className="row g-2">
-                      {previewProducts.slice(0, 6).map((product, index) => (
-                        <div key={product._id} className="col-lg-2 col-md-3 col-sm-4 col-6">
-                          <div className="card h-100 shadow-sm" style={{fontSize: '0.75rem'}}>
-                            <div className="position-relative">
-                              <img 
-                                src={product.images?.[0] || 'https://via.placeholder.com/150x150?text=No+Image'} 
-                                alt={product.name}
-                                className="card-img-top"
-                                style={{
-                                  height: '100px',
-                                  objectFit: 'contain',
-                                  backgroundColor: '#f8f9fa',
-                                  padding: '8px'
-                                }}
-                                onError={(e) => {
-                                  e.target.src = 'https://via.placeholder.com/150x150?text=No+Image';
-                                }}
-                              />
-                            </div>
-                            <div className="card-body p-2">
-                              <h6 className="card-title mb-1" style={{
-                                fontSize: '0.7rem',
-                                lineHeight: '1.2',
-                                height: '2.4rem',
-                                overflow: 'hidden',
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical'
-                              }}>
-                                {product.name}
-                              </h6>
-                              <div className="d-flex justify-content-between align-items-center">
-                                <span className="text-success fw-bold" style={{fontSize: '0.8rem'}}>
-                                  £{product.price}
-                                  {product.shipping > 0 && (
-                                    <div style={{fontSize: '0.6rem', color: '#6c757d'}}>
-                                      +£{product.shipping} ship
-                                    </div>
-                                  )}
-                                </span>
-                                <button 
-                                  className="btn btn-primary btn-sm"
-                                  style={{fontSize: '0.6rem', padding: '2px 6px'}}
-                                  onClick={() => navigate('/seller/admin-products')}
-                                  disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}
-                                  title="Go to products page to request this item"
-                                >
-                                  <i className="fas fa-plus"></i>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Main Action Section */}
-              <div className="text-center py-3">
-                <div className="mb-3">
-                  <i className="fas fa-paper-plane fa-3x text-primary mb-3"></i>
-                  <h6 className="mb-2">Submit Listing Requests</h6>
-                  <p className="text-muted mb-4">
-                    Choose from our curated Amazon's Choice products and submit requests for admin approval
-                  </p>
-                  <div className="alert alert-info mb-4">
-                    <i className="fas fa-info-circle me-2"></i>
-                    <strong>New Process:</strong> All product listing requests now require admin approval. 
-                    You'll be notified once your requests are reviewed.
-                  </div>
-                </div>
-                
-                <button 
-                  className="btn btn-primary btn-lg"
-                  disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}
+          {/* Recent Listing Requests */}
+          <div className="col-lg-7">
+            <div className="sd-card h-100">
+              <div className="sd-card-header d-flex justify-content-between align-items-center">
+                <span><i className="fas fa-list-alt me-2" style={{color: '#28a745'}}></i>Recent Listing Requests</span>
+                <button className="btn btn-sm" style={{fontSize: '0.72rem', padding: '3px 10px', background: '#ff6b35', color: '#fff', border: 'none', borderRadius: '6px'}}
                   onClick={() => navigate('/seller/admin-products')}
-                >
-                  <div className="d-flex flex-column align-items-center">
-                    <div className="d-flex align-items-center mb-1">
-                      <i className="fas fa-paper-plane me-2"></i>
-                      <span>Browse & Request Products</span>
-                    </div>
-                    <small>Submit listing requests</small>
-                  </div>
+                  disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}>
+                  <i className="fas fa-paper-plane me-1"></i>Browse &amp; Request
                 </button>
-                
-                {!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active') && (
-                  <div className="alert alert-warning mt-4 mb-0">
-                    <i className="fas fa-exclamation-triangle me-2"></i> 
-                    <strong>Verification Required:</strong> Complete your verification to request products.
+              </div>
+              <div className="sd-card-body">
+                {listingRequests.length === 0 ? (
+                  <div className="text-center py-4">
+                    <i className="fas fa-clock fa-2x mb-2" style={{color: '#ffc107'}}></i>
+                    <p className="mb-1" style={{fontSize: '0.85rem', fontWeight: 600, color: '#374151'}}>No pending requests yet.</p>
+                    <small className="text-muted">Click "Browse & Request" to submit your first listing request to admin.</small>
+                  </div>
+                ) : (
+                  <div>
+                    {listingRequests.slice(-5).map((req, i) => (
+                      <div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: i < Math.min(listingRequests.length, 5) - 1 ? '1px solid #f0f2f5' : 'none', gap: '8px'}}>
+                        <div style={{flex: 1, minWidth: 0}}>
+                          <div style={{fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{req.productName}</div>
+                          <div style={{fontSize: '0.72rem', color: '#6b7280'}}>£{req.sellerPrice ? parseFloat(req.sellerPrice).toFixed(2) : 'N/A'} · {req.submittedAt ? new Date(req.submittedAt).toLocaleDateString() : ''}</div>
+                        </div>
+                        <span className={`badge bg-${req.status === 'approved' ? 'success' : req.status === 'rejected' ? 'danger' : 'warning'}`} style={{fontSize: '0.65rem', whiteSpace: 'nowrap'}}>
+                          {req.status === 'pending_approval' ? 'PENDING' : req.status?.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Quick Actions - Improved Grid */}
-      <div className="row">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header bg-light">
-              <h5 className="mb-0"><i className="fas fa-bolt me-2"></i>Quick Actions</h5>
-            </div>
-            <div className="card-body">
-              <div className="row g-3">
-                <div className="col-lg-3 col-md-6 col-sm-6">
-                  <button 
-                    className="btn btn-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
-                    onClick={() => navigate('/seller/add-products')}
-                  >
-                    <i className="fas fa-plus fa-2x mb-2"></i>
-                    <span className="fw-bold">Add Products</span>
-                    <small className="opacity-75">Create custom listings</small>
-                  </button>
-                </div>
-                <div className="col-lg-3 col-md-6 col-sm-6">
-                  <button 
-                    className="btn btn-info w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
-                    onClick={() => navigate('/seller/listed-products')}
-                  >
-                    <i className="fas fa-list fa-2x mb-2"></i>
-                    <span className="fw-bold">My Products</span>
-                    <small className="opacity-75">View your listings</small>
-                  </button>
-                </div>
-                <div className="col-lg-3 col-md-6 col-sm-6">
-                  <button 
-                    className="btn btn-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
-                    disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}
-                    onClick={() => navigate('/seller/admin-products')}
-                  >
-                    <i className="fas fa-paper-plane fa-2x mb-2"></i>
-                    <span className="fw-bold">Request Products</span>
-                    <small className="opacity-75">Browse & request</small>
-                  </button>
-                </div>
-                <div className="col-lg-3 col-md-6 col-sm-6">
-                  <button 
-                    className="btn btn-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
-                    onClick={() => navigate('/seller/profile/edit')}
-                  >
-                    <i className="fas fa-edit fa-2x mb-2"></i>
-                    <span className="fw-bold">Edit Profile</span>
-                    <small className="opacity-75">Update information</small>
-                  </button>
-                </div>
-                <div className="col-6 col-md-3 mb-3">
-                  <button 
-                    className="btn btn-danger w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
-                    onClick={() => navigate('/seller/buyer-queries')}
-                  >
-                    <i className="fas fa-inbox fa-2x mb-2"></i>
-                    <span className="fw-bold">Buyer Queries</span>
-                    <small className="opacity-75">Product demands</small>
-                  </button>
-                </div>
+        {/* AVAILABLE PRODUCTS TO REQUEST */}
+        <div className="sd-card">
+          <div className="sd-card-header d-flex justify-content-between align-items-center" style={{background: 'linear-gradient(135deg, #1a1a2e, #16213e)', color: '#fff', borderBottom: 'none'}}>
+            <span><i className="fas fa-boxes me-2"></i>Available Products — Request to List</span>
+            <button className="btn btn-sm" style={{background: '#ff6b35', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700}}
+              onClick={() => navigate('/seller/admin-products')}
+              disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}>
+              <i className="fas fa-th-large me-1"></i>View All Products
+            </button>
+          </div>
+          <div className="sd-card-body">
+            <small className="text-muted d-block mb-3" style={{fontSize: '0.78rem'}}>
+              <i className="fas fa-info-circle me-1 text-info"></i>
+              Click "Request to List" on any product. Admin will review and approve your request.
+            </small>
+            {loadingPreview ? (
+              <div className="text-center py-3">
+                <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                <small className="text-muted ms-2">Loading products...</small>
               </div>
-            </div>
+            ) : previewProducts.length > 0 ? (
+              <div className="row g-2">
+                {previewProducts.slice(0, 6).map((product) => (
+                  <div key={product._id} className="col-6 col-sm-4 col-md-2">
+                    <div className="sd-product-card" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
+                      <img src={product.images?.[0] || 'https://via.placeholder.com/150x80?text=No+Image'} alt={product.name}
+                        onError={e => { e.target.src = 'https://via.placeholder.com/150x80?text=No+Image' }} />
+                      <div className="body" style={{flex: 1, display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                        <div style={{fontSize: '0.68rem', fontWeight: 600, lineHeight: 1.2, height: '2.4em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical'}}>{product.name}</div>
+                        <div style={{fontSize: '0.75rem', fontWeight: 700, color: '#28a745'}}>£{product.price}</div>
+                        <button
+                          className="btn btn-sm mt-auto"
+                          style={{fontSize: '0.62rem', padding: '3px 6px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', width: '100%'}}
+                          onClick={() => navigate('/seller/admin-products')}
+                          disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}>
+                          <i className="fas fa-paper-plane me-1"></i>Request to List
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-3 text-muted" style={{fontSize: '0.85rem'}}>No products available.</div>
+            )}
+            {!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active') && (
+              <div className="sd-alert sd-alert-warning mt-3 mb-0">
+                <i className="fas fa-exclamation-triangle me-2"></i><strong>Verification Required:</strong> Complete your verification to request products.
+              </div>
+            )}
           </div>
         </div>
+
       </div>
 
-      {/* Verification Modal */}
+      {/* â”€â”€ VERIFICATION MODAL â”€â”€ */}
       {showVerificationModal && (
-        <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+        <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999}}>
           <div className="modal-dialog modal-lg">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">Submit Verification Documents</h5>
-                <button 
-                  type="button" 
-                  className="btn-close"
-                  onClick={() => setShowVerificationModal(false)}
-                ></button>
+                <button type="button" className="btn-close" onClick={() => setShowVerificationModal(false)}></button>
               </div>
               <div className="modal-body">
                 <div className="mb-3">
                   <label className="form-label">CNIC Number</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={verificationDocs.cnicNumber}
-                    onChange={(e) => setVerificationDocs({...verificationDocs, cnicNumber: e.target.value})}
-                    placeholder="Enter your CNIC number (e.g., 12345-1234567-1)"
-                    maxLength="15"
-                  />
+                  <input type="text" className="form-control" value={verificationDocs.cnicNumber}
+                    onChange={e => setVerificationDocs({...verificationDocs, cnicNumber: e.target.value})}
+                    placeholder="e.g., 12345-1234567-1" maxLength="15" />
                 </div>
-                <div className="mb-4">
-                  <label className="form-label"><strong>CNIC Front Side</strong></label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                          setVerificationDocs({...verificationDocs, idCardFront: e.target.result});
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                  <small className="text-muted">Choose CNIC front image from your computer</small>
-                  {verificationDocs.idCardFront && (
-                    <div className="mt-2">
-                      <img 
-                        src={verificationDocs.idCardFront} 
-                        alt="CNIC Front Preview" 
-                        className="img-thumbnail"
-                        style={{width: '200px', height: '120px', objectFit: 'cover'}}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="mb-4">
-                  <label className="form-label"><strong>CNIC Back Side</strong></label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                          setVerificationDocs({...verificationDocs, idCardBack: e.target.result});
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                  <small className="text-muted">Choose CNIC back image from your computer</small>
-                  {verificationDocs.idCardBack && (
-                    <div className="mt-2">
-                      <img 
-                        src={verificationDocs.idCardBack} 
-                        alt="CNIC Back Preview" 
-                        className="img-thumbnail"
-                        style={{width: '200px', height: '120px', objectFit: 'cover'}}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="mb-4">
-                  <label className="form-label"><strong>CNIC with Selfie</strong></label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                          setVerificationDocs({...verificationDocs, idCardWithFace: e.target.result});
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                  <small className="text-muted">Choose selfie photo holding your CNIC from your computer</small>
-                  {verificationDocs.idCardWithFace && (
-                    <div className="mt-2">
-                      <img 
-                        src={verificationDocs.idCardWithFace} 
-                        alt="CNIC with Selfie Preview" 
-                        className="img-thumbnail"
-                        style={{width: '200px', height: '120px', objectFit: 'cover'}}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="alert alert-info">
-                  <small>
-                    <i className="fas fa-info-circle"></i> Please ensure all CNIC images are clear and readable. 
-                    You can upload files directly from your PC or paste image URLs.
-                  </small>
+                {[
+                  { key: 'idCardFront', label: 'CNIC Front Side' },
+                  { key: 'idCardBack', label: 'CNIC Back Side' },
+                  { key: 'idCardWithFace', label: 'CNIC with Selfie' },
+                ].map(({ key, label }) => (
+                  <div className="mb-3" key={key}>
+                    <label className="form-label"><strong>{label}</strong></label>
+                    <input type="file" className="form-control" accept="image/*"
+                      onChange={e => {
+                        const file = e.target.files[0]
+                        if (file) {
+                          const reader = new FileReader()
+                          reader.onload = ev => setVerificationDocs(d => ({...d, [key]: ev.target.result}))
+                          reader.readAsDataURL(file)
+                        }
+                      }} />
+                    {verificationDocs[key] && (
+                      <img src={verificationDocs[key]} alt={label} className="img-thumbnail mt-2" style={{width: '180px', height: '110px', objectFit: 'cover'}} />
+                    )}
+                  </div>
+                ))}
+                <div className="alert alert-info mb-0">
+                  <small><i className="fas fa-info-circle me-1"></i>Ensure all CNIC images are clear and readable.</small>
                 </div>
               </div>
               <div className="modal-footer">
-                <button 
-                  type="button" 
-                  className="btn btn-secondary"
-                  onClick={() => setShowVerificationModal(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button" 
-                  className="btn btn-primary"
-                  onClick={handleVerificationSubmit}
-                >
-                  Submit Documents
-                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowVerificationModal(false)}>Cancel</button>
+                <button type="button" className="btn btn-primary" onClick={handleVerificationSubmit}>Submit Documents</button>
               </div>
             </div>
           </div>
@@ -1108,6 +722,8 @@ const SellerDashboard = () => {
       )}
     </div>
   )
+
+
 }
 
 export default SellerDashboard

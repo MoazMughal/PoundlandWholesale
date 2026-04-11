@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSeller } from '../../context/SellerContext';
 import { getApiUrl } from '../../utils/api';
@@ -22,7 +22,7 @@ const ListedProducts = () => {
   const navigate = useNavigate();
   const { seller, isLoggedIn, loading, authResolved } = useSeller();
   const [products, setProducts] = useState([]);
-  const [pageLoading, setPageLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [counts, setCounts] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
   const [activeTab, setActiveTab] = useState('approved');
   const [editingCell, setEditingCell] = useState(null);
@@ -33,6 +33,8 @@ const ListedProducts = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [updatingCountry, setUpdatingCountry] = useState(new Set());
+  const [sortField, setSortField] = useState('createdAt');
+  const [sortDir, setSortDir] = useState('desc');
   const itemsPerPage = 50;
 
   useEffect(() => {
@@ -329,21 +331,38 @@ const ListedProducts = () => {
     return badges[marketplace] || 'bg-secondary';
   };
 
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedProducts = [...products].sort((a, b) => {
+    let aVal, bVal;
+    switch (sortField) {
+      case 'name': aVal = a.name?.toLowerCase(); bVal = b.name?.toLowerCase(); break;
+      case 'price': aVal = parseFloat(a.sellerInfo?.sellerPrice || a.price || 0); bVal = parseFloat(b.sellerInfo?.sellerPrice || b.price || 0); break;
+      case 'stock': aVal = a.stock || 0; bVal = b.stock || 0; break;
+      case 'status': aVal = a.approvalStatus; bVal = b.approvalStatus; break;
+      case 'createdAt': aVal = new Date(a.createdAt); bVal = new Date(b.createdAt); break;
+      default: aVal = new Date(a.createdAt); bVal = new Date(b.createdAt);
+    }
+    if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const SortIcon = ({ field }) => (
+    <span style={{ marginLeft: '4px', opacity: sortField === field ? 1 : 0.3, fontSize: '0.7rem' }}>
+      {sortField === field ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+    </span>
+  );
+
   if (loading || !authResolved) {
     return null;
-  }
-
-  if (pageLoading) {
-    return (
-      <div className="container-fluid mt-3">
-        <div className="text-center py-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-3">Loading your products...</p>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -497,7 +516,22 @@ const ListedProducts = () => {
       
       <div className="card">
         <div className="card-body">
-          {products.length === 0 ? (
+          {pageLoading ? (
+            /* Inline skeleton — page stays visible, table area shows loading */
+            <div>
+              {[1,2,3,4,5].map(i => (
+                <div key={i} className="placeholder-glow d-flex align-items-center gap-2 py-2 border-bottom">
+                  <div className="placeholder rounded" style={{ width: '36px', height: '36px', flexShrink: 0 }}></div>
+                  <div className="flex-grow-1">
+                    <div className="placeholder col-7 mb-1" style={{ height: '12px', borderRadius: '3px' }}></div>
+                    <div className="placeholder col-4" style={{ height: '10px', borderRadius: '3px' }}></div>
+                  </div>
+                  <div className="placeholder col-1" style={{ height: '12px', borderRadius: '3px' }}></div>
+                  <div className="placeholder col-1" style={{ height: '12px', borderRadius: '3px' }}></div>
+                </div>
+              ))}
+            </div>
+          ) : products.length === 0 ? (
             <div className="text-center py-5">
               <i className="fas fa-inbox fa-3x text-muted mb-3"></i>
               <h5 className="text-muted">No products found</h5>
@@ -515,27 +549,37 @@ const ListedProducts = () => {
             </div>
           ) : (
             <div className="table-responsive">
-              <table className="table table-hover">
-                <thead>
+              <table className="table table-hover table-sm" style={{ fontSize: '0.78rem' }}>
+                <thead className="table-light">
                   <tr>
-                    <th style={{ width: '60px' }}>Image</th>
-                    <th>Product Name</th>
-                    <th>SKU</th>
-                    <th>Price</th>
-                    <th>Shipping</th>
-                    <th>Stock</th>
-                    <th>MOQ</th>
-                    <th>Country</th>
-                    <th>Category</th>
-                    <th>Marketplace</th>
-                    <th>Status</th>
-                    <th>Listed Date</th>
-                    <th>Actions</th>
+                    <th style={{ width: '44px', padding: '6px 4px' }}>Img</th>
+                    <th style={{ minWidth: '140px', cursor: 'pointer', padding: '6px 4px' }} onClick={() => handleSort('name')}>
+                      Product Name <SortIcon field="name" />
+                    </th>
+                    <th style={{ width: '80px', padding: '6px 4px' }}>SKU</th>
+                    <th style={{ width: '80px', cursor: 'pointer', padding: '6px 4px' }} onClick={() => handleSort('price')}>
+                      Price <SortIcon field="price" />
+                    </th>
+                    <th style={{ width: '70px', padding: '6px 4px' }}>Ship</th>
+                    <th style={{ width: '55px', cursor: 'pointer', padding: '6px 4px' }} onClick={() => handleSort('stock')}>
+                      Stock <SortIcon field="stock" />
+                    </th>
+                    <th style={{ width: '55px', padding: '6px 4px' }}>MOQ</th>
+                    <th style={{ width: '110px', padding: '6px 4px' }}>Country</th>
+                    <th style={{ width: '80px', padding: '6px 4px' }}>Category</th>
+                    <th style={{ width: '70px', padding: '6px 4px' }}>Market</th>
+                    <th style={{ width: '90px', cursor: 'pointer', padding: '6px 4px' }} onClick={() => handleSort('status')}>
+                      Status <SortIcon field="status" />
+                    </th>
+                    <th style={{ width: '70px', cursor: 'pointer', padding: '6px 4px' }} onClick={() => handleSort('createdAt')}>
+                      Date <SortIcon field="createdAt" />
+                    </th>
+                    <th style={{ width: '60px', padding: '6px 4px' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((product) => (
-                    <tr key={product._id}>
+                  {sortedProducts.map((product) => (
+                    <tr key={product._id} style={{ verticalAlign: 'middle' }}>
                       <td>
                         {!product.isListingRequest ? (
                           <a 
@@ -611,7 +655,7 @@ const ListedProducts = () => {
                         </div>
                       </td>
                       {/* SKU Column */}
-                      <td style={{ padding: '8px', verticalAlign: 'middle' }}>
+                      <td style={{ padding: '4px 3px', verticalAlign: 'middle' }}>
                         {product.sku ? (
                           <span style={{
                             display: 'inline-block',
@@ -634,8 +678,8 @@ const ListedProducts = () => {
                         style={{ 
                           cursor: product.isListingRequest ? 'default' : 'pointer', 
                           transition: 'background 0.2s',
-                          padding: '8px'
-                        }}
+                          padding: '4px 3px'
+          }}
                         onClick={() => !product.isListingRequest && handleCellClick(product._id, 'price', product.sellerInfo?.sellerPrice || product.price)}
                         onMouseEnter={(e) => !product.isListingRequest && (e.target.style.background = '#f0f0ff')}
                         onMouseLeave={(e) => e.target.style.background = ''}
@@ -693,8 +737,8 @@ const ListedProducts = () => {
                         style={{ 
                           cursor: product.isListingRequest ? 'default' : 'pointer', 
                           transition: 'background 0.2s',
-                          padding: '8px'
-                        }}
+                          padding: '4px 3px'
+          }}
                         onClick={() => !product.isListingRequest && handleCellClick(product._id, 'shipping', product.sellerInfo?.sellerShipping || product.shipping || 0)}
                         onMouseEnter={(e) => !product.isListingRequest && (e.target.style.background = '#f0f0ff')}
                         onMouseLeave={(e) => e.target.style.background = ''}
@@ -744,8 +788,8 @@ const ListedProducts = () => {
                         style={{ 
                           cursor: product.isListingRequest ? 'default' : 'pointer', 
                           transition: 'background 0.2s',
-                          padding: '8px'
-                        }}
+                          padding: '4px 3px'
+          }}
                         onClick={() => !product.isListingRequest && handleCellClick(product._id, 'stock', product.stock)}
                         onMouseEnter={(e) => !product.isListingRequest && (e.target.style.background = '#f0f0ff')}
                         onMouseLeave={(e) => e.target.style.background = ''}
@@ -788,8 +832,7 @@ const ListedProducts = () => {
                         style={{
                           cursor: product.isListingRequest ? 'default' : 'pointer',
                           transition: 'background 0.2s',
-                          padding: '8px',
-                          verticalAlign: 'middle'
+                          padding: '4px 3px', verticalAlign: 'middle'
                         }}
                         onClick={() => !product.isListingRequest && handleCellClick(product._id, 'moq', product.sellerMoq || 1)}
                         onMouseEnter={(e) => !product.isListingRequest && (e.currentTarget.style.background = '#fffbeb')}
@@ -1064,3 +1107,4 @@ const ListedProducts = () => {
 };
 
 export default ListedProducts;
+

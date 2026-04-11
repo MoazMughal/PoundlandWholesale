@@ -294,7 +294,7 @@ const AmazonsChoice = () => {
         }
         
         /* Basket Button - Smaller Size */
-        .product-info button {
+        .product-info button:not(.request-to-list-btn) {
           font-size: 5px !important;
           width: 14px !important;
           height: 14px !important;
@@ -313,6 +313,24 @@ const AmazonsChoice = () => {
           margin-left: auto !important;
           padding: 0 !important;
           line-height: 1 !important;
+        }
+
+        /* Request to List button - override the basket button styles */
+        .product-info button.request-to-list-btn {
+          width: auto !important;
+          height: auto !important;
+          min-width: fit-content !important;
+          border-radius: 4px !important;
+          background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+          padding: 4px 8px !important;
+          font-size: 9px !important;
+          line-height: 1.4 !important;
+          margin-left: 0 !important;
+          flex-shrink: 0 !important;
+          white-space: nowrap !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 3px !important;
         }
         
         /* Center the basket icon specifically */
@@ -508,7 +526,7 @@ const AmazonsChoice = () => {
           min-height: 26px !important;
         }
         
-        .product-info button {
+        .product-info button:not(.request-to-list-btn) {
           width: 16px !important;
           height: 16px !important;
           font-size: 6px !important;
@@ -1449,7 +1467,7 @@ const AmazonsChoice = () => {
             background: 'rgba(0,0,0,0.55)',
             backdropFilter: 'blur(4px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '16px'
+            padding: '8px'
           }}
         >
           <div
@@ -1458,7 +1476,10 @@ const AmazonsChoice = () => {
               background: '#fff',
               borderRadius: '16px',
               width: '100%',
-              maxWidth: '480px',
+              maxWidth: '520px',
+              maxHeight: 'calc(100vh - 32px)',
+              display: 'flex',
+              flexDirection: 'column',
               boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
               overflow: 'hidden',
               fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
@@ -1467,8 +1488,9 @@ const AmazonsChoice = () => {
             {/* Modal Header */}
             <div style={{
               background: 'linear-gradient(135deg, #ff6600 0%, #ff8533 100%)',
-              padding: '18px 22px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+              padding: '12px 18px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexShrink: 0
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{
@@ -1571,12 +1593,12 @@ const AmazonsChoice = () => {
               </div>
             ) : (
               /* ── Form State ── */
-              <div style={{ padding: '20px 22px 22px' }}>
+              <div style={{ padding: '14px 18px 16px', overflowY: 'auto', flex: 1 }}>
                 {/* Product info strip */}
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: '12px',
                   background: '#f8f9fa', borderRadius: '10px',
-                  padding: '10px 14px', marginBottom: '18px',
+                  padding: '8px 12px', marginBottom: '12px',
                   border: '1px solid #e9ecef'
                 }}>
                   {listingModal.product.image && (
@@ -1608,7 +1630,7 @@ const AmazonsChoice = () => {
 
                 {/* Existing sellers table */}
                 {listingModal.product.sellers && listingModal.product.sellers.length > 0 && (
-                  <div style={{ marginBottom: '18px' }}>
+                  <div style={{ marginBottom: '10px' }}>
                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#495057', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       <i className="fas fa-users" style={{ marginRight: '5px', color: '#ff6600' }}></i>
                       Current Sellers
@@ -1761,7 +1783,7 @@ const AmazonsChoice = () => {
                     <i className="fas fa-globe" style={{ marginRight: '4px', color: '#ff6600' }}></i>
                     List For Countries <span style={{ fontSize: '10px', color: '#aaa', textTransform: 'none', fontWeight: '400' }}>(select one or more — leave empty for all)</span>
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                     {[
                       { code: 'GBP', flag: '🇬🇧', label: 'UK (£ GBP)' },
                       { code: 'PKR', flag: '🇵🇰', label: 'Pakistan (Rs PKR)' },
@@ -1780,19 +1802,19 @@ const AmazonsChoice = () => {
                               : [...f.listingCountries, c.code]
                           }))}
                           style={{
-                            padding: '9px 10px', borderRadius: '8px',
+                            padding: '5px 8px', borderRadius: '6px',
                             border: selected ? '2px solid #ff6600' : '2px solid #e9ecef',
                             background: selected ? '#fff5f0' : '#fff',
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '7px',
-                            fontSize: '12px', fontWeight: selected ? '700' : '500',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+                            fontSize: '11px', fontWeight: selected ? '700' : '500',
                             color: selected ? '#ff6600' : '#495057',
                             transition: 'all 0.15s',
-                            boxShadow: selected ? '0 2px 8px rgba(255,102,0,0.2)' : 'none'
+                            boxShadow: selected ? '0 2px 6px rgba(255,102,0,0.2)' : 'none'
                           }}
                         >
-                          <span style={{ fontSize: '16px' }}>{c.flag}</span>
+                          <span style={{ fontSize: '13px' }}>{c.flag}</span>
                           <span>{c.label}</span>
-                          {selected && <i className="fas fa-check-circle" style={{ marginLeft: 'auto', color: '#ff6600', fontSize: '12px' }}></i>}
+                          {selected && <i className="fas fa-check-circle" style={{ marginLeft: 'auto', color: '#ff6600', fontSize: '10px' }}></i>}
                         </button>
                       )
                     })}
@@ -1806,7 +1828,7 @@ const AmazonsChoice = () => {
                 </div>
 
                 {/* Notes */}
-                <div style={{ marginBottom: '18px' }}>
+                <div style={{ marginBottom: '10px' }}>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: '#495057', display: 'block', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
                     <i className="fas fa-comment-alt" style={{ marginRight: '4px', color: '#6c757d' }}></i>
                     Notes to Admin <span style={{ fontSize: '10px', color: '#aaa', textTransform: 'none', fontWeight: '400' }}>(optional)</span>
@@ -1833,7 +1855,7 @@ const AmazonsChoice = () => {
                   <div style={{
                     background: 'linear-gradient(135deg, #f0fff4, #e8f5e9)',
                     border: '1px solid #c3e6cb', borderRadius: '10px',
-                    padding: '10px 14px', marginBottom: '16px',
+                    padding: '8px 12px', marginBottom: '10px',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     flexWrap: 'wrap', gap: '8px'
                   }}>
@@ -1851,14 +1873,14 @@ const AmazonsChoice = () => {
                 )}
 
                 {/* Action buttons */}
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={() => setListingModal({ open: false, product: null })}
                     disabled={listingSubmitting}
                     style={{
-                      flex: 1, padding: '11px', borderRadius: '10px',
+                      flex: 1, padding: '8px', borderRadius: '8px',
                       border: '2px solid #e9ecef', background: '#f8f9fa',
-                      color: '#6c757d', fontWeight: '600', fontSize: '14px',
+                      color: '#6c757d', fontWeight: '600', fontSize: '13px',
                       cursor: 'pointer', transition: 'all 0.2s'
                     }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = '#adb5bd'; e.currentTarget.style.color = '#495057' }}
@@ -1870,15 +1892,15 @@ const AmazonsChoice = () => {
                     onClick={handleListingSubmit}
                     disabled={listingSubmitting || !listingForm.price}
                     style={{
-                      flex: 2, padding: '11px', borderRadius: '10px',
+                      flex: 2, padding: '8px', borderRadius: '8px',
                       border: 'none',
                       background: listingSubmitting
                         ? '#adb5bd'
                         : 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
-                      color: '#fff', fontWeight: '700', fontSize: '14px',
+                      color: '#fff', fontWeight: '700', fontSize: '13px',
                       cursor: listingSubmitting ? 'not-allowed' : 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                      boxShadow: listingSubmitting ? 'none' : '0 4px 14px rgba(40,167,69,0.4)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                      boxShadow: listingSubmitting ? 'none' : '0 3px 10px rgba(40,167,69,0.4)',
                       transition: 'all 0.2s'
                     }}
                     onMouseEnter={e => { if (!listingSubmitting) e.currentTarget.style.transform = 'translateY(-1px)' }}
@@ -2561,6 +2583,7 @@ const AmazonsChoice = () => {
                           {/* Request to List button - only visible to logged-in sellers */}
                           {isSellerLoggedIn && (
                             <button
+                              className="request-to-list-btn"
                               onClick={(e) => {
                                 e.preventDefault()
                                 e.stopPropagation()
@@ -2568,15 +2591,15 @@ const AmazonsChoice = () => {
                               }}
                               style={{
                                 marginTop: '3px',
-                                padding: windowWidth < 576 ? '2px 4px' : '3px 6px',
-                                fontSize: windowWidth < 576 ? '6px' : '8px',
+                                padding: windowWidth < 576 ? '4px 8px' : '3px 6px',
+                                fontSize: windowWidth < 576 ? '9px' : '8px',
                                 fontWeight: '700',
                                 background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '4px',
                                 cursor: 'pointer',
-                                display: 'flex',
+                                display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '3px',
                                 whiteSpace: 'nowrap',
@@ -2585,7 +2608,9 @@ const AmazonsChoice = () => {
                                 zIndex: 200,
                                 position: 'relative',
                                 textTransform: 'uppercase',
-                                letterSpacing: '0.3px'
+                                letterSpacing: '0.3px',
+                                lineHeight: '1.4',
+                                minWidth: 'fit-content'
                               }}
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.background = 'linear-gradient(135deg, #20c997 0%, #28a745 100%)'
@@ -2597,7 +2622,7 @@ const AmazonsChoice = () => {
                               }}
                               title="Request to list this product in your store"
                             >
-                              <i className="fas fa-paper-plane" style={{ fontSize: '6px' }}></i>
+                              <i className="fas fa-paper-plane" style={{ fontSize: windowWidth < 576 ? '8px' : '6px' }}></i>
                               Request to List
                             </button>
                           )}
