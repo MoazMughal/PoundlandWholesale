@@ -1,3 +1,73 @@
+/* ── Force light mode — prevent system dark mode from affecting Bootstrap ── */
+:root {
+  color-scheme: light only;
+  --bs-body-bg: #ffffff;
+  --bs-body-color: #212529;
+  --bs-card-bg: #ffffff;
+  --bs-card-color: #212529;
+  --bs-input-bg: #ffffff;
+  --bs-input-color: #212529;
+  --bs-border-color: #dee2e6;
+  --bs-secondary-bg: #f8f9fa;
+  --bs-tertiary-bg: #f8f9fa;
+  --bs-emphasis-color: #000000;
+  --bs-secondary-color: #6c757d;
+  --bs-link-color: #0d6efd;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: light only;
+    --bs-body-bg: #ffffff !important;
+    --bs-body-color: #212529 !important;
+    --bs-card-bg: #ffffff !important;
+    --bs-card-color: #212529 !important;
+    --bs-input-bg: #ffffff !important;
+    --bs-input-color: #212529 !important;
+    --bs-border-color: #dee2e6 !important;
+    --bs-secondary-bg: #f8f9fa !important;
+    --bs-tertiary-bg: #f8f9fa !important;
+    --bs-emphasis-color: #000000 !important;
+    --bs-secondary-color: #6c757d !important;
+    --bs-link-color: #0d6efd !important;
+  }
+
+  body, html {
+    background-color: #ffffff !important;
+    color: #212529 !important;
+  }
+
+  .card {
+    background-color: #ffffff !important;
+    color: #212529 !important;
+    border-color: #dee2e6 !important;
+  }
+
+  .form-control, .form-select, input, textarea, select {
+    background-color: #ffffff !important;
+    color: #212529 !important;
+    border-color: #dee2e6 !important;
+  }
+
+  .table {
+    --bs-table-bg: #ffffff !important;
+    --bs-table-color: #212529 !important;
+    color: #212529 !important;
+  }
+
+  .nav-link, .nav-tabs .nav-link {
+    color: #212529 !important;
+  }
+
+  .text-muted {
+    color: #6c757d !important;
+  }
+
+  label {
+    color: #212529 !important;
+  }
+}
+
 /* Global Image Optimization - Ensure all product images display fully */
 img[src*="cloudinary"],
 img[src*="products"],

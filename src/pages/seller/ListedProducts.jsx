@@ -410,7 +410,7 @@ const ListedProducts = () => {
   }
 
   return (
-    <div className="container-fluid" style={{ fontSize: '0.85rem', padding: '8px' }}>
+    <div className="container-fluid" style={{ fontSize: '0.85rem', padding: '8px', backgroundColor: '#f4f6f9', minHeight: '100vh', color: '#212529' }}>
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>

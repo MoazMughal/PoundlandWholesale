@@ -223,11 +223,11 @@ const EditProfile = () => {
   }
 
   return (
-    <div className="container mt-4">
+    <div className="container mt-4" style={{ backgroundColor: '#ffffff', color: '#212529' }}>
       <div className="row justify-content-center">
         <div className="col-lg-8">
-          <div className="card">
-            <div className="card-header d-flex align-items-center justify-content-between">
+          <div className="card" style={{ backgroundColor: '#ffffff', color: '#212529', border: '1px solid #dee2e6' }}>
+            <div className="card-header d-flex align-items-center justify-content-between" style={{ backgroundColor: '#f8f9fa', color: '#212529' }}>
               <h4 className="mb-0"><i className="fas fa-user-edit me-2"></i>Edit Profile</h4>
               <button
                 className="btn btn-outline-secondary btn-sm"
