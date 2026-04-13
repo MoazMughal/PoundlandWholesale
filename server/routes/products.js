@@ -4454,10 +4454,22 @@ router.put('/seller/update-inventory/:id', authenticateSeller, async (req, res) 
 // Get seller's listed products with detailed info
 router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
   try {
-    const { page = 1, limit = 50, status, marketplace } = req.query;
+    const { page = 1, limit = 50, status, marketplace, search, category } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
+
+    // Build search filter
+    const searchFilter = search ? {
+      $or: [
+        { name: { $regex: search, $options: 'i' } },
+        { asin: { $regex: search, $options: 'i' } },
+        { sku: { $regex: search, $options: 'i' } }
+      ]
+    } : {};
+
+    // Build category filter
+    const categoryFilter = category ? { category: { $regex: category, $options: 'i' } } : {};
     
     // Build query for products
     const productQuery = {
@@ -4466,7 +4478,9 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
         { 'sellers.sellerId': req.seller._id }
       ],
       ...(status && status !== 'pending' && { approvalStatus: status }),
-      ...(marketplace && { marketplace })
+      ...(marketplace && { marketplace }),
+      ...searchFilter,
+      ...categoryFilter
     };
     
     // Get seller info first

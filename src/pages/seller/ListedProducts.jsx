@@ -35,7 +35,9 @@ const ListedProducts = () => {
   const [updatingCountry, setUpdatingCountry] = useState(new Set());
   const [sortField, setSortField] = useState('createdAt');
   const [sortDir, setSortDir] = useState('desc');
-  const [asinModal, setAsinModal] = useState(null); // { productId, asinAvailable, asinYearlyCost, asinReviews, asinYearlyIncome }
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [asinModal, setAsinModal] = useState(null);
   const [asinSaving, setAsinSaving] = useState(false);
   const itemsPerPage = 50;
 
@@ -58,6 +60,21 @@ const ListedProducts = () => {
     setCurrentPage(1);
   }, [activeTab]);
 
+  // Debounced search — reset page and reload when searchTerm changes
+  useEffect(() => {
+    if (!authResolved || !isLoggedIn || !seller) return;
+    setCurrentPage(1);
+    const t = setTimeout(() => loadProducts(), 350);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // Category filter — reload immediately when category changes
+  useEffect(() => {
+    if (!authResolved || !isLoggedIn || !seller) return;
+    setCurrentPage(1);
+    loadProducts();
+  }, [selectedCategory]);
+
   const loadProducts = async (isRetry = false) => {
     try {
       setPageLoading(true);
@@ -72,12 +89,14 @@ const ListedProducts = () => {
       }
       
       const statusParam = activeTab !== 'all' ? `&status=${activeTab}` : '';
+      const searchParam = searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : '';
+      const categoryParam = selectedCategory ? `&category=${encodeURIComponent(selectedCategory)}` : '';
       
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout (increased from 10s)
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
-      const response = await fetch(getApiUrl(`products/seller/listed-products?limit=${itemsPerPage}&page=${currentPage}${statusParam}`), {
+      const response = await fetch(getApiUrl(`products/seller/listed-products?limit=${itemsPerPage}&page=${currentPage}${statusParam}${searchParam}${categoryParam}`), {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -384,20 +403,22 @@ const ListedProducts = () => {
     }
   };
 
-  const sortedProducts = [...products].sort((a, b) => {
-    let aVal, bVal;
-    switch (sortField) {
-      case 'name': aVal = a.name?.toLowerCase(); bVal = b.name?.toLowerCase(); break;
-      case 'price': aVal = parseFloat(a.sellerInfo?.sellerPrice || a.price || 0); bVal = parseFloat(b.sellerInfo?.sellerPrice || b.price || 0); break;
-      case 'stock': aVal = a.stock || 0; bVal = b.stock || 0; break;
-      case 'status': aVal = a.approvalStatus; bVal = b.approvalStatus; break;
-      case 'createdAt': aVal = new Date(a.createdAt); bVal = new Date(b.createdAt); break;
-      default: aVal = new Date(a.createdAt); bVal = new Date(b.createdAt);
-    }
-    if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-    if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
-    return 0;
-  });
+  const sortedProducts = [...products]
+    .sort((a, b) => {
+      let aVal, bVal;
+      switch (sortField) {
+        case 'name': aVal = a.name?.toLowerCase(); bVal = b.name?.toLowerCase(); break;
+        case 'price': aVal = parseFloat(a.sellerInfo?.sellerPrice || a.price || 0); bVal = parseFloat(b.sellerInfo?.sellerPrice || b.price || 0); break;
+        case 'stock': aVal = a.stock || 0; bVal = b.stock || 0; break;
+        case 'status': aVal = a.approvalStatus; bVal = b.approvalStatus; break;
+        case 'category': aVal = a.category?.toLowerCase() || ''; bVal = b.category?.toLowerCase() || ''; break;
+        case 'createdAt': aVal = new Date(a.createdAt); bVal = new Date(b.createdAt); break;
+        default: aVal = new Date(a.createdAt); bVal = new Date(b.createdAt);
+      }
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
 
   const SortIcon = ({ field }) => (
     <span style={{ marginLeft: '4px', opacity: sortField === field ? 1 : 0.3, fontSize: '0.7rem' }}>
@@ -432,58 +453,24 @@ const ListedProducts = () => {
 
       {/* Stats Cards */}
       <div className="row g-2 mb-3">
-        <div className="col-md-3">
-          <div className="card bg-primary text-white">
-            <div className="card-body py-2">
-              <div className="d-flex justify-content-between">
+        {[
+          { label: 'Total Products', value: counts.total, icon: 'fa-boxes', bg: '#0d6efd', color: '#fff' },
+          { label: 'Approved', value: counts.approved, icon: 'fa-check-circle', bg: '#198754', color: '#fff' },
+          { label: 'Pending', value: counts.pending, icon: 'fa-clock', bg: '#ffc107', color: '#212529' },
+          { label: 'Rejected', value: counts.rejected, icon: 'fa-times-circle', bg: '#dc3545', color: '#fff' },
+        ].map(({ label, value, icon, bg, color }) => (
+          <div key={label} className="col-6 col-md-3">
+            <div style={{ background: bg, borderRadius: '8px', padding: '10px 14px', color }}>
+              <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <h6 className="card-title mb-0">Total Products</h6>
-                  <h4 className="mb-0">{counts.total}</h4>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, opacity: 0.9 }}>{label}</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800, lineHeight: 1.1 }}>{value}</div>
                 </div>
-                <i className="fas fa-boxes fa-2x opacity-75"></i>
+                <i className={`fas ${icon}`} style={{ fontSize: '1.6rem', opacity: 0.5 }}></i>
               </div>
             </div>
           </div>
-        </div>
-        <div className="col-md-3">
-          <div className="card bg-success text-white">
-            <div className="card-body py-2">
-              <div className="d-flex justify-content-between">
-                <div>
-                  <h6 className="card-title mb-0">Approved</h6>
-                  <h4 className="mb-0">{counts.approved}</h4>
-                </div>
-                <i className="fas fa-check-circle fa-2x opacity-75"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="col-md-3">
-          <div className="card bg-warning text-dark">
-            <div className="card-body py-2">
-              <div className="d-flex justify-content-between">
-                <div>
-                  <h6 className="card-title mb-0">Pending</h6>
-                  <h4 className="mb-0">{counts.pending}</h4>
-                </div>
-                <i className="fas fa-clock fa-2x opacity-75"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="col-md-3">
-          <div className="card bg-danger text-white">
-            <div className="card-body py-2">
-              <div className="d-flex justify-content-between">
-                <div>
-                  <h6 className="card-title mb-0">Rejected</h6>
-                  <h4 className="mb-0">{counts.rejected}</h4>
-                </div>
-                <i className="fas fa-times-circle fa-2x opacity-75"></i>
-              </div>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Filter Tabs */}
@@ -539,6 +526,72 @@ const ListedProducts = () => {
           </li>
         )}
       </ul>
+
+      {/* Search & Sort Controls */}
+      <div className="d-flex gap-2 mb-3 flex-wrap align-items-center">
+        {/* Search */}
+        <div className="position-relative" style={{ flex: '1 1 200px', minWidth: '180px' }}>
+          <i className="fas fa-search position-absolute" style={{ left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#aaa', fontSize: '0.8rem', pointerEvents: 'none' }}></i>
+          <input
+            type="text"
+            className="form-control form-control-sm"
+            placeholder="Search by name, ASIN or SKU..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            style={{ paddingLeft: '30px', fontSize: '0.82rem', border: '1px solid #dee2e6', backgroundColor: '#fff', color: '#212529' }}
+          />
+        </div>
+
+        {/* Category filter */}
+        <div className="d-flex align-items-center gap-1" style={{ flex: '0 1 180px' }}>
+          <select
+            className="form-select form-select-sm"
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value)}
+            style={{ fontSize: '0.78rem', border: '1px solid #dee2e6', backgroundColor: '#fff', color: '#212529' }}
+          >
+            <option value="">All Categories</option>
+            {[...new Set(products.map(p => p.category).filter(Boolean))].sort().map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+          {selectedCategory && (
+            <button onClick={() => setSelectedCategory('')} style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer', fontSize: '0.8rem', padding: '0 2px', flexShrink: 0 }}>✕</button>
+          )}
+        </div>
+
+        {/* Sort */}
+        <div className="d-flex align-items-center gap-1" style={{ flexShrink: 0 }}>
+          <span style={{ fontSize: '0.78rem', color: '#6b7280', whiteSpace: 'nowrap' }}>Sort:</span>
+          <select
+            className="form-select form-select-sm"
+            value={sortField}
+            onChange={e => { setSortField(e.target.value); setSortDir('asc'); }}
+            style={{ fontSize: '0.78rem', border: '1px solid #dee2e6', backgroundColor: '#fff', color: '#212529', width: 'auto' }}
+          >
+            <option value="createdAt">Date</option>
+            <option value="name">Name</option>
+            <option value="price">Price</option>
+            <option value="stock">Stock</option>
+            <option value="status">Status</option>
+          </select>
+          <button
+            className="btn btn-sm"
+            onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+            style={{ fontSize: '0.78rem', padding: '3px 8px', border: '1px solid #dee2e6', backgroundColor: '#fff', color: '#212529' }}
+          >
+            {sortDir === 'asc' ? '▲' : '▼'}
+          </button>
+        </div>
+
+        {/* Active filters info */}
+        {(searchTerm || selectedCategory) && (
+          <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+            {sortedProducts.length} result{sortedProducts.length !== 1 ? 's' : ''}
+            <button onClick={() => { setSearchTerm(''); setSelectedCategory(''); }} style={{ marginLeft: '6px', background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer', fontSize: '0.75rem', padding: 0 }}>✕ Clear all</button>
+          </span>
+        )}
+      </div>
 
       {/* Products Table */}
       {showRetryButton && (
@@ -610,7 +663,9 @@ const ListedProducts = () => {
                     </th>
                     <th style={{ width: '55px', padding: '6px 4px' }}>MOQ</th>
                     <th style={{ width: '110px', padding: '6px 4px' }}>Country</th>
-                    <th style={{ width: '80px', padding: '6px 4px' }}>Category</th>
+                    <th style={{ width: '80px', cursor: 'pointer', padding: '6px 4px' }} onClick={() => handleSort('category')}>
+                      Category <SortIcon field="category" />
+                    </th>
                     <th style={{ width: '80px', padding: '6px 4px' }}>ASIN Bulk</th>
                     <th style={{ width: '90px', cursor: 'pointer', padding: '6px 4px' }} onClick={() => handleSort('status')}>
                       Status <SortIcon field="status" />

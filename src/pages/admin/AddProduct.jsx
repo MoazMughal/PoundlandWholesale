@@ -667,7 +667,8 @@ const AddProduct = () => {
       formDataToSend.append('rating', parseFloat(formData.rating) || 4.5);
       formDataToSend.append('reviews', parseInt(formData.reviews) || 0);
       formDataToSend.append('stock', parseInt(formData.stock) || 0);
-      formDataToSend.append('dealUnits', formData.dealUnits || Math.floor((formData.platformUnits || 2400) / 12));
+      formDataToSend.append('dealUnits', parseInt(formData.dealUnits) || Math.floor((formData.platformUnits || 2400) / 12));
+      formDataToSend.append('platformUnits', parseInt(formData.platformUnits) || (parseInt(formData.dealUnits) || 200) * 12);
       if (formData.seller && formData.seller.trim() !== '') {
         formDataToSend.append('seller', formData.seller);
       }
@@ -1288,7 +1289,9 @@ const AddProduct = () => {
                 placeholder="0"
               />
             </div>
+          </div>
 
+          <div className="form-row">
             <div className="form-group">
               <label>Platform Units (Yearly)</label>
               <input
