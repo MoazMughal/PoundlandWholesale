@@ -2173,7 +2173,11 @@ router.get('/public/:id', async (req, res) => {
             moq: seller.moq || 1,
             listedAt: seller.listedAt,
             verificationStatus: seller.sellerId.verificationStatus,
-            listingCountries: seller.listingCountries || []
+            listingCountries: seller.listingCountries || [],
+            asinAvailable: seller.asinAvailable || false,
+            asinYearlyCost: seller.asinYearlyCost || 0,
+            asinReviews: seller.asinReviews || 0,
+            asinYearlyIncome: seller.asinYearlyIncome || 0
           };
         }
         // Fallback to cached data if sellerId not populated
@@ -4471,13 +4475,13 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
     // Build category filter
     const categoryFilter = category ? { category: { $regex: category, $options: 'i' } } : {};
     
-    // Build query for products
+    // Build query for products — only show products where seller is in the sellers array
+    // (approved listings), not admin products where seller is the primary seller field
     const productQuery = {
-      $or: [
-        { seller: req.seller._id },
-        { 'sellers.sellerId': req.seller._id }
-      ],
+      'sellers.sellerId': req.seller._id,
       ...(status && status !== 'pending' && { approvalStatus: status }),
+      // When no status filter or 'all', still only show approved products (not pending admin approval)
+      ...(!status || status === 'all' ? { approvalStatus: 'approved' } : {}),
       ...(marketplace && { marketplace }),
       ...searchFilter,
       ...categoryFilter
@@ -4506,33 +4510,21 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
       }
     }
     
-    // Count totals for stats (before pagination)
+    // Count totals for stats (before pagination) — only seller-listed products
     const [totalProducts, totalPending, totalApproved, totalRejected] = await Promise.all([
       Product.countDocuments({
-        $or: [
-          { seller: req.seller._id },
-          { 'sellers.sellerId': req.seller._id }
-        ]
+        'sellers.sellerId': req.seller._id
       }).maxTimeMS(5000),
       Product.countDocuments({
-        $or: [
-          { seller: req.seller._id },
-          { 'sellers.sellerId': req.seller._id }
-        ],
+        'sellers.sellerId': req.seller._id,
         approvalStatus: 'pending'
       }).maxTimeMS(5000),
       Product.countDocuments({
-        $or: [
-          { seller: req.seller._id },
-          { 'sellers.sellerId': req.seller._id }
-        ],
+        'sellers.sellerId': req.seller._id,
         approvalStatus: 'approved'
       }).maxTimeMS(5000),
       Product.countDocuments({
-        $or: [
-          { seller: req.seller._id },
-          { 'sellers.sellerId': req.seller._id }
-        ],
+        'sellers.sellerId': req.seller._id,
         approvalStatus: 'rejected'
       }).maxTimeMS(5000)
     ]);

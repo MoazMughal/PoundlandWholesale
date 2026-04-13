@@ -2187,14 +2187,15 @@ const AdminProducts = () => {
       });
 
       const updateData = {
-        price: parseFloat(profitEditProduct.price || 0), // Use the actual price field
-        shipping: parseFloat(profitEditProduct.shipping || 0), // Use the actual shipping field
+        price: parseFloat(profitEditProduct.price || 0),
+        shipping: parseFloat(profitEditProduct.shipping || 0),
         currency: 'GBP',
         platformComparison: cleanPlatformComparison,
         platformUnits: parseInt(selectedUnits) || 200,
+        dealUnits: parseInt(selectedUnits) || 200, // dealUnits = same as platformUnits (units per platform)
         profitCalculations: cleanProfitCalculations,
         profitEvaluation: cleanProfitEvaluation,
-        savings: parseFloat(autoCalculatedSavings.toFixed(2)) // Save the auto-calculated savings percentage
+        savings: parseFloat(autoCalculatedSavings.toFixed(2))
       };
 
       console.log('🔄 Sending profit update data:', updateData);

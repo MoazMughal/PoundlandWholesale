@@ -1266,17 +1266,7 @@ const ListedProducts = () => {
                       onFocus={e => e.target.style.borderColor = '#667eea'} onBlur={e => e.target.style.borderColor = '#e9ecef'} />
                   </div>
 
-                  {/* ASIN Reviews */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>
-                      <i className="fas fa-star me-1" style={{ color: '#ffc107' }}></i>ASIN Reviews (count)
-                    </label>
-                    <input type="number" min="0" step="1" placeholder="e.g. 1250"
-                      value={asinModal.asinReviews}
-                      onChange={e => setAsinModal(m => ({ ...m, asinReviews: e.target.value }))}
-                      style={{ width: '100%', padding: '8px 10px', border: '2px solid #e9ecef', borderRadius: '7px', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
-                      onFocus={e => e.target.style.borderColor = '#667eea'} onBlur={e => e.target.style.borderColor = '#e9ecef'} />
-                  </div>
+                  {/* ASIN Reviews removed */}
 
                   {/* Yearly Income */}
                   <div style={{ marginBottom: '16px' }}>
@@ -1293,11 +1283,10 @@ const ListedProducts = () => {
               )}
 
               {/* Summary preview */}
-              {asinModal.asinAvailable && (asinModal.asinYearlyCost || asinModal.asinReviews || asinModal.asinYearlyIncome) && (
+              {asinModal.asinAvailable && (asinModal.asinYearlyCost || asinModal.asinYearlyIncome) && (
                 <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '0.75rem', color: '#0c4a6e' }}>
                   <div style={{ fontWeight: 700, marginBottom: '4px' }}>📋 Preview for buyers:</div>
                   {asinModal.asinYearlyCost && <div>💰 Yearly cost: <strong>£{parseFloat(asinModal.asinYearlyCost || 0).toFixed(2)}</strong></div>}
-                  {asinModal.asinReviews && <div>⭐ Reviews: <strong>{parseInt(asinModal.asinReviews || 0).toLocaleString()}</strong></div>}
                   {asinModal.asinYearlyIncome && <div>📈 Est. yearly income: <strong>£{parseFloat(asinModal.asinYearlyIncome || 0).toFixed(2)}</strong></div>}
                 </div>
               )}

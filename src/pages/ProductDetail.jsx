@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { completeProductsData, getProductById } from '../data/completeProducts'
 import { products } from '../data/allProducts'
@@ -542,9 +542,10 @@ _This quotation was generated from PoundlandWholesale.com_
   const convertTotalPrice = (priceStr, shipping = 0) => {
     const basePrice = parseFloat(String(priceStr).replace(/[₨£$€Rs]/g, '').trim()) || 0;
     const shippingCost = parseFloat(shipping) || 0;
-    const totalPrice = basePrice + shippingCost;
+    // Only add shipping for GBP
+    const totalPrice = currency === 'GBP' ? basePrice + shippingCost : basePrice;
     
-    if (shippingCost > 0) {
+    if (currency === 'GBP' && shippingCost > 0) {
       const convertedTotal = convertPrice(`£${totalPrice.toFixed(2)}`);
       const convertedBase = convertPrice(`£${basePrice.toFixed(2)}`);
       const convertedShipping = convertPrice(`£${shippingCost.toFixed(2)}`);
@@ -558,7 +559,7 @@ _This quotation was generated from PoundlandWholesale.com_
         </div>
       );
     } else {
-      return convertPrice(priceStr);
+      return convertPrice(`£${totalPrice.toFixed(2)}`);
     }
   }
 
@@ -824,7 +825,7 @@ _This quotation was generated from PoundlandWholesale.com_
             category: dbProduct.category || 'General',
             brand: dbProduct.brand || '',
             markup: dbProduct.discount ? `${dbProduct.discount}%` : '250%',
-            dealUnits: Math.floor((dbProduct.platformUnits || 200) / 12), // Calculate as platformUnits / 12
+            dealUnits: dbProduct.dealUnits || Math.floor((dbProduct.platformUnits || 200) / 12), // Use saved dealUnits, fallback to platformUnits/12
             seller: dbProduct.seller,
             sellerInfo: dbProduct.sellerInfo,
             sellers: dbProduct.sellers || [], // Add sellers array for multiple sellers support
@@ -1881,7 +1882,7 @@ _This quotation was generated from PoundlandWholesale.com_
               shipping: foundProduct.shipping || 0, // Add shipping field
               rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
               rating: foundProduct.rating || 4.5,
-              dealUnits: Math.floor((foundProduct.platformUnits || 200) / 12), // Calculate as platformUnits / 12
+              dealUnits: foundProduct.dealUnits || Math.floor((foundProduct.platformUnits || 200) / 12),
               seller: foundProduct.seller,
               sellerInfo: foundProduct.sellerInfo,
               sellers: foundProduct.sellers || [], // Add sellers array for multiple sellers support
@@ -2240,7 +2241,7 @@ _This quotation was generated from PoundlandWholesale.com_
                 shipping: foundProduct.shipping || 0, // Add shipping field
                 rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
                 rating: foundProduct.rating || 4.5,
-                dealUnits: Math.floor((foundProduct.platformUnits || 200) / 12), // Calculate as platformUnits / 12
+                dealUnits: foundProduct.dealUnits || Math.floor((foundProduct.platformUnits || 200) / 12),
                 seller: foundProduct.seller,
                 sellerInfo: foundProduct.sellerInfo,
                 sellers: foundProduct.sellers || [], // Add sellers array for multiple sellers support
@@ -3378,7 +3379,9 @@ _This quotation was generated from PoundlandWholesale.com_
                             <>
                               {(() => {
                                 const breakdown = getLowestPriceBreakdown();
-                                return convertPrice(`£${breakdown.total.toFixed(2)}`);
+                                // Only include shipping in total for GBP
+                                const displayTotal = currency === 'GBP' ? breakdown.total : breakdown.price;
+                                return convertPrice(`£${displayTotal.toFixed(2)}`);
                               })()}
                             </>
                           ) : (
@@ -3699,12 +3702,6 @@ _This quotation was generated from PoundlandWholesale.com_
                                       <span style={{ fontWeight: 700, color: '#dc3545' }}>{formatPrice(parseFloat(s.asinYearlyCost))}</span>
                                     </div>
                                   )}
-                                  {s.asinReviews > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                      <span style={{ color: '#6b7280' }}>⭐ Reviews</span>
-                                      <span style={{ fontWeight: 700, color: '#374151' }}>{parseInt(s.asinReviews).toLocaleString()}</span>
-                                    </div>
-                                  )}
                                   {s.asinYearlyIncome > 0 && (
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                       <span style={{ color: '#6b7280' }}>📈 Yearly Income</span>
@@ -3809,7 +3806,8 @@ _This quotation was generated from PoundlandWholesale.com_
                         }}>
                           {(() => {
                             const breakdown = getLowestPriceBreakdown();
-                            return convertPrice(`£${breakdown.total.toFixed(2)}`);
+                            const displayTotal = currency === 'GBP' ? breakdown.total : breakdown.price;
+                            return convertPrice(`£${displayTotal.toFixed(2)}`);
                           })()}
                         </span>
                         <span style={{fontSize: '0.65rem', color: '#565959', fontWeight: '500'}}>/Unit</span>
@@ -5583,3 +5581,5 @@ _This quotation was generated from PoundlandWholesale.com_
 }
 
 export default ProductDetail
+
+
