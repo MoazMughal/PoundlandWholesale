@@ -212,8 +212,9 @@ const AdminProducts = () => {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => sessionStorage.getItem('adminProductsSearch') || '');
   const [filters, setFilters] = useState({ category: '', status: '', isAmazonsChoice: false });
+  const searchRef = useRef(search);
   const [editingCell, setEditingCell] = useState(null);
   const [editValues, setEditValues] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
@@ -241,6 +242,16 @@ const AdminProducts = () => {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showCategoryManagementModal, setShowCategoryManagementModal] = useState(false);
   const [showBulkOperationsModal, setShowBulkOperationsModal] = useState(false);
+
+  // Keep searchRef and sessionStorage in sync with search state
+  useEffect(() => {
+    searchRef.current = search;
+    if (search) {
+      sessionStorage.setItem('adminProductsSearch', search);
+    } else {
+      sessionStorage.removeItem('adminProductsSearch');
+    }
+  }, [search]);
 
   // Add global CSS to hide number input spinners
   useEffect(() => {
@@ -988,16 +999,21 @@ const AdminProducts = () => {
 
   // Refresh products when page becomes visible (e.g., returning from edit page)
   // Only refresh if data is stale (more than 5 minutes old)
+  const currentPageRef = useRef(currentPage);
+  const hasInitiallyLoadedRef = useRef(hasInitiallyLoaded);
+  useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
+  useEffect(() => { hasInitiallyLoadedRef.current = hasInitiallyLoaded; }, [hasInitiallyLoaded]);
+
   useEffect(() => {
-    let lastRefreshTime = Date.now(); // Initialize with current time
+    let lastRefreshTime = Date.now();
     const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && hasInitiallyLoaded) {
+      if (document.visibilityState === 'visible' && hasInitiallyLoadedRef.current) {
         const now = Date.now();
         if (now - lastRefreshTime > REFRESH_INTERVAL) {
           console.log('🔄 Page visible after 5+ minutes, refreshing products...');
-          fetchProducts(currentPage);
+          fetchProducts(currentPageRef.current);
           lastRefreshTime = now;
         } else {
           console.log('⏸️ Page visible but data is fresh, skipping refresh...');
@@ -1006,11 +1022,11 @@ const AdminProducts = () => {
     };
 
     const handleFocus = () => {
-      if (hasInitiallyLoaded) {
+      if (hasInitiallyLoadedRef.current) {
         const now = Date.now();
         if (now - lastRefreshTime > REFRESH_INTERVAL) {
           console.log('🔄 Window focused after 5+ minutes, refreshing products...');
-          fetchProducts(currentPage);
+          fetchProducts(currentPageRef.current);
           lastRefreshTime = now;
         } else {
           console.log('⏸️ Window focused but data is fresh, skipping refresh...');
@@ -1025,7 +1041,8 @@ const AdminProducts = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [hasInitiallyLoaded, currentPage]);
+  }, []); // empty deps — uses refs to always see latest values
+
 
   const fetchCategories = async () => {
     try {
