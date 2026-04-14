@@ -2605,23 +2605,14 @@ _This quotation was generated from PoundlandWholesale.com_
 
   // Check if profit calculations have actual values (not dummy/empty data)
   const hasValidProfitData = () => {
-    console.log('🔍 Checking profit data validity:', {
-      hasProfitCalculations: !!product?.profitCalculations,
-      profitCalculations: product?.profitCalculations,
-      profitPerUnit: product?.profitCalculations?.profitPerUnit,
-      monthlyProfit: product?.profitCalculations?.monthlyProfit
-    });
-    
     if (!product?.profitCalculations) return false;
     
-    // Check if any profit calculation has non-zero values
-    const isValid = (
-      (product.profitCalculations.profitPerUnit && parseFloat(String(product.profitCalculations.profitPerUnit).replace(/[£₨$€]/g, '')) > 0) ||
-      (product.profitCalculations.profitFor200Units && parseFloat(String(product.profitCalculations.profitFor200Units).replace(/[£₨$€]/g, '')) > 0) ||
-      (product.profitCalculations.monthlyProfit && parseFloat(String(product.profitCalculations.monthlyProfit).replace(/[£₨$€]/g, '')) > 0)
-    );
+    // Show the card as long as profitPerUnit is a defined number (including negative/zero)
+    // This ensures the card shows even when profit is negative or zero
+    const profitPerUnit = product.profitCalculations.profitPerUnit;
+    const isValid = profitPerUnit !== undefined && profitPerUnit !== null &&
+      !isNaN(parseFloat(String(profitPerUnit).replace(/[£₨$€]/g, '')));
     
-    console.log('✅ Profit data validity result:', isValid);
     return isValid;
   };
 
@@ -3580,7 +3571,7 @@ _This quotation was generated from PoundlandWholesale.com_
                     </div>
 
                     {/* Compact Right side - Profit Information */}
-                    {hasValidProfitData() && product.profitCalculations.profitPerUnit && (
+                    {hasValidProfitData() && product.profitCalculations.profitPerUnit !== undefined && (
                       <div 
                         style={{
                           border: '1px solid #e1e5e9',
@@ -3651,26 +3642,24 @@ _This quotation was generated from PoundlandWholesale.com_
                           </span>
                         </div>
                         <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>📈 Profit/{product.dealUnits || 200}:</span>
+                          <span style={{color: '#565959'}}>📈 Profit/{product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200}:</span>
                           <span style={{color: '#059669', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
-                            {formatPrice(product.profitEvaluation?.netProfit ? product.profitEvaluation.netProfit : (safeNumber(product.profitCalculations.profitPerUnit) * (product.dealUnits || 200)))}
+                            {formatPrice(product.profitCalculations?.yearlyProfit || (safeNumber(product.profitCalculations.profitPerUnit) * (product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200)))}
                           </span>
                         </div>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>💰 Total cost/{product.dealUnits || 200}:</span>
+                          <span style={{color: '#565959'}}>💰 Total cost/{product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200}:</span>
                           <span style={{color: '#B12704', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>{(() => {
+                            const platformUnits = product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200;
                             // Use profitEvaluation productCost if available, otherwise calculate from price
                             if (product.profitEvaluation?.productCost) {
-                              // Use the fixed productCost from evaluation (already calculated for dealUnits)
-                              return formatPrice(product.profitEvaluation.productCost);
+                              return formatPrice(product.profitEvaluation.productCost * platformUnits);
                             }
                             
-                            // Fallback calculation: dealUnits × unit price
+                            // Fallback calculation: platformUnits × unit price
                             const priceString = product.price || '£0';
                             const unitPrice = parseFloat(priceString.replace(/[₨£$€]/g, '').trim()) || 0;
-                            const totalCost = unitPrice * (product.dealUnits || 200);
-                            
-                            return formatPrice(totalCost);
+                            return formatPrice(unitPrice * platformUnits);
                           })()}</span>
                         </div>
 
