@@ -217,6 +217,43 @@ const SellerProductsSimple = () => {
     loadStats()
   }
 
+  const handleBulkReject = async () => {
+    if (selectedIds.length === 0) return
+    const reason = prompt(`Enter rejection reason for ${selectedIds.length} selected product(s):`)
+    if (!reason) return
+    if (!confirm(`Reject ${selectedIds.length} selected product(s)?`)) return
+
+    setBulkLoading(true)
+    const token = localStorage.getItem('adminToken')
+    let successCount = 0
+    let failCount = 0
+
+    for (const id of selectedIds) {
+      const product = products.find(p => p._id === id || p.requestId === id)
+      if (!product) continue
+      try {
+        const response = await fetch(
+          getApiUrl(`sellers/admin/listing-requests/${product.sellerId}/${product.requestId}/reject`),
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ reason })
+          }
+        )
+        if (response.ok) successCount++
+        else failCount++
+      } catch {
+        failCount++
+      }
+    }
+
+    setBulkLoading(false)
+    alert(`✅ Rejected: ${successCount}${failCount > 0 ? `  ❌ Failed: ${failCount}` : ''}`)
+    setSelectedIds([])
+    fetchProducts()
+    loadStats()
+  }
+
   const toggleSelect = (id) => {
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -569,7 +606,18 @@ const SellerProductsSimple = () => {
               cursor: bulkLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: '600'
             }}
           >
-            {bulkLoading ? '⏳ Approving...' : `✓ Approve All Selected (${selectedIds.length})`}
+            {bulkLoading ? '⏳ Processing...' : `✓ Approve Selected (${selectedIds.length})`}
+          </button>
+          <button
+            onClick={handleBulkReject}
+            disabled={bulkLoading}
+            style={{
+              padding: '6px 16px', borderRadius: '6px', border: 'none',
+              background: bulkLoading ? '#aaa' : '#dc3545', color: 'white',
+              cursor: bulkLoading ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: '600'
+            }}
+          >
+            {bulkLoading ? '⏳ Processing...' : `✗ Reject Selected (${selectedIds.length})`}
           </button>
           <button
             onClick={() => setSelectedIds([])}
@@ -698,6 +746,17 @@ const SellerProductsSimple = () => {
           <table className="products-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
             <thead>
               <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+                {filter === 'pending' && (
+                  <th style={{ padding: '10px', textAlign: 'center', width: '36px' }}>
+                    <input
+                      type="checkbox"
+                      title="Select all on this page"
+                      checked={sortedProducts.filter(p => p.isRequest).length > 0 && sortedProducts.filter(p => p.isRequest).every(p => selectedIds.includes(p._id))}
+                      onChange={toggleSelectAll}
+                      style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#28a745' }}
+                    />
+                  </th>
+                )}
                 <th style={{ padding: '10px', textAlign: 'left', width: '70px' }}>IMAGE</th>
                 <th style={{ padding: '10px', textAlign: 'left' }}>PRODUCT</th>
                 <th style={{ padding: '10px', textAlign: 'left', width: '100px' }}>SELLER</th>
@@ -716,7 +775,19 @@ const SellerProductsSimple = () => {
                                 (product.images && typeof product.images === 'string' ? product.images : null);
                 
                 return (
-                  <tr key={product._id} style={{ borderBottom: '1px solid #dee2e6' }}>
+                  <tr key={product._id} style={{ borderBottom: '1px solid #dee2e6', background: selectedIds.includes(product._id) ? '#f0fff4' : 'white' }}>
+                    {filter === 'pending' && (
+                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                        {product.isRequest && (
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(product._id)}
+                            onChange={() => toggleSelect(product._id)}
+                            style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#28a745' }}
+                          />
+                        )}
+                      </td>
+                    )}
                     <td style={{ padding: '10px' }}>
                       {imageUrl ? (
                         <img 

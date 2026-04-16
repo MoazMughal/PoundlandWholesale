@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
 import { useBuyer } from '../context/BuyerContext';
@@ -16,6 +17,7 @@ const SellerInformation = ({
   const { convertPrice, formatPrice, currency, currencySymbols } = useCurrency();
   const { addToBasket } = useBasket();
   const { buyer, isLoggedIn: isBuyerLoggedIn } = useBuyer();
+  const navigate = useNavigate();
   const [newPrice, setNewPrice] = useState('');
   const [updating, setUpdating] = useState(false);
   const [unlisting, setUnlisting] = useState(false);
@@ -307,25 +309,42 @@ const SellerInformation = ({
               {/* Buyer actions — only for buyers */}
               {!isMine && isBuyer && (
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  <a
-                    href="#"
-                    onClick={e => { e.preventDefault(); handleContactSupplier(se); }}
-                    style={{
-                      flex: '3', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      background: '#25d366', color: 'white', padding: '6px 8px',
-                      borderRadius: '5px', fontSize: '0.65rem', fontWeight: '700', textDecoration: 'none',
-                      cursor: sending[sid] ? 'not-allowed' : 'pointer', opacity: sending[sid] ? 0.7 : 1,
-                      gap: '2px'
-                    }}>
-                    {sending[sid]
-                      ? <><i className="fas fa-spinner fa-spin"></i><span>Sending...</span></>
-                      : <>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                            <i className="fab fa-whatsapp" style={{ fontSize: '0.85rem' }}></i> Contact Supplier
-                          </span>
-                          <span style={{ opacity: 0.9, fontSize: '0.6rem', whiteSpace: 'nowrap' }}>{maskPhone(se.whatsappNo)}</span>
-                        </>}
-                  </a>
+                  {isBuyerLoggedIn ? (
+                    <a
+                      href="#"
+                      onClick={e => { e.preventDefault(); handleContactSupplier(se); }}
+                      style={{
+                        flex: '3', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        background: '#25d366', color: 'white', padding: '6px 8px',
+                        borderRadius: '5px', fontSize: '0.65rem', fontWeight: '700', textDecoration: 'none',
+                        cursor: sending[sid] ? 'not-allowed' : 'pointer', opacity: sending[sid] ? 0.7 : 1,
+                        gap: '2px'
+                      }}>
+                      {sending[sid]
+                        ? <><i className="fas fa-spinner fa-spin"></i><span>Sending...</span></>
+                        : <>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                              <i className="fab fa-whatsapp" style={{ fontSize: '0.85rem' }}></i> Contact Supplier
+                            </span>
+                            <span style={{ opacity: 0.9, fontSize: '0.6rem', whiteSpace: 'nowrap' }}>{maskPhone(se.whatsappNo)}</span>
+                          </>}
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => navigate('/login/buyer', { state: { returnTo: window.location.pathname + window.location.search } })}
+                      title="Login as buyer to contact supplier"
+                      style={{
+                        flex: '3', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        background: '#9ca3af', color: 'white', padding: '6px 8px',
+                        borderRadius: '5px', fontSize: '0.65rem', fontWeight: '700', border: 'none',
+                        cursor: 'pointer', gap: '2px'
+                      }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                        <i className="fas fa-lock" style={{ fontSize: '0.75rem' }}></i> Login to Contact
+                      </span>
+                      <span style={{ opacity: 0.85, fontSize: '0.6rem', whiteSpace: 'nowrap' }}>Buyer login required</span>
+                    </button>
+                  )}
                   <button onClick={() => addToBasket({ ...product, selectedSeller: se })}
                     className="seller-add-to-cart-btn"
                     style={{

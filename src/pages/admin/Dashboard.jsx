@@ -46,134 +46,68 @@ const AdminDashboard = () => {
   useEffect(() => {
     // Fetch all data in parallel for better performance
     const fetchAllData = async () => {
+      const token = localStorage.getItem('adminToken');
+      const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+      const safeFetch = (url) => fetch(url, { headers }).then(r => r.json());
+
       try {
         const [
-          statsRes,
-          recentRes,
-          allProductsRes,
-          sellersRes,
-          pendingApprovalsRes,
-          pendingListingRes
+          statsData,
+          recentData,
+          sellersData,
+          pendingApprovalsData,
+          pendingListingData
         ] = await Promise.allSettled([
-          adminGet(getApiUrl('dashboard/stats')),
-          adminGet(getApiUrl('products?limit=5&sortBy=createdAt&order=desc')),
-          adminGet(getApiUrl('products/admin/fast')),
-          adminGet(getApiUrl('sellers?status=all&limit=20')),
-          adminGet(getApiUrl('products/pending-approval')),
-          adminGet(getApiUrl('sellers/admin/listing-requests?status=pending_approval&limit=1000'))
+          safeFetch(getApiUrl('dashboard/stats')),
+          safeFetch(getApiUrl('products?limit=5&sortBy=createdAt&order=desc')),
+          safeFetch(getApiUrl('sellers?status=all&limit=20')),
+          safeFetch(getApiUrl('products/pending-approval')),
+          safeFetch(getApiUrl('sellers/admin/listing-requests?status=pending_approval&limit=1000'))
         ]);
 
         // Process stats
-        if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
-          try {
-            const data = await statsRes.value.json();
-            console.log('📊 Stats data:', data);
-            setStats(data);
-          } catch (err) {
-            console.error('Error parsing stats:', err);
-            setStats({
-              products: { total: 0, active: 0, inactive: 0 },
-              sellers: { total: 0, verified: 0, pending: 0, approved: 0 },
-              verifications: { pending: 0 },
-              sellerListings: { total: 0 },
-              buyers: { total: 0, active: 0 }
-            });
-          }
+        if (statsData.status === 'fulfilled') {
+          console.log('📊 Stats data:', statsData.value);
+          setStats(statsData.value);
         } else {
-          console.error('Stats request failed:', statsRes.status === 'fulfilled' ? statsRes.value.status : statsRes.reason);
-          setStats({
-            products: { total: 0, active: 0, inactive: 0 },
-            sellers: { total: 0, verified: 0, pending: 0, approved: 0 },
-            verifications: { pending: 0 },
-            sellerListings: { total: 0 },
-            buyers: { total: 0, active: 0 }
-          });
+          console.error('Stats request failed:', statsData.reason);
         }
 
         // Process recent products
-        if (recentRes.status === 'fulfilled' && recentRes.value.ok) {
-          try {
-            const data = await recentRes.value.json();
-            console.log('📦 Recent products:', data.products?.length);
-            setRecentProducts(data.products || []);
-          } catch (err) {
-            console.error('Error parsing recent products:', err);
-          }
-        }
-
-        // Process all products and Amazon's Choice
-        if (allProductsRes.status === 'fulfilled' && allProductsRes.value.ok) {
-          try {
-            const data = await allProductsRes.value.json();
-            console.log('📦 All products:', data.products?.length);
-            setAllProducts(data.products || []);
-            
-            // Calculate categories
-            const categoryCount = {};
-            (data.products || []).forEach(product => {
-              const cat = product.category || 'Uncategorized';
-              categoryCount[cat] = (categoryCount[cat] || 0) + 1;
-            });
-            setCategories(categoryCount);
-            
-            // Filter Amazon's Choice products
-            const amazonProducts = (data.products || []).filter(p => p.isAmazonsChoice);
-            console.log('🏆 Amazon\'s Choice products:', amazonProducts.length);
-            setAmazonsChoice(amazonProducts);
-          } catch (err) {
-            console.error('Error parsing all products:', err);
-          }
+        if (recentData.status === 'fulfilled') {
+          setRecentProducts(recentData.value.products || []);
         }
 
         // Process sellers
-        if (sellersRes.status === 'fulfilled' && sellersRes.value.ok) {
-          try {
-            const data = await sellersRes.value.json();
-            console.log('👥 Sellers:', data.sellers?.length);
-            setSellers(data.sellers || []);
-          } catch (err) {
-            console.error('Error parsing sellers:', err);
-          }
+        if (sellersData.status === 'fulfilled') {
+          setSellers(sellersData.value.sellers || []);
         }
 
         // Process pending approvals
-        if (pendingApprovalsRes.status === 'fulfilled' && pendingApprovalsRes.value.ok) {
-          try {
-            const data = await pendingApprovalsRes.value.json();
-            console.log('✅ Pending approvals:', data.products?.length);
-            setPendingApprovals(data.products?.length || 0);
-          } catch (err) {
-            console.error('Error parsing pending approvals:', err);
-            setPendingApprovals(0);
-          }
-        } else {
-          setPendingApprovals(0);
+        if (pendingApprovalsData.status === 'fulfilled') {
+          setPendingApprovals(pendingApprovalsData.value.products?.length || 0);
         }
 
         // Process pending listing requests
-        if (pendingListingRes.status === 'fulfilled' && pendingListingRes.value.ok) {
-          try {
-            const data = await pendingListingRes.value.json();
-            console.log('📋 Pending listing requests:', data.requests?.length);
-            setPendingListingRequests(data.requests?.length || 0);
-          } catch (err) {
-            console.error('Error parsing pending listing requests:', err);
-            setPendingListingRequests(0);
-          }
-        } else {
-          setPendingListingRequests(0);
+        if (pendingListingData.status === 'fulfilled') {
+          setPendingListingRequests(pendingListingData.value.requests?.length || 0);
         }
+
+        // Fetch all products separately (can be slow, non-blocking)
+        safeFetch(getApiUrl('products/admin/fast')).then(data => {
+          setAllProducts(data.products || []);
+          const categoryCount = {};
+          (data.products || []).forEach(p => {
+            const cat = p.category || 'Uncategorized';
+            categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+          });
+          setCategories(categoryCount);
+          setAmazonsChoice((data.products || []).filter(p => p.isAmazonsChoice));
+        }).catch(err => console.error('Error fetching all products:', err));
 
       } catch (error) {
         console.error('❌ Error fetching dashboard data:', error);
-        // Set default values on error
-        setStats({
-          products: { total: 0, active: 0, inactive: 0 },
-          sellers: { total: 0, verified: 0, pending: 0, approved: 0 },
-          verifications: { pending: 0 },
-          sellerListings: { total: 0 },
-          buyers: { total: 0, active: 0 }
-        });
       } finally {
         setLoading(false);
       }
@@ -667,24 +601,6 @@ const AdminDashboard = () => {
     navigate(`/product/${product._id}?${params.toString()}`);
   };
 
-  if (loading) {
-    return (
-      <div className="loading" style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        gap: '20px'
-      }}>
-        <div className="spinner-border" role="status" style={{width: '3rem', height: '3rem'}}>
-          <span className="visually-hidden">Loading...</span>
-        </div>
-        <div style={{fontSize: '1.2rem', color: '#666'}}>Loading Dashboard...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="admin-dashboard compact">
       <header className="dashboard-header compact">
@@ -729,7 +645,7 @@ const AdminDashboard = () => {
             <div className="stat-icon-enhanced">📦</div>
             <div className="stat-content-enhanced">
               <div className="stat-label-enhanced">Total Products</div>
-              <div className="stat-value-enhanced">{allProducts.length}</div>
+              <div className="stat-value-enhanced">{stats?.products.total || 0}</div>
               <div className="stat-change-enhanced">
                 {stats?.products.active || 0} Active
               </div>
@@ -740,7 +656,7 @@ const AdminDashboard = () => {
             <div className="stat-icon-enhanced">🏆</div>
             <div className="stat-content-enhanced">
               <div className="stat-label-enhanced">Amazon's Choice</div>
-              <div className="stat-value-enhanced">{amazonsChoice.length}</div>
+              <div className="stat-value-enhanced">{stats?.products.amazonsChoice || 0}</div>
               <div className="stat-change-enhanced">Featured</div>
             </div>
           </div>
@@ -782,58 +698,12 @@ const AdminDashboard = () => {
             <div className="stat-icon-enhanced">📂</div>
             <div className="stat-content-enhanced">
               <div className="stat-label-enhanced">Categories</div>
-              <div className="stat-value-enhanced">{Object.keys(categories).length}</div>
+              <div className="stat-value-enhanced">{stats?.categories?.total || Object.keys(categories).length}</div>
               <div className="stat-change-enhanced">Product Types</div>
             </div>
           </div>
         </div>
 
-        <div className="counting-summary">
-          <h3>📊 Product Distribution</h3>
-          <div className="count-grid">
-            <div className="count-item">
-              <span className="count-label">Total in Database:</span>
-              <span className="count-value">{allProducts.length}</span>
-            </div>
-            <div className="count-item">
-              <span className="count-label">Active Products:</span>
-              <span className="count-value green">{allProducts.filter(p => p.status === 'active').length}</span>
-            </div>
-            <div className="count-item">
-              <span className="count-label">Inactive Products:</span>
-              <span className="count-value red">{allProducts.filter(p => p.status === 'inactive').length}</span>
-            </div>
-            <div className="count-item">
-              <span className="count-label">Pending Products:</span>
-              <span className="count-value orange">{allProducts.filter(p => p.status === 'pending').length}</span>
-            </div>
-            <div className="count-item">
-              <span className="count-label">Amazon's Choice:</span>
-              <span className="count-value blue">{amazonsChoice.length}</span>
-            </div>
-
-            <div className="count-item">
-              <span className="count-label">In Stock:</span>
-              <span className="count-value green">{allProducts.filter(p => p.stock > 0).length}</span>
-            </div>
-            <div className="count-item">
-              <span className="count-label">Out of Stock:</span>
-              <span className="count-value red">{allProducts.filter(p => p.stock === 0).length}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="categories-overview">
-        <h2>📂 Categories Overview</h2>
-        <div className="categories-grid">
-          {Object.entries(categories).map(([category, count]) => (
-            <div key={category} className="category-card">
-              <span className="category-name">{category}</span>
-              <span className="category-count">{count} products</span>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="products-management">

@@ -13,7 +13,9 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       activeProducts,
       pendingProducts,
       inactiveProducts,
+      amazonsChoiceCount,
       totalSellers,
+      activeSellers,
       pendingSellers,
       approvedSellers,
       verificationRequired,
@@ -24,13 +26,16 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       activeBuyers,
       inactiveBuyers,
       suspendedBuyers,
-      totalSellerListings
+      totalSellerListings,
+      totalCategories
     ] = await Promise.all([
       Product.countDocuments(),
       Product.countDocuments({ status: 'active' }),
       Product.countDocuments({ status: 'pending' }),
       Product.countDocuments({ status: 'inactive' }),
+      Product.countDocuments({ isAmazonsChoice: true, status: { $in: ['active', 'out_of_stock'] } }),
       Seller.countDocuments(),
+      Seller.countDocuments({ status: 'active' }),
       Seller.countDocuments({ status: 'verification_pending' }),
       Seller.countDocuments({ status: 'verified' }),
       Seller.countDocuments({ verificationStatus: 'required' }),
@@ -41,7 +46,8 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       Buyer.countDocuments({ status: 'active' }),
       Buyer.countDocuments({ status: 'inactive' }),
       Buyer.countDocuments({ status: 'suspended' }),
-      Product.countDocuments({ 'sellers.0': { $exists: true } }) // Count products with at least one seller
+      Product.countDocuments({ 'sellers.0': { $exists: true } }),
+      Product.distinct('category').then(cats => cats.filter(c => c && c.trim()).length)
     ]);
 
     // Count pending payments
@@ -95,10 +101,12 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
         total: totalProducts,
         active: activeProducts,
         pending: pendingProducts,
-        inactive: inactiveProducts
+        inactive: inactiveProducts,
+        amazonsChoice: amazonsChoiceCount
       },
       sellers: {
         total: totalSellers,
+        active: activeSellers,
         pending: pendingSellers,
         approved: approvedSellers,
         verified: approvedSellers // Alias for compatibility
@@ -117,6 +125,9 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       },
       sellerListings: {
         total: totalSellerListings
+      },
+      categories: {
+        total: totalCategories
       },
       pendingPayments: pendingPaymentsCount,
       paymentVerifications: paymentVerificationStats
