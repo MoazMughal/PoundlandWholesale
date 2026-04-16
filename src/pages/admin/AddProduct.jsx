@@ -747,7 +747,17 @@ const AddProduct = () => {
       } else {
         const errorData = await response.json();
         console.error('❌ Server error:', errorData);
-        alert(`❌ Error creating product: ${errorData.message || 'Unknown error'}`);
+        if (response.status === 409) {
+          // ASIN duplicate — scroll to ASIN field and highlight it
+          setAsinError(errorData.message || 'This ASIN already exists.');
+          const asinField = document.querySelector('input[name="asin"], input[placeholder*="ASIN"]');
+          if (asinField) {
+            asinField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            asinField.focus();
+          }
+        } else {
+          alert(`❌ Error creating product: ${errorData.message || 'Unknown error'}`);
+        }
       }
     } catch (error) {
       console.error('❌ Error creating product:', error);

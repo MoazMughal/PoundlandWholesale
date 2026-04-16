@@ -2818,10 +2818,29 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
     if (productData.seller === '' || productData.seller === 'null' || productData.seller === 'undefined') {
       delete productData.seller;
     }
-    
+
+    // Block creation if ASIN already exists (any status including inactive)
+    if (productData.asin && productData.asin.trim()) {
+      const existingByAsin = await Product.findOne({
+        asin: { $regex: new RegExp(`^${productData.asin.trim()}$`, 'i') }
+      }).select('_id name status asin');
+
+      if (existingByAsin) {
+        return res.status(409).json({
+          message: `A product with ASIN "${productData.asin.trim()}" already exists (${existingByAsin.status}): "${existingByAsin.name}". Each ASIN must be unique.`,
+          existingProduct: {
+            id: existingByAsin._id,
+            name: existingByAsin.name,
+            status: existingByAsin.status,
+            asin: existingByAsin.asin
+          }
+        });
+      }
+    }
+
     const product = new Product(productData);
     await product.save();
-    
+
     console.log('✅ Product created successfully:', {
       id: product._id,
       name: product.name,

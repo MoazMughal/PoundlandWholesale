@@ -36,6 +36,9 @@
   font-size: 14px;
   font-weight: 600;
   transition: all 0.3s;
+  white-space: nowrap;
+  min-width: max-content;
+  flex-shrink: 0;
 }
 
 .back-btn {
@@ -510,4 +513,24 @@
     font-size: 11px;
     padding: 6px 12px;
   }
+}
+
+.back-button {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  min-width: max-content;
+  flex-shrink: 0;
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
 }

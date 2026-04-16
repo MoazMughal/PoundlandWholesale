@@ -122,6 +122,9 @@ img[alt*="Product" i] {
   font-weight: 600;
   transition: all 0.2s ease;
   font-size: 0.7rem;
+  white-space: nowrap;
+  min-width: max-content;
+  flex-shrink: 0;
 }
 
 .back-btn:hover {
