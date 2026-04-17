@@ -806,9 +806,25 @@ const AddProduct = () => {
           <div className="form-row">
             <div className="form-group">
               <label>Category *</label>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-                <div style={{ flex: 1 }}>
-                  <select name="category" value={formData.category} onChange={handleChange} required>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 250px', minWidth: '200px' }}>
+                  <select 
+                    name="category" 
+                    value={formData.category} 
+                    onChange={handleChange} 
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      fontSize: '15px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      background: 'white',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      fontWeight: '500'
+                    }}
+                  >
                     <option value="">Select Category</option>
                     {categories.map(cat => (
                       <option key={cat.value} value={cat.label}>{cat.label}</option>
@@ -819,16 +835,20 @@ const AddProduct = () => {
                   type="button"
                   onClick={() => setShowNewCategoryInput(!showNewCategoryInput)}
                   style={{
-                    padding: '10px 15px',
-                    background: '#28a745',
+                    padding: '12px 18px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    fontSize: '0.9rem',
+                    fontSize: '14px',
                     fontWeight: '600',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)',
+                    transition: 'all 0.2s ease'
                   }}
+                  onMouseEnter={(e) => e.target.style.transform = 'translateY(-1px)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
                   title="Add new category"
                 >
                   + New
@@ -837,16 +857,20 @@ const AddProduct = () => {
                   type="button"
                   onClick={() => setShowRenameCategoryInput(!showRenameCategoryInput)}
                   style={{
-                    padding: '10px 15px',
-                    background: '#ffc107',
-                    color: '#212529',
+                    padding: '12px 18px',
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    color: 'white',
                     border: 'none',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    fontSize: '0.9rem',
+                    fontSize: '14px',
                     fontWeight: '600',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.25)',
+                    transition: 'all 0.2s ease'
                   }}
+                  onMouseEnter={(e) => e.target.style.transform = 'translateY(-1px)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
                   title="Rename existing category"
                 >
                   ✏️ Rename
@@ -855,39 +879,49 @@ const AddProduct = () => {
                   type="button"
                   onClick={() => setShowDeleteCategoryInput(!showDeleteCategoryInput)}
                   style={{
-                    padding: '10px 15px',
-                    background: '#dc3545',
+                    padding: '12px 18px',
+                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    fontSize: '0.9rem',
+                    fontSize: '14px',
                     fontWeight: '600',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.25)',
+                    transition: 'all 0.2s ease'
                   }}
+                  onMouseEnter={(e) => e.target.style.transform = 'translateY(-1px)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
                   title="Delete existing category"
                 >
                   🗑️ Delete
                 </button>
-                <button
-                  type="button"
-                  onClick={handleCleanupDuplicates}
-                  style={{
-                    padding: '10px 15px',
-                    background: '#17a2b8',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: '600',
-                    whiteSpace: 'nowrap'
-                  }}
-                  title="Merge duplicate categories automatically"
-                >
-                  🧹 Cleanup
-                </button>
               </div>
+              
+              {/* Show selected category with spacing */}
+              {formData.category && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '12px 16px',
+                  background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                  border: '2px solid #0ea5e9',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <span style={{ fontSize: '20px' }}>📂</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '12px', color: '#0369a1', fontWeight: '600', marginBottom: '2px' }}>
+                      Selected Category
+                    </div>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#075985' }}>
+                      {formData.category}
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {showNewCategoryInput && (
                 <div style={{ 
