@@ -403,13 +403,13 @@ const AddProduct = () => {
       // Auto-calculate dealUnits when platformUnits changes
       if (name === 'platformUnits') {
         const platformUnits = parseInt(value) || 2400;
-        newData.dealUnits = Math.floor(platformUnits / 12);
+        newData.dealUnits = Math.floor(platformUnits / 6);
       }
 
       // When dealUnits is directly edited, back-calculate platformUnits
       if (name === 'dealUnits') {
         const dealUnits = parseInt(value) || 1;
-        newData.platformUnits = dealUnits * 12;
+        newData.platformUnits = dealUnits * 6;
       }
       
       return newData;
@@ -1347,7 +1347,7 @@ const AddProduct = () => {
                 step="12"
                 placeholder="e.g. 2400"
               />
-              <small>Total yearly units. No of Deal Units = this ÷ 12.</small>
+              <small>Total yearly units. No of Deal Units = this ÷ 6.</small>
             </div>
 
             <div className="form-group">
@@ -1356,11 +1356,12 @@ const AddProduct = () => {
                 type="number"
                 name="dealUnits"
                 value={formData.dealUnits}
-                onChange={handleChange}
+                readOnly
+                style={{ backgroundColor: '#e9ecef', cursor: 'not-allowed' }}
                 min="1"
                 placeholder="e.g. 200"
               />
-              <small>Monthly units. Editing this sets Platform Units = this × 12. Currently: {formData.dealUnits} × 12 = {(formData.dealUnits || 1) * 12}</small>
+              <small>Auto-calculated: Platform Units ÷ 6 = {Math.floor((formData.platformUnits || 0) / 6)}</small>
             </div>
           </div>
         </div>

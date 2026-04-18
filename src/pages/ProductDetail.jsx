@@ -1882,7 +1882,7 @@ _This quotation was generated from PoundlandWholesale.com_
               shipping: foundProduct.shipping || 0, // Add shipping field
               rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
               rating: foundProduct.rating || 4.5,
-              dealUnits: foundProduct.dealUnits || Math.floor((foundProduct.platformUnits || 200) / 12),
+              dealUnits: foundProduct.dealUnits || Math.floor((foundProduct.platformUnits || 200) / 6),
               seller: foundProduct.seller,
               sellerInfo: foundProduct.sellerInfo,
               sellers: foundProduct.sellers || [], // Add sellers array for multiple sellers support
@@ -1901,7 +1901,7 @@ _This quotation was generated from PoundlandWholesale.com_
               dealInfo: {
                 location: 'International',
                 flag: '🌍',
-                minOrder: `${foundProduct.dealUnits || Math.floor((foundProduct.platformUnits || 200) / 12)} Unit`,
+                minOrder: `${foundProduct.dealUnits || Math.floor((foundProduct.platformUnits || 200) / 6)} Unit`,
                 condition: 'New'
               },
               specifications: {
@@ -2241,7 +2241,7 @@ _This quotation was generated from PoundlandWholesale.com_
                 shipping: foundProduct.shipping || 0, // Add shipping field
                 rrp: foundProduct.originalPrice ? `₨${foundProduct.originalPrice}` : '?420.99',
                 rating: foundProduct.rating || 4.5,
-                dealUnits: foundProduct.dealUnits || Math.floor((foundProduct.platformUnits || 200) / 12),
+                dealUnits: foundProduct.dealUnits || Math.floor((foundProduct.platformUnits || 200) / 6),
                 seller: foundProduct.seller,
                 sellerInfo: foundProduct.sellerInfo,
                 sellers: foundProduct.sellers || [], // Add sellers array for multiple sellers support
@@ -2260,7 +2260,7 @@ _This quotation was generated from PoundlandWholesale.com_
                 dealInfo: {
                   location: 'International',
                   flag: '🌍',
-                  minOrder: `${foundProduct.dealUnits || Math.floor((foundProduct.platformUnits || 200) / 12)} Unit`,
+                  minOrder: `${foundProduct.dealUnits || Math.floor((foundProduct.platformUnits || 200) / 6)} Unit`,
                   condition: 'New'
                 },
                 specifications: {
@@ -3642,24 +3642,24 @@ _This quotation was generated from PoundlandWholesale.com_
                           </span>
                         </div>
                         <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>📈 Profit/{product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200}:</span>
+                          <span style={{color: '#565959'}}>📈 Profit/{Math.floor((product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200) / 6)}:</span>
                           <span style={{color: '#059669', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
-                            {formatPrice(product.profitCalculations?.yearlyProfit || (safeNumber(product.profitCalculations.profitPerUnit) * (product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200)))}
+                            {formatPrice(safeNumber(product.profitCalculations.profitPerUnit) * Math.floor((product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200) / 6))}
                           </span>
                         </div>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>💰 Total cost/{product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200}:</span>
+                          <span style={{color: '#565959'}}>💰 Total cost/{Math.floor((product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200) / 6)}:</span>
                           <span style={{color: '#B12704', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>{(() => {
-                            const platformUnits = product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200;
+                            const dealUnits = Math.floor((product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200) / 6);
                             // Use profitEvaluation productCost if available, otherwise calculate from price
                             if (product.profitEvaluation?.productCost) {
-                              return formatPrice(product.profitEvaluation.productCost * platformUnits);
+                              return formatPrice(product.profitEvaluation.productCost * dealUnits);
                             }
                             
-                            // Fallback calculation: platformUnits × unit price
+                            // Fallback calculation: dealUnits × unit price
                             const priceString = product.price || '£0';
                             const unitPrice = parseFloat(priceString.replace(/[₨£$€]/g, '').trim()) || 0;
-                            return formatPrice(unitPrice * platformUnits);
+                            return formatPrice(unitPrice * dealUnits);
                           })()}</span>
                         </div>
 

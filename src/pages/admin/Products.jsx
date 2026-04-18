@@ -231,6 +231,13 @@ const AdminProducts = () => {
   const [editingInput, setEditingInput] = useState(null); // Track which input is being edited
   const [inputValues, setInputValues] = useState({}); // Store raw input values during editing
   
+  // Configurable fee rates for Amazon calculations
+  const [feeRates, setFeeRates] = useState({
+    vatRate: 20,        // VAT % applied to commission, digital fee, FBA fee
+    commissionRate: 15, // Amazon referral fee %
+    digitalFeeRate: 2   // UK digital services fee %
+  });
+
   // Auto-fetch profit values states
   const [showAutoFetchModal, setShowAutoFetchModal] = useState(false);
   const [categoryProducts, setCategoryProducts] = useState([]);
@@ -1944,6 +1951,26 @@ const AdminProducts = () => {
     updateFiltersAndUrl({ ...filters, isAmazonsChoice: !filters.isAmazonsChoice });
   };
 
+  // Central auto-calculation: given salePrice + fbaFee, derive all other fee fields
+  const autoCalcFees = (salePrice, fbaFee, rates) => {
+    const sp = parseFloat(salePrice) || 0;
+    const fba = parseFloat(fbaFee) || 0;
+    const vatRate = (parseFloat(rates?.vatRate) || 20) / 100;
+    const commRate = (parseFloat(rates?.commissionRate) || 15) / 100;
+    const digRate = (parseFloat(rates?.digitalFeeRate) || 2) / 100;
+
+    const commission = parseFloat((sp * commRate).toFixed(2));
+    const commissionTax = parseFloat((commission * vatRate).toFixed(2));
+    const digitalServicesFee = parseFloat((sp * digRate).toFixed(2));
+    const digitalServicesTax = parseFloat((digitalServicesFee * vatRate).toFixed(2));
+    const fbaFulfilmentFee = parseFloat(fba.toFixed(2));
+    const fbaFulfilmentTax = parseFloat((fba * vatRate).toFixed(2));
+    const totalFees = commission + commissionTax + digitalServicesFee + digitalServicesTax + fbaFulfilmentFee + fbaFulfilmentTax;
+    const balanceChange = parseFloat((sp - totalFees).toFixed(2));
+
+    return { commission, commissionTax, digitalServicesFee, digitalServicesTax, fbaFulfilmentFee, fbaFulfilmentTax, balanceChange };
+  };
+
   const startProfitEditing = async (product) => {
     try {
       // Always fetch the latest product data to ensure we have up-to-date profit calculations
@@ -2209,7 +2236,7 @@ const AdminProducts = () => {
         currency: 'GBP',
         platformComparison: cleanPlatformComparison,
         platformUnits: parseInt(selectedUnits) || 200,
-        dealUnits: parseInt(selectedUnits) || 200, // dealUnits = same as platformUnits (units per platform)
+        dealUnits: Math.floor((parseInt(selectedUnits) || 200) / 6),
         profitCalculations: cleanProfitCalculations,
         profitEvaluation: cleanProfitEvaluation,
         savings: parseFloat(autoCalculatedSavings.toFixed(2))
@@ -4828,7 +4855,10 @@ const AdminProducts = () => {
                             // Also update the selected units state
                             setSelectedUnits(newUnits);
                             
-                            setProfitEditProduct({ ...profitEditProduct, platformComparison: newPlatforms });
+                            // Auto-calculate dealUnits = units ÷ 6
+                            const autoDealUnits = Math.floor(newUnits / 6);
+                            
+                            setProfitEditProduct({ ...profitEditProduct, platformComparison: newPlatforms, dealUnits: autoDealUnits });
                           }}
                           style={{ 
                             width: '100%', 
@@ -4845,6 +4875,9 @@ const AdminProducts = () => {
                         />
                         <small style={{ color: '#28a745', fontSize: '0.75rem', display: 'block', marginTop: '4px', fontWeight: '600' }}>
                           ✓ Auto-syncs to all platforms
+                        </small>
+                        <small style={{ color: '#6c757d', fontSize: '0.75rem', display: 'block', marginTop: '2px' }}>
+                          Deal Units = {Math.floor((platform.units || 0) / 6)} (Units ÷ 6)
                         </small>
                       </div>
                       <div>
@@ -5126,60 +5159,129 @@ const AdminProducts = () => {
                     📈 Revenue
                   </h4>
                   <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                    Sales Proceeds (£)
-                    <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#007bff', marginLeft: '8px' }}>
-                      (Auto-populated from Amazon Platform RRP/Unit)
+                    Sale Price (£)
+                    <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#28a745', marginLeft: '8px' }}>
+                      ✏️ Enter Amazon sale price — all fees auto-calculate
                     </span>
                   </label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
-                    key={`sales-proceeds-${profitEditProduct.profitEvaluation.salesProceeds}`}
-                    value={safeFormatNumber(profitEditProduct.profitEvaluation.salesProceeds) || ''}
-                    readOnly
+                    value={getInputValue('salesProceeds', profitEditProduct.profitEvaluation.salesProceeds)}
+                    onFocus={() => handleInputFocus('salesProceeds', profitEditProduct.profitEvaluation.salesProceeds)}
+                    onChange={(e) => {
+                      handleInputChange('salesProceeds', e.target.value);
+                      const newSalePrice = safeParseInput(e.target.value);
+                      setProfitEditProduct(prevState => {
+                        const fbaFee = prevState.profitEvaluation.fbaFulfilmentFee || 0;
+                        const calc = autoCalcFees(newSalePrice, fbaFee, feeRates);
+                        const productCost = prevState.profitEvaluation.productCost || 0;
+                        const netProfit = parseFloat((calc.balanceChange - productCost).toFixed(2));
+                        const autoSavings = productCost === 0 ? 0 : ((calc.balanceChange - productCost) / productCost) * 100;
+                        return {
+                          ...prevState,
+                          profitEvaluation: { ...prevState.profitEvaluation, salesProceeds: newSalePrice, ...calc, netProfit },
+                          profitCalculations: { ...prevState.profitCalculations, profitPerUnit: netProfit },
+                          savings: parseFloat(autoSavings.toFixed(2))
+                        };
+                      });
+                    }}
+                    onBlur={() => handleInputBlur('salesProceeds')}
                     style={{
                       width: '100%',
                       padding: '10px',
-                      border: '1px solid #17a2b8',
+                      border: '2px solid #28a745',
                       borderRadius: '6px',
-                      fontSize: '0.9rem',
-                      backgroundColor: '#e7f3ff',
-                      cursor: 'not-allowed',
-                      color: '#0056b3'
+                      fontSize: '1rem',
+                      fontWeight: 'bold',
+                      backgroundColor: '#f0fff4',
+                      color: '#155724'
                     }}
-                    title="This value is automatically populated from Amazon Platform RRP/Unit"
+                    onWheel={(e) => e.target.blur()}
+                    placeholder="0.00"
                   />
-                  
-                  {/* Debug sync button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const rrpPlatform = profitEditProduct.platformComparison?.find(p => p.platform === 'RRP');
-                      if (rrpPlatform) {
-                        console.log('🔧 Manual sync test: RRP Platform has', rrpPlatform.rrpPerUnit, 'Sales Proceeds has', profitEditProduct.profitEvaluation.salesProceeds);
-                        setProfitEditProduct(prevState => ({
-                          ...prevState,
-                          profitEvaluation: {
-                            ...prevState.profitEvaluation,
-                            salesProceeds: rrpPlatform.rrpPerUnit
-                          }
-                        }));
-                      }
-                    }}
-                    style={{
-                      marginTop: '5px',
-                      padding: '5px 10px',
-                      background: '#007bff',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    🔄 Sync from RRP (Debug)
-                  </button>
+
+                  {/* Configurable Rates */}
+                  <div style={{ marginTop: '15px', padding: '12px', background: '#fff3cd', borderRadius: '6px', border: '1px solid #ffc107' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '10px', color: '#856404' }}>
+                      ⚙️ Fee Rates (configurable)
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#856404' }}>Commission %</label>
+                        <input
+                          type="number" step="0.1" min="0" max="100"
+                          value={feeRates.commissionRate}
+                          onChange={(e) => {
+                            const newRates = { ...feeRates, commissionRate: parseFloat(e.target.value) || 0 };
+                            setFeeRates(newRates);
+                            setProfitEditProduct(prevState => {
+                              const sp = prevState.profitEvaluation.salesProceeds || 0;
+                              const fbaFee = prevState.profitEvaluation.fbaFulfilmentFee || 0;
+                              const calc = autoCalcFees(sp, fbaFee, newRates);
+                              const productCost = prevState.profitEvaluation.productCost || 0;
+                              const netProfit = parseFloat((calc.balanceChange - productCost).toFixed(2));
+                              return {
+                                ...prevState,
+                                profitEvaluation: { ...prevState.profitEvaluation, ...calc, netProfit },
+                                profitCalculations: { ...prevState.profitCalculations, profitPerUnit: netProfit }
+                              };
+                            });
+                          }}
+                          style={{ width: '100%', padding: '5px', border: '1px solid #ffc107', borderRadius: '4px', fontSize: '0.85rem' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#856404' }}>Digital Fee %</label>
+                        <input
+                          type="number" step="0.1" min="0" max="100"
+                          value={feeRates.digitalFeeRate}
+                          onChange={(e) => {
+                            const newRates = { ...feeRates, digitalFeeRate: parseFloat(e.target.value) || 0 };
+                            setFeeRates(newRates);
+                            setProfitEditProduct(prevState => {
+                              const sp = prevState.profitEvaluation.salesProceeds || 0;
+                              const fbaFee = prevState.profitEvaluation.fbaFulfilmentFee || 0;
+                              const calc = autoCalcFees(sp, fbaFee, newRates);
+                              const productCost = prevState.profitEvaluation.productCost || 0;
+                              const netProfit = parseFloat((calc.balanceChange - productCost).toFixed(2));
+                              return {
+                                ...prevState,
+                                profitEvaluation: { ...prevState.profitEvaluation, ...calc, netProfit },
+                                profitCalculations: { ...prevState.profitCalculations, profitPerUnit: netProfit }
+                              };
+                            });
+                          }}
+                          style={{ width: '100%', padding: '5px', border: '1px solid #ffc107', borderRadius: '4px', fontSize: '0.85rem' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#856404' }}>VAT %</label>
+                        <input
+                          type="number" step="0.1" min="0" max="100"
+                          value={feeRates.vatRate}
+                          onChange={(e) => {
+                            const newRates = { ...feeRates, vatRate: parseFloat(e.target.value) || 0 };
+                            setFeeRates(newRates);
+                            setProfitEditProduct(prevState => {
+                              const sp = prevState.profitEvaluation.salesProceeds || 0;
+                              const fbaFee = prevState.profitEvaluation.fbaFulfilmentFee || 0;
+                              const calc = autoCalcFees(sp, fbaFee, newRates);
+                              const productCost = prevState.profitEvaluation.productCost || 0;
+                              const netProfit = parseFloat((calc.balanceChange - productCost).toFixed(2));
+                              return {
+                                ...prevState,
+                                profitEvaluation: { ...prevState.profitEvaluation, ...calc, netProfit },
+                                profitCalculations: { ...prevState.profitCalculations, profitPerUnit: netProfit }
+                              };
+                            });
+                          }}
+                          style={{ width: '100%', padding: '5px', border: '1px solid #ffc107', borderRadius: '4px', fontSize: '0.85rem' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Amazon Fees Section */}
@@ -5197,151 +5299,37 @@ const AdminProducts = () => {
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         Commission (£)
-                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
-                          (Amazon referral fee)
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#6c757d', marginLeft: '8px' }}>
+                          (Sale Price × {feeRates.commissionRate}% — auto-calculated)
                         </span>
                       </label>
                       <input
                         type="number"
-                        step="0.01"
-                        min="0"
-                        value={getInputValue('commission', profitEditProduct.profitEvaluation.commission)}
-                        onFocus={() => handleInputFocus('commission', profitEditProduct.profitEvaluation.commission)}
-                        onChange={(e) => {
-                          handleInputChange('commission', e.target.value);
-                          const newValue = safeParseInput(e.target.value);
-                          
-                          setProfitEditProduct(prevState => {
-                            const updatedEvaluation = {
-                              ...prevState.profitEvaluation,
-                              commission: newValue
-                            };
-                            
-                            // Auto-calculate Balance Change
-                            const salesProceeds = updatedEvaluation.salesProceeds || 0;
-                            const commission = Math.abs(newValue);
-                            const commissionTax = Math.abs(updatedEvaluation.commissionTax || 0);
-                            const digitalServicesFee = Math.abs(updatedEvaluation.digitalServicesFee || 0);
-                            const digitalServicesTax = Math.abs(updatedEvaluation.digitalServicesTax || 0);
-                            const fbaFulfilmentFee = Math.abs(updatedEvaluation.fbaFulfilmentFee || 0);
-                            const fbaFulfilmentTax = Math.abs(updatedEvaluation.fbaFulfilmentTax || 0);
-                            
-                            const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
-                            updatedEvaluation.balanceChange = calculatedBalance;
-                            
-                            // Also recalculate Net Profit (Balance Change - Product Cost)
-                            const productCost = updatedEvaluation.productCost || 0;
-                            updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
-                            
-                            console.log(`🧮 Balance Change recalculated (Commission changed): ${calculatedBalance}`);
-                            console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
-                            
-                            // Update profit calculations with new net profit
-                            const updatedProfitCalculations = {
-                              ...prevState.profitCalculations,
-                              profitPerUnit: updatedEvaluation.netProfit
-                            };
-                            
-                            // Calculate auto-savings percentage
-                            const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
-                              ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
-                            
-                            return {
-                              ...prevState,
-                              profitEvaluation: updatedEvaluation,
-                              profitCalculations: updatedProfitCalculations,
-                              savings: parseFloat(autoCalculatedSavings.toFixed(2))
-                            };
-                          });
+                        readOnly
+                        value={safeFormatNumber(profitEditProduct.profitEvaluation.commission)}
+                        style={{
+                          width: '100%', padding: '10px', border: '1px solid #adb5bd',
+                          borderRadius: '6px', fontSize: '0.9rem',
+                          backgroundColor: '#e9ecef', cursor: 'not-allowed', color: '#495057'
                         }}
-                        onBlur={() => handleInputBlur('commission')}
-                        style={{ 
-                          width: '100%', 
-                          padding: '10px', 
-                          border: '1px solid #ddd', 
-                          borderRadius: '6px', 
-                          fontSize: '0.9rem',
-                          MozAppearance: 'textfield',
-                          WebkitAppearance: 'none',
-                          appearance: 'none'
-                        }}
-                        onWheel={(e) => e.target.blur()}
-                        placeholder="0.00"
                       />
                     </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         Commission Tax (£)
-                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
-                          (VAT on commission)
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#6c757d', marginLeft: '8px' }}>
+                          (Commission × {feeRates.vatRate}% VAT — auto-calculated)
                         </span>
                       </label>
                       <input
                         type="number"
-                        step="0.01"
-                        min="0"
-                        value={getInputValue('commissionTax', profitEditProduct.profitEvaluation.commissionTax)}
-                        onFocus={() => handleInputFocus('commissionTax', profitEditProduct.profitEvaluation.commissionTax)}
-                        onChange={(e) => {
-                          handleInputChange('commissionTax', e.target.value);
-                          const newValue = safeParseInput(e.target.value);
-                          
-                          setProfitEditProduct(prevState => {
-                            const updatedEvaluation = {
-                              ...prevState.profitEvaluation,
-                              commissionTax: newValue
-                            };
-                            
-                            // Auto-calculate Balance Change
-                            const salesProceeds = updatedEvaluation.salesProceeds || 0;
-                            const commission = Math.abs(updatedEvaluation.commission || 0);
-                            const commissionTax = Math.abs(newValue);
-                            const digitalServicesFee = Math.abs(updatedEvaluation.digitalServicesFee || 0);
-                            const digitalServicesTax = Math.abs(updatedEvaluation.digitalServicesTax || 0);
-                            const fbaFulfilmentFee = Math.abs(updatedEvaluation.fbaFulfilmentFee || 0);
-                            const fbaFulfilmentTax = Math.abs(updatedEvaluation.fbaFulfilmentTax || 0);
-                            
-                            const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
-                            updatedEvaluation.balanceChange = calculatedBalance;
-                            
-                            // Also recalculate Net Profit (Balance Change - Product Cost)
-                            const productCost = updatedEvaluation.productCost || 0;
-                            updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
-                            
-                            console.log(`🧮 Balance Change recalculated (Commission Tax changed): ${calculatedBalance}`);
-                            console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
-                            
-                            // Update profit calculations with new net profit
-                            const updatedProfitCalculations = {
-                              ...prevState.profitCalculations,
-                              profitPerUnit: updatedEvaluation.netProfit
-                            };
-                            
-                            // Calculate auto-savings percentage
-                            const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
-                              ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
-                            
-                            return {
-                              ...prevState,
-                              profitEvaluation: updatedEvaluation,
-                              profitCalculations: updatedProfitCalculations,
-                              savings: parseFloat(autoCalculatedSavings.toFixed(2))
-                            };
-                          });
+                        readOnly
+                        value={safeFormatNumber(profitEditProduct.profitEvaluation.commissionTax)}
+                        style={{
+                          width: '100%', padding: '10px', border: '1px solid #adb5bd',
+                          borderRadius: '6px', fontSize: '0.9rem',
+                          backgroundColor: '#e9ecef', cursor: 'not-allowed', color: '#495057'
                         }}
-                        onBlur={() => handleInputBlur('commissionTax')}
-                        style={{ 
-                          width: '100%', 
-                          padding: '10px', 
-                          border: '1px solid #ddd', 
-                          borderRadius: '6px', 
-                          fontSize: '0.9rem',
-                          MozAppearance: 'textfield',
-                          WebkitAppearance: 'none',
-                          appearance: 'none'
-                        }}
-                        onWheel={(e) => e.target.blur()}
-                        placeholder="0.00"
                       />
                     </div>
                   </div>
@@ -5356,151 +5344,37 @@ const AdminProducts = () => {
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         Digital Services Fee (£)
-                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
-                          (UK digital services tax)
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#6c757d', marginLeft: '8px' }}>
+                          (Sale Price × {feeRates.digitalFeeRate}% — auto-calculated)
                         </span>
                       </label>
                       <input
                         type="number"
-                        step="0.01"
-                        min="0"
-                        value={getInputValue('digitalServicesFee', profitEditProduct.profitEvaluation.digitalServicesFee)}
-                        onFocus={() => handleInputFocus('digitalServicesFee', profitEditProduct.profitEvaluation.digitalServicesFee)}
-                        onChange={(e) => {
-                          handleInputChange('digitalServicesFee', e.target.value);
-                          const newValue = safeParseInput(e.target.value);
-                          
-                          setProfitEditProduct(prevState => {
-                            const updatedEvaluation = {
-                              ...prevState.profitEvaluation,
-                              digitalServicesFee: newValue
-                            };
-                            
-                            // Auto-calculate Balance Change
-                            const salesProceeds = updatedEvaluation.salesProceeds || 0;
-                            const commission = Math.abs(updatedEvaluation.commission || 0);
-                            const commissionTax = Math.abs(updatedEvaluation.commissionTax || 0);
-                            const digitalServicesFee = Math.abs(newValue);
-                            const digitalServicesTax = Math.abs(updatedEvaluation.digitalServicesTax || 0);
-                            const fbaFulfilmentFee = Math.abs(updatedEvaluation.fbaFulfilmentFee || 0);
-                            const fbaFulfilmentTax = Math.abs(updatedEvaluation.fbaFulfilmentTax || 0);
-                            
-                            const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
-                            updatedEvaluation.balanceChange = calculatedBalance;
-                            
-                            // Also recalculate Net Profit (Balance Change - Product Cost)
-                            const productCost = updatedEvaluation.productCost || 0;
-                            updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
-                            
-                            console.log(`🧮 Balance Change recalculated (Digital Services Fee changed): ${calculatedBalance}`);
-                            console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
-                            
-                            // Update profit calculations with new net profit
-                            const updatedProfitCalculations = {
-                              ...prevState.profitCalculations,
-                              profitPerUnit: updatedEvaluation.netProfit
-                            };
-                            
-                            // Calculate auto-savings percentage
-                            const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
-                              ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
-                            
-                            return {
-                              ...prevState,
-                              profitEvaluation: updatedEvaluation,
-                              profitCalculations: updatedProfitCalculations,
-                              savings: parseFloat(autoCalculatedSavings.toFixed(2))
-                            };
-                          });
+                        readOnly
+                        value={safeFormatNumber(profitEditProduct.profitEvaluation.digitalServicesFee)}
+                        style={{
+                          width: '100%', padding: '10px', border: '1px solid #adb5bd',
+                          borderRadius: '6px', fontSize: '0.9rem',
+                          backgroundColor: '#e9ecef', cursor: 'not-allowed', color: '#495057'
                         }}
-                        onBlur={() => handleInputBlur('digitalServicesFee')}
-                        style={{ 
-                          width: '100%', 
-                          padding: '10px', 
-                          border: '1px solid #ddd', 
-                          borderRadius: '6px', 
-                          fontSize: '0.9rem',
-                          MozAppearance: 'textfield',
-                          WebkitAppearance: 'none',
-                          appearance: 'none'
-                        }}
-                        onWheel={(e) => e.target.blur()}
-                        placeholder="0.00"
                       />
                     </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         Digital Services Tax (£)
-                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
-                          (VAT on digital services)
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#6c757d', marginLeft: '8px' }}>
+                          (Digital Fee × {feeRates.vatRate}% VAT — auto-calculated)
                         </span>
                       </label>
                       <input
                         type="number"
-                        step="0.01"
-                        min="0"
-                        value={getInputValue('digitalServicesTax', profitEditProduct.profitEvaluation.digitalServicesTax)}
-                        onFocus={() => handleInputFocus('digitalServicesTax', profitEditProduct.profitEvaluation.digitalServicesTax)}
-                        onChange={(e) => {
-                          handleInputChange('digitalServicesTax', e.target.value);
-                          const newValue = safeParseInput(e.target.value);
-                          
-                          setProfitEditProduct(prevState => {
-                            const updatedEvaluation = {
-                              ...prevState.profitEvaluation,
-                              digitalServicesTax: newValue
-                            };
-                            
-                            // Auto-calculate Balance Change
-                            const salesProceeds = updatedEvaluation.salesProceeds || 0;
-                            const commission = Math.abs(updatedEvaluation.commission || 0);
-                            const commissionTax = Math.abs(updatedEvaluation.commissionTax || 0);
-                            const digitalServicesFee = Math.abs(updatedEvaluation.digitalServicesFee || 0);
-                            const digitalServicesTax = Math.abs(newValue);
-                            const fbaFulfilmentFee = Math.abs(updatedEvaluation.fbaFulfilmentFee || 0);
-                            const fbaFulfilmentTax = Math.abs(updatedEvaluation.fbaFulfilmentTax || 0);
-                            
-                            const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
-                            updatedEvaluation.balanceChange = calculatedBalance;
-                            
-                            // Also recalculate Net Profit (Balance Change - Product Cost)
-                            const productCost = updatedEvaluation.productCost || 0;
-                            updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
-                            
-                            console.log(`🧮 Balance Change recalculated (Digital Services Tax changed): ${calculatedBalance}`);
-                            console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
-                            
-                            // Update profit calculations with new net profit
-                            const updatedProfitCalculations = {
-                              ...prevState.profitCalculations,
-                              profitPerUnit: updatedEvaluation.netProfit
-                            };
-                            
-                            // Calculate auto-savings percentage
-                            const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
-                              ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
-                            
-                            return {
-                              ...prevState,
-                              profitEvaluation: updatedEvaluation,
-                              profitCalculations: updatedProfitCalculations,
-                              savings: parseFloat(autoCalculatedSavings.toFixed(2))
-                            };
-                          });
+                        readOnly
+                        value={safeFormatNumber(profitEditProduct.profitEvaluation.digitalServicesTax)}
+                        style={{
+                          width: '100%', padding: '10px', border: '1px solid #adb5bd',
+                          borderRadius: '6px', fontSize: '0.9rem',
+                          backgroundColor: '#e9ecef', cursor: 'not-allowed', color: '#495057'
                         }}
-                        onBlur={() => handleInputBlur('digitalServicesTax')}
-                        style={{ 
-                          width: '100%', 
-                          padding: '10px', 
-                          border: '1px solid #ddd', 
-                          borderRadius: '6px', 
-                          fontSize: '0.9rem',
-                          MozAppearance: 'textfield',
-                          WebkitAppearance: 'none',
-                          appearance: 'none'
-                        }}
-                        onWheel={(e) => e.target.blur()}
-                        placeholder="0.00"
                       />
                     </div>
                   </div>
@@ -5514,8 +5388,8 @@ const AdminProducts = () => {
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         FBA Fulfilment Fee (£)
-                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
-                          (Amazon FBA storage & shipping)
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#28a745', marginLeft: '8px' }}>
+                          ✏️ Enter FBA fee — tax auto-calculated
                         </span>
                       </label>
                       <input
@@ -5526,61 +5400,28 @@ const AdminProducts = () => {
                         onFocus={() => handleInputFocus('fbaFulfilmentFee', profitEditProduct.profitEvaluation.fbaFulfilmentFee)}
                         onChange={(e) => {
                           handleInputChange('fbaFulfilmentFee', e.target.value);
-                          const newValue = safeParseInput(e.target.value);
-                          
+                          const newFbaFee = safeParseInput(e.target.value);
                           setProfitEditProduct(prevState => {
-                            const updatedEvaluation = {
-                              ...prevState.profitEvaluation,
-                              fbaFulfilmentFee: newValue
-                            };
-                            
-                            // Auto-calculate Balance Change
-                            const salesProceeds = updatedEvaluation.salesProceeds || 0;
-                            const commission = Math.abs(updatedEvaluation.commission || 0);
-                            const commissionTax = Math.abs(updatedEvaluation.commissionTax || 0);
-                            const digitalServicesFee = Math.abs(updatedEvaluation.digitalServicesFee || 0);
-                            const digitalServicesTax = Math.abs(updatedEvaluation.digitalServicesTax || 0);
-                            const fbaFulfilmentFee = Math.abs(newValue);
-                            const fbaFulfilmentTax = Math.abs(updatedEvaluation.fbaFulfilmentTax || 0);
-                            
-                            const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
-                            updatedEvaluation.balanceChange = calculatedBalance;
-                            
-                            // Also recalculate Net Profit (Balance Change - Product Cost)
-                            const productCost = updatedEvaluation.productCost || 0;
-                            updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
-                            
-                            console.log(`🧮 Balance Change recalculated (FBA Fulfilment Fee changed): ${calculatedBalance}`);
-                            console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
-                            
-                            // Update profit calculations with new net profit
-                            const updatedProfitCalculations = {
-                              ...prevState.profitCalculations,
-                              profitPerUnit: updatedEvaluation.netProfit
-                            };
-                            
-                            // Calculate auto-savings percentage
-                            const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
-                              ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
-                            
+                            const sp = prevState.profitEvaluation.salesProceeds || 0;
+                            const calc = autoCalcFees(sp, newFbaFee, feeRates);
+                            const productCost = prevState.profitEvaluation.productCost || 0;
+                            const netProfit = parseFloat((calc.balanceChange - productCost).toFixed(2));
+                            const autoSavings = productCost === 0 ? 0 : ((calc.balanceChange - productCost) / productCost) * 100;
                             return {
                               ...prevState,
-                              profitEvaluation: updatedEvaluation,
-                              profitCalculations: updatedProfitCalculations,
-                              savings: parseFloat(autoCalculatedSavings.toFixed(2))
+                              profitEvaluation: { ...prevState.profitEvaluation, ...calc, netProfit },
+                              profitCalculations: { ...prevState.profitCalculations, profitPerUnit: netProfit },
+                              savings: parseFloat(autoSavings.toFixed(2))
                             };
                           });
                         }}
                         onBlur={() => handleInputBlur('fbaFulfilmentFee')}
-                        style={{ 
-                          width: '100%', 
-                          padding: '10px', 
-                          border: '1px solid #ddd', 
-                          borderRadius: '6px', 
-                          fontSize: '0.9rem',
-                          MozAppearance: 'textfield',
-                          WebkitAppearance: 'none',
-                          appearance: 'none'
+                        style={{
+                          width: '100%', padding: '10px',
+                          border: '2px solid #28a745', borderRadius: '6px',
+                          fontSize: '1rem', fontWeight: 'bold',
+                          backgroundColor: '#f0fff4', color: '#155724',
+                          MozAppearance: 'textfield', WebkitAppearance: 'none', appearance: 'none'
                         }}
                         onWheel={(e) => e.target.blur()}
                         placeholder="0.00"
@@ -5589,76 +5430,19 @@ const AdminProducts = () => {
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         FBA Fulfilment Tax (£)
-                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>
-                          (VAT on FBA fees)
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#6c757d', marginLeft: '8px' }}>
+                          (FBA Fee × {feeRates.vatRate}% VAT — auto-calculated)
                         </span>
                       </label>
                       <input
                         type="number"
-                        step="0.01"
-                        min="0"
-                        value={getInputValue('fbaFulfilmentTax', profitEditProduct.profitEvaluation.fbaFulfilmentTax)}
-                        onFocus={() => handleInputFocus('fbaFulfilmentTax', profitEditProduct.profitEvaluation.fbaFulfilmentTax)}
-                        onChange={(e) => {
-                          handleInputChange('fbaFulfilmentTax', e.target.value);
-                          const newValue = safeParseInput(e.target.value);
-                          
-                          setProfitEditProduct(prevState => {
-                            const updatedEvaluation = {
-                              ...prevState.profitEvaluation,
-                              fbaFulfilmentTax: newValue
-                            };
-                            
-                            // Auto-calculate Balance Change
-                            const salesProceeds = updatedEvaluation.salesProceeds || 0;
-                            const commission = Math.abs(updatedEvaluation.commission || 0);
-                            const commissionTax = Math.abs(updatedEvaluation.commissionTax || 0);
-                            const digitalServicesFee = Math.abs(updatedEvaluation.digitalServicesFee || 0);
-                            const digitalServicesTax = Math.abs(updatedEvaluation.digitalServicesTax || 0);
-                            const fbaFulfilmentFee = Math.abs(updatedEvaluation.fbaFulfilmentFee || 0);
-                            const fbaFulfilmentTax = Math.abs(newValue);
-                            
-                            const calculatedBalance = salesProceeds - commission - commissionTax - digitalServicesFee - digitalServicesTax - fbaFulfilmentFee - fbaFulfilmentTax;
-                            updatedEvaluation.balanceChange = calculatedBalance;
-                            
-                            // Also recalculate Net Profit (Balance Change - Product Cost)
-                            const productCost = updatedEvaluation.productCost || 0;
-                            updatedEvaluation.netProfit = parseFloat((calculatedBalance - productCost).toFixed(2));
-                            
-                            console.log(`🧮 Balance Change recalculated (FBA Fulfilment Tax changed): ${calculatedBalance}`);
-                            console.log(`🧮 Net Profit recalculated: ${calculatedBalance} - ${productCost} = ${updatedEvaluation.netProfit}`);
-                            
-                            // Update profit calculations with new net profit
-                            const updatedProfitCalculations = {
-                              ...prevState.profitCalculations,
-                              profitPerUnit: updatedEvaluation.netProfit
-                            };
-                            
-                            // Calculate auto-savings percentage
-                            const autoCalculatedSavings = updatedEvaluation.productCost === 0 ? 0 : 
-                              ((updatedEvaluation.balanceChange - updatedEvaluation.productCost) / updatedEvaluation.productCost) * 100;
-                            
-                            return {
-                              ...prevState,
-                              profitEvaluation: updatedEvaluation,
-                              profitCalculations: updatedProfitCalculations,
-                              savings: parseFloat(autoCalculatedSavings.toFixed(2))
-                            };
-                          });
+                        readOnly
+                        value={safeFormatNumber(profitEditProduct.profitEvaluation.fbaFulfilmentTax)}
+                        style={{
+                          width: '100%', padding: '10px', border: '1px solid #adb5bd',
+                          borderRadius: '6px', fontSize: '0.9rem',
+                          backgroundColor: '#e9ecef', cursor: 'not-allowed', color: '#495057'
                         }}
-                        onBlur={() => handleInputBlur('fbaFulfilmentTax')}
-                        style={{ 
-                          width: '100%', 
-                          padding: '10px', 
-                          border: '1px solid #ddd', 
-                          borderRadius: '6px', 
-                          fontSize: '0.9rem',
-                          MozAppearance: 'textfield',
-                          WebkitAppearance: 'none',
-                          appearance: 'none'
-                        }}
-                        onWheel={(e) => e.target.blur()}
-                        placeholder="0.00"
                       />
                     </div>
                   </div>
