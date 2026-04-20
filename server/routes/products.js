@@ -1958,6 +1958,7 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
               platformComparison: 1,
               showEvaluation: 1,
               asin: 1,
+              sku: 1,
               variations: 1,
               sellers: 1
             }
@@ -2364,6 +2365,196 @@ router.get('/admin/search-logs', authenticateAdmin, async (req, res) => {
       .lean();
 
     const totalSearches = await SearchLog.countDocuments();
+
+    res.json({ success: true, topQueries, recent, totalSearches });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// ─── Site Visit Tracking ───────────────────────────────────────────────────
+
+// Public: log a site visit (called on app load)
+router.post('/public/site-visit', async (req, res) => {
+  try {
+    const SiteVisit = (await import('../models/SiteVisit.js')).default;
+    const { visitorType = 'guest', visitorId, visitorName, visitorEmail, page: pg } = req.body;
+
+    // Dedup: same visitor within 1 hour = skip (one record per visitor per hour)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const validId = visitorId && mongoose.Types.ObjectId.isValid(visitorId);
+    const dupQ = validId
+      ? { visitorId, page: pg || '/', visitedAt: { $gte: oneHourAgo } }
+      : { visitorName: visitorName || 'Guest', visitorEmail: visitorEmail || '', page: pg || '/', visitedAt: { $gte: oneHourAgo } };
+
+    const already = await SiteVisit.findOne(dupQ).lean();
+    if (already) return res.json({ success: true, skipped: true });
+
+    await SiteVisit.create({
+      visitorType,
+      visitorId: validId ? visitorId : null,
+      visitorName: visitorName || 'Guest',
+      visitorEmail: visitorEmail || '',
+      page: pg || '/',
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: get site visitor analytics
+router.get('/admin/site-visits', authenticateAdmin, async (req, res) => {
+  try {
+    const SiteVisit = (await import('../models/SiteVisit.js')).default;
+    const { days = 30, type } = req.query;
+
+    const since = new Date(Date.now() - parseInt(days) * 24 * 60 * 60 * 1000);
+
+    // Always exclude admin routes from all queries
+    const adminExclude = { page: { $not: /^\/admin/ } };
+
+    const baseMatch = { visitedAt: { $gte: since }, ...adminExclude };
+    if (type && type !== 'all') baseMatch.visitorType = type;
+
+    // Total visits (non-admin pages only)
+    const totalVisits = await SiteVisit.countDocuments(baseMatch);
+
+    // Visitors by type (non-admin)
+    const byType = await SiteVisit.aggregate([
+      { $match: { visitedAt: { $gte: since }, ...adminExclude } },
+      { $group: { _id: '$visitorType', count: { $sum: 1 } } }
+    ]);
+
+    // Daily visits
+    const daily = await SiteVisit.aggregate([
+      { $match: baseMatch },
+      { $group: {
+        _id: { $dateToString: { format: '%Y-%m-%d', date: '$visitedAt' } },
+        count: { $sum: 1 },
+        buyers:  { $sum: { $cond: [{ $eq: ['$visitorType', 'buyer']  }, 1, 0] } },
+        sellers: { $sum: { $cond: [{ $eq: ['$visitorType', 'seller'] }, 1, 0] } },
+        guests:  { $sum: { $cond: [{ $eq: ['$visitorType', 'guest']  }, 1, 0] } }
+      }},
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Top pages with per-type breakdown (non-admin only)
+    const topPages = await SiteVisit.aggregate([
+      { $match: { visitedAt: { $gte: since }, ...adminExclude } },
+      { $group: {
+        _id: '$page',
+        total:   { $sum: 1 },
+        buyers:  { $sum: { $cond: [{ $eq: ['$visitorType', 'buyer']  }, 1, 0] } },
+        sellers: { $sum: { $cond: [{ $eq: ['$visitorType', 'seller'] }, 1, 0] } },
+        guests:  { $sum: { $cond: [{ $eq: ['$visitorType', 'guest']  }, 1, 0] } }
+      }},
+      { $sort: { total: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Recent visitors (non-admin)
+    const recent = await SiteVisit.find(baseMatch)
+      .sort({ visitedAt: -1 })
+      .limit(50)
+      .select('visitorType visitorName visitorEmail page visitedAt')
+      .lean();
+
+    res.json({ success: true, totalVisits, byType, daily, topPages, recent });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin: product-views with user-type filter
+router.get('/admin/product-views-filtered', authenticateAdmin, async (req, res) => {
+  try {
+    const { limit = 100, viewerType } = req.query;
+    const ProductView = (await import('../models/ProductView.js')).default;
+
+    // Build match for viewer type filter
+    const viewerMatch = {};
+    if (viewerType && viewerType !== 'all') viewerMatch.viewerType = viewerType;
+
+    // Get products that have views matching the filter
+    const viewAgg = await ProductView.aggregate([
+      ...(viewerType && viewerType !== 'all' ? [{ $match: { viewerType } }] : []),
+      { $group: { _id: '$productId', filteredCount: { $sum: 1 } } },
+      { $sort: { filteredCount: -1 } },
+      { $limit: parseInt(limit) }
+    ]);
+
+    const productIds = viewAgg.map(v => v._id);
+    const countMap = Object.fromEntries(viewAgg.map(v => [v._id.toString(), v.filteredCount]));
+
+    const products = await Product.find({ _id: { $in: productIds } })
+      .select('name category viewCount images price status')
+      .lean();
+
+    // Get viewer records for these products (filtered by type)
+    const viewRecords = await ProductView.find({
+      productId: { $in: productIds },
+      ...(viewerType && viewerType !== 'all' ? { viewerType } : {})
+    })
+      .sort({ viewedAt: -1 })
+      .select('productId buyerName buyerEmail viewerType viewedAt')
+      .lean();
+
+    const viewsByProduct = {};
+    for (const v of viewRecords) {
+      const key = v.productId.toString();
+      if (!viewsByProduct[key]) viewsByProduct[key] = [];
+      if (viewsByProduct[key].length < 20) viewsByProduct[key].push(v);
+    }
+
+    const result = products
+      .map(p => ({
+        ...p,
+        viewCount: countMap[p._id.toString()] || 0,
+        viewers: viewsByProduct[p._id.toString()] || []
+      }))
+      .sort((a, b) => b.viewCount - a.viewCount);
+
+    const totalViews = result.reduce((s, p) => s + p.viewCount, 0);
+    res.json({ success: true, products: result, totalViews });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin: search-logs with user-type filter
+router.get('/admin/search-logs-filtered', authenticateAdmin, async (req, res) => {
+  try {
+    const { limit = 200, viewerType } = req.query;
+    const SearchLog = (await import('../models/SearchLog.js')).default;
+
+    const match = {};
+    if (viewerType === 'buyer')  { match.page = { $ne: 'seller-products' }; match.buyerName = { $ne: 'Guest' }; }
+    if (viewerType === 'seller') match.page = 'seller-products';
+    if (viewerType === 'guest')  match.buyerName = 'Guest';
+
+    const topQueries = await SearchLog.aggregate([
+      ...(Object.keys(match).length ? [{ $match: match }] : []),
+      { $group: {
+        _id: '$query',
+        count: { $sum: 1 },
+        avgResults: { $avg: '$resultsCount' },
+        lastSearched: { $max: '$searchedAt' },
+        users: { $addToSet: { name: '$buyerName', email: '$buyerEmail', page: '$page' } }
+      }},
+      { $sort: { count: -1 } },
+      { $limit: parseInt(limit) }
+    ]);
+
+    const recent = await SearchLog.find(match)
+      .sort({ searchedAt: -1 })
+      .limit(50)
+      .select('query buyerName buyerEmail resultsCount searchedAt page')
+      .lean();
+
+    const totalSearches = await SearchLog.countDocuments(match);
 
     res.json({ success: true, topQueries, recent, totalSearches });
   } catch (error) {

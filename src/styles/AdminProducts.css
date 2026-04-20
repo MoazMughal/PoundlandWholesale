@@ -24,50 +24,39 @@ img[alt*="Product" i] {
   max-width: 1600px;
   margin: 0 auto;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  min-height: 100vh;
-  overflow: visible !important;
+  /* NO min-height, NO overflow — layout handled by flex chain */
 }
 
 .admin-products.admin-products-page {
-  overflow: visible !important;
-  height: auto !important;
-  min-height: auto !important;
-  max-height: none !important;
+  /* NO overflow, NO height — controlled by JSX inline styles */
 }
 
 .products-table-container {
-  overflow: visible !important;
-  height: auto !important;
-  max-height: none !important;
+  /* NO overflow here — .products-table is the scroll container */
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  width: 100%;
 }
 
-/* Desktop: products-table is the scroll container */
+/* THE scroll container */
 .products-table {
   background: white;
   border-radius: 12px;
-  overflow-x: auto !important;
-  overflow-y: visible !important;
-  -webkit-overflow-scrolling: touch !important;
   box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-  height: auto !important;
-  max-height: none !important;
-  display: block !important;
 }
 
 .products-table table {
   width: 100%;
   min-width: 1200px;
   border-collapse: collapse;
-  table-layout: auto !important;
+  table-layout: auto;
 }
 
 .products-table tbody tr {
-  height: auto !important;
+  height: auto;
   min-height: 40px;
-  display: table-row !important;
+  display: table-row;
 }
 
 .products-table td {
@@ -76,8 +65,6 @@ img[alt*="Product" i] {
   vertical-align: middle;
   transition: background 0.2s ease;
   font-size: 0.75rem;
-  overflow: visible !important;
-  display: table-cell !important;
   white-space: nowrap;
 }
 
@@ -91,13 +78,10 @@ img[alt*="Product" i] {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
   white-space: nowrap;
 }
 
-/* Mobile cards — hidden by default, shown only on mobile via media query */
+/* Mobile cards — always hidden */
 .mobile-product-cards {
   display: none !important;
 }

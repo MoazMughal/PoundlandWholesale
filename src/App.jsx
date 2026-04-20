@@ -110,17 +110,11 @@ const PageLoader = () => (
 function App() {
   // Initialize auth session manager - handles auto-logout on browser close
   useEffect(() => {
-    // Auth session manager is already initialized as singleton
-    // It will automatically:
-    // 1. Clear auth on fresh browser session
-    // 2. Monitor user activity
-    // 3. Auto-logout after 24 hours of inactivity
-    // 4. Clear sessions when browser closes
+    return () => {};
+  }, []);
 
-    // Cleanup on unmount
-    return () => {
-      // Session manager will persist across component remounts
-    };
+  useEffect(() => {
+    return () => {};
   }, []);
   
   return (
@@ -130,7 +124,7 @@ function App() {
           <SellerProvider>
             <AdminProvider>
             <Router>
-        <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', margin: 0, padding: 0, overflowX: 'hidden' }}>
+        <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', margin: 0, padding: 0, overflowX: 'clip' }}>
           <ScrollToTopOnRouteChange />
           <MobileHeader />
           <main style={{ flex: '1 0 auto', margin: 0, padding: 0 }}>

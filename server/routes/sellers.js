@@ -2086,22 +2086,51 @@ router.post('/quotation', async (req, res) => {
 router.get('/admin/quotations', authenticateAdmin, async (req, res) => {
   try {
     const Quotation = (await import('../models/Quotation.js')).default;
-    const { page = 1, limit = 50, status, sellerId } = req.query;
+    const { page = 1, limit = 50, status, sellerId, senderType } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const query = {};
     if (status) query.status = status;
     if (sellerId) query.sellerId = sellerId;
 
+    // senderType filter: handle old records that have no senderType field
+    // A record is a "buyer" if senderType='buyer' OR (senderType missing AND buyerName is not 'Guest' and not empty)
+    // A record is a "guest" if senderType='guest' OR (senderType missing AND buyerName is 'Guest' or empty)
+    if (senderType === 'buyer') {
+      query.$or = [
+        { senderType: 'buyer' },
+        { senderType: { $exists: false }, buyerName: { $nin: ['Guest', '', null] } },
+        { senderType: null, buyerName: { $nin: ['Guest', '', null] } }
+      ];
+    } else if (senderType === 'guest') {
+      query.$or = [
+        { senderType: 'guest' },
+        { senderType: { $exists: false }, buyerName: { $in: ['Guest', '', null] } },
+        { senderType: null, buyerName: { $in: ['Guest', '', null] } }
+      ];
+    }
+
     const [quotations, total] = await Promise.all([
       Quotation.find(query).sort({ submittedAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
       Quotation.countDocuments(query)
     ]);
 
-    // Stats
+    // Status stats (respects senderType filter)
     const stats = await Quotation.aggregate([
+      ...(Object.keys(query).length ? [{ $match: query }] : []),
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
+
+    // Sender type counts — treat missing senderType by buyerName
+    const allDocs = await Quotation.find({}).select('senderType buyerName').lean();
+    const buyerCount = allDocs.filter(d =>
+      d.senderType === 'buyer' ||
+      (!d.senderType && d.buyerName && d.buyerName !== 'Guest')
+    ).length;
+    const guestCount = allDocs.filter(d =>
+      d.senderType === 'guest' ||
+      (!d.senderType && (!d.buyerName || d.buyerName === 'Guest'))
+    ).length;
 
     res.json({
       success: true,
@@ -2109,7 +2138,8 @@ router.get('/admin/quotations', authenticateAdmin, async (req, res) => {
       total,
       totalPages: Math.ceil(total / parseInt(limit)),
       currentPage: parseInt(page),
-      stats: stats.reduce((acc, s) => { acc[s._id] = s.count; return acc; }, {})
+      stats: stats.reduce((acc, s) => { acc[s._id] = s.count; return acc; }, {}),
+      senderStats: { buyer: buyerCount, guest: guestCount }
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

@@ -10,6 +10,7 @@ const quotationSchema = new mongoose.Schema({
   buyerName: { type: String },
   buyerEmail: { type: String },
   buyerPhone: { type: String },
+  senderType: { type: String, enum: ['buyer', 'guest'], default: 'guest' },
   quantity: { type: Number, default: 1 },
   sellerPrice: { type: Number },
   message: { type: String },

@@ -70,6 +70,46 @@ const AmazonsChoice = () => {
     clearAuthOnPublicAccess()
   }, [])
 
+  // Track visit to home/AmazonsChoice page (guests, buyers, sellers — not admins)
+  useEffect(() => {
+    // Skip if admin is logged in
+    if (localStorage.getItem('adminToken')) return;
+
+    let visitorType = 'guest';
+    let visitorId = null;
+    let visitorName = 'Guest';
+    let visitorEmail = '';
+
+    const buyerToken = localStorage.getItem('buyerToken');
+    const sellerToken = localStorage.getItem('sellerToken');
+    const buyerRaw = localStorage.getItem('buyerData') || localStorage.getItem('buyer');
+    const sellerRaw = localStorage.getItem('sellerData') || localStorage.getItem('seller');
+
+    if (buyerToken && buyerRaw) {
+      try {
+        const b = JSON.parse(buyerRaw);
+        visitorType = 'buyer';
+        visitorId = b._id || b.id || null;
+        visitorName = `${b.firstName || ''} ${b.lastName || ''}`.trim() || b.username || b.name || 'Buyer';
+        visitorEmail = b.email || '';
+      } catch {}
+    } else if (sellerToken && sellerRaw) {
+      try {
+        const s = JSON.parse(sellerRaw);
+        visitorType = 'seller';
+        visitorId = s._id || s.id || null;
+        visitorName = s.businessName || s.username || s.name || 'Seller';
+        visitorEmail = s.email || '';
+      } catch {}
+    }
+
+    fetch(getApiUrl('products/public/site-visit'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ visitorType, visitorId, visitorName, visitorEmail, page: '/' })
+    }).catch(() => {});
+  }, []);
+
   // Critical mobile fixes for Amazon Choice page
   useEffect(() => {
     const style = document.createElement('style')
@@ -884,6 +924,7 @@ const AmazonsChoice = () => {
               platformUnits: p.platformUnits, // Also include platformUnits for debugging
               currency: 'GBP',
               isAmazonsChoice: true,
+              sku: p.sku || '',
               // Include profit data from database
               profitCalculations: p.profitCalculations || null,
               evaluation: p.evaluation || null,
@@ -978,6 +1019,7 @@ const AmazonsChoice = () => {
                   platformUnits: p.platformUnits,
                   currency: 'GBP',
                   isAmazonsChoice: true,
+                  sku: p.sku || '',
                   profitCalculations: p.profitCalculations || null,
                   evaluation: p.evaluation || null,
                   profitEvaluation: p.profitEvaluation || null
@@ -1975,7 +2017,7 @@ const AmazonsChoice = () => {
               </h1>
               <p style={{
                 margin: 0,
-                fontSize: windowWidth < 576 ? '0.65rem' : '0.7rem',
+                fontSize: windowWidth < 576 ? '0.55rem' : '0.6rem',
                 color: '#666',
                 lineHeight: '1.2',
                 fontWeight: '400'
@@ -2003,7 +2045,7 @@ const AmazonsChoice = () => {
                 PoundlandWholesale
               </h1>
               <span style={{
-                fontSize: '0.7rem',
+                fontSize: '0.6rem',
                 color: '#666',
                 fontWeight: '400',
                 whiteSpace: 'nowrap'
@@ -2095,7 +2137,7 @@ const AmazonsChoice = () => {
             <div style={{ width: '1px', height: '20px', background: '#e1e5e9', margin: '0 4px' }} />
 
             {/* Per-page selector */}
-            <span style={{ fontSize: '0.85rem', color: '#555', fontWeight: '500' }}>Show:</span>
+            <span style={{ fontSize: '0.75rem', color: '#555', fontWeight: '500' }}>Show:</span>
             {[100, 200, 300, 400, 500].map(n => (
               <button
                 key={n}
@@ -2105,8 +2147,8 @@ const AmazonsChoice = () => {
                   setLastFetchKey('')
                 }}
                 style={{
-                  padding: '3px 10px', fontSize: '0.8rem', fontWeight: '600',
-                  border: '1px solid #e1e5e9', borderRadius: '6px', cursor: 'pointer',
+                  padding: '2px 7px', fontSize: '0.7rem', fontWeight: '600',
+                  border: '1px solid #e1e5e9', borderRadius: '5px', cursor: 'pointer',
                   background: productsPerPage === n ? '#ff6600' : 'white',
                   color: productsPerPage === n ? 'white' : '#374151'
                 }}
@@ -2403,7 +2445,29 @@ const AmazonsChoice = () => {
                 >
                   {product.name}
                 </h5>
-                
+
+                {/* SKU Badge */}
+                {product.sku && (
+                  <div style={{
+                    display: 'inline-block',
+                    fontSize: '9px',
+                    fontWeight: '600',
+                    color: '#6b7280',
+                    background: '#f3f4f6',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '3px',
+                    padding: '1px 5px',
+                    marginBottom: '2px',
+                    letterSpacing: '0.3px',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    SKU: {product.sku}
+                  </div>
+                )}
+
                 {/* Product Variations Display */}
                 {product.variations && product.variations.length > 0 && (
                   <div style={{ marginTop: '0px', marginBottom: '0px' }}>

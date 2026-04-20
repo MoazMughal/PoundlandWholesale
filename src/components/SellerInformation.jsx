@@ -24,6 +24,8 @@ const SellerInformation = ({
   const [showAllSellers, setShowAllSellers] = useState(false);
   const [sellerQty, setSellerQty] = useState({});
   const [sending, setSending] = useState({});
+  // Guest quotation form state
+  const [guestForm, setGuestForm] = useState({}); // { [sellerId]: { name, phone, email, show } }
 
   const handleUpdatePrice = async () => {
     if (!newPrice || newPrice <= 0) return;
@@ -61,12 +63,41 @@ const SellerInformation = ({
   const handleContactSupplier = async (se) => {
     const sid = se.sellerId || se._id;
 
-    // Get buyer info from logged-in buyer profile
-    const buyerName = buyer
-      ? `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim()
-      : 'Guest';
-    const buyerPhone = buyer?.whatsappNo || buyer?.phone || '';
+    // If not logged in as buyer, show guest form instead
+    if (!isBuyerLoggedIn) {
+      setGuestForm(prev => ({ ...prev, [sid]: { name: '', phone: '', email: '', show: true } }));
+      return;
+    }
 
+    await submitQuotation(se, {
+      buyerName: `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || buyer.name || 'Buyer',
+      buyerPhone: buyer?.whatsappNo || buyer?.phone || '',
+      buyerEmail: buyer?.email || '',
+      buyerId: buyer?._id || buyer?.id || null,
+      senderType: 'buyer'
+    });
+  };
+
+  const handleGuestSubmit = async (se) => {
+    const sid = se.sellerId || se._id;
+    const form = guestForm[sid] || {};
+    if (!form.name?.trim()) { alert('Please enter your name.'); return; }
+    if (!form.phone?.trim()) { alert('Please enter your phone/WhatsApp number.'); return; }
+
+    await submitQuotation(se, {
+      buyerName: form.name.trim(),
+      buyerPhone: form.phone.trim(),
+      buyerEmail: form.email?.trim() || '',
+      buyerId: null,
+      senderType: 'guest'
+    });
+
+    // Hide form after submit
+    setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], show: false } }));
+  };
+
+  const submitQuotation = async (se, senderInfo) => {
+    const sid = se.sellerId || se._id;
     setSending(prev => ({ ...prev, [sid]: true }));
 
     const mainPrice = parseFloat(String(product.price || '0').replace(/[£₨$€]/g, '')) || 0;
@@ -86,19 +117,21 @@ const SellerInformation = ({
           sellerId: sid,
           sellerUsername: se.username,
           sellerWhatsapp: se.whatsappNo,
-          buyerName,
-          buyerEmail: buyer?.email || '',
-          buyerPhone,
+          buyerName: senderInfo.buyerName,
+          buyerEmail: senderInfo.buyerEmail,
+          buyerPhone: senderInfo.buyerPhone,
+          buyerId: senderInfo.buyerId,
+          senderType: senderInfo.senderType,
           quantity: qty,
           sellerPrice: sp,
-          message: `Buyer contacted via WhatsApp. Qty: ${qty}, Total: ${formatPrice(total)}`
+          message: `${senderInfo.senderType === 'guest' ? 'Guest' : 'Buyer'} contacted via WhatsApp. Qty: ${qty}, Total: ${formatPrice(total)}`
         })
       });
     } catch (err) {
       console.error('Failed to save quotation:', err);
     }
 
-    // Build WhatsApp message with buyer info
+    // Build WhatsApp message
     const msg = [
       `Hi ${se.username},`,
       ``,
@@ -108,10 +141,10 @@ const SellerInformation = ({
       `💰 Price/unit: ${formatPrice(sp)}${showShipping ? ` + ${formatPrice(ss)} shipping` : ''}`,
       `💵 Total: ${formatPrice(total)}`,
       ``,
-      `👤 Buyer Info:`,
-      `Name: ${buyerName}`,
-      ...(buyerPhone ? [`Phone/WhatsApp: ${buyerPhone}`] : []),
-      ...(buyer?.email ? [`Email: ${buyer.email}`] : []),
+      `👤 ${senderInfo.senderType === 'guest' ? 'Guest' : 'Buyer'} Info:`,
+      `Name: ${senderInfo.buyerName}`,
+      ...(senderInfo.buyerPhone ? [`Phone/WhatsApp: ${senderInfo.buyerPhone}`] : []),
+      ...(senderInfo.buyerEmail ? [`Email: ${senderInfo.buyerEmail}`] : []),
       ``,
       `Please confirm availability.`
     ].join('\n');
@@ -308,8 +341,8 @@ const SellerInformation = ({
 
               {/* Buyer actions — only for buyers */}
               {!isMine && isBuyer && (
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  {isBuyerLoggedIn ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', gap: '6px' }}>
                     <a
                       href="#"
                       onClick={e => { e.preventDefault(); handleContactSupplier(se); }}
@@ -324,39 +357,67 @@ const SellerInformation = ({
                         ? <><i className="fas fa-spinner fa-spin"></i><span>Sending...</span></>
                         : <>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                              <i className="fab fa-whatsapp" style={{ fontSize: '0.85rem' }}></i> Contact Supplier
+                              <i className="fab fa-whatsapp" style={{ fontSize: '0.85rem' }}></i>
+                              {isBuyerLoggedIn ? 'Contact Supplier' : 'Contact as Guest'}
                             </span>
                             <span style={{ opacity: 0.9, fontSize: '0.6rem', whiteSpace: 'nowrap' }}>{maskPhone(se.whatsappNo)}</span>
                           </>}
                     </a>
-                  ) : (
-                    <button
-                      onClick={() => navigate('/login/buyer', { state: { returnTo: window.location.pathname + window.location.search } })}
-                      title="Login as buyer to contact supplier"
+                    <button onClick={() => addToBasket({ ...product, selectedSeller: se })}
+                      className="seller-add-to-cart-btn"
                       style={{
-                        flex: '3', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                        background: '#9ca3af', color: 'white', padding: '6px 8px',
-                        borderRadius: '5px', fontSize: '0.65rem', fontWeight: '700', border: 'none',
-                        cursor: 'pointer', gap: '2px'
+                        flex: '1', padding: '7px 6px', fontSize: '0.6rem', fontWeight: '700',
+                        background: '#ff9900',
+                        color: '#000000', border: 'none', borderRadius: '5px', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                        minWidth: '70px', colorScheme: 'light'
                       }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                        <i className="fas fa-lock" style={{ fontSize: '0.75rem' }}></i> Login to Contact
-                      </span>
-                      <span style={{ opacity: 0.85, fontSize: '0.6rem', whiteSpace: 'nowrap' }}>Buyer login required</span>
+                      <i className="fas fa-shopping-cart" style={{ fontSize: '0.7rem', color: '#000000' }}></i>
+                      <span style={{ whiteSpace: 'nowrap', color: '#000000' }}>Add to Cart</span>
                     </button>
+                  </div>
+
+                  {/* Guest form — shown when guest clicks Contact */}
+                  {!isBuyerLoggedIn && guestForm[sid]?.show && (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', padding: '10px', fontSize: '0.72rem' }}>
+                      <div style={{ fontWeight: 700, color: '#166534', marginBottom: '8px' }}>
+                        📋 Enter your details to contact supplier
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <input
+                          placeholder="Your name *"
+                          value={guestForm[sid]?.name || ''}
+                          onChange={e => setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], name: e.target.value } }))}
+                          style={{ padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.72rem', width: '100%', boxSizing: 'border-box' }}
+                        />
+                        <input
+                          placeholder="WhatsApp / Phone *"
+                          value={guestForm[sid]?.phone || ''}
+                          onChange={e => setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], phone: e.target.value } }))}
+                          style={{ padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.72rem', width: '100%', boxSizing: 'border-box' }}
+                        />
+                        <input
+                          placeholder="Email (optional)"
+                          value={guestForm[sid]?.email || ''}
+                          onChange={e => setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], email: e.target.value } }))}
+                          style={{ padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.72rem', width: '100%', boxSizing: 'border-box' }}
+                        />
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={() => handleGuestSubmit(se)}
+                            disabled={sending[sid]}
+                            style={{ flex: 1, padding: '7px', background: '#25d366', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>
+                            {sending[sid] ? 'Sending...' : '📲 Send via WhatsApp'}
+                          </button>
+                          <button
+                            onClick={() => setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], show: false } }))}
+                            style={{ padding: '7px 10px', background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.72rem', cursor: 'pointer' }}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   )}
-                  <button onClick={() => addToBasket({ ...product, selectedSeller: se })}
-                    className="seller-add-to-cart-btn"
-                    style={{
-                      flex: '1', padding: '7px 6px', fontSize: '0.6rem', fontWeight: '700',
-                      background: '#ff9900',
-                      color: '#000000', border: 'none', borderRadius: '5px', cursor: 'pointer',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
-                      minWidth: '70px', colorScheme: 'light'
-                    }}>
-                    <i className="fas fa-shopping-cart" style={{ fontSize: '0.7rem', color: '#000000' }}></i>
-                    <span style={{ whiteSpace: 'nowrap', color: '#000000' }}>Add to Cart</span>
-                  </button>
                 </div>
               )}
 

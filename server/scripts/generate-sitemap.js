@@ -122,7 +122,16 @@ async function generateSitemap() {
 `;
 
       // Add image tags (Google supports up to 1000 images per page)
-      const validImages = images.filter(img => img && img.trim() !== '').slice(0, 10); // Limit to 10 images per product
+      const validImages = images
+        .filter(img => {
+          if (!img || !img.trim()) return false;
+          // Skip base64 data URIs — Google requires real HTTP/HTTPS URLs
+          if (img.startsWith('data:')) return false;
+          // Skip relative paths that aren't real URLs
+          if (!img.startsWith('http://') && !img.startsWith('https://') && !img.startsWith('/')) return false;
+          return true;
+        })
+        .slice(0, 10); // Limit to 10 images per product
       
       for (const imageUrl of validImages) {
         // Ensure image URL is absolute

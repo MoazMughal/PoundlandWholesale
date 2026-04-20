@@ -20,192 +20,57 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import '../../styles/AdminProducts.css';
 import '../../styles/AdminLayout.css';
-import '../../styles/admin-table-fix.css';
-import '../../styles/admin-table-force-fix.css';
-import '../../styles/admin-products-mobile.css';
-import '../../styles/admin-products-responsive.css';
-import '../../styles/admin-products-full-responsive.css';
-import '../../styles/admin-complete-responsive.css';
-import '../../styles/admin-table-mobile-force.css'; // MUST LOAD LAST - highest priority
+import '../../styles/admin-products-responsive-fix.css';
 import '../../styles/skeleton-loader.css';
 
-// Smart Image Component - Fetches from Cloudinary or existing products
-const SmartProductImage = ({ product, onClick }) => {
-  const [imageUrl, setImageUrl] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
+// Smart Image Component - shows product image from images array or Cloudinary fallback
+const SmartProductImage = ({ product: prod, onClick }) => {
+  const [imgError, setImgError] = useState(false);
 
-  useEffect(() => {
-    // Prevent multiple fetches for the same product
-    if (hasAttemptedFetch) return;
+  // Derive the best image URL directly from product data — no async fetch needed
+  const resolveUrl = () => {
+    if (prod.images && prod.images.length > 0) {
+      return getImageUrl(prod.images[0]);
+    }
+    if (prod.asin && prod.asin.trim()) {
+      return `https://res.cloudinary.com/dtuq3tvjx/image/upload/v1/products/${prod.asin.trim()}`;
+    }
+    return null;
+  };
 
-    const fetchImage = async () => {
-      // If product already has images, use them
-      if (product.images && product.images.length > 0) {
-        setImageUrl(product.images[0]);
-        setHasAttemptedFetch(true);
-        return;
-      }
+  const url = resolveUrl();
 
-      // If no images but has ASIN, try to fetch from Cloudinary
-      if (product.asin && product.asin.trim()) {
-        setLoading(true);
-        
-        // Try Cloudinary first
-        const cloudinaryUrl = `https://res.cloudinary.com/dtuq3tvjx/image/upload/v1/products/${product.asin}`;
-        
-        try {
-          const response = await fetch(cloudinaryUrl, { method: 'HEAD' });
-          if (response.ok) {
-            setImageUrl(cloudinaryUrl);
-            setLoading(false);
-            setHasAttemptedFetch(true);
-            return;
-          }
-        } catch (err) {
-          // Silently fail - Cloudinary image not found
-        }
+  const noImageBox = (
+    <div
+      onClick={onClick}
+      title={prod.asin ? `ASIN: ${prod.asin}` : 'No image'}
+      style={{
+        width: 50, height: 50, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', flexDirection: 'column', gap: 2,
+        background: '#f3f4f6', borderRadius: 4, border: '1px solid #e5e7eb',
+        fontSize: '0.55rem', color: '#9ca3af', cursor: 'pointer',
+      }}
+    >
+      <span style={{ fontSize: '0.6rem' }}>No Image</span>
+      {prod.asin && <span style={{ fontSize: '0.45rem' }}>({prod.asin.slice(0, 8)})</span>}
+    </div>
+  );
 
-        // If Cloudinary fails, try to find from other products with same ASIN
-        try {
-          const token = localStorage.getItem('adminToken');
-          const searchResponse = await fetch(
-            `${getApiUrl('products/admin/search-by-asin')}/${product.asin}`,
-            {
-              headers: { 'Authorization': `Bearer ${token}` }
-            }
-          );
-
-          if (searchResponse.ok) {
-            const data = await searchResponse.json();
-            if (data.products && data.products.length > 0) {
-              // Find first product with images
-              const productWithImage = data.products.find(p => 
-                p.images && p.images.length > 0 && p._id !== product._id
-              );
-              
-              if (productWithImage) {
-                setImageUrl(productWithImage.images[0]);
-                setLoading(false);
-                setHasAttemptedFetch(true);
-                return;
-              }
-            }
-          }
-        } catch (err) {
-          // Silently fail - search failed
-        }
-
-        setLoading(false);
-        setError(true);
-        setHasAttemptedFetch(true);
-      } else {
-        // No ASIN, mark as attempted
-        setHasAttemptedFetch(true);
-      }
-    };
-
-    fetchImage();
-  }, [product._id, product.asin, product.images, hasAttemptedFetch]);
-
-  if (loading) {
-    return (
-      <div
-        style={{
-          width: '50px',
-          height: '50px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#f3f4f6',
-          borderRadius: '4px',
-          border: '1px solid #e5e7eb',
-          fontSize: '0.6rem',
-          color: '#9ca3af'
-        }}
-      >
-        ⏳
-      </div>
-    );
-  }
-
-  if (imageUrl) {
-    return (
-      <>
-        <img
-          src={getImageUrl(imageUrl)}
-          alt={product.name}
-          style={{
-            width: '50px',
-            height: '50px',
-            objectFit: 'contain',
-            objectPosition: 'center',
-            borderRadius: '4px',
-            border: '1px solid #e5e7eb',
-            cursor: 'pointer',
-            display: 'block',
-            padding: '2px', // Reduce padding to show more of the image
-            backgroundColor: '#ffffff',
-            boxSizing: 'border-box'
-          }}
-          onClick={onClick}
-          onError={(e) => {
-            e.target.style.display = 'none';
-            if (e.target.nextSibling) {
-              e.target.nextSibling.style.display = 'flex';
-            }
-          }}
-          title="Click to view product details"
-        />
-        <div
-          style={{
-            width: '50px',
-            height: '50px',
-            display: 'none',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#f3f4f6',
-            borderRadius: '4px',
-            border: '1px solid #e5e7eb',
-            fontSize: '0.6rem',
-            color: '#9ca3af',
-            cursor: 'pointer',
-            flexDirection: 'column',
-            gap: '2px'
-          }}
-          onClick={onClick}
-          title="Image failed to load - Click to edit product"
-        >
-          <span>No Image</span>
-        </div>
-      </>
-    );
-  }
+  if (!url || imgError) return noImageBox;
 
   return (
-    <div
-      style={{
-        width: '50px',
-        height: '50px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#f3f4f6',
-        borderRadius: '4px',
-        border: '1px solid #e5e7eb',
-        fontSize: '0.6rem',
-        color: '#9ca3af',
-        cursor: 'pointer',
-        flexDirection: 'column',
-        gap: '2px'
-      }}
+    <img
+      src={url}
+      alt={prod.name}
       onClick={onClick}
-      title={product.asin ? `No image found for ASIN: ${product.asin}` : 'No image - Click to edit product'}
-    >
-      <span>No Image</span>
-      {product.asin && <span style={{ fontSize: '0.5rem' }}>({product.asin})</span>}
-    </div>
+      onError={() => setImgError(true)}
+      title="Click to edit product"
+      style={{
+        width: 50, height: 50, objectFit: 'contain', objectPosition: 'center',
+        borderRadius: 4, border: '1px solid #e5e7eb', cursor: 'pointer',
+        display: 'block', padding: 2, backgroundColor: '#fff', boxSizing: 'border-box',
+      }}
+    />
   );
 };
 
@@ -735,7 +600,7 @@ const AdminProducts = () => {
 
   const currency = 'GBP';
   const currencySymbol = '£';
-  const productsPerPage = 200;
+  const [productsPerPage, setProductsPerPage] = useState(200);
 
   const [categories, setCategories] = useState([
     // Categories will be loaded from API
@@ -1010,6 +875,13 @@ const AdminProducts = () => {
     }
   }, [currentPage]);
 
+  // Re-fetch when productsPerPage changes
+  useEffect(() => {
+    if (!hasInitiallyLoaded) return;
+    setCurrentPage(1);
+    fetchProducts(1, productsPerPage);
+  }, [productsPerPage]);
+
   // Track window resize for responsive modal
   useEffect(() => {
     const handleResize = () => {
@@ -1141,7 +1013,7 @@ const AdminProducts = () => {
     setFilteredProducts(products);
   }, [products]);
 
-  const fetchProducts = async (page = currentPage) => {
+  const fetchProducts = async (page = currentPage, perPage = productsPerPage) => {
     // Prevent duplicate fetches
     if (isFetchingRef.current) {
       console.log('⏸️ Fetch already in progress, skipping...');
@@ -1149,7 +1021,7 @@ const AdminProducts = () => {
     }
     
     // Check if we're fetching the same data
-    const fetchParams = JSON.stringify({ page, search: debouncedSearch, filters });
+    const fetchParams = JSON.stringify({ page, perPage, search: debouncedSearch, filters });
     if (lastFetchParamsRef.current === fetchParams && products.length > 0) {
       console.log('✅ Data already loaded with same parameters, skipping fetch...');
       return;
@@ -1183,7 +1055,7 @@ const AdminProducts = () => {
         ...(filters.status && { status: filters.status }),
         ...(filters.isAmazonsChoice && { isAmazonsChoice: 'true' }),
         excludeSellerCopies: 'true',
-        limit: productsPerPage.toString(),
+        limit: perPage.toString(),
         page: page.toString()
       });
 
@@ -1192,7 +1064,7 @@ const AdminProducts = () => {
       // Add cache buster to ensure fresh data
       const cacheBuster = `_t=${Date.now()}`;
       const url = useFastEndpoint
-        ? `${getApiUrl('products/admin/fast')}?${cacheBuster}&limit=${productsPerPage}&page=${page}`
+        ? `${getApiUrl('products/admin/fast')}?${cacheBuster}&limit=${perPage}&page=${page}`
         : `${getApiUrl('products')}?${params}&${cacheBuster}`;
 
       console.log('🌐 Fetching from URL:', url);
@@ -1217,7 +1089,7 @@ const AdminProducts = () => {
       setFilteredProducts(data.products);
       
       // Update pagination info
-      const totalPagesCalc = Math.ceil((data.total || data.products.length) / productsPerPage);
+      const totalPagesCalc = Math.ceil((data.total || data.products.length) / perPage);
       setTotalPages(totalPagesCalc);
       
       // Store the fetch parameters
@@ -2428,11 +2300,11 @@ const AdminProducts = () => {
           vertical-align: middle !important;
         }
         
-        /* CRITICAL FIX: Remove all nested overflow and height constraints */
+        /* FIX: No page-level overflow constraints */
         .admin-products.admin-products-page {
           overflow: visible !important;
           height: auto !important;
-          min-height: auto !important;
+          min-height: 100vh !important;
           max-height: none !important;
         }
         
@@ -2442,8 +2314,10 @@ const AdminProducts = () => {
           max-height: none !important;
         }
         
+        /* Table scroll: only horizontal, page handles vertical */
         .products-table {
-          overflow: visible !important;
+          overflow-x: auto !important;
+          overflow-y: visible !important;
           height: auto !important;
           max-height: none !important;
         }
@@ -2519,10 +2393,11 @@ const AdminProducts = () => {
             display: none !important;
           }
           
-          /* Full width for admin products */
+          /* Full width for admin products - page scrolls vertically, table scrolls horizontally */
           .admin-products {
             padding: 8px !important;
             overflow-x: hidden !important;
+            overflow-y: visible !important;
             width: 100% !important;
             max-width: 100vw !important;
             margin: 0 !important;
@@ -2860,7 +2735,17 @@ const AdminProducts = () => {
         }
       `}</style>
       
-      <div className="admin-products admin-products-page" style={{ fontSize: '0.85rem', width: '100%', margin: 0, padding: 0 }}>
+      <div className="admin-products admin-products-page" style={{
+        fontSize: '0.85rem',
+        width: '100%',
+        maxWidth: '100vw',
+        margin: 0,
+        padding: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        overflow: 'visible',
+      }}>
       
       {/* Header Section */}
       <div style={{
@@ -2873,7 +2758,8 @@ const AdminProducts = () => {
         borderRadius: '8px',
         color: 'white',
         flexDirection: windowWidth <= 768 ? 'column' : 'row',
-        gap: windowWidth <= 768 ? '10px' : '0'
+        gap: windowWidth <= 768 ? '10px' : '0',
+        flexShrink: 0,
       }}>
         <div style={{ width: windowWidth <= 768 ? '100%' : 'auto', textAlign: windowWidth <= 768 ? 'center' : 'left' }}>
           <h1 style={{ margin: 0, fontSize: windowWidth <= 768 ? '1.2rem' : '1.4rem', fontWeight: 'bold' }}>
@@ -2886,41 +2772,20 @@ const AdminProducts = () => {
         <div style={{ display: 'flex', gap: '10px', width: windowWidth <= 768 ? '100%' : 'auto', flexDirection: windowWidth <= 768 ? 'column' : 'row' }}>
           <Button
             variant="contained"
+            onClick={() => navigate('/admin/dashboard')}
+            startIcon={<span>🏠</span>}
+            sx={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', '&:hover': { background: 'rgba(255,255,255,0.3)', transform: 'translateY(-2px)' }, borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', textTransform: 'none', transition: 'all 0.3s ease' }}
+          >
+            Dashboard
+          </Button>
+
+          <Button
+            variant="contained"
             onClick={() => setShowCategoryManagementModal(true)}
             startIcon={<span>📂</span>}
             sx={{ background: 'rgba(102,126,234,0.9)', '&:hover': { background: 'rgba(102,126,234,1)', transform: 'translateY(-2px)' }, borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', textTransform: 'none', transition: 'all 0.3s ease', backdropFilter: 'blur(10px)' }}
           >
             Manage Categories
-          </Button>
-
-          <Button
-            variant="contained"
-            onClick={handleCleanupDuplicateCategories}
-            startIcon={<span>🧹</span>}
-            title="Clean up duplicate categories (e.g., 'electronics' and 'Electronics')"
-            sx={{ background: 'rgba(255,193,7,0.9)', color: '#212529', '&:hover': { background: 'rgba(255,193,7,1)', transform: 'translateY(-2px)' }, borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', textTransform: 'none', transition: 'all 0.3s ease' }}
-          >
-            Fix Duplicates
-          </Button>
-
-          <Button
-            variant="contained"
-            onClick={() => {
-              console.log('🔄 Manual refresh triggered');
-              cacheManager.clearAll();
-              if ('caches' in window) {
-                caches.keys().then(names => { names.forEach(name => caches.delete(name)); });
-              }
-              Object.keys(localStorage).filter(key =>
-                key.includes('product') || key.includes('cache') || key.includes('evaluation')
-              ).forEach(key => localStorage.removeItem(key));
-              window.location.reload();
-            }}
-            startIcon={<span>🔄</span>}
-            title="Clear all caches and refresh data"
-            sx={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', '&:hover': { background: 'rgba(255,255,255,0.3)', transform: 'translateY(-2px)' }, borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', textTransform: 'none', transition: 'all 0.3s ease' }}
-          >
-            Force Refresh
           </Button>
 
           {selectedProducts.size > 0 && (
@@ -2957,7 +2822,7 @@ const AdminProducts = () => {
 
 
 
-      <div className="filters-section" style={{ padding: '6px 8px', marginBottom: '6px', background: 'white', borderRadius: '6px' }}>
+      <div className="filters-section" style={{ padding: '6px 8px', marginBottom: '6px', background: 'white', borderRadius: '6px', flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
           <input
             type="text"
@@ -3018,10 +2883,6 @@ const AdminProducts = () => {
             </small>
           )}
           <CategoryVisibilityToggle compact={true} />
-          <Button variant="contained" size="small" onClick={() => navigate('/admin/dashboard')}
-            sx={{ background: '#667eea', '&:hover': { background: '#5a67d8' }, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem', textTransform: 'none', whiteSpace: 'nowrap', padding: '4px 10px' }}>
-            🏠 Dashboard
-          </Button>
           <Button variant="contained" size="small" onClick={() => navigate('/admin/excel-import')}
             sx={{ background: '#10b981', '&:hover': { background: '#059669' }, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem', textTransform: 'none', whiteSpace: 'nowrap', padding: '4px 10px' }}>
             📤 Upload
@@ -3249,18 +3110,7 @@ const AdminProducts = () => {
             🏆 Amazon's Choice {filters.isAmazonsChoice && <span style={{ marginLeft: 4, background: 'rgba(255,255,255,0.3)', padding: '1px 4px', borderRadius: '8px', fontSize: '0.6rem' }}>ON</span>}
           </Button>
 
-          <div style={{
-            fontSize: '0.65rem',
-            color: '#6b7280',
-            marginLeft: 'auto',
-            padding: '4px 8px',
-            background: '#fef3c7',
-            borderRadius: '4px',
-            border: '1px solid #fbbf24',
-            fontWeight: '600'
-          }}>
-            💡 Click Price/Stock to edit
-          </div>
+
         </div>
       </div>
 
@@ -3365,10 +3215,11 @@ const AdminProducts = () => {
         </div>
       ) : (
         <div className="products-table-container" style={{
-          width: '100%',
-          display: 'block',
-          overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch'
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'visible',
+          minHeight: 0,
         }}>
           {/* Category Header */}
           {(filters.category || filters.isAmazonsChoice) && (
@@ -3408,8 +3259,8 @@ const AdminProducts = () => {
             </div>
           )}
 
-          <div className="table-info" style={{ padding: '4px 8px', fontSize: '0.7rem', color: '#374151', background: '#f9fafb', borderRadius: '4px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="table-info" style={{ padding: '4px 8px', fontSize: '0.7rem', color: '#374151', background: '#f9fafb', borderRadius: '4px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <span style={{ fontWeight: '600' }}>
                 {filters.isAmazonsChoice && filters.category
                   ? `🏆 Amazon's Choice - ${categories.find(c => c.value === filters.category)?.label}: ${totalProducts}`
@@ -3472,27 +3323,46 @@ const AdminProducts = () => {
                 </>
               )}
             </div>
-            <span style={{ fontSize: '0.65rem', color: '#6b7280' }}>
-              Page {currentPage}/{totalPages}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.65rem', color: '#6b7280' }}>Per page:</span>
+              {[100, 200, 500].map(n => (
+                <button
+                  key={n}
+                  onClick={() => { setProductsPerPage(n); setCurrentPage(1); }}
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: '0.65rem',
+                    fontWeight: '600',
+                    border: `1px solid ${productsPerPage === n ? '#667eea' : '#d1d5db'}`,
+                    borderRadius: '4px',
+                    background: productsPerPage === n ? '#667eea' : 'white',
+                    color: productsPerPage === n ? 'white' : '#374151',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
+              <span style={{ fontSize: '0.65rem', color: '#6b7280' }}>· Page {currentPage}/{totalPages}</span>
+            </div>
           </div>
 
-          {/* Scrollable table wrapper — inline styles are immune to CSS file conflicts */}
+          {/* Single scroll container — both axes, fills remaining height */}
           <div
             className="products-table"
             style={{
-              display: 'block',
-              width: '100%',
               overflowX: 'auto',
               overflowY: 'visible',
               WebkitOverflowScrolling: 'touch',
               fontSize: '0.8rem',
-              position: 'relative',
               background: 'white',
               borderRadius: '8px',
+              width: '100%',
             }}
           >
             <Table
+              stickyHeader
               size="small"
               style={{
                 minWidth: '1200px',
@@ -4089,105 +3959,7 @@ const AdminProducts = () => {
             </Table>
           </div>
 
-          {/* Mobile Product Cards — explicitly hidden, table used on all screen sizes */}
-          <div className="mobile-product-cards" style={{ display: 'none' }}>
-            {filteredProducts.map(product => (
-              <div key={product._id} className="mobile-product-card">
-                <div className="mobile-product-card-header">
-                  <a 
-                    href={`/product/${product._id}`}
-                    style={{ 
-                      flex: 1, 
-                      cursor: 'pointer',
-                      textDecoration: 'none',
-                      color: 'inherit'
-                    }}
-                    onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                    onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                  >
-                    <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: 4, color: '#007bff' }}>
-                      {product.name}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: '#666' }}>
-                      {product.category}
-                    </div>
-                  </a>
-                  <input
-                    type="checkbox"
-                    checked={selectedProducts.has(product._id)}
-                    onChange={() => handleProductSelection(product._id)}
-                    onClick={(e) => e.stopPropagation()} // Prevent triggering product click
-                    style={{ transform: 'scale(1.2)' }}
-                  />
-                </div>
-                
-                <a 
-                  href={`/product/${product._id}`}
-                  className="mobile-product-card-body"
-                  style={{
-                    textDecoration: 'none',
-                    color: 'inherit',
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '8px',
-                    padding: '8px'
-                  }}
-                >
-                  <div>
-                    <div style={{ color: '#666', fontSize: '0.65rem' }}>Price</div>
-                    <div style={{ fontWeight: 'bold', color: '#059669' }}>£{product.price}</div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#666', fontSize: '0.65rem' }}>Stock</div>
-                    <div style={{ fontWeight: 'bold' }}>{product.stock}</div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#666', fontSize: '0.65rem' }}>ASIN</div>
-                    <div style={{ fontSize: '0.7rem', fontFamily: 'monospace' }}>{product.asin || '-'}</div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#666', fontSize: '0.65rem' }}>SKU</div>
-                    <div style={{ fontSize: '0.7rem', fontFamily: 'monospace' }}>{product.sku || '-'}</div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#666', fontSize: '0.65rem' }}>Sellers</div>
-                    <div style={{ fontSize: '0.7rem' }}>
-                      {(() => {
-                        const sellersCount = product.sellers?.length || 0;
-                        if (sellersCount > 0) {
-                          return (
-                            <span style={{ fontWeight: 'bold', color: '#059669' }}>
-                              {sellersCount} Seller{sellersCount > 1 ? 's' : ''}
-                            </span>
-                          );
-                        } else {
-                          return <span style={{ color: '#9ca3af' }}>None</span>;
-                        }
-                      })()}
-                    </div>
-                  </div>
-                </a>
-                
-                <div className="mobile-product-card-actions">
-                  <Button variant="contained" size="small"
-                    onClick={(e) => { e.stopPropagation(); navigate(`/admin/products/edit/${product._id}${filters.category ? `?returnCategory=${filters.category}` : ''}`); }}
-                    sx={{ background: '#667eea', '&:hover': { background: '#5a67d8' }, textTransform: 'none', fontWeight: 600, fontSize: '0.75rem' }}>
-                    ✏️ Edit
-                  </Button>
-                  <Button variant="contained" size="small"
-                    onClick={(e) => { e.stopPropagation(); startProfitEditing(product); }}
-                    sx={{ background: '#ff9800', '&:hover': { background: '#f57c00' }, textTransform: 'none', fontWeight: 600, fontSize: '0.75rem' }}>
-                    💰 Profit
-                  </Button>
-                  <Button variant="contained" size="small"
-                    onClick={(e) => { e.stopPropagation(); handleDeleteProduct(product._id); }}
-                    sx={{ background: '#ef4444', '&:hover': { background: '#dc2626' }, textTransform: 'none', fontWeight: 600, fontSize: '0.75rem' }}>
-                    🗑️
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* Mobile Product Cards — REMOVED, table used on all screen sizes */}
 
           {filteredProducts.length === 0 && (
             <div className="no-products" style={{ padding: '30px', textAlign: 'center' }}>
@@ -4203,29 +3975,59 @@ const AdminProducts = () => {
             </div>
           )}
 
-          {/* Pagination */}
+          {/* Pagination — always visible, responsive */}
           {totalPages > 1 && (
-            <div style={{
+            <div className="pagination-container" style={{
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              padding: '10px',
-              gap: '6px',
+              padding: windowWidth <= 768 ? '8px 4px' : '10px 16px',
+              gap: windowWidth <= 768 ? '3px' : '8px',
               borderTop: '1px solid #e5e7eb',
               background: '#f9fafb',
-              marginTop: '10px'
+              flexWrap: 'wrap',
             }}>
+              {/* Per-page info */}
+              <span style={{ fontSize: windowWidth <= 768 ? '0.6rem' : '0.7rem', color: '#6b7280', width: '100%', textAlign: 'center', marginBottom: '4px' }}>
+                {totalProducts} products · Page {currentPage} of {totalPages}
+              </span>
               <Button variant="outlined" size="small" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}
-                sx={{ minWidth: 0, padding: '4px 8px', fontSize: '0.7rem', borderColor: '#667eea', color: currentPage === 1 ? '#9ca3af' : '#667eea', fontWeight: 600 }}>⏮</Button>
+                sx={{ minWidth: 0, padding: windowWidth <= 768 ? '2px 5px' : '4px 8px', fontSize: windowWidth <= 768 ? '0.6rem' : '0.7rem', borderColor: '#667eea', color: currentPage === 1 ? '#9ca3af' : '#667eea', fontWeight: 600 }}>⏮</Button>
               <Button variant="outlined" size="small" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}
-                sx={{ minWidth: 0, padding: '4px 8px', fontSize: '0.7rem', borderColor: '#667eea', color: currentPage === 1 ? '#9ca3af' : '#667eea', fontWeight: 600 }}>←</Button>
-              <div style={{ padding: '4px 12px', fontSize: '0.7rem', color: '#374151', fontWeight: 600, background: 'white', border: '1px solid #667eea', borderRadius: '4px', minWidth: '80px', textAlign: 'center' }}>
-                {currentPage} / {totalPages}
-              </div>
+                sx={{ minWidth: 0, padding: windowWidth <= 768 ? '2px 5px' : '4px 8px', fontSize: windowWidth <= 768 ? '0.6rem' : '0.7rem', borderColor: '#667eea', color: currentPage === 1 ? '#9ca3af' : '#667eea', fontWeight: 600 }}>‹</Button>
+              {/* Page number buttons */}
+              {Array.from({ length: Math.min(windowWidth <= 768 ? 3 : 5, totalPages) }, (_, i) => {
+                const visibleCount = windowWidth <= 768 ? 3 : 5;
+                let page;
+                if (totalPages <= visibleCount) {
+                  page = i + 1;
+                } else if (currentPage <= Math.floor(visibleCount / 2) + 1) {
+                  page = i + 1;
+                } else if (currentPage >= totalPages - Math.floor(visibleCount / 2)) {
+                  page = totalPages - visibleCount + 1 + i;
+                } else {
+                  page = currentPage - Math.floor(visibleCount / 2) + i;
+                }
+                return (
+                  <Button key={page} variant={currentPage === page ? 'contained' : 'outlined'} size="small"
+                    onClick={() => setCurrentPage(page)}
+                    sx={{
+                      minWidth: 0,
+                      padding: windowWidth <= 768 ? '2px 6px' : '4px 8px',
+                      fontSize: windowWidth <= 768 ? '0.6rem' : '0.7rem',
+                      fontWeight: 600,
+                      ...(currentPage === page
+                        ? { background: '#667eea', borderColor: '#667eea', color: 'white', '&:hover': { background: '#5a67d8' } }
+                        : { borderColor: '#667eea', color: '#667eea' })
+                    }}>
+                    {page}
+                  </Button>
+                );
+              })}
               <Button variant="outlined" size="small" onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}
-                sx={{ minWidth: 0, padding: '4px 8px', fontSize: '0.7rem', borderColor: '#667eea', color: currentPage === totalPages ? '#9ca3af' : '#667eea', fontWeight: 600 }}>→</Button>
+                sx={{ minWidth: 0, padding: windowWidth <= 768 ? '2px 5px' : '4px 8px', fontSize: windowWidth <= 768 ? '0.6rem' : '0.7rem', borderColor: '#667eea', color: currentPage === totalPages ? '#9ca3af' : '#667eea', fontWeight: 600 }}>›</Button>
               <Button variant="outlined" size="small" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}
-                sx={{ minWidth: 0, padding: '4px 8px', fontSize: '0.7rem', borderColor: '#667eea', color: currentPage === totalPages ? '#9ca3af' : '#667eea', fontWeight: 600 }}>⏭</Button>
+                sx={{ minWidth: 0, padding: windowWidth <= 768 ? '2px 5px' : '4px 8px', fontSize: windowWidth <= 768 ? '0.6rem' : '0.7rem', borderColor: '#667eea', color: currentPage === totalPages ? '#9ca3af' : '#667eea', fontWeight: 600 }}>⏭</Button>
             </div>
           )}
         </div>
