@@ -9,6 +9,15 @@ import CategoryVisibilityToggle from '../../components/CategoryVisibilityToggle'
 import CategoryManagementModal from '../../components/CategoryManagementModal';
 import BulkOperationsModal from '../../components/BulkOperationsModal';
 import ProductTableSkeleton from '../../components/ProductTableSkeleton';
+// MUI
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
 import '../../styles/AdminProducts.css';
 import '../../styles/AdminLayout.css';
 import '../../styles/admin-table-fix.css';
@@ -212,7 +221,10 @@ const AdminProducts = () => {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [backgroundLoading, setBackgroundLoading] = useState(false); // silent refresh indicator
+  const isInitialLoadRef = useRef(true); // true until first data arrives
   const [search, setSearch] = useState(() => sessionStorage.getItem('adminProductsSearch') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [filters, setFilters] = useState({ category: '', status: '', isAmazonsChoice: false });
   const searchRef = useRef(search);
   const [editingCell, setEditingCell] = useState(null);
@@ -258,6 +270,14 @@ const AdminProducts = () => {
     } else {
       sessionStorage.removeItem('adminProductsSearch');
     }
+  }, [search]);
+
+  // Debounce search input — wait 500ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => clearTimeout(timer);
   }, [search]);
 
   // Add global CSS to hide number input spinners
@@ -977,12 +997,8 @@ const AdminProducts = () => {
     setCurrentPage(1);
     
     // Debounce the fetch to prevent rapid successive calls
-    const timeoutId = setTimeout(() => {
-      fetchProducts(1);
-    }, 400);
-    
-    return () => clearTimeout(timeoutId);
-  }, [search, filters.category, filters.status, filters.isAmazonsChoice]);
+    fetchProducts(1);
+  }, [debouncedSearch, filters.category, filters.status, filters.isAmazonsChoice]);
 
   // Handle page changes - only fetch if page actually changed
   useEffect(() => {
@@ -1072,9 +1088,14 @@ const AdminProducts = () => {
           amazonsChoiceCounts = countsData.counts || {};
         }
 
-        // Filter out hidden categories and format for display
+        // Filter out hidden categories, deduplicate by value, and format for display
+        const seen = new Set();
         const dynamicCategories = data.categories
-          .filter(cat => cat.value === 'all' || !hiddenCategories.includes(cat.value))
+          .filter(cat => {
+            if (seen.has(cat.value)) return false;
+            seen.add(cat.value);
+            return cat.value === 'all' || !hiddenCategories.includes(cat.value);
+          })
           .map(cat => ({
             value: cat.value,
             label: cat.value === 'all' ? 'All Products' : cat.label,
@@ -1128,7 +1149,7 @@ const AdminProducts = () => {
     }
     
     // Check if we're fetching the same data
-    const fetchParams = JSON.stringify({ page, search, filters });
+    const fetchParams = JSON.stringify({ page, search: debouncedSearch, filters });
     if (lastFetchParamsRef.current === fetchParams && products.length > 0) {
       console.log('✅ Data already loaded with same parameters, skipping fetch...');
       return;
@@ -1136,7 +1157,12 @@ const AdminProducts = () => {
     
     try {
       isFetchingRef.current = true;
-      setLoading(true);
+      // Only show full loading screen on the very first load; subsequent fetches are silent
+      if (isInitialLoadRef.current) {
+        setLoading(true);
+      } else {
+        setBackgroundLoading(true);
+      }
       
       // Clean up any invalid tokens first
       cleanupAuthTokens();
@@ -1146,12 +1172,13 @@ const AdminProducts = () => {
         alert('❌ Authentication token is invalid. Please log in again.');
         navigate('/admin/login');
         setLoading(false);
+        setBackgroundLoading(false);
         isFetchingRef.current = false;
         return;
       }
 
       const params = new URLSearchParams({
-        ...(search && { search }),
+        ...(debouncedSearch && { search: debouncedSearch }),
         ...(filters.category && { category: filters.category }),
         ...(filters.status && { status: filters.status }),
         ...(filters.isAmazonsChoice && { isAmazonsChoice: 'true' }),
@@ -1160,7 +1187,7 @@ const AdminProducts = () => {
         page: page.toString()
       });
 
-      const useFastEndpoint = !search && !filters.category && !filters.status && !filters.isAmazonsChoice;
+      const useFastEndpoint = !debouncedSearch && !filters.category && !filters.status && !filters.isAmazonsChoice;
 
       // Add cache buster to ensure fresh data
       const cacheBuster = `_t=${Date.now()}`;
@@ -1196,6 +1223,9 @@ const AdminProducts = () => {
       // Store the fetch parameters
       lastFetchParamsRef.current = fetchParams;
       
+      // Mark initial load as done — subsequent fetches won't block the UI
+      isInitialLoadRef.current = false;
+      
       console.log('✅ Products loaded successfully:', data.products.length);
       
     } catch (error) {
@@ -1205,6 +1235,7 @@ const AdminProducts = () => {
       setFilteredProducts([]);
     } finally {
       setLoading(false);
+      setBackgroundLoading(false);
       isFetchingRef.current = false;
     }
   };
@@ -2853,200 +2884,74 @@ const AdminProducts = () => {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', width: windowWidth <= 768 ? '100%' : 'auto', flexDirection: windowWidth <= 768 ? 'column' : 'row' }}>
-          <button
+          <Button
+            variant="contained"
             onClick={() => setShowCategoryManagementModal(true)}
-            style={{
-              background: 'rgba(102, 126, 234, 0.9)',
-              border: '2px solid rgba(102, 126, 234, 0.3)',
-              color: 'white',
-              padding: '10px 20px',
-              borderRadius: '8px',
-              fontSize: '0.9rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'all 0.3s ease',
-              backdropFilter: 'blur(10px)'
-            }}
-            onMouseOver={(e) => {
-              e.target.style.background = 'rgba(102, 126, 234, 1)';
-              e.target.style.transform = 'translateY(-2px)';
-            }}
-            onMouseOut={(e) => {
-              e.target.style.background = 'rgba(102, 126, 234, 0.9)';
-              e.target.style.transform = 'translateY(0)';
-            }}
+            startIcon={<span>📂</span>}
+            sx={{ background: 'rgba(102,126,234,0.9)', '&:hover': { background: 'rgba(102,126,234,1)', transform: 'translateY(-2px)' }, borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', textTransform: 'none', transition: 'all 0.3s ease', backdropFilter: 'blur(10px)' }}
           >
-            <span style={{ fontSize: '1.1rem' }}>📂</span>
             Manage Categories
-          </button>
-          
-          <button
+          </Button>
+
+          <Button
+            variant="contained"
             onClick={handleCleanupDuplicateCategories}
-            style={{
-              background: 'rgba(255, 193, 7, 0.9)',
-              border: '2px solid rgba(255, 193, 7, 0.3)',
-              color: '#212529',
-              padding: '10px 20px',
-              borderRadius: '8px',
-              fontSize: '0.9rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'all 0.3s ease',
-              backdropFilter: 'blur(10px)'
-            }}
-            onMouseOver={(e) => {
-              e.target.style.background = 'rgba(255, 193, 7, 1)';
-              e.target.style.transform = 'translateY(-2px)';
-            }}
-            onMouseOut={(e) => {
-              e.target.style.background = 'rgba(255, 193, 7, 0.9)';
-              e.target.style.transform = 'translateY(0)';
-            }}
+            startIcon={<span>🧹</span>}
             title="Clean up duplicate categories (e.g., 'electronics' and 'Electronics')"
+            sx={{ background: 'rgba(255,193,7,0.9)', color: '#212529', '&:hover': { background: 'rgba(255,193,7,1)', transform: 'translateY(-2px)' }, borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', textTransform: 'none', transition: 'all 0.3s ease' }}
           >
-            <span style={{ fontSize: '1.1rem' }}>🧹</span>
             Fix Duplicates
-          </button>
-          <button
+          </Button>
+
+          <Button
+            variant="contained"
             onClick={() => {
               console.log('🔄 Manual refresh triggered');
               cacheManager.clearAll();
-              // Clear all browser caches
               if ('caches' in window) {
-                caches.keys().then(names => {
-                  names.forEach(name => caches.delete(name));
-                });
+                caches.keys().then(names => { names.forEach(name => caches.delete(name)); });
               }
-              // Clear localStorage
-              Object.keys(localStorage).filter(key => 
+              Object.keys(localStorage).filter(key =>
                 key.includes('product') || key.includes('cache') || key.includes('evaluation')
               ).forEach(key => localStorage.removeItem(key));
-              
-              // Force refresh
               window.location.reload();
             }}
-            style={{
-              background: 'rgba(255, 255, 255, 0.2)',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              color: 'white',
-              padding: '10px 15px',
-              borderRadius: '8px',
-              fontSize: '0.9rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'all 0.3s ease'
-            }}
-            onMouseOver={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.3)';
-              e.target.style.transform = 'translateY(-2px)';
-            }}
-            onMouseOut={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.2)';
-              e.target.style.transform = 'translateY(0)';
-            }}
+            startIcon={<span>🔄</span>}
             title="Clear all caches and refresh data"
+            sx={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', '&:hover': { background: 'rgba(255,255,255,0.3)', transform: 'translateY(-2px)' }, borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', textTransform: 'none', transition: 'all 0.3s ease' }}
           >
-            🔄 Force Refresh
-          </button>
+            Force Refresh
+          </Button>
+
           {selectedProducts.size > 0 && (
-            <button
+            <Button
+              variant="contained"
               onClick={() => setShowBulkOperationsModal(true)}
-              style={{
-                background: 'rgba(34, 197, 94, 0.9)',
-                border: '2px solid rgba(34, 197, 94, 0.3)',
-                color: 'white',
-                padding: '10px 20px',
-                borderRadius: '8px',
-                fontSize: '0.9rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.3s ease',
-                backdropFilter: 'blur(10px)'
-              }}
-              onMouseOver={(e) => {
-                e.target.style.background = 'rgba(34, 197, 94, 1)';
-                e.target.style.transform = 'translateY(-2px)';
-              }}
-              onMouseOut={(e) => {
-                e.target.style.background = 'rgba(34, 197, 94, 0.9)';
-                e.target.style.transform = 'translateY(0)';
-              }}
+              startIcon={<span>🔄</span>}
+              sx={{ background: 'rgba(34,197,94,0.9)', '&:hover': { background: 'rgba(34,197,94,1)', transform: 'translateY(-2px)' }, borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', textTransform: 'none', transition: 'all 0.3s ease' }}
             >
-              <span style={{ fontSize: '1.1rem' }}>🔄</span>
               Bulk Edit ({selectedProducts.size})
-            </button>
+            </Button>
           )}
-          <button
+
+          <Button
+            variant="contained"
             onClick={() => navigate('/admin/approval')}
-            style={{
-              background: 'rgba(34, 197, 94, 0.9)',
-              border: '2px solid rgba(34, 197, 94, 0.3)',
-              color: 'white',
-              padding: '10px 20px',
-              borderRadius: '8px',
-              fontSize: '0.9rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'all 0.3s ease',
-              backdropFilter: 'blur(10px)'
-            }}
-            onMouseOver={(e) => {
-              e.target.style.background = 'rgba(34, 197, 94, 1)';
-              e.target.style.transform = 'translateY(-2px)';
-            }}
-            onMouseOut={(e) => {
-              e.target.style.background = 'rgba(34, 197, 94, 0.9)';
-              e.target.style.transform = 'translateY(0)';
-            }}
+            startIcon={<span>✅</span>}
             title="Review and approve pending products"
+            sx={{ background: 'rgba(34,197,94,0.9)', '&:hover': { background: 'rgba(34,197,94,1)', transform: 'translateY(-2px)' }, borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', textTransform: 'none', transition: 'all 0.3s ease' }}
           >
-            <span style={{ fontSize: '1.1rem' }}>✅</span>
             Approval
-          </button>
-          <button
+          </Button>
+
+          <Button
+            variant="contained"
             onClick={() => navigate('/admin/products/add')}
-            style={{
-              background: 'rgba(255, 255, 255, 0.2)',
-              border: '2px solid rgba(255, 255, 255, 0.3)',
-              color: 'white',
-              padding: '10px 20px',
-              borderRadius: '8px',
-              fontSize: '0.9rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'all 0.3s ease',
-              backdropFilter: 'blur(10px)'
-            }}
-            onMouseOver={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.3)';
-              e.target.style.transform = 'translateY(-2px)';
-            }}
-            onMouseOut={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.2)';
-              e.target.style.transform = 'translateY(0)';
-            }}
+            startIcon={<span>➕</span>}
+            sx={{ background: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.3)', '&:hover': { background: 'rgba(255,255,255,0.3)', transform: 'translateY(-2px)' }, borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', textTransform: 'none', transition: 'all 0.3s ease' }}
           >
-            <span style={{ fontSize: '1.1rem' }}>➕</span>
             Add New Product
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -3072,23 +2977,15 @@ const AdminProducts = () => {
             onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
           />
           {search && (
-            <button
-              onClick={() => setSearch('')}
-              style={{
-                padding: '6px 8px',
-                fontSize: '0.7rem',
-                background: '#ef4444',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                whiteSpace: 'nowrap'
-              }}
-              title="Clear search"
-            >
-              ✕
-            </button>
+            <Tooltip title="Clear search">
+              <IconButton
+                onClick={() => setSearch('')}
+                size="small"
+                sx={{ background: '#ef4444', color: 'white', borderRadius: '4px', padding: '4px 8px', fontSize: '0.7rem', fontWeight: 600, '&:hover': { background: '#dc2626' } }}
+              >
+                ✕
+              </IconButton>
+            </Tooltip>
           )}
           {search && search.length >= 3 && /^[a-fA-F0-9]+$/.test(search) && (
             <small style={{
@@ -3121,54 +3018,18 @@ const AdminProducts = () => {
             </small>
           )}
           <CategoryVisibilityToggle compact={true} />
-          <button
-            onClick={() => navigate('/admin/dashboard')}
-            style={{
-              padding: '6px 10px',
-              fontSize: '0.7rem',
-              background: '#667eea',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: '600',
-              whiteSpace: 'nowrap'
-            }}
-          >
+          <Button variant="contained" size="small" onClick={() => navigate('/admin/dashboard')}
+            sx={{ background: '#667eea', '&:hover': { background: '#5a67d8' }, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem', textTransform: 'none', whiteSpace: 'nowrap', padding: '4px 10px' }}>
             🏠 Dashboard
-          </button>
-          <button
-            onClick={() => navigate('/admin/excel-import')}
-            style={{
-              padding: '6px 10px',
-              fontSize: '0.7rem',
-              background: '#10b981',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: '600',
-              whiteSpace: 'nowrap'
-            }}
-          >
+          </Button>
+          <Button variant="contained" size="small" onClick={() => navigate('/admin/excel-import')}
+            sx={{ background: '#10b981', '&:hover': { background: '#059669' }, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem', textTransform: 'none', whiteSpace: 'nowrap', padding: '4px 10px' }}>
             📤 Upload
-          </button>
-          <button
-            onClick={() => navigate('/admin/excel-manager')}
-            style={{
-              padding: '6px 10px',
-              fontSize: '0.7rem',
-              background: '#667eea',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: '600',
-              whiteSpace: 'nowrap'
-            }}
-          >
+          </Button>
+          <Button variant="contained" size="small" onClick={() => navigate('/admin/excel-manager')}
+            sx={{ background: '#667eea', '&:hover': { background: '#5a67d8' }, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem', textTransform: 'none', whiteSpace: 'nowrap', padding: '4px 10px' }}>
             📊 Excel Files
-          </button>
+          </Button>
           <button
             onClick={async () => {
               if (confirm('Mark ALL active products as Amazon Choice? This will make all products appear on the Amazon Choice page.')) {
@@ -3374,37 +3235,19 @@ const AdminProducts = () => {
             <option value="pending">⏳ Pending</option>
           </select>
 
-          <button
+          <Button
+            variant={filters.isAmazonsChoice ? 'contained' : 'outlined'}
+            size="small"
             onClick={handleAmazonsChoiceFilter}
-            style={{
-              padding: '4px 8px',
-              fontSize: '0.7rem',
-              borderRadius: '4px',
-              border: '1px solid #ff9800',
+            sx={{
+              borderColor: '#ff9800', color: filters.isAmazonsChoice ? 'white' : '#ff9800',
               background: filters.isAmazonsChoice ? '#ff9800' : 'white',
-              color: filters.isAmazonsChoice ? 'white' : '#ff9800',
-              cursor: 'pointer',
-              fontWeight: '600',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              whiteSpace: 'nowrap'
+              '&:hover': { background: '#f57c00', color: 'white', borderColor: '#f57c00' },
+              borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem', textTransform: 'none', whiteSpace: 'nowrap', padding: '3px 8px'
             }}
           >
-            🏆 Amazon's Choice
-            {filters.isAmazonsChoice && (
-              <span style={{
-                background: 'rgba(255,255,255,0.3)',
-                padding: '1px 4px',
-                borderRadius: '8px',
-                fontSize: '0.6rem',
-                fontWeight: '700'
-              }}>
-                ON
-              </span>
-            )}
-          </button>
+            🏆 Amazon's Choice {filters.isAmazonsChoice && <span style={{ marginLeft: 4, background: 'rgba(255,255,255,0.3)', padding: '1px 4px', borderRadius: '8px', fontSize: '0.6rem' }}>ON</span>}
+          </Button>
 
           <div style={{
             fontSize: '0.65rem',
@@ -3420,6 +3263,18 @@ const AdminProducts = () => {
           </div>
         </div>
       </div>
+
+      {/* Slim progress bar for background (category switch) loads */}
+      {backgroundLoading && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, height: '3px', zIndex: 9999,
+          background: 'linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%)',
+          backgroundSize: '200% 100%',
+          animation: 'progressSlide 1s linear infinite'
+        }}>
+          <style>{`@keyframes progressSlide { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
+        </div>
+      )}
 
       {loading ? (
         <div className="loading-container" style={{
@@ -3496,27 +3351,16 @@ const AdminProducts = () => {
              'No products available'}
           </p>
           {(search || filters.category || filters.isAmazonsChoice) && (
-            <button
+            <Button
+              variant="contained"
               onClick={() => {
                 setSearch('');
                 setFilters({ category: '', status: '', isAmazonsChoice: false });
               }}
-              style={{
-                padding: '12px 24px',
-                fontSize: '1rem',
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                transition: 'background 0.2s ease',
-                fontWeight: '500'
-              }}
-              onMouseOver={(e) => e.target.style.background = '#0056b3'}
-              onMouseOut={(e) => e.target.style.background = '#007bff'}
+              sx={{ background: '#007bff', '&:hover': { background: '#0056b3' }, borderRadius: '8px', fontWeight: 500, fontSize: '1rem', textTransform: 'none', padding: '10px 24px' }}
             >
               Clear Filters
-            </button>
+            </Button>
           )}
         </div>
       ) : (
@@ -3633,76 +3477,62 @@ const AdminProducts = () => {
             </span>
           </div>
 
-          <div className="products-table products-table-wrapper" style={{ 
-            fontSize: '0.8rem',
-            overflowX: 'scroll',
-            overflowY: 'visible',
-            WebkitOverflowScrolling: 'touch',
-            width: '100%',
-            maxWidth: '100%',
-            display: 'block',
-            position: 'relative'
-          }}>
-            <style>{`
-              .products-table-wrapper {
-                overflow-x: scroll !important;
-                overflow-y: visible !important;
-                -webkit-overflow-scrolling: touch !important;
-                width: 100% !important;
-                max-width: 100% !important;
-              }
-              
-              @media (max-width: 768px) {
-                .products-table-wrapper {
-                  overflow-x: scroll !important;
-                  -webkit-overflow-scrolling: touch !important;
-                }
-                .products-table-wrapper table {
-                  min-width: 900px !important;
-                }
-              }
-              
-              @media (max-width: 480px) {
-                .products-table-wrapper table {
-                  min-width: 800px !important;
-                }
-              }
-            `}</style>
-            <table style={{ width: '100%', minWidth: '1200px', display: 'table' }}>
-              <thead>
-                <tr style={{ background: '#dc2626' }}>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', width: '40px', color: 'white' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedProducts.size > 0 && selectedProducts.size === filteredProducts.length}
-                      onChange={handleSelectAll}
-                      style={{ cursor: 'pointer' }}
-                      title="Select all on this page"
-                    />
-                  </th>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white', width: '60px' }}>Image</th>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Product</th>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>ASIN</th>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>SKU</th>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Category</th>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Price</th>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Shipping</th>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Stock</th>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Status</th>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Sellers</th>
-                  <th style={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: '600', color: 'white' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          {/* Scrollable table wrapper — inline styles are immune to CSS file conflicts */}
+          <div
+            className="products-table"
+            style={{
+              display: 'block',
+              width: '100%',
+              overflowX: 'auto',
+              overflowY: 'visible',
+              WebkitOverflowScrolling: 'touch',
+              fontSize: '0.8rem',
+              position: 'relative',
+              background: 'white',
+              borderRadius: '8px',
+            }}
+          >
+            <Table
+              size="small"
+              style={{
+                minWidth: '1200px',
+                width: 'max-content',
+                borderCollapse: 'collapse',
+                tableLayout: 'auto',
+              }}
+            >
+                <TableHead>
+                  <TableRow sx={{ background: '#dc2626' }}>
+                    <TableCell sx={{ padding: '6px 8px', width: '40px', background: '#dc2626', color: 'white' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.size > 0 && selectedProducts.size === filteredProducts.length}
+                        onChange={handleSelectAll}
+                        style={{ cursor: 'pointer' }}
+                        title="Select all on this page"
+                      />
+                    </TableCell>
+                    <TableCell sx={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: 700, background: '#dc2626', color: 'white', width: '60px' }}>Image</TableCell>
+                    <TableCell sx={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: 700, background: '#dc2626', color: 'white' }}>Product</TableCell>
+                    <TableCell sx={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: 700, background: '#dc2626', color: 'white' }}>ASIN</TableCell>
+                    <TableCell sx={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: 700, background: '#dc2626', color: 'white' }}>SKU</TableCell>
+                    <TableCell sx={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: 700, background: '#dc2626', color: 'white' }}>Category</TableCell>
+                    <TableCell sx={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: 700, background: '#dc2626', color: 'white' }}>Price</TableCell>
+                    <TableCell sx={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: 700, background: '#dc2626', color: 'white' }}>Shipping</TableCell>
+                    <TableCell sx={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: 700, background: '#dc2626', color: 'white' }}>Stock</TableCell>
+                    <TableCell sx={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: 700, background: '#dc2626', color: 'white' }}>Status</TableCell>
+                    <TableCell sx={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: 700, background: '#dc2626', color: 'white' }}>Sellers</TableCell>
+                    <TableCell sx={{ padding: '6px 8px', fontSize: '0.7rem', fontWeight: 700, background: '#dc2626', color: 'white' }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                 {filteredProducts.map(product => (
-                  <tr key={product._id} style={{ 
-                    borderBottom: '1px solid #e5e7eb', 
+                  <TableRow key={product._id} sx={{
+                    borderBottom: '1px solid #e5e7eb',
                     background: selectedProducts.has(product._id) ? '#f0f9ff' : 'transparent',
-                    display: 'table-row',
-                    height: 'auto',
-                    minHeight: '40px'
+                    '&:hover': { background: selectedProducts.has(product._id) ? '#e0f2fe' : '#f9fafb' }
                   }}>
-                    <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                    <TableCell sx={{ padding: '4px 8px', textAlign: 'center' }}>
                       <input
                         type="checkbox"
                         checked={selectedProducts.has(product._id)}
@@ -3710,8 +3540,8 @@ const AdminProducts = () => {
                         style={{ cursor: 'pointer' }}
                         onClick={(e) => e.stopPropagation()}
                       />
-                    </td>
-                    <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                    </TableCell>
+                    <TableCell style={{ padding: '4px 8px', textAlign: 'center' }}>
                       <a 
                         href={`/product/${product._id}`}
                         style={{ 
@@ -3725,8 +3555,8 @@ const AdminProducts = () => {
                           onClick={null}
                         />
                       </a>
-                    </td>
-                    <td className="product-info" style={{ padding: '4px 8px' }}>
+                    </TableCell>
+                    <TableCell className="product-info" style={{ padding: '4px 8px' }}>
                       <a 
                         href={`/product/${product._id}`}
                         style={{ 
@@ -3755,8 +3585,8 @@ const AdminProducts = () => {
                         </div>
                       </a>
                       <div className="product-id" style={{ fontSize: '0.6rem', color: '#6b7280' }}>ID: {product._id.slice(-6)}</div>
-                    </td>
-                    <td
+                    </TableCell>
+                    <TableCell
                       className="asin"
                       style={{ padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s' }}
                       data-cell={`${product._id}-asin`}
@@ -3796,8 +3626,8 @@ const AdminProducts = () => {
                           <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
                         </span>
                       )}
-                    </td>
-                    <td
+                    </TableCell>
+                    <TableCell
                       className="sku"
                       style={{ padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s' }}
                       data-cell={`${product._id}-sku`}
@@ -3836,8 +3666,8 @@ const AdminProducts = () => {
                           <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
                         </span>
                       )}
-                    </td>
-                    <td 
+                    </TableCell>
+                    <TableCell 
                       className="category"
                       style={{ padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s' }}
                       data-cell={`${product._id}-category`}
@@ -3906,8 +3736,8 @@ const AdminProducts = () => {
                           <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
                         </span>
                       )}
-                    </td>
-                    <td
+                    </TableCell>
+                    <TableCell
                       className="price"
                       style={{ padding: '4px 8px', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s' }}
                       data-cell={`${product._id}-price`}
@@ -3942,8 +3772,8 @@ const AdminProducts = () => {
                           <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
                         </span>
                       )}
-                    </td>
-                    <td
+                    </TableCell>
+                    <TableCell
                       className="shipping"
                       style={{ padding: '4px 8px', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s' }}
                       data-cell={`${product._id}-shipping`}
@@ -3978,8 +3808,8 @@ const AdminProducts = () => {
                           <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
                         </span>
                       )}
-                    </td>
-                    <td
+                    </TableCell>
+                    <TableCell
                       className="stock"
                       style={{ padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s' }}
                       data-cell={`${product._id}-stock`}
@@ -4013,8 +3843,8 @@ const AdminProducts = () => {
                           <span style={{ marginLeft: '3px', fontSize: '0.55rem', color: '#999' }}>✏️</span>
                         </span>
                       )}
-                    </td>
-                    <td 
+                    </TableCell>
+                    <TableCell 
                       style={{ 
                         padding: '4px 8px', 
                         cursor: 'pointer', 
@@ -4168,8 +3998,8 @@ const AdminProducts = () => {
                           );
                         })()
                       )}
-                    </td>
-                    <td className="seller-info" style={{ padding: '4px 8px', fontSize: '0.7rem' }}>
+                    </TableCell>
+                    <TableCell className="seller-info" style={{ padding: '4px 8px', fontSize: '0.7rem' }}>
                       {(() => {
                         const sellersCount = product.sellers?.length || 0;
                         const hasLegacySeller = product.seller?.businessName;
@@ -4220,46 +4050,47 @@ const AdminProducts = () => {
                           );
                         }
                       })()}
-                    </td>
-                    <td className="actions" style={{ padding: '4px 8px' }}>
-                      <button
-                        onClick={() => {
-                          const editUrl = `/admin/products/edit/${product._id}${filters.category ? `?returnCategory=${filters.category}` : ''}`;
-                          navigate(editUrl, {
-                            state: { category: filters.category }
-                          });
-                        }}
-                        className="edit-btn"
-                        title="Edit Product"
-                        style={{ padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px' }}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => startProfitEditing(product)}
-                        className="profit-btn"
-                        title="Manage Profit Details"
-                        style={{ padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px', background: '#ff9800', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
-                      >
-                        💰
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product._id)}
-                        className="delete-btn"
-                        title="Delete Product"
-                        style={{ padding: '2px 6px', fontSize: '0.65rem' }}
-                      >
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="actions" style={{ padding: '4px 8px' }}>
+                      <Tooltip title="Edit Product">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            const editUrl = `/admin/products/edit/${product._id}${filters.category ? `?returnCategory=${filters.category}` : ''}`;
+                            navigate(editUrl, { state: { category: filters.category } });
+                          }}
+                          sx={{ background: '#667eea', color: 'white', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px', '&:hover': { background: '#5a67d8' } }}
+                        >
+                          ✏️
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Manage Profit Details">
+                        <IconButton
+                          size="small"
+                          onClick={() => startProfitEditing(product)}
+                          sx={{ background: '#ff9800', color: 'white', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px', '&:hover': { background: '#f57c00' } }}
+                        >
+                          💰
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Product">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDelete(product._id)}
+                          sx={{ background: '#ef4444', color: 'white', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', '&:hover': { background: '#dc2626' } }}
+                        >
+                          🗑️
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
-          {/* Mobile Product Cards (shown on mobile only) */}
-          <div className="mobile-product-cards">
+          {/* Mobile Product Cards — explicitly hidden, table used on all screen sizes */}
+          <div className="mobile-product-cards" style={{ display: 'none' }}>
             {filteredProducts.map(product => (
               <div key={product._id} className="mobile-product-card">
                 <div className="mobile-product-card-header">
@@ -4338,33 +4169,21 @@ const AdminProducts = () => {
                 </a>
                 
                 <div className="mobile-product-card-actions">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent triggering product click
-                      navigate(`/admin/products/edit/${product._id}${filters.category ? `?returnCategory=${filters.category}` : ''}`);
-                    }}
-                    style={{ background: '#667eea', color: 'white' }}
-                  >
+                  <Button variant="contained" size="small"
+                    onClick={(e) => { e.stopPropagation(); navigate(`/admin/products/edit/${product._id}${filters.category ? `?returnCategory=${filters.category}` : ''}`); }}
+                    sx={{ background: '#667eea', '&:hover': { background: '#5a67d8' }, textTransform: 'none', fontWeight: 600, fontSize: '0.75rem' }}>
                     ✏️ Edit
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent triggering product click
-                      startProfitEditing(product);
-                    }}
-                    style={{ background: '#ff9800', color: 'white' }}
-                  >
+                  </Button>
+                  <Button variant="contained" size="small"
+                    onClick={(e) => { e.stopPropagation(); startProfitEditing(product); }}
+                    sx={{ background: '#ff9800', '&:hover': { background: '#f57c00' }, textTransform: 'none', fontWeight: 600, fontSize: '0.75rem' }}>
                     💰 Profit
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent triggering product click
-                      handleDeleteProduct(product._id);
-                    }}
-                    style={{ background: '#ef4444', color: 'white' }}
-                  >
+                  </Button>
+                  <Button variant="contained" size="small"
+                    onClick={(e) => { e.stopPropagation(); handleDeleteProduct(product._id); }}
+                    sx={{ background: '#ef4444', '&:hover': { background: '#dc2626' }, textTransform: 'none', fontWeight: 600, fontSize: '0.75rem' }}>
                     🗑️
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -4396,87 +4215,17 @@ const AdminProducts = () => {
               background: '#f9fafb',
               marginTop: '10px'
             }}>
-              <button
-                onClick={() => setCurrentPage(1)}
-                disabled={currentPage === 1}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '0.7rem',
-                  border: '1px solid #667eea',
-                  background: currentPage === 1 ? '#f3f4f6' : 'white',
-                  color: currentPage === 1 ? '#9ca3af' : '#667eea',
-                  borderRadius: '4px',
-                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                ⏮
-              </button>
-
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '0.7rem',
-                  border: '1px solid #667eea',
-                  background: currentPage === 1 ? '#f3f4f6' : 'white',
-                  color: currentPage === 1 ? '#9ca3af' : '#667eea',
-                  borderRadius: '4px',
-                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                ←
-              </button>
-
-              <div style={{
-                padding: '4px 12px',
-                fontSize: '0.7rem',
-                color: '#374151',
-                fontWeight: '600',
-                background: 'white',
-                border: '1px solid #667eea',
-                borderRadius: '4px',
-                minWidth: '80px',
-                textAlign: 'center'
-              }}>
+              <Button variant="outlined" size="small" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}
+                sx={{ minWidth: 0, padding: '4px 8px', fontSize: '0.7rem', borderColor: '#667eea', color: currentPage === 1 ? '#9ca3af' : '#667eea', fontWeight: 600 }}>⏮</Button>
+              <Button variant="outlined" size="small" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}
+                sx={{ minWidth: 0, padding: '4px 8px', fontSize: '0.7rem', borderColor: '#667eea', color: currentPage === 1 ? '#9ca3af' : '#667eea', fontWeight: 600 }}>←</Button>
+              <div style={{ padding: '4px 12px', fontSize: '0.7rem', color: '#374151', fontWeight: 600, background: 'white', border: '1px solid #667eea', borderRadius: '4px', minWidth: '80px', textAlign: 'center' }}>
                 {currentPage} / {totalPages}
               </div>
-
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '0.7rem',
-                  border: '1px solid #667eea',
-                  background: currentPage === totalPages ? '#f3f4f6' : 'white',
-                  color: currentPage === totalPages ? '#9ca3af' : '#667eea',
-                  borderRadius: '4px',
-                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                →
-              </button>
-
-              <button
-                onClick={() => setCurrentPage(totalPages)}
-                disabled={currentPage === totalPages}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '0.7rem',
-                  border: '1px solid #667eea',
-                  background: currentPage === totalPages ? '#f3f4f6' : 'white',
-                  color: currentPage === totalPages ? '#9ca3af' : '#667eea',
-                  borderRadius: '4px',
-                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                ⏭
-              </button>
+              <Button variant="outlined" size="small" onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}
+                sx={{ minWidth: 0, padding: '4px 8px', fontSize: '0.7rem', borderColor: '#667eea', color: currentPage === totalPages ? '#9ca3af' : '#667eea', fontWeight: 600 }}>→</Button>
+              <Button variant="outlined" size="small" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}
+                sx={{ minWidth: 0, padding: '4px 8px', fontSize: '0.7rem', borderColor: '#667eea', color: currentPage === totalPages ? '#9ca3af' : '#667eea', fontWeight: 600 }}>⏭</Button>
             </div>
           )}
         </div>

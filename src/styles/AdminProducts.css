@@ -25,7 +25,7 @@ img[alt*="Product" i] {
   margin: 0 auto;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   min-height: 100vh;
-  overflow: visible !important; /* Allow natural scrolling */
+  overflow: visible !important;
 }
 
 .admin-products.admin-products-page {
@@ -44,25 +44,30 @@ img[alt*="Product" i] {
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
+/* Desktop: products-table is the scroll container */
 .products-table {
   background: white;
   border-radius: 12px;
-  overflow: visible !important; /* CRITICAL: No nested scroll */
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  -webkit-overflow-scrolling: touch !important;
   box-shadow: 0 4px 15px rgba(0,0,0,0.08);
   height: auto !important;
   max-height: none !important;
+  display: block !important;
 }
 
 .products-table table {
   width: 100%;
+  min-width: 1200px;
   border-collapse: collapse;
-  table-layout: fixed; /* Prevent column width changes */
+  table-layout: auto !important;
 }
 
 .products-table tbody tr {
   height: auto !important;
   min-height: 40px;
-  display: table-row !important; /* Ensure rows display correctly */
+  display: table-row !important;
 }
 
 .products-table td {
@@ -71,8 +76,9 @@ img[alt*="Product" i] {
   vertical-align: middle;
   transition: background 0.2s ease;
   font-size: 0.75rem;
-  overflow: visible !important; /* Allow content to show */
-  display: table-cell !important; /* Ensure cells display correctly */
+  overflow: visible !important;
+  display: table-cell !important;
+  white-space: nowrap;
 }
 
 .products-table th {
@@ -88,6 +94,12 @@ img[alt*="Product" i] {
   position: sticky;
   top: 0;
   z-index: 10;
+  white-space: nowrap;
+}
+
+/* Mobile cards — hidden by default, shown only on mobile via media query */
+.mobile-product-cards {
+  display: none !important;
 }
 
 .page-header {
