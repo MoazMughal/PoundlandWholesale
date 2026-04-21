@@ -137,7 +137,7 @@ const Basket = () => {
     }
   }
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (preOpenedTabs = []) => {
     // Only process selected items
     const selectedBasket = basket.filter(item => {
       const iId  = item.id || item._id
@@ -278,7 +278,7 @@ const Basket = () => {
 
       // Send quotations to each seller
       let quotationsSent = 0
-      console.log(`\n🚀 Starting to send quotations to ${Object.keys(sellerGroups).length} seller(s)...`)
+      const whatsappUrls = []
       
       for (const [cleanWhatsApp, group] of Object.entries(sellerGroups)) {
         const { sellerName, products } = group
@@ -365,19 +365,27 @@ _This quotation was generated from PoundlandWholesale.com_
           }
         }
 
-        // Create WhatsApp URL — strip everything except digits, then open
+        // Create WhatsApp URL
         const whatsappUrl = `https://wa.me/${finalWhatsApp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`
-        
-        // Open WhatsApp in new tab with a small delay between each
-        setTimeout(() => {
-          window.open(whatsappUrl, '_blank')
-        }, quotationsSent * 600)
-        
+        whatsappUrls.push({ url: whatsappUrl, sellerName })
         quotationsSent++
       }
 
       if (quotationsSent > 0) {
-        alert(`✅ Quotation requests sent to ${quotationsSent} seller${quotationsSent > 1 ? 's' : ''}!\n\nPlease check your browser for the WhatsApp tabs.`)
+        // Use pre-opened tabs if available (avoids popup blocker)
+        whatsappUrls.forEach((w, i) => {
+          const tab = preOpenedTabs[i]
+          if (tab && !tab.closed) {
+            tab.location.href = w.url
+          } else {
+            // Fallback: try direct open (works if only 1 seller)
+            window.open(w.url, '_blank')
+          }
+        })
+
+        if (whatsappUrls.length > 1) {
+          alert(`✅ Quotation sent to ${quotationsSent} sellers! Check the opened WhatsApp tabs.`)
+        }
       }
 
       // If there are products without sellers but some with sellers, notify user
@@ -765,7 +773,18 @@ _This quotation was generated from PoundlandWholesale.com_
 
                 {/* Proceed to Checkout Button */}
                 <button
-                  onClick={handleCheckout}
+                  onClick={() => {
+                    // Count selected items to know how many tabs to pre-open
+                    const sellerCount = Object.values(selectedItems).filter(Boolean).length
+                    // Pre-open blank tabs synchronously inside the click handler
+                    // (browsers allow window.open in direct user gesture)
+                    const tabs = []
+                    for (let i = 0; i < Math.min(sellerCount, 10); i++) {
+                      const tab = window.open('about:blank', '_blank')
+                      if (tab) tabs.push(tab)
+                    }
+                    handleCheckout(tabs)
+                  }}
                   className="basket-checkout-btn"
                   disabled={selectedCount === 0}
                 >

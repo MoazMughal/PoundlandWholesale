@@ -41,6 +41,25 @@ export const BasketProvider = ({ children }) => {
     setUserType(type)
   }, [])
 
+  // Listen for auth changes (login/logout) to update userType
+  // Basket persists across login/logout — same localStorage key for all users
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (['buyerToken','sellerToken','adminToken'].includes(e.key)) {
+        const buyerToken  = localStorage.getItem('buyerToken')
+        const sellerToken = localStorage.getItem('sellerToken')
+        const adminToken  = localStorage.getItem('adminToken')
+        let type = 'guest'
+        if (adminToken) type = 'admin'
+        else if (sellerToken) type = 'seller'
+        else if (buyerToken) type = 'buyer'
+        setUserType(type)
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
+
   // Save basket to unified key whenever it changes
   useEffect(() => {
     localStorage.setItem(BASKET_KEY, JSON.stringify(basket))
