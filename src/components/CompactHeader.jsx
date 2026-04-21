@@ -709,3 +709,4 @@ const CategoryItem = ({ cat, hierarchy }) => {
 };
 
 export default CompactHeader;
+

@@ -910,46 +910,16 @@ const AmazonsChoice = () => {
               stock: p.stock || 0,
               discount: p.discount || 0,
               dealUnits: (() => {
-                // Try multiple sources for platform units
-                let platformUnits = p.platformUnits;
-                
-                // If no platformUnits, check if it's in profit evaluation or other fields
-                if (!platformUnits && p.profitEvaluation?.platformUnits) {
-                  platformUnits = p.profitEvaluation.platformUnits;
-                }
-                
-                // If still no platformUnits, check platform comparison data
-                if (!platformUnits && p.platformComparison && p.platformComparison.length > 0) {
-                  // Try to get units from platform comparison
-                  const firstPlatform = p.platformComparison[0];
-                  if (firstPlatform.units) {
-                    platformUnits = firstPlatform.units;
-                  }
-                }
-                
-                // If we found platformUnits, calculate dealUnits
-                if (platformUnits && platformUnits > 0) {
-                  const calculatedDealUnits = Math.floor(platformUnits / 12);
-                  return calculatedDealUnits;
-                }
-                
-                // If no platformUnits found anywhere, check if the existing dealUnits looks like it might be correct
-                // (i.e., if it's already been calculated and stored)
-                if (p.dealUnits && p.dealUnits > 1 && p.dealUnits < 1000) {
-                  // Use the existing dealUnits value (it might already be calculated correctly)
-                  return p.dealUnits;
-                }
-                
-                // Final fallback - calculate from default platformUnits
-                const defaultPlatformUnits = 2400;
-                const fallbackDealUnits = Math.floor(defaultPlatformUnits / 12);
-                
-                return fallbackDealUnits;
-              })(), // Auto-calculate as platformUnits / 12
-              platformUnits: p.platformUnits, // Also include platformUnits for debugging
+                // Match ProductDetail: uses platforms[0].units / 6
+                const platformUnits = p.platformComparison?.[0]?.units
+                  || p.platformUnits
+                  || p.profitEvaluation?.platformUnits
+                  || 200;
+                return Math.floor(platformUnits / 6);
+              })(),
+              platformUnits: p.platformUnits,
               currency: 'GBP',
               isAmazonsChoice: true,
-              sku: p.sku || '',
               // Include profit data from database
               profitCalculations: p.profitCalculations || null,
               evaluation: p.evaluation || null,
@@ -1041,11 +1011,10 @@ const AmazonsChoice = () => {
                   reviews: p.reviews || 0,
                   stock: p.stock || 0,
                   discount: p.discount || 0,
-                  dealUnits: Math.floor((p.platformUnits || 2400) / 12),
+                  dealUnits: Math.floor((p.platformComparison?.[0]?.units || p.platformUnits || 200) / 6),
                   platformUnits: p.platformUnits,
                   currency: 'GBP',
                   isAmazonsChoice: true,
-                  sku: p.sku || '',
                   profitCalculations: p.profitCalculations || null,
                   evaluation: p.evaluation || null,
                   profitEvaluation: p.profitEvaluation || null
@@ -3197,118 +3166,39 @@ const AmazonsChoice = () => {
                 {(() => {
                   // Check product availability - only show as available if there are sellers
                   const hasSellers = product.sellers && product.sellers.some(s => !s.listingCountries || s.listingCountries.length === 0 || s.listingCountries.includes(currency));
-                  const isAvailable = hasSellers;
-                  
-                  // Don't show profit for out of stock products
-                  if (!isAvailable) {
-                    return null;
-                  }
-                  
-                  // Calculate profit using the same logic as above
-                  const getProfitPerUnit = () => {
-                    let profitPerUnit = 0;
-                    
-                    if (product?.profitCalculations?.profitPerUnit) {
-                      profitPerUnit = parseFloat(String(product.profitCalculations.profitPerUnit).replace(/[£₨$€]/g, ''));
-                    } else if (product?.evaluation?.netProfit) {
-                      profitPerUnit = parseFloat(String(product.evaluation.netProfit).replace(/[£₨$€]/g, ''));
-                    }
-                    
-                    if (profitPerUnit === 0) {
-                      const productName = product.name?.toLowerCase() || '';
-                      
-                      if (productName.includes('nose ring')) {
-                        profitPerUnit = 40.14;
-                      } else if (productName.includes('bulb')) {
-                        profitPerUnit = 251.10;
-                      } else if (productName.includes('fuse')) {
-                        profitPerUnit = 455.80;
-                      } else if (productName.includes('lampshade')) {
-                        profitPerUnit = 227.80;
-                      } else if (productName.includes('leather') && productName.includes('watch')) {
-                        profitPerUnit = 586.00;
-                      } else {
-                        const productPrice = parseFloat(String(product.price || 0).replace(/[£₨$€]/g, '')) || 0;
-                        
-                        if (productPrice > 0) {
-                          let costPriceGBP = productPrice;
-                          const isPKR = String(product.price).includes('₨') || String(product.price).includes('Rs');
-                          const isGBP = String(product.price).includes('£');
-                          
-                          if (isPKR) {
-                            costPriceGBP = productPrice * 0.00272;
-                          } else if (!isGBP) {
-                            costPriceGBP = productPrice;
-                          }
-                          
-                          profitPerUnit = costPriceGBP * 2;
-                        }
-                      }
-                    }
-                    
-                    return parseFloat(profitPerUnit) || 0;
-                  };
+                  if (!hasSellers) return null;
 
-                  const profitPerUnit = getProfitPerUnit();
+                  // Only use real profit data from admin panel — no guesses
+                  const profitPerUnit = product?.profitCalculations?.profitPerUnit
+                    ? parseFloat(String(product.profitCalculations.profitPerUnit).replace(/[£₨$€]/g, ''))
+                    : product?.profitEvaluation?.netProfit
+                      ? parseFloat(String(product.profitEvaluation.netProfit).replace(/[£₨$€]/g, ''))
+                      : 0;
+
+                  if (profitPerUnit <= 0) return null;
+
                   const dealUnits = product.dealUnits || 1;
                   const totalProfit = profitPerUnit * dealUnits;
 
-                  // Only show if profit is valid
-                  if (profitPerUnit <= 0) {
-                    return null;
-                  }
-
                   return (
                     <div style={{ marginTop: '1px' }}>
+                      {/* Profit/dealUnits row */}
                       <div style={{
-                        background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)', 
+                        background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
                         padding: windowWidth < 576 ? '3px 4px' : '2px 3px',
                         borderRadius: '3px',
-                        border: '1px solid #1a1a1a', 
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        width: '100%',
-                        gap: '4px',
-                        boxSizing: 'border-box',
-                        overflow: 'hidden'
+                        border: '1px solid #1a1a1a',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        width: '100%', gap: '4px', boxSizing: 'border-box', overflow: 'hidden'
                       }}>
-                        <span style={{
-                          fontSize: windowWidth < 576 ? '6px' : '7px',
-                          color: '#1a1a1a', 
-                          fontWeight: '700',
-                          flex: '1 1 0',
-                          minWidth: 0,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
+                        <span style={{ fontSize: windowWidth < 576 ? '6px' : '7px', color: '#1a1a1a', fontWeight: '700', flex: '1 1 0', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           📈 Profit Cost Price / {dealUnits} unit{dealUnits !== 1 ? 's' : ''}:
                         </span>
-                        <span style={{
-                          fontSize: windowWidth < 576 ? '7px' : '8px',
-                          fontWeight: '800', 
-                          color: '#1a1a1a',
-                          flex: '0 0 auto',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {(() => {
-                            const formatted = formatPrice(totalProfit);
-                            if (typeof formatted === 'string' && formatted.startsWith('Rs')) {
-                              const priceValue = formatted.substring(2);
-                              return (
-                                <>
-                                  <span style={{ fontSize: '0.7em' }}>Rs</span>
-                                  {priceValue}
-                                </>
-                              );
-                            }
-                            return formatted;
-                          })()}
+                        <span style={{ fontSize: windowWidth < 576 ? '7px' : '8px', fontWeight: '800', color: '#1a1a1a', flex: '0 0 auto', whiteSpace: 'nowrap' }}>
+                          {formatPrice(totalProfit)}
                         </span>
+                      </div>
                     </div>
-                  </div>
                   );
                 })()}
 
