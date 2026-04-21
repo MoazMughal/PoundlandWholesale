@@ -1,486 +1,162 @@
 import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import Box from '@mui/material/Box';
+import Container from '@mui/material/Container';
+import Grid from '@mui/material/Grid';
+import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 
-const CompactFooter = () => {
-  // Add responsive grid handling with more breakpoints
-  const [screenSize, setScreenSize] = useState('desktop');
+// MUI-compatible link that uses react-router
+const FooterLink = ({ to, children }) => (
+  <Box
+    component={Link}
+    to={to}
+    sx={{
+      display: 'block',
+      color: 'rgba(255,255,255,0.75)',
+      textDecoration: 'none',
+      fontSize: '0.875rem',
+      transition: 'all 0.2s ease',
+      '&:hover': { color: '#ff9900', transform: 'translateX(5px)' },
+    }}
+  >
+    {children}
+  </Box>
+);
 
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      if (width < 576) {
-        setScreenSize('mobile');
-      } else if (width < 768) {
-        setScreenSize('tablet');
-      } else if (width < 992) {
-        setScreenSize('desktop-small');
-      } else {
-        setScreenSize('desktop');
-      }
-    };
-    
-    handleResize(); // Check initial size
-    window.addEventListener('resize', handleResize);
-    
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+// Section heading with orange underline
+const SectionHeading = ({ children }) => (
+  <Box sx={{ mb: 2 }}>
+    <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#fff', mb: 0.5 }}>
+      {children}
+    </Typography>
+    <Box sx={{ width: 36, height: 3, background: '#ff9900', borderRadius: 1 }} />
+  </Box>
+);
 
-  const isMobile = screenSize === 'mobile' || screenSize === 'tablet';
-  const isDesktop = screenSize === 'desktop' || screenSize === 'desktop-small';
-
-  // Dynamic padding based on screen size
-  const getFooterPadding = () => {
-    switch (screenSize) {
-      case 'mobile':
-        return '20px 70px 10px'; // More right padding for mobile
-      case 'tablet':
-        return '20px 50px 10px'; // Medium padding for tablet
-      case 'desktop-small':
-        return '20px 30px 10px'; // Less padding for small desktop
-      default:
-        return '20px 20px 10px'; // Default for large desktop
-    }
-  };
-
-  // Dynamic container margin
-  const getContainerStyle = () => {
-    const baseStyle = {
-      maxWidth: '1200px',
-      margin: '0 auto',
-    };
-
-    if (isMobile) {
-      return {
-        ...baseStyle,
-        marginLeft: screenSize === 'mobile' ? '50px' : '30px', // More margin for mobile
-      };
-    } else {
-      return {
-        ...baseStyle,
-        paddingLeft: screenSize === 'desktop' ? '60px' : '40px', // More left padding for desktop
-      };
-    }
-  };
-  return (
-    <footer style={{
+const CompactFooter = () => (
+  <Box
+    component="footer"
+    sx={{
       background: 'linear-gradient(135deg, #232f3e 0%, #1a252f 100%)',
-      color: '#fff',
-      padding: getFooterPadding(),
-      marginTop: 'auto',
-      flexShrink: 0,
       borderTop: '3px solid #ff9900',
-      boxShadow: '0 -2px 10px rgba(255, 153, 0, 0.2)',
+      boxShadow: '0 -2px 12px rgba(255,153,0,0.2)',
+      color: '#fff',
+      mt: 'auto',
+      flexShrink: 0,
       width: '100%',
-      margin: 0,
-    }}>
-      <div style={getContainerStyle()}>
-        {/* Main Footer Content */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)',
-          gap: isMobile ? '15px' : '20px',
-          marginBottom: '15px',
-          paddingBottom: '15px',
-          borderBottom: '1px solid rgba(255,255,255,0.15)',
-          // Add extra left padding for desktop to move content more to the right
-          paddingLeft: isDesktop ? '20px' : '0',
-        }}>
-          {/* About Section */}
-          <div>
-            <h3 style={{ 
-              fontSize: '16px', 
-              fontWeight: '700', 
-              marginBottom: '15px', 
-              color: '#ffffff',
-              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-              position: 'relative',
-              paddingBottom: '8px'
-            }}>
-              About Us
-              <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                width: '40px',
-                height: '3px',
-                background: '#ff9900',
-                borderRadius: '2px'
-              }}></div>
-            </h3>
-            <p style={{ 
-              fontSize: '14px', 
-              lineHeight: '1.6', 
-              color: 'rgba(255,255,255,0.8)', 
-              margin: 0 
-            }}>
-              Your trusted wholesale marketplace connecting suppliers with global retailers.
-            </p>
-          </div>
+    }}
+  >
+    <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 } }}>
 
-          {/* Quick Links */}
-          <div>
-            <h3 style={{ 
-              fontSize: '16px', 
-              fontWeight: '700', 
-              marginBottom: '15px', 
-              color: '#ffffff',
-              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-              position: 'relative',
-              paddingBottom: '8px'
-            }}>
-              Quick Links
-              <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                width: '40px',
-                height: '3px',
-                background: '#ff9900',
-                borderRadius: '2px'
-              }}></div>
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <Link 
-                to="/" 
-                style={{ 
-                  color: 'rgba(255,255,255,0.8)', 
-                  textDecoration: 'none', 
-                  fontSize: '14px', 
-                  transition: 'all 0.3s ease',
-                  display: 'block'
-                }} 
-                onMouseEnter={(e) => {
-                  e.target.style.color = '#ff9900';
-                  e.target.style.transform = 'translateX(5px)';
-                }} 
-                onMouseLeave={(e) => {
-                  e.target.style.color = 'rgba(255,255,255,0.8)';
-                  e.target.style.transform = 'translateX(0)';
-                }}
-              >
-                Home
-              </Link>
-              <Link 
-                to="/about-us" 
-                style={{ 
-                  color: 'rgba(255,255,255,0.8)', 
-                  textDecoration: 'none', 
-                  fontSize: '14px', 
-                  transition: 'all 0.3s ease',
-                  display: 'block'
-                }} 
-                onMouseEnter={(e) => {
-                  e.target.style.color = '#ff9900';
-                  e.target.style.transform = 'translateX(5px)';
-                }} 
-                onMouseLeave={(e) => {
-                  e.target.style.color = 'rgba(255,255,255,0.8)';
-                  e.target.style.transform = 'translateX(0)';
-                }}
-              >
-                About Us
-              </Link>
-              <Link 
-                to="/basket" 
-                style={{ 
-                  color: 'rgba(255,255,255,0.8)', 
-                  textDecoration: 'none', 
-                  fontSize: '14px', 
-                  transition: 'all 0.3s ease',
-                  display: 'block'
-                }} 
-                onMouseEnter={(e) => {
-                  e.target.style.color = '#ff9900';
-                  e.target.style.transform = 'translateX(5px)';
-                }} 
-                onMouseLeave={(e) => {
-                  e.target.style.color = 'rgba(255,255,255,0.8)';
-                  e.target.style.transform = 'translateX(0)';
-                }}
-              >
-                Basket
-              </Link>
-            </div>
-          </div>
+      {/* ── Main grid ── */}
+      <Grid container spacing={{ xs: 3, md: 4 }}>
 
-          {/* Legal */}
-          <div>
-            <h3 style={{ 
-              fontSize: '16px', 
-              fontWeight: '700', 
-              marginBottom: '15px', 
-              color: '#ffffff',
-              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-              position: 'relative',
-              paddingBottom: '8px'
-            }}>
-              Legal
-              <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                width: '40px',
-                height: '3px',
-                background: '#ff9900',
-                borderRadius: '2px'
-              }}></div>
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <Link 
-                to="/terms-of-service" 
-                style={{ 
-                  color: 'rgba(255,255,255,0.8)', 
-                  textDecoration: 'none', 
-                  fontSize: '14px', 
-                  transition: 'all 0.3s ease',
-                  display: 'block'
-                }} 
-                onMouseEnter={(e) => {
-                  e.target.style.color = '#ff9900';
-                  e.target.style.transform = 'translateX(5px)';
-                }} 
-                onMouseLeave={(e) => {
-                  e.target.style.color = 'rgba(255,255,255,0.8)';
-                  e.target.style.transform = 'translateX(0)';
-                }}
-              >
-                Terms of Service
-              </Link>
-              <Link 
-                to="/privacy-policy" 
-                style={{ 
-                  color: 'rgba(255,255,255,0.8)', 
-                  textDecoration: 'none', 
-                  fontSize: '14px', 
-                  transition: 'all 0.3s ease',
-                  display: 'block'
-                }} 
-                onMouseEnter={(e) => {
-                  e.target.style.color = '#ff9900';
-                  e.target.style.transform = 'translateX(5px)';
-                }} 
-                onMouseLeave={(e) => {
-                  e.target.style.color = 'rgba(255,255,255,0.8)';
-                  e.target.style.transform = 'translateX(0)';
-                }}
-              >
-                Privacy Policy
-              </Link>
-              <Link 
-                to="/help-center" 
-                style={{ 
-                  color: 'rgba(255,255,255,0.8)', 
-                  textDecoration: 'none', 
-                  fontSize: '14px', 
-                  transition: 'all 0.3s ease',
-                  display: 'block'
-                }} 
-                onMouseEnter={(e) => {
-                  e.target.style.color = '#ff9900';
-                  e.target.style.transform = 'translateX(5px)';
-                }} 
-                onMouseLeave={(e) => {
-                  e.target.style.color = 'rgba(255,255,255,0.8)';
-                  e.target.style.transform = 'translateX(0)';
-                }}
-              >
-                Help Center
-              </Link>
-              <Link 
-                to="/faq" 
-                style={{ 
-                  color: 'rgba(255,255,255,0.8)', 
-                  textDecoration: 'none', 
-                  fontSize: '14px', 
-                  transition: 'all 0.3s ease',
-                  display: 'block'
-                }} 
-                onMouseEnter={(e) => {
-                  e.target.style.color = '#ff9900';
-                  e.target.style.transform = 'translateX(5px)';
-                }} 
-                onMouseLeave={(e) => {
-                  e.target.style.color = 'rgba(255,255,255,0.8)';
-                  e.target.style.transform = 'translateX(0)';
-                }}
-              >
-                FAQ
-              </Link>
-            </div>
-          </div>
+        {/* About */}
+        <Grid item xs={12} sm={6} md={3}>
+          <SectionHeading>About Us</SectionHeading>
+          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.75)', lineHeight: 1.7 }}>
+            Your trusted wholesale marketplace connecting suppliers with global retailers.
+          </Typography>
+        </Grid>
 
-          {/* Contact */}
-          <div>
-            <h3 style={{ 
-              fontSize: '16px', 
-              fontWeight: '700', 
-              marginBottom: '15px', 
-              color: '#ffffff',
-              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-              position: 'relative',
-              paddingBottom: '8px'
-            }}>
-              Contact
-              <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                width: '40px',
-                height: '3px',
-                background: '#ff9900',
-                borderRadius: '2px'
-              }}></div>
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '14px' }}>
-             
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <i className="fas fa-envelope" style={{ color: '#ff9900', fontSize: '14px', width: '16px' }}></i>
-                <span style={{ color: 'rgba(255,255,255,0.8)' }}>poundlandwholesale@gmail.com</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <i className="fas fa-phone" style={{ color: '#ff9900', fontSize: '14px', width: '16px' }}></i>
-                <span style={{ color: 'rgba(255,255,255,0.8)' }}>+92 304 4928000</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <i className="fas fa-phone" style={{ color: '#ff9900', fontSize: '14px', width: '16px' }}></i>
-                <span style={{ color: 'rgba(255,255,255,0.8)' }}>+92 303 4928000</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <i className="fas fa-map-marker-alt" style={{ color: '#ff9900', fontSize: '14px', width: '16px' }}></i>
-                <span style={{ color: 'rgba(255,255,255,0.8)' }}>London, United Kingdom</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Quick Links */}
+        <Grid item xs={12} sm={6} md={3}>
+          <SectionHeading>Quick Links</SectionHeading>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <FooterLink to="/">Home</FooterLink>
+            <FooterLink to="/about-us">About Us</FooterLink>
+            <FooterLink to="/basket">Basket</FooterLink>
+            <FooterLink to="/join-now">Join Now</FooterLink>
+          </Box>
+        </Grid>
 
-        {/* Bottom Bar */}
-        <div style={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '20px',
-          paddingTop: '10px',
-          // Add extra left padding for desktop to move content more to the right
-          paddingLeft: isDesktop ? '20px' : '0',
-        }}>
-          {/* Social Media Icons */}
-          <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-            <span style={{ color: 'rgba(255,255,255,0.8)', fontWeight: '500', fontSize: '14px' }}>Follow Us:</span>
-            <a 
-              href="https://www.facebook.com/share/1AfLdYF6NU/" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              style={{ 
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '40px',
-                height: '40px',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.8)',
-                borderRadius: '50%',
-                fontSize: '18px',
-                transition: 'all 0.3s ease',
-                textDecoration: 'none'
-              }} 
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#1877f2';
-                e.target.style.color = '#fff';
-                e.target.style.transform = 'translateY(-3px)';
-                e.target.style.boxShadow = '0 4px 12px rgba(24, 119, 242, 0.4)';
-              }} 
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                e.target.style.color = 'rgba(255,255,255,0.8)';
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = 'none';
-              }}
-              title="Follow us on Facebook"
-            >
-              <i className="fab fa-facebook-f"></i>
-            </a>
-            <a 
-              href="https://x.com/PoundlandW47056" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              style={{ 
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '40px',
-                height: '40px',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.8)',
-                borderRadius: '50%',
-                fontSize: '18px',
-                transition: 'all 0.3s ease',
-                textDecoration: 'none'
-              }} 
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#000000';
-                e.target.style.color = '#fff';
-                e.target.style.transform = 'translateY(-3px)';
-                e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
-              }} 
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                e.target.style.color = 'rgba(255,255,255,0.8)';
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = 'none';
-              }}
-              title="Follow us on X (Twitter)"
-            >
-              <i className="fab fa-x-twitter"></i>
-            </a>
-            <a 
-              href="https://www.instagram.com/poundlandwholesale/" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              style={{ 
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '40px',
-                height: '40px',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.8)',
-                borderRadius: '50%',
-                fontSize: '18px',
-                transition: 'all 0.3s ease',
-                textDecoration: 'none'
-              }} 
-              onMouseEnter={(e) => {
-                e.target.style.background = 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)';
-                e.target.style.color = '#fff';
-                e.target.style.transform = 'translateY(-3px)';
-                e.target.style.boxShadow = '0 4px 12px rgba(225, 48, 108, 0.4)';
-              }} 
-              onMouseLeave={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.1)';
-                e.target.style.color = 'rgba(255,255,255,0.8)';
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = 'none';
-              }}
-              title="Follow us on Instagram"
-            >
-              <i className="fab fa-instagram"></i>
-            </a>
-          </div>
-          
-          {/* Copyright */}
-          <div style={{ 
-            color: 'rgba(255,255,255,0.6)', 
-            fontWeight: '400',
-            fontSize: '14px',
-            textAlign: isMobile ? 'center' : 'right'
-          }}>
-            © 2024 PoundlandWholesale.com. All rights reserved.
-          </div>
-        </div>
-      </div>
-    </footer>
-  );
-};
+        {/* Legal */}
+        <Grid item xs={12} sm={6} md={3}>
+          <SectionHeading>Legal</SectionHeading>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <FooterLink to="/terms-of-service">Terms of Service</FooterLink>
+            <FooterLink to="/privacy-policy">Privacy Policy</FooterLink>
+            <FooterLink to="/help-center">Help Center</FooterLink>
+            <FooterLink to="/faq">FAQ</FooterLink>
+          </Box>
+        </Grid>
+
+        {/* Contact */}
+        <Grid item xs={12} sm={6} md={3}>
+          <SectionHeading>Contact</SectionHeading>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
+            {[
+              { icon: 'fa-envelope', text: 'poundlandwholesale@gmail.com' },
+              { icon: 'fa-phone',   text: '+92 304 4928000' },
+              { icon: 'fa-phone',   text: '+92 303 4928000' },
+              { icon: 'fa-map-marker-alt', text: 'London, United Kingdom' },
+            ].map(({ icon, text }) => (
+              <Box key={text} sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                <i className={`fas ${icon}`} style={{ color: '#ff9900', fontSize: '13px', width: 16, flexShrink: 0 }} />
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.82rem' }}>
+                  {text}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </Grid>
+      </Grid>
+
+      <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)', my: { xs: 2, md: 3 } }} />
+
+      {/* ── Bottom bar ── */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 2,
+      }}>
+        {/* Social icons */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mr: 0.5 }}>
+            Follow Us:
+          </Typography>
+          {[
+            { href: 'https://www.facebook.com/share/1AfLdYF6NU/', icon: 'fa-facebook-f', label: 'Facebook', hover: '#1877f2' },
+            { href: 'https://x.com/PoundlandW47056', icon: 'fa-x-twitter', label: 'X (Twitter)', hover: '#000' },
+            { href: 'https://www.instagram.com/poundlandwholesale/', icon: 'fa-instagram', label: 'Instagram', hover: 'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)' },
+          ].map(({ href, icon, label, hover }) => (
+            <Tooltip key={label} title={`Follow us on ${label}`}>
+              <IconButton
+                component="a"
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                size="small"
+                sx={{
+                  color: 'rgba(255,255,255,0.8)',
+                  background: 'rgba(255,255,255,0.1)',
+                  width: 36, height: 36,
+                  transition: 'all 0.25s ease',
+                  '&:hover': {
+                    background: hover,
+                    color: '#fff',
+                    transform: 'translateY(-3px)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  },
+                }}
+              >
+                <i className={`fab ${icon}`} style={{ fontSize: '15px' }} />
+              </IconButton>
+            </Tooltip>
+          ))}
+        </Box>
+
+        {/* Copyright */}
+        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.55)', textAlign: { xs: 'center', sm: 'right' } }}>
+          © {new Date().getFullYear()} PoundlandWholesale.com. All rights reserved.
+        </Typography>
+      </Box>
+    </Container>
+  </Box>
+);
 
 export default CompactFooter;

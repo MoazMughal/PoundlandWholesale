@@ -1,460 +1,350 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Container from '@mui/material/Container';
+import Grid from '@mui/material/Grid';
+import Typography from '@mui/material/Typography';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Button from '@mui/material/Button';
+import LinearProgress from '@mui/material/LinearProgress';
+import Chip from '@mui/material/Chip';
+import Avatar from '@mui/material/Avatar';
+import Divider from '@mui/material/Divider';
+import ScrollToTop from '../../components/ScrollToTop';
+
+const POTENTIAL = {
+  starter:     { monthly: 1200,  annual: 2500  },
+  growing:     { monthly: 3800,  annual: 8500  },
+  established: { monthly: 12000, annual: 25000 },
+  enterprise:  { monthly: 35000, annual: 75000 },
+};
+
+const OptionCard = ({ selected, onClick, color, children }) => (
+  <Card variant="outlined" onClick={onClick} sx={{
+    cursor: 'pointer', height: '100%', transition: 'all 0.2s',
+    borderColor: selected ? color : '#e5e7eb',
+    borderWidth: selected ? 2 : 1,
+    background: selected ? `${color}10` : '#fff',
+    '&:hover': { borderColor: color, background: `${color}08`, transform: 'translateY(-2px)', boxShadow: 2 },
+  }}>
+    <CardContent sx={{ p: 1.5, textAlign: 'center', '&:last-child': { pb: 1.5 } }}>
+      {children}
+    </CardContent>
+  </Card>
+);
 
 const JoinNow = () => {
-  const navigate = useNavigate()
-  const [selectedUserType, setSelectedUserType] = useState('')
-  const [currentStep, setCurrentStep] = useState(1)
-  const [assessmentData, setAssessmentData] = useState({
-    experience: '',
-    monthlyVolume: '',
-    primaryGoal: '',
-    challenges: []
-  })
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1);
+  const [selectedType, setSelectedType] = useState('buyer');
+  const [assessment, setAssessment] = useState({ experience: '', monthlyVolume: '', challenges: [] });
 
-  const handleUserTypeSelect = (type) => {
-    // Navigate directly to registration page
-    if (type === 'buyer') {
-      navigate('/register/buyer')
-    } else if (type === 'supplier') {
-      navigate('/register/supplier')
-    }
-  }
+  const handleTypeSelect = type => {
+    navigate(type === 'buyer' ? '/register/buyer' : '/register/supplier');
+  };
 
-  const handleAssessmentChange = (field, value) => {
-    setAssessmentData(prev => ({
-      ...prev,
-      [field]: value
-    }))
-  }
+  const toggleChallenge = c => setAssessment(p => ({
+    ...p,
+    challenges: p.challenges.includes(c) ? p.challenges.filter(x => x !== c) : [...p.challenges, c],
+  }));
 
-  const handleChallengeToggle = (challenge) => {
-    setAssessmentData(prev => ({
-      ...prev,
-      challenges: prev.challenges.includes(challenge)
-        ? prev.challenges.filter(c => c !== challenge)
-        : [...prev.challenges, challenge]
-    }))
-  }
+  const pot = POTENTIAL[assessment.monthlyVolume] || POTENTIAL.starter;
 
-  const calculatePotential = () => {
-    let potential = 0
-    let monthlyEarnings = 0
-    
-    if (selectedUserType === 'buyer') {
-      switch (assessmentData.monthlyVolume) {
-        case 'starter': potential = 2500; monthlyEarnings = 1200; break
-        case 'growing': potential = 8500; monthlyEarnings = 3800; break
-        case 'established': potential = 25000; monthlyEarnings = 12000; break
-        case 'enterprise': potential = 75000; monthlyEarnings = 35000; break
-        default: potential = 2500; monthlyEarnings = 1200
-      }
-    } else {
-      switch (assessmentData.monthlyVolume) {
-        case 'starter': potential = 1800; monthlyEarnings = 800; break
-        case 'growing': potential = 6500; monthlyEarnings = 2800; break
-        case 'established': potential = 18000; monthlyEarnings = 8500; break
-        case 'enterprise': potential = 45000; monthlyEarnings = 22000; break
-        default: potential = 1800; monthlyEarnings = 800
-      }
-    }
-    
-    return { potential, monthlyEarnings }
-  }
+  const PATHS = [
+    {
+      type: 'buyer', icon: '🛒', color: '#667eea', gradient: 'linear-gradient(135deg,#667eea,#764ba2)',
+      title: 'I Want to Buy Products',
+      desc: "Source products from verified suppliers for your Amazon FBA or retail store.",
+      stats: [['500+','Suppliers'],['250%','Avg Markup'],['3 Days','Response']],
+      btn: 'Start as Buyer',
+      perks: ['Access 10,000+ products','Profit calculator included','Direct supplier contact'],
+    },
+    {
+      type: 'supplier', icon: '🏪', color: '#10b981', gradient: 'linear-gradient(135deg,#10b981,#059669)',
+      title: 'I Want to Sell Products',
+      desc: "Connect with Amazon sellers and retailers worldwide. List for free.",
+      stats: [['2000+','Buyers'],['Global','Reach'],['Free','Listing']],
+      btn: 'Start as Supplier',
+      perks: ['Free product listing','Global buyer network','Secure payments'],
+    },
+  ];
 
-  const getPersonalizedBenefits = () => {
-    const { potential, monthlyEarnings } = calculatePotential()
-    
-    if (selectedUserType === 'buyer') {
-      return {
-        title: "Your Buyer Success Plan",
-        subtitle: `Potential to earn $${monthlyEarnings.toLocaleString()}/month`,
-        benefits: [
-          {
-            icon: "fas fa-chart-line",
-            title: "Profit Potential",
-            description: `Based on your profile, you could earn up to $${potential.toLocaleString()} annually`,
-            color: "success"
-          },
-          {
-            icon: "fas fa-handshake",
-            title: "Verified Suppliers",
-            description: "Access 500+ pre-vetted Pakistani suppliers with proven track records",
-            color: "primary"
-          },
-          {
-            icon: "fas fa-shipping-fast",
-            title: "Fast Sourcing",
-            description: "Average 3-day response time for quotes and samples",
-            color: "info"
-          },
-          {
-            icon: "fas fa-shield-alt",
-            title: "Quality Guarantee",
-            description: "All suppliers maintain 95%+ quality ratings with return protection",
-            color: "warning"
-          }
-        ]
-      }
-    } else {
-      return {
-        title: "Your Supplier Growth Plan",
-        subtitle: `Potential to earn $${monthlyEarnings.toLocaleString()}/month`,
-        benefits: [
-          {
-            icon: "fas fa-users",
-            title: "Buyer Network",
-            description: `Connect with 2,000+ active buyers looking for your products`,
-            color: "success"
-          },
-          {
-            icon: "fas fa-globe",
-            title: "Global Reach",
-            description: "Sell to US, UK, UAE, and European markets through our platform",
-            color: "primary"
-          },
-          {
-            icon: "fas fa-tools",
-            title: "Business Tools",
-            description: "Free listing tools, pricing calculator, and market analytics",
-            color: "info"
-          },
-          {
-            icon: "fas fa-graduation-cap",
-            title: "Training & Support",
-            description: "Complete wholesale business course and dedicated account manager",
-            color: "warning"
-          }
-        ]
-      }
-    }
-  }
+  const EXP = [
+    { v:'beginner',     l:'Just Starting',    d:'New to wholesale',   icon:'🌱' },
+    { v:'intermediate', l:'Some Experience',   d:'6 months – 2 years', icon:'📈' },
+    { v:'advanced',     l:'Experienced',       d:'2+ years',           icon:'🏆' },
+  ];
 
-  const renderStep1 = () => (
-    <div className="row justify-content-center">
-      <div className="col-lg-10">
-        <div className="text-center mb-4">
-          <h2 className="fw-bold mb-2">Join Generic Wholesale Community</h2>
-          <p className="text-muted small">Choose your path to success in the wholesale marketplace</p>
-        </div>
+  const VOL = [
+    { v:'starter',     l:'$1K – $5K',   d:'Testing the market' },
+    { v:'growing',     l:'$5K – $20K',  d:'Scaling up'         },
+    { v:'established', l:'$20K – $50K', d:'Established seller' },
+    { v:'enterprise',  l:'$50K+',       d:'Enterprise level'   },
+  ];
 
-        <div className="row g-4">
-          <div className="col-md-6">
-            <div 
-              className={`card h-100 border-0 shadow-lg cursor-pointer ${selectedUserType === 'buyer' ? 'border-primary' : ''}`}
-              onClick={() => handleUserTypeSelect('buyer')}
-              style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
-            >
-              <div className="card-body p-4 text-center">
-                <div className="mb-3">
-                  <div className="bg-primary bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center" style={{ width: '60px', height: '60px' }}>
-                    <i className="fas fa-shopping-cart fa-lg text-white"></i>
-                  </div>
-                </div>
-                <h4 className="fw-bold mb-2">I Want to Buy Products</h4>
-                <p className="text-muted small mb-3">
-                  I'm looking to source products from Pakistani suppliers for my Amazon business or retail store.
-                </p>
-                
-                <div className="row text-center mb-3">
-                  <div className="col-4">
-                    <div className="text-primary fw-bold small">500+</div>
-                    <small className="text-muted" style={{ fontSize: '0.75rem' }}>Suppliers</small>
-                  </div>
-                  <div className="col-4">
-                    <div className="text-success fw-bold small">250%</div>
-                    <small className="text-muted" style={{ fontSize: '0.75rem' }}>Avg Markup</small>
-                  </div>
-                  <div className="col-4">
-                    <div className="text-info fw-bold small">3 Days</div>
-                    <small className="text-muted" style={{ fontSize: '0.75rem' }}>Response Time</small>
-                  </div>
-                </div>
+  const CHALLENGES = [
+    'Finding reliable suppliers','Getting competitive prices',
+    'Quality assurance','Fast shipping times',
+    'Communication barriers','Minimum order quantities',
+  ];
 
-                <button className="btn btn-primary w-100">
-                  Start as Buyer
-                  <i className="fas fa-arrow-right ms-2"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-md-6">
-            <div 
-              className={`card h-100 border-0 shadow-lg cursor-pointer ${selectedUserType === 'supplier' ? 'border-success' : ''}`}
-              onClick={() => handleUserTypeSelect('supplier')}
-              style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
-            >
-              <div className="card-body p-4 text-center">
-                <div className="mb-3">
-                  <div className="bg-success bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center" style={{ width: '60px', height: '60px' }}>
-                    <i className="fas fa-store fa-lg text-white"></i>
-                  </div>
-                </div>
-                <h4 className="fw-bold mb-2">I Want to Sell Products</h4>
-                <p className="text-muted small mb-3">
-                  I'm a manufacturer or supplier looking to connect with Amazon sellers and retailers.
-                </p>
-                
-                <div className="row text-center mb-3">
-                  <div className="col-4">
-                    <div className="text-primary fw-bold small">2000+</div>
-                    <small className="text-muted" style={{ fontSize: '0.75rem' }}>Buyers</small>
-                  </div>
-                  <div className="col-4">
-                    <div className="text-success fw-bold small">Global</div>
-                    <small className="text-muted" style={{ fontSize: '0.75rem' }}>Reach</small>
-                  </div>
-                  <div className="col-4">
-                    <div className="text-info fw-bold small">Free</div>
-                    <small className="text-muted" style={{ fontSize: '0.75rem' }}>Listing</small>
-                  </div>
-                </div>
-
-                <button className="btn btn-success w-100">
-                  Start as Supplier
-                  <i className="fas fa-arrow-right ms-2"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-
-  const renderStep2 = () => (
-    <div className="row justify-content-center">
-      <div className="col-lg-8">
-        <div className="text-center mb-4">
-          <h3 className="fw-bold mb-2">Tell Us About Your Business</h3>
-          <p className="text-muted small">Help us personalize your experience and show your potential</p>
-        </div>
-
-        <div className="card border-0 shadow-lg">
-          <div className="card-body p-4">
-            <div className="mb-3">
-              <label className="form-label fw-semibold small">What's your experience level?</label>
-              <div className="row g-2">
-                {[
-                  { value: 'beginner', label: 'Just Starting', desc: 'New to Amazon/wholesale' },
-                  { value: 'intermediate', label: 'Some Experience', desc: '6 months - 2 years' },
-                  { value: 'advanced', label: 'Experienced', desc: '2+ years in business' }
-                ].map(option => (
-                  <div key={option.value} className="col-md-4">
-                    <div 
-                      className={`card border ${assessmentData.experience === option.value ? 'border-primary bg-primary bg-opacity-10' : 'border-light'}`}
-                      onClick={() => handleAssessmentChange('experience', option.value)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div className="card-body text-center p-3">
-                        <h6 className="mb-1">{option.label}</h6>
-                        <small className="text-muted">{option.desc}</small>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label fw-semibold small">What's your monthly volume target?</label>
-              <div className="row g-2">
-                {selectedUserType === 'buyer' ? [
-                  { value: 'starter', label: '$1K - $5K', desc: 'Testing products' },
-                  { value: 'growing', label: '$5K - $20K', desc: 'Scaling business' },
-                  { value: 'established', label: '$20K - $50K', desc: 'Established seller' },
-                  { value: 'enterprise', label: '$50K+', desc: 'Large operation' }
-                ] : [
-                  { value: 'starter', label: '$500 - $2K', desc: 'Small production' },
-                  { value: 'growing', label: '$2K - $10K', desc: 'Growing capacity' },
-                  { value: 'established', label: '$10K - $30K', desc: 'Established supplier' },
-                  { value: 'enterprise', label: '$30K+', desc: 'Large manufacturer' }
-                ].map(option => (
-                  <div key={option.value} className="col-md-6">
-                    <div 
-                      className={`card border ${assessmentData.monthlyVolume === option.value ? 'border-success bg-success bg-opacity-10' : 'border-light'}`}
-                      onClick={() => handleAssessmentChange('monthlyVolume', option.value)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div className="card-body text-center p-3">
-                        <h6 className="mb-1">{option.label}</h6>
-                        <small className="text-muted">{option.desc}</small>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label fw-semibold small">What are your main challenges? (Select all that apply)</label>
-              <div className="row g-1">
-                {selectedUserType === 'buyer' ? [
-                  'Finding reliable suppliers',
-                  'Getting competitive prices',
-                  'Quality assurance',
-                  'Fast shipping times',
-                  'Communication barriers',
-                  'Minimum order quantities'
-                ] : [
-                  'Finding buyers',
-                  'International marketing',
-                  'Payment security',
-                  'Quality standards',
-                  'Shipping logistics',
-                  'Competition pricing'
-                ].map(challenge => (
-                  <div key={challenge} className="col-md-6">
-                    <div 
-                      className={`card border ${assessmentData.challenges.includes(challenge) ? 'border-warning bg-warning bg-opacity-10' : 'border-light'}`}
-                      onClick={() => handleChallengeToggle(challenge)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div className="card-body p-2 text-center">
-                        <small>{challenge}</small>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="text-center">
-              <button 
-                className="btn btn-primary btn-lg px-5"
-                onClick={() => setCurrentStep(3)}
-                disabled={!assessmentData.experience || !assessmentData.monthlyVolume}
-              >
-                Show My Potential
-                <i className="fas fa-arrow-right ms-2"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-
-  const renderStep3 = () => {
-    const benefits = getPersonalizedBenefits()
-    const { potential, monthlyEarnings } = calculatePotential()
-
-    return (
-      <div className="row justify-content-center">
-        <div className="col-lg-10">
-          <div className="text-center mb-4">
-            <h3 className="fw-bold mb-2">{benefits.title}</h3>
-            <p className="text-success fw-bold mb-1">{benefits.subtitle}</p>
-            <p className="text-muted small">Based on your profile and our platform data</p>
-          </div>
-
-          {/* Potential Earnings Card */}
-          <div className="card border-0 shadow-lg mb-4" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-            <div className="card-body p-4 text-white text-center">
-              <h4 className="fw-bold mb-3">Your Earning Potential</h4>
-              <div className="row">
-                <div className="col-md-6">
-                  <div className="mb-2">
-                    <div className="h2 fw-bold">${monthlyEarnings.toLocaleString()}</div>
-                    <div className="small">Monthly Potential</div>
-                  </div>
-                </div>
-                <div className="col-md-6">
-                  <div className="mb-2">
-                    <div className="h2 fw-bold">${potential.toLocaleString()}</div>
-                    <div className="small">Annual Potential</div>
-                  </div>
-                </div>
-              </div>
-              <p className="mb-0 opacity-75 small">*Based on average performance of similar profiles on our platform</p>
-            </div>
-          </div>
-
-          {/* Benefits Grid */}
-          <div className="row g-3 mb-4">
-            {benefits.benefits.map((benefit, index) => (
-              <div key={index} className="col-md-6">
-                <div className="card border-0 shadow h-100">
-                  <div className="card-body p-4">
-                    <div className="d-flex align-items-start">
-                      <div className={`bg-${benefit.color} bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3`} style={{ width: '50px', height: '50px', minWidth: '50px' }}>
-                        <i className={`${benefit.icon} text-white`}></i>
-                      </div>
-                      <div>
-                        <h5 className="fw-bold mb-2">{benefit.title}</h5>
-                        <p className="text-muted mb-0">{benefit.description}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* CTA Buttons */}
-          <div className="text-center">
-            <div className="d-flex gap-3 justify-content-center flex-wrap">
-              <Link 
-                to={selectedUserType === 'buyer' ? '/register/buyer' : '/register/supplier'}
-                className={`btn ${selectedUserType === 'buyer' ? 'btn-primary' : 'btn-success'} btn-lg px-5`}
-              >
-                <i className="fas fa-rocket me-2"></i>
-                Get Started Now
-              </Link>
-              <button 
-                className="btn btn-outline-secondary btn-lg px-4"
-                onClick={() => setCurrentStep(1)}
-              >
-                <i className="fas fa-arrow-left me-2"></i>
-                Start Over
-              </button>
-            </div>
-            <p className="text-muted mt-3 small">
-              <i className="fas fa-lock me-1"></i>
-              100% Free to join • No hidden fees • Cancel anytime
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const BENEFITS = [
+    { icon:'🔍', title:'Verified Suppliers',   desc:'Every supplier is vetted and quality-checked before listing.' },
+    { icon:'💰', title:'Profit Calculator',    desc:'See your potential profit before placing any order.' },
+    { icon:'🌍', title:'Global Reach',         desc:'Connect with buyers and sellers from 50+ countries.' },
+    { icon:'🛡️', title:'Secure Transactions', desc:'All payments and data are protected with SSL encryption.' },
+  ];
 
   return (
-    <div className="min-vh-100 bg-light py-4">
-      <div className="container">
-        {/* Progress Bar */}
-        <div className="row justify-content-center mb-4">
-          <div className="col-lg-6">
-            <div className="progress" style={{ height: '6px' }}>
-              <div 
-                className="progress-bar bg-primary" 
-                style={{ width: `${(currentStep / 3) * 100}%`, transition: 'width 0.3s ease' }}
-              ></div>
-            </div>
-            <div className="d-flex justify-content-between mt-1">
-              <small className={currentStep >= 1 ? 'text-primary fw-bold' : 'text-muted'} style={{ fontSize: '0.75rem' }}>Choose Path</small>
-              <small className={currentStep >= 2 ? 'text-primary fw-bold' : 'text-muted'} style={{ fontSize: '0.75rem' }}>Assessment</small>
-              <small className={currentStep >= 3 ? 'text-primary fw-bold' : 'text-muted'} style={{ fontSize: '0.75rem' }}>Your Potential</small>
-            </div>
-          </div>
-        </div>
+    <Box sx={{ background: 'linear-gradient(180deg,#f0f4ff 0%,#f8f9fa 100%)', minHeight: '100vh' }}>
 
-        {/* Step Content */}
-        {currentStep === 1 && renderStep1()}
-        {currentStep === 2 && renderStep2()}
-        {currentStep === 3 && renderStep3()}
+      {/* Hero banner */}
+      <Box sx={{ background: 'linear-gradient(135deg,#232f3e 0%,#1a252f 100%)', py: { xs: 4, md: 6 }, textAlign: 'center', color: '#fff', borderBottom: '3px solid #ff9900' }}>
+        <Container maxWidth="md">
+          <Chip label="🚀 Join 2,000+ Successful Traders" sx={{ mb: 2, background: 'rgba(255,153,0,0.25)', color: '#ffb84d', fontWeight: 700, border: '1px solid rgba(255,153,0,0.5)', fontSize: '0.85rem' }} />
+          <Typography variant="h3" sx={{ fontWeight: 800, mb: 1.5, fontSize: { xs: '1.8rem', md: '2.6rem' }, color: '#ffffff', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+            Start Your Wholesale Journey
+          </Typography>
+          <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.85)', fontWeight: 400, maxWidth: 560, mx: 'auto', lineHeight: 1.6 }}>
+            Connect with verified suppliers and buyers on the UK's leading wholesale marketplace
+          </Typography>
+        </Container>
+      </Box>
 
-        {/* Back to Home */}
-        <div className="text-center mt-3">
-          <Link to="/" className="btn btn-outline-secondary btn-sm">
-            <i className="fas fa-home me-1"></i>
-            Back to Home
-          </Link>
-        </div>
-      </div>
-    </div>
-  )
-}
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
 
-export default JoinNow
+        {/* Progress bar */}
+        <Box sx={{ maxWidth: 520, mx: 'auto', mb: 5 }}>
+          <LinearProgress variant="determinate" value={(step / 3) * 100}
+            sx={{ height: 8, borderRadius: 4, mb: 1.5, background: '#e5e7eb', '& .MuiLinearProgress-bar': { background: 'linear-gradient(90deg,#667eea,#764ba2)', borderRadius: 4 } }} />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            {['Choose Path','Assessment','Your Potential'].map((label, i) => (
+              <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Avatar sx={{ width: 22, height: 22, fontSize: '0.7rem', fontWeight: 800, background: step > i ? '#667eea' : step === i + 1 ? '#667eea' : '#d1d5db', color: '#fff' }}>
+                  {step > i + 1 ? '✓' : i + 1}
+                </Avatar>
+                <Typography variant="caption" sx={{ fontWeight: step >= i + 1 ? 700 : 400, color: step >= i + 1 ? '#667eea' : '#9ca3af', display: { xs: 'none', sm: 'block' } }}>
+                  {label}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+
+        {/* ── STEP 1: Choose path ── */}
+        {step === 1 && (
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 800, textAlign: 'center', mb: 1 }}>
+              How do you want to use PoundlandWholesale?
+            </Typography>
+            <Typography variant="body1" sx={{ textAlign: 'center', color: '#6b7280', mb: 5 }}>
+              Choose your role to get a personalised experience
+            </Typography>
+
+            <Grid container spacing={4} justifyContent="center">
+              {PATHS.map(p => (
+                <Grid item xs={12} sm={6} key={p.type}>
+                  <Card elevation={0} sx={{
+                    borderRadius: 4, border: '2px solid #e5e7eb', height: '100%',
+                    transition: 'all 0.3s', cursor: 'pointer',
+                    '&:hover': { borderColor: p.color, transform: 'translateY(-6px)', boxShadow: `0 16px 40px ${p.color}30` },
+                  }} onClick={() => handleTypeSelect(p.type)}>
+                    <CardContent sx={{ p: 0 }}>
+                      {/* Gradient header */}
+                      <Box sx={{ background: p.gradient, p: 3, textAlign: 'center', borderRadius: '14px 14px 0 0' }}>
+                        <Typography sx={{ fontSize: '3rem', mb: 1, lineHeight: 1 }}>{p.icon}</Typography>
+                        <Typography variant="h6" sx={{ fontWeight: 800, color: '#ffffff', mb: 0.5, textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>{p.title}</Typography>
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', lineHeight: 1.5 }}>{p.desc}</Typography>
+                      </Box>
+
+                      <Box sx={{ p: 3 }}>
+                        {/* Stats */}
+                        <Grid container spacing={1} sx={{ mb: 3 }}>
+                          {p.stats.map(([val, label]) => (
+                            <Grid item xs={4} key={label} sx={{ textAlign: 'center' }}>
+                              <Typography variant="h6" sx={{ fontWeight: 800, color: p.color }}>{val}</Typography>
+                              <Typography variant="caption" sx={{ color: '#9ca3af' }}>{label}</Typography>
+                            </Grid>
+                          ))}
+                        </Grid>
+
+                        <Divider sx={{ mb: 2 }} />
+
+                        {/* Perks */}
+                        <Box sx={{ mb: 3 }}>
+                          {p.perks.map(perk => (
+                            <Box key={perk} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.8 }}>
+                              <Box sx={{ width: 18, height: 18, borderRadius: '50%', background: `${p.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: p.color, fontWeight: 800 }}>✓</Box>
+                              <Typography variant="body2" sx={{ color: '#374151' }}>{perk}</Typography>
+                            </Box>
+                          ))}
+                        </Box>
+
+                        <Button variant="contained" fullWidth size="large"
+                          sx={{ background: p.gradient, borderRadius: 2, fontWeight: 700, py: 1.2, boxShadow: `0 4px 14px ${p.color}40`, '&:hover': { filter: 'brightness(0.92)' } }}>
+                          {p.btn} →
+                        </Button>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+
+            {/* Benefits strip */}
+            <Box sx={{ mt: 6 }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, textAlign: 'center', mb: 3 }}>Why Join PoundlandWholesale?</Typography>
+              <Grid container spacing={2}>
+                {BENEFITS.map(b => (
+                  <Grid item xs={12} sm={6} md={3} key={b.title}>
+                    <Card elevation={1} sx={{ borderRadius: 3, textAlign: 'center', p: 2, height: '100%' }}>
+                      <Typography sx={{ fontSize: '2rem', mb: 1 }}>{b.icon}</Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>{b.title}</Typography>
+                      <Typography variant="caption" sx={{ color: '#6b7280', lineHeight: 1.6 }}>{b.desc}</Typography>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          </Box>
+        )}
+
+        {/* ── STEP 2: Assessment ── */}
+        {step === 2 && (
+          <Box sx={{ maxWidth: 680, mx: 'auto' }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, textAlign: 'center', mb: 1 }}>Tell Us About Your Business</Typography>
+            <Typography variant="body1" sx={{ textAlign: 'center', color: '#6b7280', mb: 4 }}>Help us personalise your experience and show your potential</Typography>
+
+            <Card elevation={2} sx={{ borderRadius: 4, p: { xs: 2.5, md: 4 } }}>
+              {/* Experience */}
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>What's your experience level?</Typography>
+              <Grid container spacing={1.5} sx={{ mb: 4 }}>
+                {EXP.map(o => (
+                  <Grid item xs={4} key={o.v}>
+                    <OptionCard selected={assessment.experience === o.v} onClick={() => setAssessment(p => ({ ...p, experience: o.v }))} color="#667eea">
+                      <Typography sx={{ fontSize: '1.5rem', mb: 0.5 }}>{o.icon}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{o.l}</Typography>
+                      <Typography variant="caption" sx={{ color: '#9ca3af' }}>{o.d}</Typography>
+                    </OptionCard>
+                  </Grid>
+                ))}
+              </Grid>
+
+              {/* Volume */}
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Monthly volume target</Typography>
+              <Grid container spacing={1.5} sx={{ mb: 4 }}>
+                {VOL.map(o => (
+                  <Grid item xs={6} key={o.v}>
+                    <OptionCard selected={assessment.monthlyVolume === o.v} onClick={() => setAssessment(p => ({ ...p, monthlyVolume: o.v }))} color="#10b981">
+                      <Typography variant="body1" sx={{ fontWeight: 800, color: '#10b981' }}>{o.l}</Typography>
+                      <Typography variant="caption" sx={{ color: '#9ca3af' }}>{o.d}</Typography>
+                    </OptionCard>
+                  </Grid>
+                ))}
+              </Grid>
+
+              {/* Challenges */}
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Main challenges (select all that apply)</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 4 }}>
+                {CHALLENGES.map(c => (
+                  <Chip key={c} label={c} onClick={() => toggleChallenge(c)} clickable
+                    variant={assessment.challenges.includes(c) ? 'filled' : 'outlined'}
+                    sx={{
+                      borderColor: '#f59e0b',
+                      background: assessment.challenges.includes(c) ? '#f59e0b' : 'transparent',
+                      color: assessment.challenges.includes(c) ? '#fff' : '#374151',
+                      fontWeight: 600, fontSize: '0.8rem',
+                      '&:hover': { background: assessment.challenges.includes(c) ? '#e08e00' : '#fff7ed' },
+                    }} />
+                ))}
+              </Box>
+
+              <Button variant="contained" fullWidth size="large"
+                disabled={!assessment.experience || !assessment.monthlyVolume}
+                onClick={() => setStep(3)}
+                sx={{ background: 'linear-gradient(135deg,#667eea,#764ba2)', borderRadius: 2, fontWeight: 700, py: 1.5, fontSize: '1rem', '&:hover': { filter: 'brightness(0.92)' } }}>
+                Show My Potential →
+              </Button>
+            </Card>
+          </Box>
+        )}
+
+        {/* ── STEP 3: Potential ── */}
+        {step === 3 && (
+          <Box sx={{ maxWidth: 700, mx: 'auto' }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, textAlign: 'center', mb: 1 }}>Your Business Potential 🎯</Typography>
+            <Typography variant="body1" sx={{ textAlign: 'center', color: '#6b7280', mb: 4 }}>Based on your profile and our platform data</Typography>
+
+            {/* Earnings */}
+            <Card elevation={4} sx={{ borderRadius: 4, background: 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)', color: '#fff', mb: 4 }}>
+              <CardContent sx={{ p: { xs: 3, md: 5 }, textAlign: 'center' }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, mb: 3, opacity: 0.9 }}>Estimated Earning Potential</Typography>
+                <Grid container spacing={3}>
+                  <Grid item xs={6}>
+                    <Box sx={{ background: 'rgba(255,255,255,0.15)', borderRadius: 3, py: 2.5 }}>
+                      <Typography variant="h3" sx={{ fontWeight: 800 }}>${pot.monthly.toLocaleString()}</Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.85, mt: 0.5 }}>Monthly Potential</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Box sx={{ background: 'rgba(255,255,255,0.15)', borderRadius: 3, py: 2.5 }}>
+                      <Typography variant="h3" sx={{ fontWeight: 800 }}>${pot.annual.toLocaleString()}</Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.85, mt: 0.5 }}>Annual Potential</Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+                <Typography variant="caption" sx={{ opacity: 0.65, mt: 2.5, display: 'block' }}>
+                  *Based on average performance of similar profiles on our platform
+                </Typography>
+              </CardContent>
+            </Card>
+
+            {/* Benefits */}
+            <Grid container spacing={2} sx={{ mb: 4 }}>
+              {BENEFITS.map(b => (
+                <Grid item xs={12} sm={6} key={b.title}>
+                  <Card elevation={1} sx={{ borderRadius: 3, p: 2, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                    <Typography sx={{ fontSize: '1.8rem', lineHeight: 1 }}>{b.icon}</Typography>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.3 }}>{b.title}</Typography>
+                      <Typography variant="caption" sx={{ color: '#6b7280', lineHeight: 1.6 }}>{b.desc}</Typography>
+                    </Box>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+
+            {/* CTA */}
+            <Card elevation={2} sx={{ borderRadius: 4, p: { xs: 3, md: 4 }, textAlign: 'center', background: '#f0f4ff', border: '1px solid #c7d2fe' }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>Ready to get started?</Typography>
+              <Typography variant="body2" sx={{ color: '#6b7280', mb: 3 }}>Join thousands of successful traders on PoundlandWholesale</Typography>
+              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <Button component={Link} to="/register/buyer" variant="contained" size="large"
+                  sx={{ background: 'linear-gradient(135deg,#667eea,#764ba2)', borderRadius: 2, fontWeight: 700, px: 4, '&:hover': { filter: 'brightness(0.92)' } }}>
+                  🚀 Get Started Now
+                </Button>
+                <Button variant="outlined" size="large" onClick={() => setStep(1)}
+                  sx={{ borderColor: '#9ca3af', color: '#6b7280', borderRadius: 2, fontWeight: 700, px: 3 }}>
+                  ← Start Over
+                </Button>
+              </Box>
+              <Typography variant="caption" sx={{ display: 'block', color: '#9ca3af', mt: 2 }}>
+                🔒 100% Free to join · No hidden fees · Cancel anytime
+              </Typography>
+            </Card>
+          </Box>
+        )}
+
+        <Box sx={{ textAlign: 'center', mt: 4 }}>
+          <Button component={Link} to="/" variant="text" sx={{ color: '#9ca3af', fontWeight: 600 }}>
+            ← Back to Home
+          </Button>
+        </Box>
+      </Container>
+      <ScrollToTop />
+    </Box>
+  );
+};
+
+export default JoinNow;

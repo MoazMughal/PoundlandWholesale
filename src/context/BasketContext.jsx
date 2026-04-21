@@ -11,15 +11,39 @@ export const useBasket = () => {
 }
 
 export const BasketProvider = ({ children }) => {
-  const BASKET_KEY = 'basket_items'
 
-  // ── Initialize basket synchronously from localStorage (no flash of empty state) ──
+  // Get a unique basket key for the current user
+  const getBasketKey = () => {
+    try {
+      const adminToken  = localStorage.getItem('adminToken')
+      const sellerToken = localStorage.getItem('sellerToken')
+      const buyerToken  = localStorage.getItem('buyerToken')
+
+      if (adminToken) {
+        const admin = JSON.parse(localStorage.getItem('adminData') || localStorage.getItem('admin') || '{}')
+        const id = admin._id || admin.id || 'admin'
+        return `basket_admin_${id}`
+      }
+      if (sellerToken) {
+        const seller = JSON.parse(localStorage.getItem('sellerData') || localStorage.getItem('seller') || '{}')
+        const id = seller._id || seller.id || 'seller'
+        return `basket_seller_${id}`
+      }
+      if (buyerToken) {
+        const buyer = JSON.parse(localStorage.getItem('buyerData') || localStorage.getItem('buyer') || '{}')
+        const id = buyer._id || buyer.id || 'buyer'
+        return `basket_buyer_${id}`
+      }
+    } catch {}
+    return 'basket_guest'
+  }
+
+  // ── Initialize basket synchronously from localStorage ──
+  const [basketKey, setBasketKey] = useState(() => getBasketKey())
   const [basket, setBasket] = useState(() => {
     try {
-      const saved = localStorage.getItem(BASKET_KEY)
-        || localStorage.getItem('basket_buyer')
-        || localStorage.getItem('basket_guest')
-        || localStorage.getItem('basket_seller')
+      const key = getBasketKey()
+      const saved = localStorage.getItem(key)
       return saved ? JSON.parse(saved) : []
     } catch { return [] }
   })
@@ -29,7 +53,7 @@ export const BasketProvider = ({ children }) => {
   const [showAddedNotification, setShowAddedNotification] = useState(false)
   const [autoCloseTimer, setAutoCloseTimer] = useState(null)
 
-  // Determine user type once on mount
+  // Determine user type on mount
   useEffect(() => {
     const buyerToken  = localStorage.getItem('buyerToken')
     const sellerToken = localStorage.getItem('sellerToken')
@@ -41,11 +65,19 @@ export const BasketProvider = ({ children }) => {
     setUserType(type)
   }, [])
 
-  // Listen for auth changes (login/logout) to update userType
-  // Basket persists across login/logout — same localStorage key for all users
+  // Listen for auth changes (login/logout) — switch basket to the new user's key
   useEffect(() => {
-    const handleStorage = (e) => {
-      if (['buyerToken','sellerToken','adminToken'].includes(e.key)) {
+    const handleAuthChange = () => {
+      const newKey = getBasketKey()
+      if (newKey !== basketKey) {
+        setBasketKey(newKey)
+        // Load the new user's basket
+        try {
+          const saved = localStorage.getItem(newKey)
+          setBasket(saved ? JSON.parse(saved) : [])
+        } catch { setBasket([]) }
+
+        // Update userType
         const buyerToken  = localStorage.getItem('buyerToken')
         const sellerToken = localStorage.getItem('sellerToken')
         const adminToken  = localStorage.getItem('adminToken')
@@ -56,25 +88,25 @@ export const BasketProvider = ({ children }) => {
         setUserType(type)
       }
     }
-    window.addEventListener('storage', handleStorage)
-    return () => window.removeEventListener('storage', handleStorage)
-  }, [])
+    window.addEventListener('storage', handleAuthChange)
+    return () => window.removeEventListener('storage', handleAuthChange)
+  }, [basketKey])
 
-  // Save basket to unified key whenever it changes
+  // Save basket to the current user's key whenever it changes
   useEffect(() => {
-    localStorage.setItem(BASKET_KEY, JSON.stringify(basket))
-  }, [basket])
+    localStorage.setItem(basketKey, JSON.stringify(basket))
+  }, [basket, basketKey])
 
-  // Cross-tab sync — listen for basket changes from other tabs
+  // Cross-tab sync — listen for basket changes from other tabs (same user)
   useEffect(() => {
     const handleStorage = (e) => {
-      if (e.key === BASKET_KEY && e.newValue) {
+      if (e.key === basketKey && e.newValue) {
         try { setBasket(JSON.parse(e.newValue)) } catch {}
       }
     }
     window.addEventListener('storage', handleStorage)
     return () => window.removeEventListener('storage', handleStorage)
-  }, [])
+  }, [basketKey])
 
   const addToBasket = (product) => {
     const addQty = product.quantity || 1;

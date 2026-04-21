@@ -16,6 +16,7 @@ const Basket = () => {
   const { formatPrice, currency } = useCurrency()
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [basketUpdated, setBasketUpdated] = useState(false)
+  const [whatsappLinks, setWhatsappLinks] = useState([]) // seller quotation links modal
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [selectedItems, setSelectedItems] = useState({})
 
@@ -367,25 +368,26 @@ _This quotation was generated from PoundlandWholesale.com_
 
         // Create WhatsApp URL
         const whatsappUrl = `https://wa.me/${finalWhatsApp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`
-        whatsappUrls.push({ url: whatsappUrl, sellerName })
+        whatsappUrls.push({
+          url: whatsappUrl,
+          sellerName,
+          productCount: products.length,
+          items: products.map(product => {
+            const iId  = product.id || product._id
+            const iSid = product.selectedSeller?.sellerId || product.selectedSeller?._id || ''
+            const key  = iSid ? `${iId}_${iSid}` : iId
+            return {
+              name: product.name,
+              qty: quantities[key] ?? product.quantity ?? 1
+            }
+          })
+        })
         quotationsSent++
       }
 
       if (quotationsSent > 0) {
-        // Use pre-opened tabs if available (avoids popup blocker)
-        whatsappUrls.forEach((w, i) => {
-          const tab = preOpenedTabs[i]
-          if (tab && !tab.closed) {
-            tab.location.href = w.url
-          } else {
-            // Fallback: try direct open (works if only 1 seller)
-            window.open(w.url, '_blank')
-          }
-        })
-
-        if (whatsappUrls.length > 1) {
-          alert(`✅ Quotation sent to ${quotationsSent} sellers! Check the opened WhatsApp tabs.`)
-        }
+        // Show modal with clickable links — direct user click always allowed by browsers
+        setWhatsappLinks(whatsappUrls)
       }
 
       // If there are products without sellers but some with sellers, notify user
@@ -773,18 +775,7 @@ _This quotation was generated from PoundlandWholesale.com_
 
                 {/* Proceed to Checkout Button */}
                 <button
-                  onClick={() => {
-                    // Count selected items to know how many tabs to pre-open
-                    const sellerCount = Object.values(selectedItems).filter(Boolean).length
-                    // Pre-open blank tabs synchronously inside the click handler
-                    // (browsers allow window.open in direct user gesture)
-                    const tabs = []
-                    for (let i = 0; i < Math.min(sellerCount, 10); i++) {
-                      const tab = window.open('about:blank', '_blank')
-                      if (tab) tabs.push(tab)
-                    }
-                    handleCheckout(tabs)
-                  }}
+                  onClick={() => handleCheckout()}
                   className="basket-checkout-btn"
                   disabled={selectedCount === 0}
                 >
@@ -844,6 +835,70 @@ _This quotation was generated from PoundlandWholesale.com_
                   Clear Basket
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* WhatsApp Quotation Links Modal */}
+        {whatsappLinks.length > 0 && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.65)', zIndex: 99999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+          }}>
+            <div style={{
+              background: '#fff', borderRadius: '14px', padding: '28px',
+              maxWidth: '480px', width: '100%',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.3)'
+            }}>
+              <h3 style={{ margin: '0 0 6px', fontSize: '1.1rem', color: '#1f2937' }}>
+                ✅ Quotations ready — {whatsappLinks.length} seller{whatsappLinks.length > 1 ? 's' : ''}
+              </h3>
+              <p style={{ margin: '0 0 20px', fontSize: '0.85rem', color: '#6b7280' }}>
+                Click each button to open WhatsApp and send your quotation:
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {whatsappLinks.map((w, i) => (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <a
+                      href={w.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '12px 16px', background: '#25d366', color: '#fff',
+                        borderRadius: '8px', textDecoration: 'none', fontWeight: '700',
+                        fontSize: '0.9rem', transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#1ebe5d'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#25d366'}
+                    >
+                      <span style={{ fontSize: '1.2rem' }}>📲</span>
+                      <span>Send to {w.sellerName} ({w.productCount} product{w.productCount !== 1 ? 's' : ''})</span>
+                    </a>
+                    {/* Product list under each seller button */}
+                    <div style={{ paddingLeft: '8px', background: '#f9fafb', borderRadius: '6px', padding: '6px 10px' }}>
+                      {w.items?.map((item, j) => (
+                        <div key={j} style={{ fontSize: '0.75rem', color: '#374151', display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: j < w.items.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: '8px' }}>{item.name}</span>
+                          <span style={{ fontWeight: 700, color: '#059669', flexShrink: 0 }}>Qty: {item.qty}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setWhatsappLinks([])}
+                style={{
+                  marginTop: '18px', width: '100%', padding: '10px',
+                  background: '#f3f4f6', border: '1px solid #d1d5db',
+                  borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem',
+                  fontWeight: '600', color: '#374151'
+                }}
+              >
+                Close
+              </button>
             </div>
           </div>
         )}

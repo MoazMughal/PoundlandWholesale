@@ -1,109 +1,101 @@
-import { Link } from 'react-router-dom'
-import ScrollToTop from '../../components/ScrollToTop'
+import { Link } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Container from '@mui/material/Container';
+import Typography from '@mui/material/Typography';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
+import ScrollToTop from '../../components/ScrollToTop';
 
-const PrivacyPolicy = () => {
-  return (
-    <div className="container my-5">
-      <div className="row justify-content-center">
-        <div className="col-lg-8">
-          <div className="card shadow-sm">
-            <div className="card-body p-5">
-              <h1 className="text-center mb-4">Privacy Policy</h1>
-              <p className="text-muted text-center mb-5">Last updated: {new Date().toLocaleDateString()}</p>
+const Section = ({ num, title, children }) => (
+  <Box sx={{ mb: 3.5 }}>
+    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: '#1f2937' }}>{num}. {title}</Typography>
+    {children}
+  </Box>
+);
 
-              <section className="mb-4">
-                <h3>1. Information We Collect</h3>
-                <p>We collect information you provide directly to us, such as when you:</p>
-                <ul>
-                  <li>Create an account</li>
-                  <li>Make a purchase or transaction</li>
-                  <li>Contact us for support</li>
-                  <li>Subscribe to our newsletter</li>
-                </ul>
-                <p>This may include your name, email address, phone number, business information, and payment details.</p>
-              </section>
+const BulletList = ({ items }) => (
+  <Box sx={{ pl: 2 }}>
+    {items.map(item => (
+      <Typography key={item} variant="body2" sx={{ color: '#555', mb: 0.5 }}>• {item}</Typography>
+    ))}
+  </Box>
+);
 
-              <section className="mb-4">
-                <h3>2. How We Use Your Information</h3>
-                <p>We use the information we collect to:</p>
-                <ul>
-                  <li>Provide, maintain, and improve our services</li>
-                  <li>Process transactions and send related information</li>
-                  <li>Send technical notices and support messages</li>
-                  <li>Communicate with you about products, services, and events</li>
-                  <li>Monitor and analyze trends and usage</li>
-                  <li>Detect, investigate, and prevent fraudulent transactions</li>
-                </ul>
-              </section>
+const PrivacyPolicy = () => (
+  <Box sx={{ background: '#f8f9fa', minHeight: '100vh', py: { xs: 3, md: 5 } }}>
+    <Container maxWidth="md">
+      <Card elevation={2} sx={{ borderRadius: 3 }}>
+        <CardContent sx={{ p: { xs: 3, md: 5 } }}>
+          <Typography variant="h3" sx={{ textAlign: 'center', fontWeight: 800, mb: 1, fontSize: { xs: '1.8rem', md: '2.2rem' } }}>
+            Privacy Policy
+          </Typography>
+          <Typography variant="body2" sx={{ textAlign: 'center', color: '#6b7280', mb: 4 }}>
+            Last updated: {new Date().toLocaleDateString()}
+          </Typography>
+          <Divider sx={{ mb: 4 }} />
 
-              <section className="mb-4">
-                <h3>3. Information Sharing</h3>
-                <p>We do not sell, trade, or otherwise transfer your personal information to third parties except:</p>
-                <ul>
-                  <li>With your consent</li>
-                  <li>To trusted service providers who assist us in operating our platform</li>
-                  <li>When required by law or to protect our rights</li>
-                  <li>In connection with a merger, acquisition, or sale of assets</li>
-                </ul>
-              </section>
+          <Section num="1" title="Information We Collect">
+            <Typography variant="body1" sx={{ color: '#555', lineHeight: 1.8, mb: 1 }}>We collect information you provide directly to us, such as when you:</Typography>
+            <BulletList items={['Create an account', 'Make a purchase or transaction', 'Contact us for support', 'Subscribe to our newsletter']} />
+            <Typography variant="body1" sx={{ color: '#555', lineHeight: 1.8, mt: 1 }}>This may include your name, email address, phone number, business information, and payment details.</Typography>
+          </Section>
 
-              <section className="mb-4">
-                <h3>4. Data Security</h3>
-                <p>We implement appropriate security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over the internet is 100% secure.</p>
-              </section>
+          <Section num="2" title="How We Use Your Information">
+            <Typography variant="body1" sx={{ color: '#555', lineHeight: 1.8, mb: 1 }}>We use the information we collect to:</Typography>
+            <BulletList items={['Provide, maintain, and improve our services', 'Process transactions and send related information', 'Send technical notices and support messages', 'Communicate with you about products, services, and events', 'Monitor and analyze trends and usage', 'Detect, investigate, and prevent fraudulent transactions']} />
+          </Section>
 
-              <section className="mb-4">
-                <h3>5. Cookies and Tracking</h3>
-                <p>We use cookies and similar tracking technologies to:</p>
-                <ul>
-                  <li>Remember your preferences and settings</li>
-                  <li>Analyze site traffic and usage patterns</li>
-                  <li>Provide personalized content and advertisements</li>
-                  <li>Improve our services</li>
-                </ul>
-              </section>
+          <Section num="3" title="Information Sharing">
+            <Typography variant="body1" sx={{ color: '#555', lineHeight: 1.8, mb: 1 }}>We do not sell, trade, or otherwise transfer your personal information to third parties except:</Typography>
+            <BulletList items={['With your consent', 'To trusted service providers who assist us in operating our platform', 'When required by law or to protect our rights', 'In connection with a merger, acquisition, or sale of assets']} />
+          </Section>
 
-              <section className="mb-4">
-                <h3>6. Your Rights</h3>
-                <p>You have the right to:</p>
-                <ul>
-                  <li>Access and update your personal information</li>
-                  <li>Request deletion of your data</li>
-                  <li>Opt-out of marketing communications</li>
-                  <li>Request a copy of your data</li>
-                </ul>
-              </section>
+          <Section num="4" title="Data Security">
+            <Typography variant="body1" sx={{ color: '#555', lineHeight: 1.8 }}>
+              We implement appropriate security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over the internet is 100% secure.
+            </Typography>
+          </Section>
 
-              <section className="mb-4">
-                <h3>7. Children's Privacy</h3>
-                <p>Our service is not intended for children under 18. We do not knowingly collect personal information from children under 18.</p>
-              </section>
+          <Section num="5" title="Cookies and Tracking">
+            <Typography variant="body1" sx={{ color: '#555', lineHeight: 1.8, mb: 1 }}>We use cookies and similar tracking technologies to:</Typography>
+            <BulletList items={['Remember your preferences and settings', 'Analyze site traffic and usage patterns', 'Provide personalized content and advertisements', 'Improve our services']} />
+          </Section>
 
-              <section className="mb-4">
-                <h3>8. Changes to Privacy Policy</h3>
-                <p>We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page.</p>
-              </section>
+          <Section num="6" title="Your Rights">
+            <Typography variant="body1" sx={{ color: '#555', lineHeight: 1.8, mb: 1 }}>You have the right to:</Typography>
+            <BulletList items={['Access and update your personal information', 'Request deletion of your data', 'Opt-out of marketing communications', 'Request a copy of your data']} />
+          </Section>
 
-              <section className="mb-4">
-                <h3>9. Contact Us</h3>
-                <p>If you have any questions about this Privacy Policy, please contact us:</p>
-                <ul>
-                  <li>Email: privacy@poundlandwholesale.com</li>
-                  <li>Phone: +92 301 6611011</li>
-                  <li>Address: Karachi, Pakistan</li>
-                </ul>
-              </section>
+          <Section num="7" title="Children's Privacy">
+            <Typography variant="body1" sx={{ color: '#555', lineHeight: 1.8 }}>
+              Our service is not intended for children under 18. We do not knowingly collect personal information from children under 18.
+            </Typography>
+          </Section>
 
-              <div className="text-center mt-5">
-                <Link to="/" className="btn btn-primary">Back to Home</Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <ScrollToTop />
-    </div>
-  )
-}
+          <Section num="8" title="Changes to Privacy Policy">
+            <Typography variant="body1" sx={{ color: '#555', lineHeight: 1.8 }}>
+              We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page.
+            </Typography>
+          </Section>
 
-export default PrivacyPolicy
+          <Section num="9" title="Contact Us">
+            <Typography variant="body1" sx={{ color: '#555', lineHeight: 1.8, mb: 1 }}>If you have any questions about this Privacy Policy, please contact us:</Typography>
+            <BulletList items={['Email: privacy@poundlandwholesale.com', 'Phone: +92 301 6611011', 'Address: Karachi, Pakistan']} />
+          </Section>
+
+          <Box sx={{ textAlign: 'center', mt: 4 }}>
+            <Button component={Link} to="/" variant="contained"
+              sx={{ background: '#667eea', '&:hover': { background: '#5a67d8' }, borderRadius: 2, fontWeight: 700, px: 4 }}>
+              Back to Home
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+    </Container>
+    <ScrollToTop />
+  </Box>
+);
+
+export default PrivacyPolicy;
