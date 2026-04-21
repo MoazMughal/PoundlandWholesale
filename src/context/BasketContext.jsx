@@ -11,79 +11,80 @@ export const useBasket = () => {
 }
 
 export const BasketProvider = ({ children }) => {
-  const [basket, setBasket] = useState([])
-  const [userType, setUserType] = useState('guest') // 'buyer', 'seller', 'admin', 'guest'
+  const BASKET_KEY = 'basket_items'
+
+  // ── Initialize basket synchronously from localStorage (no flash of empty state) ──
+  const [basket, setBasket] = useState(() => {
+    try {
+      const saved = localStorage.getItem(BASKET_KEY)
+        || localStorage.getItem('basket_buyer')
+        || localStorage.getItem('basket_guest')
+        || localStorage.getItem('basket_seller')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+
+  const [userType, setUserType] = useState('guest')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [showAddedNotification, setShowAddedNotification] = useState(false)
   const [autoCloseTimer, setAutoCloseTimer] = useState(null)
 
-  // Determine user type and load basket from localStorage
+  // Determine user type once on mount
   useEffect(() => {
-    const buyerToken = localStorage.getItem('buyerToken')
+    const buyerToken  = localStorage.getItem('buyerToken')
     const sellerToken = localStorage.getItem('sellerToken')
-    const adminToken = localStorage.getItem('adminToken')
-
+    const adminToken  = localStorage.getItem('adminToken')
     let type = 'guest'
     if (adminToken) type = 'admin'
     else if (sellerToken) type = 'seller'
     else if (buyerToken) type = 'buyer'
-
     setUserType(type)
-
-    // Load basket from localStorage based on user type
-    const savedBasket = localStorage.getItem(`basket_${type}`)
-    if (savedBasket) {
-      try {
-        setBasket(JSON.parse(savedBasket))
-      } catch (error) {
-        console.error('Error loading basket:', error)
-        setBasket([])
-      }
-    }
   }, [])
 
-  // Save basket to localStorage whenever it changes
+  // Save basket to unified key whenever it changes
   useEffect(() => {
-    if (basket.length >= 0) {
-      localStorage.setItem(`basket_${userType}`, JSON.stringify(basket))
+    localStorage.setItem(BASKET_KEY, JSON.stringify(basket))
+  }, [basket])
+
+  // Cross-tab sync — listen for basket changes from other tabs
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === BASKET_KEY && e.newValue) {
+        try { setBasket(JSON.parse(e.newValue)) } catch {}
+      }
     }
-  }, [basket, userType])
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
 
   const addToBasket = (product) => {
-    console.log('🛒 Adding to basket:', product)
-    console.log('   Product ID:', product.id || product._id)
-    console.log('   Product Name:', product.name)
-    
+    const addQty = product.quantity || 1;
+    // Unique key: productId + sellerId (so same product from different sellers = separate entries)
+    const productId = product.id || product._id;
+    const sellerId  = product.selectedSeller?.sellerId || product.selectedSeller?._id || '';
+    const basketKey = sellerId ? `${productId}_${sellerId}` : productId;
+
     setBasket(prev => {
-      console.log('   Current basket:', prev)
-      
-      // Check both id and _id fields for matching
-      const productId = product.id || product._id
       const existingIndex = prev.findIndex(item => {
-        const itemId = item.id || item._id
-        return itemId === productId
-      })
-      
-      console.log('   Existing index:', existingIndex)
-      
+        const iId  = item.id || item._id;
+        const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || '';
+        const iKey = iSid ? `${iId}_${iSid}` : iId;
+        return iKey === basketKey;
+      });
+
       if (existingIndex >= 0) {
-        // Update quantity if product already exists
-        console.log('   ✅ Product exists, incrementing quantity')
-        const updated = [...prev]
+        // Same product + same seller → accumulate quantity
+        const updated = [...prev];
         updated[existingIndex] = {
           ...updated[existingIndex],
-          quantity: (updated[existingIndex].quantity || 1) + 1
-        }
-        console.log('   Updated basket:', updated)
-        return updated
+          quantity: (updated[existingIndex].quantity || 1) + addQty
+        };
+        return updated;
       } else {
-        // Add new product
-        console.log('   ✅ New product, adding to basket')
-        const newBasket = [...prev, { ...product, quantity: 1, addedAt: Date.now() }]
-        console.log('   New basket:', newBasket)
-        return newBasket
+        // Different product OR same product from different seller → new entry
+        return [...prev, { ...product, quantity: addQty, addedAt: Date.now() }];
       }
-    })
+    });
     
     // Show sidebar with "Added to basket" notification
     setIsSidebarOpen(true)
@@ -115,36 +116,25 @@ export const BasketProvider = ({ children }) => {
     setAutoCloseTimer(timer)
   }
 
-  const removeFromBasket = (productId) => {
-    console.log('🗑️ Removing from basket, ID:', productId)
-    setBasket(prev => {
-      const filtered = prev.filter(item => {
-        const itemId = item.id || item._id
-        return itemId !== productId
-      })
-      console.log('   Basket after removal:', filtered)
-      return filtered
-    })
+  const removeFromBasket = (productId, sellerId = '') => {
+    const basketKey = sellerId ? `${productId}_${sellerId}` : productId;
+    setBasket(prev => prev.filter(item => {
+      const iId  = item.id || item._id;
+      const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || '';
+      const iKey = iSid ? `${iId}_${iSid}` : iId;
+      return iKey !== basketKey;
+    }));
   }
 
-  const updateQuantity = (productId, quantity) => {
-    console.log('🔢 Updating quantity, ID:', productId, 'New quantity:', quantity)
-    if (quantity <= 0) {
-      removeFromBasket(productId)
-      return
-    }
-    setBasket(prev => {
-      const updated = [...prev]
-      const index = updated.findIndex(item => {
-        const itemId = item.id || item._id
-        return itemId === productId
-      })
-      if (index >= 0) {
-        updated[index] = { ...updated[index], quantity }
-        console.log('   Updated item:', updated[index])
-      }
-      return updated
-    })
+  const updateQuantity = (productId, quantity, sellerId = '') => {
+    if (quantity <= 0) { removeFromBasket(productId, sellerId); return; }
+    const basketKey = sellerId ? `${productId}_${sellerId}` : productId;
+    setBasket(prev => prev.map(item => {
+      const iId  = item.id || item._id;
+      const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || '';
+      const iKey = iSid ? `${iId}_${iSid}` : iId;
+      return iKey === basketKey ? { ...item, quantity } : item;
+    }));
   }
 
   const clearBasket = () => {
@@ -179,11 +169,14 @@ export const BasketProvider = ({ children }) => {
     }, 0)
   }
 
-  const isInBasket = (productId) => {
+  const isInBasket = (productId, sellerId = '') => {
+    const basketKey = sellerId ? `${productId}_${sellerId}` : productId;
     return basket.some(item => {
-      const itemId = item.id || item._id
-      return itemId === productId
-    })
+      const iId  = item.id || item._id;
+      const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || '';
+      const iKey = iSid ? `${iId}_${iSid}` : iId;
+      return iKey === basketKey;
+    });
   }
 
   const getTotalPrice = () => {

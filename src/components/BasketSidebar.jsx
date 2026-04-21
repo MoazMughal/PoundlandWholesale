@@ -229,7 +229,11 @@ const BasketSidebar = ({ isOpen, onClose }) => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 'auto' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <button
-                          onClick={() => updateQuantity(item.id || item._id, Math.max(1, (item.quantity || 1) - 1))}
+                          onClick={() => {
+                            const iId  = item.id || item._id;
+                            const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || '';
+                            updateQuantity(iId, Math.max(1, (item.quantity || 1) - 1), iSid);
+                          }}
                           style={{
                             width: '24px',
                             height: '24px',
@@ -266,7 +270,11 @@ const BasketSidebar = ({ isOpen, onClose }) => {
                           {item.quantity || 1}
                         </span>
                         <button
-                          onClick={() => updateQuantity(item.id || item._id, (item.quantity || 1) + 1)}
+                          onClick={() => {
+                            const iId  = item.id || item._id;
+                            const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || '';
+                            updateQuantity(iId, (item.quantity || 1) + 1, iSid);
+                          }}
                           style={{
                             width: '24px',
                             height: '24px',
@@ -294,7 +302,11 @@ const BasketSidebar = ({ isOpen, onClose }) => {
                       </div>
 
                       <button
-                        onClick={() => removeFromBasket(item.id || item._id)}
+                        onClick={() => {
+                          const iId  = item.id || item._id;
+                          const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || '';
+                          removeFromBasket(iId, iSid);
+                        }}
                         style={{
                           marginLeft: 'auto',
                           padding: '4px 8px',

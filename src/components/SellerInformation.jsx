@@ -363,7 +363,7 @@ const SellerInformation = ({
                             <span style={{ opacity: 0.9, fontSize: '0.6rem', whiteSpace: 'nowrap' }}>{maskPhone(se.whatsappNo)}</span>
                           </>}
                     </a>
-                    <button onClick={() => addToBasket({ ...product, selectedSeller: se })}
+                    <button onClick={() => addToBasket({ ...product, selectedSeller: se, quantity: getQty(se.sellerId || se._id, se.moq) })}
                       className="seller-add-to-cart-btn"
                       style={{
                         flex: '1', padding: '7px 6px', fontSize: '0.6rem', fontWeight: '700',

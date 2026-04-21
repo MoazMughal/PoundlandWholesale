@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useBasket } from '../context/BasketContext'
 import { useCurrency } from '../context/CurrencyContext'
@@ -15,91 +15,111 @@ const Basket = () => {
   const { basket, userType, removeFromBasket, updateQuantity, clearBasket, getBasketTotal } = useBasket()
   const { formatPrice, currency } = useCurrency()
   const [showClearConfirm, setShowClearConfirm] = useState(false)
-  const [localBasket, setLocalBasket] = useState(basket)
   const [basketUpdated, setBasketUpdated] = useState(false)
-  const [isInitialLoad, setIsInitialLoad] = useState(true) // Track initial page load
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [selectedItems, setSelectedItems] = useState({})
 
   // Handle window resize
   useEffect(() => {
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth)
-    }
+    const handleResize = () => setWindowWidth(window.innerWidth)
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Update local basket whenever context basket changes
+  // Keep selectedItems in sync with basket (auto-select new items, remove deleted ones)
+  // Use a ref to avoid stale closure issues and prevent cascading re-renders
+  const prevBasketRef = useRef([])
+
+  // Local quantity map for immediate UI response (avoids stale closure on rapid clicks)
+  const [quantities, setQuantities] = useState({})
+  const debounceTimers = useRef({})
+
+  // Sync quantities map when basket items are added/removed
   useEffect(() => {
-    console.log('🔄 Basket updated:', basket)
-    setLocalBasket(basket)
-    
-    // Initialize selected items
-    const initialSelected = {}
-    basket.forEach(item => {
-      const itemId = item.id || item._id
-      initialSelected[itemId] = true
+    setQuantities(prev => {
+      const next = { ...prev }
+      basket.forEach(item => {
+        const iId  = item.id || item._id
+        const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || ''
+        const key  = iSid ? `${iId}_${iSid}` : iId
+        if (!(key in next)) next[key] = item.quantity || 1
+      })
+      Object.keys(next).forEach(k => {
+        const exists = basket.some(item => {
+          const iId  = item.id || item._id
+          const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || ''
+          return (iSid ? `${iId}_${iSid}` : iId) === k
+        })
+        if (!exists) delete next[k]
+      })
+      return next
     })
-    setSelectedItems(initialSelected)
-    
-    // Show update notification briefly - but NOT on initial page load
-    if (basket.length > 0 && !isInitialLoad) {
-      setBasketUpdated(true)
-      setTimeout(() => setBasketUpdated(false), 2000)
-    }
-    
-    // Mark that initial load is complete
-    if (isInitialLoad) {
-      setIsInitialLoad(false)
-    }
   }, [basket])
 
-  // Also listen to localStorage changes (for cross-tab sync)
+  const handleQtyChange = (key, itemId, sellerId, newQty) => {
+    setQuantities(prev => ({ ...prev, [key]: newQty }))
+    if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key])
+    debounceTimers.current[key] = setTimeout(() => {
+      updateQuantity(itemId, newQty, sellerId)
+    }, 150)
+  }
   useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === `basket_${userType}`) {
-        console.log('📦 Basket changed in localStorage')
-        try {
-          const newBasket = JSON.parse(e.newValue || '[]')
-          setLocalBasket(newBasket)
-        } catch (error) {
-          console.error('Error parsing basket from localStorage:', error)
-        }
-      }
+    const prev = prevBasketRef.current
+    const prevKeys = new Set(prev.map(item => {
+      const iId  = item.id || item._id
+      const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || ''
+      return iSid ? `${iId}_${iSid}` : iId
+    }))
+    const currKeys = new Set(basket.map(item => {
+      const iId  = item.id || item._id
+      const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || ''
+      return iSid ? `${iId}_${iSid}` : iId
+    }))
+
+    // Only update selectedItems if items were added or removed (not on quantity change)
+    const added   = [...currKeys].filter(k => !prevKeys.has(k))
+    const removed = [...prevKeys].filter(k => !currKeys.has(k))
+
+    if (added.length > 0 || removed.length > 0) {
+      setSelectedItems(prev => {
+        const next = { ...prev }
+        added.forEach(k => { next[k] = true })
+        removed.forEach(k => { delete next[k] })
+        return next
+      })
     }
 
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [userType])
+    prevBasketRef.current = basket
+  }, [basket])
 
-  const handleItemSelect = (itemId) => {
-    setSelectedItems(prev => ({
-      ...prev,
-      [itemId]: !prev[itemId]
-    }))
+  const handleItemSelect = (key) => {
+    setSelectedItems(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
   const handleSelectAll = () => {
-    const allSelected = Object.values(selectedItems).every(value => value === true)
+    const allSelected = Object.values(selectedItems).every(v => v === true)
     const newSelected = {}
-    localBasket.forEach(item => {
-      const itemId = item.id || item._id
-      newSelected[itemId] = !allSelected
+    basket.forEach(item => {
+      const iId  = item.id || item._id
+      const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || ''
+      const key  = iSid ? `${iId}_${iSid}` : iId
+      newSelected[key] = !allSelected
     })
     setSelectedItems(newSelected)
   }
-
   const getSelectedCount = () => {
-    return Object.values(selectedItems).filter(value => value === true).length
+    return Object.values(selectedItems).filter(v => v === true).length
   }
 
   const getSelectedTotal = () => {
     let total = 0
-    localBasket.forEach(item => {
-      const itemId = item.id || item._id
-      if (selectedItems[itemId]) {
-        const quantity = item.quantity || 1
+    basket.forEach(item => {
+      const iId  = item.id || item._id
+      const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || ''
+      const key  = iSid ? `${iId}_${iSid}` : iId
+      if (selectedItems[key]) {
+        // Use local quantities map for up-to-date value (before debounce fires)
+        const quantity = quantities[key] ?? item.quantity ?? 1
         const priceStr = typeof item.price === 'string' ? item.price : String(item.price)
         const price = parseFloat(priceStr.replace(/[£$₨€]/g, '').replace('د.إ', '').replace('Rs', '').trim()) || 0
         total += price * quantity
@@ -118,17 +138,16 @@ const Basket = () => {
   }
 
   const handleCheckout = async () => {
-    console.log('\n🛒 ========== CHECKOUT STARTED ==========')
-    console.log('📦 Local Basket:', localBasket)
-    console.log(`   Total products in basket: ${localBasket.length}`)
-    localBasket.forEach((item, idx) => {
-      const itemId = item.id || item._id
-      console.log(`   ${idx + 1}. ${item.name} (ID: ${itemId}, Qty: ${item.quantity || 1})`)
+    // Only process selected items
+    const selectedBasket = basket.filter(item => {
+      const iId  = item.id || item._id
+      const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || ''
+      const key  = iSid ? `${iId}_${iSid}` : iId
+      return selectedItems[key] === true
     })
-    console.log('==========================================\n')
-    
-    if (localBasket.length === 0) {
-      alert('Your basket is empty')
+
+    if (selectedBasket.length === 0) {
+      alert('Please select at least one item to proceed')
       return
     }
 
@@ -144,12 +163,11 @@ const Basket = () => {
     }
 
     try {
-      // Fetch full product details for all basket items to get seller information
+      // Fetch full product details for selected items only
       const productsWithSellers = await Promise.all(
-        localBasket.map(async (item) => {
+        selectedBasket.map(async (item) => {
           try {
             const itemId = item.id || item._id
-            console.log(`📡 Fetching product data for: ${item.name} (ID: ${itemId})`)
             const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/products/public/${itemId}`)
             if (response.ok) {
               const productData = await response.json()
@@ -176,57 +194,45 @@ const Basket = () => {
       console.log('🔍 Starting to group products by seller...')
       console.log('📦 Products with sellers data:', productsWithSellers)
 
-      productsWithSellers.forEach((product, index) => {
-        console.log(`\n--- Processing Product ${index + 1}: ${product.name} ---`)
+      productsWithSellers.forEach((product) => {
         let sellerWhatsApp = null
         let sellerName = 'Seller'
+        let sellerId = null
 
-        // Check if product has sellers array
-        if (product.sellers && product.sellers.length > 0) {
-          console.log(`✅ Product has ${product.sellers.length} seller(s) in array`)
-          // Get the seller with the lowest price
+        // Priority 1: use the specific seller the buyer chose (from SellerInformation Add to Cart)
+        if (product.selectedSeller?.whatsappNo) {
+          sellerWhatsApp = product.selectedSeller.whatsappNo
+          sellerName = product.selectedSeller.username || product.selectedSeller.businessName || 'Seller'
+          sellerId = product.selectedSeller.sellerId || product.selectedSeller._id || null
+        }
+        // Priority 2: sellers array from API — pick lowest price
+        else if (product.sellers && product.sellers.length > 0) {
           const lowestSeller = product.sellers.reduce((lowest, current) => {
-            const currentTotal = (parseFloat(current.sellerPrice) || 0) + (parseFloat(current.sellerShipping) || 0)
-            const lowestTotal = (parseFloat(lowest.sellerPrice) || 0) + (parseFloat(lowest.sellerShipping) || 0)
-            return currentTotal < lowestTotal ? current : lowest
+            const ct = (parseFloat(current.sellerPrice) || 0) + (parseFloat(current.sellerShipping) || 0)
+            const lt = (parseFloat(lowest.sellerPrice) || 0) + (parseFloat(lowest.sellerShipping) || 0)
+            return ct < lt ? current : lowest
           })
-          
           sellerWhatsApp = lowestSeller.whatsappNo
           sellerName = lowestSeller.username || 'Seller'
-          console.log(`📱 Selected seller: ${sellerName} (${sellerWhatsApp})`)
-        } 
-        // Check if product has sellerInfo
-        else if (product.sellerInfo && product.sellerInfo.whatsappNo) {
-          console.log('✅ Product has sellerInfo')
+          sellerId = lowestSeller.sellerId || lowestSeller._id || null
+        }
+        // Priority 3: legacy sellerInfo
+        else if (product.sellerInfo?.whatsappNo) {
           sellerWhatsApp = product.sellerInfo.whatsappNo
           sellerName = product.sellerInfo.username || 'Seller'
-          console.log(`📱 Seller from sellerInfo: ${sellerName} (${sellerWhatsApp})`)
-        } else {
-          console.log('❌ No seller information found for this product')
         }
 
-        if (sellerWhatsApp) {
-          if (!sellerGroups[sellerWhatsApp]) {
-            console.log(`🆕 Creating new group for seller: ${sellerName}`)
-            sellerGroups[sellerWhatsApp] = {
-              sellerName,
-              products: []
-            }
-          } else {
-            console.log(`➕ Adding to existing group for seller: ${sellerName}`)
+        // Validate WhatsApp number — must have digits
+        const cleanNo = (sellerWhatsApp || '').replace(/[^0-9+]/g, '')
+        if (cleanNo.length >= 7) {
+          if (!sellerGroups[cleanNo]) {
+            sellerGroups[cleanNo] = { sellerName, sellerId, products: [] }
           }
-          sellerGroups[sellerWhatsApp].products.push(product)
+          sellerGroups[cleanNo].products.push({ ...product, _resolvedSellerId: sellerId })
         } else {
-          console.log('⚠️ Adding to products without seller list')
           productsWithoutSeller.push(product)
         }
       })
-
-      console.log('\n📊 Final Grouping Results:')
-      console.log(`Total seller groups: ${Object.keys(sellerGroups).length}`)
-      console.log('Seller groups:', sellerGroups)
-      console.log(`Products without seller: ${productsWithoutSeller.length}`)
-      console.log('---\n')
 
       // Get user information
       let userName = 'User'
@@ -274,15 +280,16 @@ const Basket = () => {
       let quotationsSent = 0
       console.log(`\n🚀 Starting to send quotations to ${Object.keys(sellerGroups).length} seller(s)...`)
       
-      for (const [whatsappNo, group] of Object.entries(sellerGroups)) {
+      for (const [cleanWhatsApp, group] of Object.entries(sellerGroups)) {
         const { sellerName, products } = group
-        console.log(`\n📤 Preparing quotation for: ${sellerName} (${whatsappNo})`)
-        console.log(`   Products: ${products.length}`)
 
         // Calculate total for this seller
         let sellerTotal = 0
         const productsList = products.map(product => {
-          const quantity = product.quantity || 1
+          const iId  = product.id || product._id
+          const iSid = product.selectedSeller?.sellerId || product.selectedSeller?._id || ''
+          const key  = iSid ? `${iId}_${iSid}` : iId
+          const quantity = quantities[key] ?? product.quantity ?? 1
           const priceStr = typeof product.price === 'string' ? product.price : String(product.price)
           const price = parseFloat(priceStr.replace(/[£$₨€]/g, '').replace('د.إ', '').replace('Rs', '').trim()) || 0
           const subtotal = price * quantity
@@ -313,8 +320,8 @@ Hello ${sellerName}, I'm interested in purchasing these products from my basket.
 _This quotation was generated from PoundlandWholesale.com_
         `.trim()
 
-        // Clean WhatsApp number
-        const cleanWhatsApp = whatsappNo.replace(/[^0-9+]/g, '')
+        // Clean WhatsApp number (already cleaned as the key, but ensure)
+        const finalWhatsApp = cleanWhatsApp.startsWith('+') ? cleanWhatsApp : `+${cleanWhatsApp}`
         
         // Save quotation to DB for each product in this seller group
         for (const product of products) {
@@ -339,11 +346,16 @@ _This quotation was generated from PoundlandWholesale.com_
                 productId,
                 sellerId,
                 sellerUsername: sellerName,
-                sellerWhatsapp: whatsappNo,
+                sellerWhatsapp: cleanWhatsApp,
                 buyerName: userName,
                 buyerEmail: userEmail,
                 buyerPhone: userPhone,
-                quantity: product.quantity || 1,
+                quantity: (() => {
+                  const iId  = product.id || product._id
+                  const iSid = product.selectedSeller?.sellerId || product.selectedSeller?._id || ''
+                  const key  = iSid ? `${iId}_${iSid}` : iId
+                  return quantities[key] ?? product.quantity ?? 1
+                })(),
                 sellerPrice,
                 message: `Basket checkout — ${products.length} product(s) in order to ${sellerName}`
               })
@@ -353,20 +365,16 @@ _This quotation was generated from PoundlandWholesale.com_
           }
         }
 
-        // Create WhatsApp URL
-        const whatsappUrl = `https://wa.me/${cleanWhatsApp}?text=${encodeURIComponent(message)}`
-        console.log(`   Opening WhatsApp tab in ${quotationsSent * 500}ms...`)
+        // Create WhatsApp URL — strip everything except digits, then open
+        const whatsappUrl = `https://wa.me/${finalWhatsApp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`
         
         // Open WhatsApp in new tab with a small delay between each
         setTimeout(() => {
-          console.log(`✅ Opening WhatsApp for ${sellerName}`)
           window.open(whatsappUrl, '_blank')
-        }, quotationsSent * 500) // 500ms delay between each window
+        }, quotationsSent * 600)
         
         quotationsSent++
       }
-
-      console.log(`\n✅ Total quotations sent: ${quotationsSent}`)
 
       if (quotationsSent > 0) {
         alert(`✅ Quotation requests sent to ${quotationsSent} seller${quotationsSent > 1 ? 's' : ''}!\n\nPlease check your browser for the WhatsApp tabs.`)
@@ -385,11 +393,16 @@ _This quotation was generated from PoundlandWholesale.com_
     }
   }
 
-  const totalItems = localBasket.reduce((sum, item) => sum + (item.quantity || 1), 0)
+  const totalItems = basket.reduce((sum, item) => {
+    const iId  = item.id || item._id
+    const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || ''
+    const key  = iSid ? `${iId}_${iSid}` : iId
+    return sum + (quantities[key] ?? item.quantity ?? 1)
+  }, 0)
   const selectedCount = getSelectedCount()
   const selectedTotal = getSelectedTotal()
 
-  if (localBasket.length === 0) {
+  if (basket.length === 0) {
     return (
       <div className="basket-empty-container">
         <div className="basket-empty-content">
@@ -484,7 +497,7 @@ _This quotation was generated from PoundlandWholesale.com_
                   <input 
                     type="checkbox" 
                     className="basket-select-all-checkbox"
-                    checked={selectedCount === localBasket.length && localBasket.length > 0}
+                    checked={selectedCount === basket.length && basket.length > 0}
                     onChange={handleSelectAll}
                   />
                   <span className="basket-select-all-text">
@@ -503,11 +516,13 @@ _This quotation was generated from PoundlandWholesale.com_
                 </div>
               </div>
 
-              {localBasket.map((item, index) => {
-                const itemId = item.id || item._id
+              {basket.map((item, index) => {
+                const itemId  = item.id || item._id;
+                const sellerId = item.selectedSeller?.sellerId || item.selectedSeller?._id || '';
+                const basketKey = sellerId ? `${itemId}_${sellerId}` : itemId;
                 return (
                 <div 
-                  key={itemId}
+                  key={basketKey}
                   className="basket-item-card"
                 >
                   <div className="basket-item-content">
@@ -515,8 +530,8 @@ _This quotation was generated from PoundlandWholesale.com_
                     <input 
                       type="checkbox" 
                       className="basket-item-checkbox"
-                      checked={selectedItems[itemId] || false}
-                      onChange={() => handleItemSelect(itemId)}
+                      checked={selectedItems[basketKey] || false}
+                      onChange={() => handleItemSelect(basketKey)}
                     />
 
                     {/* Product Image */}
@@ -572,6 +587,18 @@ _This quotation was generated from PoundlandWholesale.com_
                         {item.name}
                       </h3>
 
+                      {item.sku && (
+                        <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: '2px 0 4px', fontFamily: 'monospace' }}>
+                          SKU: {item.sku}
+                        </p>
+                      )}
+
+                      {item.selectedSeller && (
+                        <p style={{ fontSize: '0.75rem', color: '#059669', margin: '2px 0 4px', fontWeight: 600 }}>
+                          Seller: {item.selectedSeller.username || item.selectedSeller.businessName || '—'}
+                        </p>
+                      )}
+
                       {item.stock && item.stock < 10 && (
                         <p className="basket-item-stock-warning">
                           Only {item.stock} left in stock.
@@ -594,38 +621,63 @@ _This quotation was generated from PoundlandWholesale.com_
                         </label>
                       </div>
 
-                      {/* Item Package Quantity */}
+                      {/* Item Package Quantity — shows actual MOQ */}
                       <div className="basket-package-quantity">
                         <span>
-                          Item Package Quantity: <strong>1</strong>
+                          Min Order Qty (MOQ): <strong>{item.lowestMoq || item.selectedSeller?.moq || 1}</strong>
                         </span>
                       </div>
 
                       {/* Action Buttons */}
                       <div className="basket-item-actions">
                         {/* Quantity Selector */}
-                        <div className="basket-quantity-selector">
-                          <button
-                            onClick={() => updateQuantity(itemId, Math.max(1, (item.quantity || 1) - 1))}
-                            className="basket-quantity-btn basket-quantity-minus"
-                          >
-                            −
-                          </button>
-                          <span className="basket-quantity-value">
-                            {item.quantity || 1}
-                          </span>
-                          <button
-                            onClick={() => updateQuantity(itemId, (item.quantity || 1) + 1)}
-                            className="basket-quantity-btn basket-quantity-plus"
-                          >
-                            +
-                          </button>
-                        </div>
+                        {(() => {
+                          const moq = item.lowestMoq || item.selectedSeller?.moq || 1
+                          const currentQty = quantities[basketKey] ?? (item.quantity || moq)
+                          return (
+                            <div className="basket-quantity-selector">
+                              <button
+                                onClick={() => handleQtyChange(basketKey, itemId, sellerId, Math.max(moq, currentQty - 1))}
+                                className="basket-quantity-btn basket-quantity-minus"
+                                disabled={currentQty <= moq}
+                                title={currentQty <= moq ? `Minimum order is ${moq}` : ''}
+                                style={{ opacity: currentQty <= moq ? 0.4 : 1, cursor: currentQty <= moq ? 'not-allowed' : 'pointer' }}
+                              >
+                                −
+                              </button>
+                              <input
+                                type="number"
+                                value={currentQty}
+                                min={moq}
+                                onChange={e => {
+                                  const val = parseInt(e.target.value) || moq
+                                  handleQtyChange(basketKey, itemId, sellerId, Math.max(moq, val))
+                                }}
+                                onBlur={e => {
+                                  const val = parseInt(e.target.value) || moq
+                                  handleQtyChange(basketKey, itemId, sellerId, Math.max(moq, val))
+                                }}
+                                style={{
+                                  width: '56px', textAlign: 'center', fontWeight: 700,
+                                  fontSize: '0.9rem', border: '1px solid #d1d5db',
+                                  borderRadius: '4px', padding: '2px 4px',
+                                  MozAppearance: 'textfield', WebkitAppearance: 'none'
+                                }}
+                              />
+                              <button
+                                onClick={() => handleQtyChange(basketKey, itemId, sellerId, currentQty + 1)}
+                                className="basket-quantity-btn basket-quantity-plus"
+                              >
+                                +
+                              </button>
+                            </div>
+                          )
+                        })()}
 
                         <span className="basket-action-separator">|</span>
 
                         <button
-                          onClick={() => removeFromBasket(itemId)}
+                          onClick={() => removeFromBasket(itemId, sellerId)}
                           className="basket-action-btn basket-delete-btn"
                         >
                           Delete

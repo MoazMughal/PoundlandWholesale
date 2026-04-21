@@ -844,18 +844,43 @@ const AmazonsChoice = () => {
           const transformedProducts = data.products.map(p => {
             // Debug specific products
             const isWatchStrap = p.name && p.name.toLowerCase().includes('leather watch strap');
-            
+
+            // ── Compute lowest seller price (same logic as ProductDetail getLowestPriceBreakdown) ──
+            const mainPrice    = parseFloat(p.price    || 0);
+            const mainShipping = parseFloat(p.shipping || 0);
+            let lowestTotal    = mainPrice + mainShipping;
+            let lowestPrice    = mainPrice;
+            let lowestShipping = mainShipping;
+            let lowestMoq      = 1;
+
+            if (p.sellers && p.sellers.length > 0) {
+              p.sellers.forEach(se => {
+                const sp = parseFloat(se.sellerPrice);
+                if (isNaN(sp)) return;
+                const ss    = parseFloat(se.sellerShipping) || 0;
+                const total = sp + ss;
+                if (total < lowestTotal) {
+                  lowestTotal    = total;
+                  lowestPrice    = sp;
+                  lowestShipping = ss;
+                  lowestMoq      = se.moq || 1;
+                }
+              });
+            }
+
             return {
               id: p._id,
               name: p.name,
               asin: p.asin, // Ensure ASIN is included for image loading
-              // Store the raw database price (this might be per-unit or total price)
-              price: `£${parseFloat(p.price || 0).toFixed(2)}`,
-              rawPrice: parseFloat(p.price || 0), // Keep raw number for calculations
+              // Use lowest seller price for display (matches ProductDetail)
+              price: `£${lowestPrice.toFixed(2)}`,
+              rawPrice: lowestPrice,
+              rawShipping: lowestShipping,
+              lowestMoq,
               originalPrice: p.originalPrice ? `£${parseFloat(p.originalPrice).toFixed(2)}` : null,
               category: p.category,
               brand: p.brand,
-              // Include seller-related fields for filtering
+              sku: p.sku || '',
               sellers: p.sellers || [],
               sellerInfo: p.sellerInfo || null,
               seller: p.seller || null,
@@ -994,6 +1019,7 @@ const AmazonsChoice = () => {
                   originalPrice: p.originalPrice ? `£${parseFloat(p.originalPrice).toFixed(2)}` : null,
                   category: p.category,
                   brand: p.brand,
+                  sku: p.sku || '',
                   image: (() => {
                     // Use database images first, then fallback to ASIN
                     let imageUrl = '';
@@ -2756,8 +2782,8 @@ const AmazonsChoice = () => {
                       }}
                       >
                         {(() => {
-                          const perUnitPrice = product.rawPrice || 0;
-                          return `${formatPrice(perUnitPrice)}/unit`;
+                          const total = (product.rawPrice || 0) + (product.rawShipping || 0);
+                          return `${formatPrice(total)}/unit`;
                         })()}
                       </div>
                       
@@ -3007,7 +3033,7 @@ const AmazonsChoice = () => {
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            addToBasket(product)
+                            addToBasket({ ...product, quantity: product.lowestMoq || 1 })
                           }}
                           style={{
                             pointerEvents: 'auto',
