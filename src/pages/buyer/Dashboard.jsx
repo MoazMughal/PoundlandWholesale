@@ -2,555 +2,289 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBuyer } from '../../context/BuyerContext';
 import { getApiUrl } from '../../utils/api';
+import Box from '@mui/material/Box';
+import Container from '@mui/material/Container';
+import Grid from '@mui/material/Grid';
+import Typography from '@mui/material/Typography';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import Divider from '@mui/material/Divider';
+import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
+import SearchIcon from '@mui/icons-material/Search';
 import '../../styles/BuyerDashboard.css';
-import '../../styles/dashboard-responsive.css';
-import '../../styles/mobile-dashboard.css';
+
+const statusColor = {
+  pending:   { bg: '#fef3c7', color: '#92400e' },
+  viewed:    { bg: '#dbeafe', color: '#1e40af' },
+  responded: { bg: '#d1fae5', color: '#065f46' },
+  closed:    { bg: '#f3f4f6', color: '#374151' },
+};
 
 const BuyerDashboard = () => {
   const { buyer, isLoggedIn, loading: authLoading, logout } = useBuyer();
-  const [stats, setStats] = useState({
-    totalOrders: 0,
-    totalFavorites: 0,
-    status: 'active',
-    memberSince: null,
-    lastLogin: null
-  });
-  const [unlockedSuppliers, setUnlockedSuppliers] = useState([]);
-  const [paymentHistory, setPaymentHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats]           = useState({ totalOrders: 0, totalFavorites: 0, status: 'active', memberSince: null, lastLogin: null });
+  const [quotations, setQuotations] = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [search, setSearch]         = useState('');
+  const [showAll, setShowAll]       = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchBuyerData = async () => {
-      // Wait for auth loading to complete
+    const fetchData = async () => {
       if (authLoading) return;
-      
-      // Check if buyer is logged in
-      if (!isLoggedIn || !buyer) {
-        console.log('Dashboard: Not logged in, redirecting to login');
-        navigate('/login/buyer');
-        return;
-      }
+      if (!isLoggedIn || !buyer) { navigate('/login/buyer'); return; }
 
       const token = localStorage.getItem('buyerToken');
-      
-      if (!token) {
-        console.log('Dashboard: No token, redirecting to login');
-        navigate('/login/buyer');
-        return;
-      }
+      if (!token) { navigate('/login/buyer'); return; }
 
       try {
-        console.log('Dashboard: Making profile API call');
-        // Fetch buyer profile
-        const profileResponse = await fetch(getApiUrl('buyer/profile'), {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        console.log('Dashboard: Profile response status:', profileResponse.status);
-
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json();
-          localStorage.setItem('buyerData', JSON.stringify(profileData.buyer));
-        } else if (profileResponse.status === 401) {
-          console.log('Dashboard: Unauthorized, clearing tokens and redirecting');
+        // Profile
+        const profileRes = await fetch(getApiUrl('buyer/profile'), { headers: { Authorization: `Bearer ${token}` } });
+        if (profileRes.ok) {
+          const d = await profileRes.json();
+          localStorage.setItem('buyerData', JSON.stringify(d.buyer));
+        } else if (profileRes.status === 401) {
           localStorage.removeItem('buyerToken');
           localStorage.removeItem('buyerData');
           navigate('/login/buyer');
           return;
         }
 
-        // Fetch dashboard stats
-        const statsResponse = await fetch(getApiUrl('buyer/dashboard/stats'), {
-          headers: {
-            'Authorization': `Bearer ${token}`
+        // Stats
+        const statsRes = await fetch(getApiUrl('buyer/dashboard/stats'), { headers: { Authorization: `Bearer ${token}` } });
+        if (statsRes.ok) { const d = await statsRes.json(); setStats(d.stats); }
+
+        // Quotations sent by this buyer (by email)
+        const email = buyer?.email;
+        if (email) {
+          const qRes = await fetch(getApiUrl(`sellers/admin/quotations?limit=200`), {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          // Fallback: fetch public quotations by buyer email
+          // Try buyer-specific endpoint first
+          const buyerQRes = await fetch(getApiUrl(`buyer/quotations`), {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (buyerQRes.ok) {
+            const d = await buyerQRes.json();
+            setQuotations(d.quotations || []);
           }
-        });
-
-        if (statsResponse.ok) {
-          const statsData = await statsResponse.json();
-          setStats(statsData.stats);
         }
-
-        // Fetch unlocked suppliers
-        const suppliersResponse = await fetch(getApiUrl('buyer/unlocked-suppliers'), {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (suppliersResponse.ok) {
-          const suppliersData = await suppliersResponse.json();
-          setUnlockedSuppliers(suppliersData.unlockedSuppliers || []);
-        }
-
-        // Fetch payment history
-        const paymentsResponse = await fetch(getApiUrl('buyer/payment-history'), {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (paymentsResponse.ok) {
-          const paymentsData = await paymentsResponse.json();
-          // Use combined history if available, otherwise fall back to payment history
-          setPaymentHistory(paymentsData.combinedHistory || paymentsData.paymentHistory || []);
-        }
-      } catch (error) {
-        console.error('Error fetching buyer data:', error);
+      } catch (err) {
+        console.error('Error fetching buyer data:', err);
       } finally {
         setLoading(false);
       }
     };
-
-    fetchBuyerData();
+    fetchData();
   }, [authLoading, isLoggedIn, buyer, navigate]);
-
-  const handleLogout = () => {
-    logout();
-  };
 
   if (loading) {
     return (
-      <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh'}}>
-        <div style={{textAlign: 'center'}}>
-          <div style={{fontSize: '2rem', marginBottom: '10px'}}>⏳</div>
-          <div style={{fontSize: '1.2rem', fontWeight: '600'}}>Loading...</div>
-        </div>
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography sx={{ fontSize: '2rem', mb: 1 }}>⏳</Typography>
+          <Typography variant="h6">Loading...</Typography>
+        </Box>
+      </Box>
     );
   }
 
+  const filtered = quotations.filter(q =>
+    !search ||
+    q.productName?.toLowerCase().includes(search.toLowerCase()) ||
+    q.sellerUsername?.toLowerCase().includes(search.toLowerCase()) ||
+    q.sku?.toLowerCase().includes(search.toLowerCase())
+  );
+  const displayed = showAll ? filtered : filtered.slice(0, 5);
+
+  const statCards = [
+    { icon: '📨', label: 'Quotations Sent', value: quotations.length, color: '#667eea' },
+    { icon: '⏳', label: 'Pending',          value: quotations.filter(q => q.status === 'pending').length,   color: '#f59e0b' },
+    { icon: '✅', label: 'Responded',        value: quotations.filter(q => q.status === 'responded').length, color: '#10b981' },
+    { icon: '📊', label: 'Account Status',   value: stats.status === 'active' ? 'Active' : 'Inactive',       color: stats.status === 'active' ? '#10b981' : '#dc2626', isText: true },
+  ];
+
   return (
-    <div className="dashboard-container" style={{padding: '20px', maxWidth: '1200px', margin: '0 auto'}}>
+    <Box sx={{ background: '#f8fafc', minHeight: '100vh', pb: 6 }}>
+
       {/* Header */}
-      <header className="buyer-dashboard-header" style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '15px 20px',
-        borderRadius: '12px',
-        marginBottom: '25px',
-        color: 'white',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-      }}>
-        <div className="dashboard-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px'}}>
-          <div>
-            <h1 style={{fontSize: '1.6rem', margin: 0, marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '10px', color: 'white'}}>
-              👋 Welcome, {buyer?.name || buyer?.firstName || buyer?.username || 'Buyer'}!
-            </h1>
-            <p style={{fontSize: '0.85rem', margin: 0, opacity: 0.9, marginLeft: '15px', color: 'white'}} className="text-break">{buyer?.email}</p>
-          </div>
-          <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap', marginRight: '15px'}}>
-            <button 
-              onClick={() => navigate('/')}
-              style={{
-                padding: '8px 16px',
-                background: 'rgba(255,255,255,0.2)',
-                color: 'white',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '8px',
-                fontSize: '0.85rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              🏠 Home
-            </button>
-            <button 
-              onClick={handleLogout}
-              style={{
-                padding: '8px 16px',
-                background: '#dc2626',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '0.85rem',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+      <Box sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', py: { xs: 3, md: 4 }, mb: 4 }}>
+        <Container maxWidth="lg">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+            <Box>
+              <Typography variant="h4" sx={{ fontWeight: 800, color: '#fff', mb: 0.5, fontSize: { xs: '1.4rem', md: '1.8rem' } }}>
+                👋 Welcome, {buyer?.name || buyer?.firstName || buyer?.username || 'Buyer'}!
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>{buyer?.email}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+              <Button onClick={() => navigate('/')} variant="outlined"
+                sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)', borderRadius: 2, fontWeight: 600, '&:hover': { background: 'rgba(255,255,255,0.1)', borderColor: '#fff' } }}>
+                🏠 Home
+              </Button>
+              <Button onClick={() => navigate('/buyer/edit-profile')} variant="outlined"
+                sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)', borderRadius: 2, fontWeight: 600, '&:hover': { background: 'rgba(255,255,255,0.1)', borderColor: '#fff' } }}>
+                ✏️ Edit Profile
+              </Button>
+              <Button onClick={logout} variant="contained"
+                sx={{ background: '#dc2626', '&:hover': { background: '#b91c1c' }, borderRadius: 2, fontWeight: 600 }}>
+                Logout
+              </Button>
+            </Box>
+          </Box>
+        </Container>
+      </Box>
 
-      {/* Stats Cards */}
-      <div className="buyer-stats-grid" style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '15px',
-        marginBottom: '25px'
-      }}>
-        <div className="buyer-stat-card" style={{
-          background: 'white',
-          padding: '15px',
-          borderRadius: '10px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-          border: '1px solid #e5e7eb',
-          textAlign: 'center'
-        }}>
-          <div className="stat-icon" style={{fontSize: '1.8rem', marginBottom: '8px'}}>🛒</div>
-          <h3 style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px', fontWeight: '500'}}>Total Orders</h3>
-          <p className="stat-value" style={{fontSize: '1.8rem', fontWeight: '700', color: '#111827', margin: 0}}>{stats.totalOrders}</p>
-        </div>
+      <Container maxWidth="lg">
 
-        <div className="buyer-stat-card" style={{
-          background: 'white',
-          padding: '15px',
-          borderRadius: '10px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-          border: '1px solid #e5e7eb',
-          textAlign: 'center'
-        }}>
-          <div className="stat-icon" style={{fontSize: '1.8rem', marginBottom: '8px'}}>❤️</div>
-          <h3 style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px', fontWeight: '500'}}>Favorites</h3>
-          <p className="stat-value" style={{fontSize: '1.8rem', fontWeight: '700', color: '#111827', margin: 0}}>{stats.totalFavorites}</p>
-        </div>
+        {/* Stat cards */}
+        <Grid container spacing={2.5} sx={{ mb: 4 }}>
+          {statCards.map(s => (
+            <Grid item xs={6} sm={3} key={s.label}>
+              <Card elevation={1} sx={{ borderRadius: 3, textAlign: 'center', borderTop: `3px solid ${s.color}` }}>
+                <CardContent sx={{ py: 2.5 }}>
+                  <Typography sx={{ fontSize: '1.8rem', mb: 0.5 }}>{s.icon}</Typography>
+                  <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600, display: 'block', mb: 0.5 }}>{s.label}</Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 800, color: s.color, fontSize: s.isText ? '1rem' : '1.6rem' }}>
+                    {s.value}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
 
-        <div className="buyer-stat-card" style={{
-          background: 'white',
-          padding: '15px',
-          borderRadius: '10px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-          border: '1px solid #e5e7eb',
-          textAlign: 'center'
-        }}>
-          <div className="stat-icon" style={{fontSize: '1.8rem', marginBottom: '8px'}}>🔓</div>
-          <h3 style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px', fontWeight: '500'}}>Unlocked Suppliers</h3>
-          <p className="stat-value" style={{fontSize: '1.8rem', fontWeight: '700', color: '#111827', margin: 0}}>{unlockedSuppliers.length}</p>
-        </div>
+        {/* Quick actions */}
+        <Card elevation={1} sx={{ borderRadius: 3, mb: 4 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 2.5, color: '#1f2937' }}>🚀 Quick Actions</Typography>
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+              {[
+                { label: '❤️ My Wishlist', path: '/buyer/wishlist', color: '#e74c3c' },
+                { label: '🏆 Browse Products', path: '/', color: '#ff9900' },
+                { label: '🛒 My Basket', path: '/basket', color: '#667eea' },
+              ].map(a => (
+                <Button key={a.label} variant="contained" onClick={() => navigate(a.path)}
+                  sx={{ background: a.color, '&:hover': { background: a.color, filter: 'brightness(0.9)' }, borderRadius: 2, fontWeight: 700, px: 3 }}>
+                  {a.label}
+                </Button>
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
 
-        <div className="buyer-stat-card" style={{
-          background: 'white',
-          padding: '15px',
-          borderRadius: '10px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-          border: '1px solid #e5e7eb',
-          textAlign: 'center'
-        }}>
-          <div className="stat-icon" style={{fontSize: '1.8rem', marginBottom: '8px'}}>📊</div>
-          <h3 style={{fontSize: '0.85rem', color: '#6b7280', margin: 0, marginBottom: '5px', fontWeight: '500'}}>Account Status</h3>
-          <p className="stat-value" style={{
-            fontSize: '1rem', 
-            fontWeight: '700', 
-            color: stats.status === 'active' ? '#059669' : '#dc2626', 
-            margin: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '5px'
-          }}>
-            {stats.status === 'active' ? (
-              <>✅ Active</>
-            ) : stats.status === 'inactive' ? (
-              <>⏸️ Inactive</>
+        {/* Account info */}
+        <Card elevation={1} sx={{ borderRadius: 3, mb: 4 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: '#1f2937' }}>👤 Account Information</Typography>
+            <Grid container spacing={2}>
+              {[
+                { label: 'Email',        value: buyer?.email },
+                { label: 'User Type',    value: buyer?.userType || 'Buyer' },
+                { label: 'Member Since', value: stats.memberSince ? new Date(stats.memberSince).toLocaleDateString() : 'N/A' },
+                { label: 'Last Login',   value: stats.lastLogin   ? new Date(stats.lastLogin).toLocaleString()   : 'N/A' },
+              ].map(f => (
+                <Grid item xs={12} sm={6} md={3} key={f.label}>
+                  <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600, display: 'block' }}>{f.label}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#111827', mt: 0.3 }}>{f.value}</Typography>
+                </Grid>
+              ))}
+            </Grid>
+          </CardContent>
+        </Card>
+
+        {/* ── My Quotations ── */}
+        <Card elevation={1} sx={{ borderRadius: 3 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 2.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1f2937' }}>
+                📨 My Quotations ({quotations.length})
+              </Typography>
+              <TextField
+                size="small" placeholder="Search product, seller, SKU..."
+                value={search} onChange={e => setSearch(e.target.value)}
+                sx={{ minWidth: 240, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 18, color: '#9ca3af' }} /></InputAdornment> }}
+              />
+            </Box>
+
+            {filtered.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 6, color: '#6b7280' }}>
+                <Typography sx={{ fontSize: '3rem', mb: 1.5 }}>📭</Typography>
+                <Typography variant="h6" sx={{ mb: 1 }}>No quotations yet</Typography>
+                <Typography variant="body2" sx={{ mb: 3 }}>
+                  Add products to your basket and proceed to checkout to send quotations to sellers.
+                </Typography>
+                <Button variant="contained" onClick={() => navigate('/')}
+                  sx={{ background: '#667eea', '&:hover': { background: '#5a67d8' }, borderRadius: 2, fontWeight: 700 }}>
+                  Browse Products
+                </Button>
+              </Box>
             ) : (
-              <>🚫 Suspended</>
+              <Box sx={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                      {['Date', 'Product', 'SKU', 'Seller', 'Qty', 'Price', 'Status'].map(h => (
+                        <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: '#374151', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayed.map(q => {
+                      const sc = statusColor[q.status] || statusColor.pending;
+                      return (
+                        <tr key={q._id} style={{ borderBottom: '1px solid #f3f4f6' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'white'}>
+                          <td style={{ padding: '10px 12px', color: '#6b7280', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                            {new Date(q.submittedAt).toLocaleDateString()}<br />
+                            <span style={{ fontSize: '0.7rem' }}>{new Date(q.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </td>
+                          <td style={{ padding: '10px 12px', maxWidth: 200 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={q.productName}>
+                              {q.productName}
+                            </Typography>
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <Typography variant="caption" sx={{ fontFamily: 'monospace', background: '#f3f4f6', px: 0.8, py: 0.3, borderRadius: 1, color: '#374151' }}>
+                              {q.sku || q.productSku || '—'}
+                            </Typography>
+                          </td>
+                          <td style={{ padding: '10px 12px', fontWeight: 600, color: '#059669' }}>{q.sellerUsername}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700 }}>{q.quantity}</td>
+                          <td style={{ padding: '10px 12px', fontWeight: 700, color: '#059669' }}>
+                            {q.sellerPrice ? `£${parseFloat(q.sellerPrice).toFixed(2)}` : '—'}
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <span style={{ padding: '3px 10px', background: sc.bg, color: sc.color, borderRadius: 12, fontSize: '0.72rem', fontWeight: 700, textTransform: 'capitalize' }}>
+                              {q.status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {filtered.length > 5 && (
+                  <Box sx={{ textAlign: 'center', mt: 2 }}>
+                    <Button variant="text" onClick={() => setShowAll(p => !p)}
+                      sx={{ color: '#667eea', fontWeight: 700, fontSize: '0.85rem' }}>
+                      {showAll ? '▲ Show Less' : `▼ See More (${filtered.length - 5} more)`}
+                    </Button>
+                  </Box>
+                )}
+              </Box>
             )}
-          </p>
-        </div>
-      </div>
+          </CardContent>
+        </Card>
 
-      {/* Quick Actions */}
-      <div style={{
-        background: 'white',
-        padding: '20px',
-        borderRadius: '10px',
-        marginBottom: '25px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        border: '1px solid #e5e7eb'
-      }}>
-        <h2 style={{fontSize: '1.1rem', marginBottom: '15px', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px'}}>
-          🚀 Quick Actions
-        </h2>
-        <div style={{display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap'}}>
-          <button
-            onClick={() => navigate('/buyer/wishlist')}
-            style={{
-              padding: '12px 24px',
-              background: 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)',
-              color: 'white', border: 'none', borderRadius: '8px',
-              fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '8px',
-              boxShadow: '0 3px 10px rgba(231,76,60,0.3)', transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 5px 15px rgba(231,76,60,0.4)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(231,76,60,0.3)'; }}
-          >
-            ❤️ My Wishlist & Queries
-          </button>
-          <button
-            onClick={() => navigate('/buyer/edit-profile')}
-            style={{
-              padding: '12px 24px',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '0.9rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              boxShadow: '0 3px 10px rgba(102, 126, 234, 0.3)',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)'
-              e.currentTarget.style.boxShadow = '0 5px 15px rgba(102, 126, 234, 0.4)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 3px 10px rgba(102, 126, 234, 0.3)'
-            }}
-          >
-            ✏️ Edit Profile
-          </button>
-          
-          <button
-            onClick={() => navigate('/')}
-            style={{
-              padding: '12px 24px',
-              background: 'linear-gradient(135deg, #ff9900 0%, #ff6600 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '0.9rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              boxShadow: '0 3px 10px rgba(255, 153, 0, 0.3)',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)'
-              e.currentTarget.style.boxShadow = '0 5px 15px rgba(255, 153, 0, 0.4)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 3px 10px rgba(255, 153, 0, 0.3)'
-            }}
-          >
-            🏆 View All Products
-          </button>
-        </div>
-      </div>
-
-      {/* Account Info */}
-      <div style={{
-        background: 'white',
-        padding: '20px',
-        borderRadius: '10px',
-        marginBottom: '25px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        border: '1px solid #e5e7eb'
-      }}>
-        <h2 style={{fontSize: '1.1rem', marginBottom: '15px', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px'}}>
-          👤 Account Information
-        </h2>
-        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px'}}>
-          <div>
-            <p style={{fontSize: '0.8rem', color: '#6b7280', margin: 0, marginBottom: '4px'}}>Email</p>
-            <p style={{fontSize: '0.9rem', fontWeight: '600', color: '#111827', margin: 0}}>{buyer?.email}</p>
-          </div>
-          <div>
-            <p style={{fontSize: '0.8rem', color: '#6b7280', margin: 0, marginBottom: '4px'}}>User Type</p>
-            <p style={{fontSize: '0.9rem', fontWeight: '600', color: '#111827', margin: 0, textTransform: 'capitalize'}}>
-              {buyer?.userType || 'Buyer'}
-            </p>
-          </div>
-          <div>
-            <p style={{fontSize: '0.8rem', color: '#6b7280', margin: 0, marginBottom: '4px'}}>Member Since</p>
-            <p style={{fontSize: '0.9rem', fontWeight: '600', color: '#111827', margin: 0}}>
-              {stats.memberSince ? new Date(stats.memberSince).toLocaleDateString() : 'N/A'}
-            </p>
-          </div>
-          <div>
-            <p style={{fontSize: '0.8rem', color: '#6b7280', margin: 0, marginBottom: '4px'}}>Last Login</p>
-            <p style={{fontSize: '0.9rem', fontWeight: '600', color: '#111827', margin: 0}}>
-              {stats.lastLogin ? new Date(stats.lastLogin).toLocaleString() : 'N/A'}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Unlocked Suppliers */}
-      <div style={{
-        background: 'white',
-        padding: '25px',
-        borderRadius: '12px',
-        marginBottom: '30px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        border: '1px solid #e5e7eb'
-      }}>
-        <h2 style={{fontSize: '1.3rem', marginBottom: '20px', color: '#111827'}}>🔓 Unlocked Suppliers</h2>
-        {unlockedSuppliers.length === 0 ? (
-          <div style={{textAlign: 'center', padding: '40px', color: '#6b7280'}}>
-            <div style={{fontSize: '3rem', marginBottom: '15px'}}>🔒</div>
-            <h3 style={{fontSize: '1.1rem', marginBottom: '10px'}}>No suppliers unlocked yet</h3>
-            <p style={{fontSize: '0.9rem', marginBottom: '20px'}}>Unlock supplier contacts by paying Rs 200 per supplier</p>
-          </div>
-        ) : (
-          <div style={{display: 'grid', gap: '15px'}}>
-            {unlockedSuppliers.map((item, index) => (
-              <div key={index} style={{
-                padding: '15px',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div>
-                  <h4 style={{margin: 0, marginBottom: '5px', color: '#111827'}}>
-                    {item.supplierId?.businessName || 'Supplier'}
-                  </h4>
-                  <p style={{margin: 0, fontSize: '0.85rem', color: '#6b7280'}}>
-                    📧 {item.supplierId?.email} | 📞 {item.supplierId?.phone}
-                  </p>
-                  <p style={{margin: 0, fontSize: '0.75rem', color: '#9ca3af', marginTop: '5px'}}>
-                    Unlocked: {new Date(item.unlockedAt).toLocaleDateString()}
-                  </p>
-                </div>
-                <span style={{
-                  padding: '6px 12px',
-                  background: '#10b981',
-                  color: 'white',
-                  borderRadius: '6px',
-                  fontSize: '0.85rem',
-                  fontWeight: '600'
-                }}>
-                  ✅ Unlocked
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Payment History */}
-      <div style={{
-        background: 'white',
-        padding: '25px',
-        borderRadius: '12px',
-        marginBottom: '30px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        border: '1px solid #e5e7eb'
-      }}>
-        <h2 style={{fontSize: '1.3rem', marginBottom: '20px', color: '#111827'}}>💳 Payment History</h2>
-        {paymentHistory.length === 0 ? (
-          <div style={{textAlign: 'center', padding: '40px', color: '#6b7280'}}>
-            <div style={{fontSize: '3rem', marginBottom: '15px'}}>💰</div>
-            <h3 style={{fontSize: '1.1rem', marginBottom: '10px'}}>No payments yet</h3>
-            <p style={{fontSize: '0.9rem'}}>Your payment history will appear here</p>
-          </div>
-        ) : (
-          <div className="table-responsive">
-            <table className="payment-history-table" style={{width: '100%', borderCollapse: 'collapse'}}>
-              <thead>
-                <tr style={{borderBottom: '2px solid #e5e7eb'}}>
-                  <th style={{padding: '12px', textAlign: 'left', fontSize: '0.85rem', color: '#6b7280'}}>Date</th>
-                  <th style={{padding: '12px', textAlign: 'left', fontSize: '0.85rem', color: '#6b7280'}}>Description</th>
-                  <th style={{padding: '12px', textAlign: 'left', fontSize: '0.85rem', color: '#6b7280'}} className="mobile-hide">Method</th>
-                  <th style={{padding: '12px', textAlign: 'left', fontSize: '0.85rem', color: '#6b7280'}}>Amount</th>
-                  <th style={{padding: '12px', textAlign: 'left', fontSize: '0.85rem', color: '#6b7280'}}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paymentHistory.map((item, index) => (
-                  <tr key={index} style={{borderBottom: '1px solid #f3f4f6'}}>
-                    <td style={{padding: '12px', fontSize: '0.9rem'}}>
-                      {new Date(item.date || item.paymentDate).toLocaleDateString()}
-                    </td>
-                    <td style={{padding: '12px', fontSize: '0.9rem'}}>
-                      <div className="text-truncate" style={{maxWidth: '200px'}}>
-                        {item.description || (item.type === 'verification' ? `Payment Verification - ${item.productName}` : 'Payment')}
-                      </div>
-                    </td>
-                    <td style={{padding: '12px', fontSize: '0.9rem', textTransform: 'capitalize'}} className="mobile-hide">
-                      {item.type === 'verification' ? 'Verification' : (item.paymentMethod?.replace('_', ' ') || 'N/A')}
-                    </td>
-                    <td style={{padding: '12px', fontSize: '0.9rem', fontWeight: '600'}}>
-                      {item.type === 'verification' ? 'N/A' : `Rs ${item.amount}`}
-                    </td>
-                    <td style={{padding: '12px'}}>
-                      <span style={{
-                        padding: '4px 8px',
-                        background: item.status === 'completed' || item.status === 'approved' ? '#d1fae5' : 
-                                   item.status === 'pending' ? '#fef3c7' : 
-                                   item.status === 'rejected' ? '#fee2e2' : '#f3f4f6',
-                        color: item.status === 'completed' || item.status === 'approved' ? '#065f46' : 
-                               item.status === 'pending' ? '#92400e' : 
-                               item.status === 'rejected' ? '#991b1b' : '#374151',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        textTransform: 'capitalize'
-                      }}>
-                        {item.status}
-                      </span>
-                      {item.type === 'verification' && item.adminNotes && (
-                        <div style={{fontSize: '0.7rem', color: '#6b7280', marginTop: '4px'}} className="mobile-hide">
-                          {item.adminNotes}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Recent Activity */}
-      <div style={{
-        background: 'white',
-        padding: '25px',
-        borderRadius: '12px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        border: '1px solid #e5e7eb'
-      }}>
-        <h2 style={{fontSize: '1.3rem', marginBottom: '20px', color: '#111827'}}>📦 Recent Orders</h2>
-        {stats.totalOrders === 0 ? (
-          <div style={{textAlign: 'center', padding: '40px', color: '#6b7280'}}>
-            <div style={{fontSize: '3rem', marginBottom: '15px'}}>🛍️</div>
-            <h3 style={{fontSize: '1.1rem', marginBottom: '10px'}}>No orders yet</h3>
-            <p style={{fontSize: '0.9rem', marginBottom: '20px'}}>Start shopping to see your orders here</p>
-            <button
-              onClick={() => navigate('/')}
-              style={{
-                padding: '12px 24px',
-                background: '#667eea',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '0.95rem',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              Start Shopping
-            </button>
-          </div>
-        ) : (
-          <div>
-            {/* Orders list will go here */}
-            <p style={{color: '#6b7280'}}>Your orders will appear here</p>
-          </div>
-        )}
-      </div>
-    </div>
+      </Container>
+    </Box>
   );
 };
 

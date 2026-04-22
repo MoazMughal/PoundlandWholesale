@@ -9,6 +9,7 @@ import CategoryVisibilityToggle from '../../components/CategoryVisibilityToggle'
 import CategoryManagementModal from '../../components/CategoryManagementModal';
 import BulkOperationsModal from '../../components/BulkOperationsModal';
 import ProductTableSkeleton from '../../components/ProductTableSkeleton';
+import EditProductModal from '../../components/admin/EditProductModal';
 // MUI
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
@@ -83,9 +84,24 @@ const AdminProducts = () => {
   const lastFetchTimeRef = useRef(0);
   const FETCH_DEBOUNCE_MS = 1000; // 1 second debounce
 
-  const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // ── Lazy-initialize from sessionStorage cache so back-navigation shows data instantly ──
+  const _initFromCache = () => {
+    try {
+      const cached = sessionStorage.getItem('adminProductsCache');
+      if (cached) {
+        const { data, ts } = JSON.parse(cached);
+        if (Date.now() - ts < 5 * 60 * 1000) return data; // fresh within 5 min
+      }
+    } catch {}
+    return null;
+  };
+  const _cache = _initFromCache();
+
+  const [products, setProducts] = useState(_cache?.products || []);
+  const [filteredProducts, setFilteredProducts] = useState(_cache?.products || []);
+  const [totalProducts, setTotalProducts] = useState(_cache?.total || 0);
+  const [totalPages, setTotalPages] = useState(_cache ? Math.ceil(_cache.total / 200) : 1);
+  const [loading, setLoading] = useState(!_cache); // skip loading screen if cache hit
   const [backgroundLoading, setBackgroundLoading] = useState(false); // silent refresh indicator
   const isInitialLoadRef = useRef(true); // true until first data arrives
   const [search, setSearch] = useState(() => sessionStorage.getItem('adminProductsSearch') || '');
@@ -95,8 +111,6 @@ const AdminProducts = () => {
   const [editingCell, setEditingCell] = useState(null);
   const [editValues, setEditValues] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalProducts, setTotalProducts] = useState(0);
-  const [totalPages, setTotalPages] = useState(1); // Add totalPages state
   const [showProfitModal, setShowProfitModal] = useState(false);
   const [profitEditProduct, setProfitEditProduct] = useState(null);
   const [selectedProducts, setSelectedProducts] = useState(new Set());
@@ -126,6 +140,7 @@ const AdminProducts = () => {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showCategoryManagementModal, setShowCategoryManagementModal] = useState(false);
   const [showBulkOperationsModal, setShowBulkOperationsModal] = useState(false);
+  const [editModalProduct, setEditModalProduct] = useState(null);
 
   // Keep searchRef and sessionStorage in sync with search state
   useEffect(() => {
@@ -824,13 +839,14 @@ const AdminProducts = () => {
       if (prev.isAmazonsChoice !== amazonsChoiceFromUrl) newFilters.isAmazonsChoice = amazonsChoiceFromUrl;
       return newFilters;
     });
-  }, [location.pathname, location.search, location.state?.category, hasInitiallyLoaded]);
+  }, [location.pathname, location.search, hasInitiallyLoaded]);
 
   // Initial load on component mount - ONLY ONCE
   useEffect(() => {
     if (!hasInitiallyLoaded) {
       fetchCategories();
-      // Apply URL params before first fetch so filter effect doesn't re-trigger
+
+      // Apply URL params
       const urlParams = new URLSearchParams(location.search);
       const categoryFromUrl = urlParams.get('category') || location.state?.category || '';
       const statusFromUrl = urlParams.get('status') || '';
@@ -842,26 +858,32 @@ const AdminProducts = () => {
         isAmazonsChoice: amazonsChoiceFromUrl
       }));
       setHasInitiallyLoaded(true);
+
+      // If cache was already loaded synchronously, just do a silent background refresh
+      if (_cache) {
+        lastFetchParamsRef.current = JSON.stringify({ page: 1, perPage: productsPerPage, search: '', filters: { category: categoryFromUrl, status: statusFromUrl, isAmazonsChoice: amazonsChoiceFromUrl } });
+        setTimeout(() => fetchProducts(1), 200); // silent background refresh
+        return;
+      }
+
+      // No cache — fetch normally
       fetchProducts(1);
     }
-  }, []); // empty deps — truly runs once
+  }, []);
 
   // Handle search and filter changes - DEBOUNCED
   useEffect(() => {
-    // Skip if this is the initial load
     if (!hasInitiallyLoaded) return;
-    
-    // Only clear cache if search or category filters actually changed
-    const hasSearchChanged = search !== '';
-    const hasCategoryChanged = filters.category !== '';
-    
-    if (hasSearchChanged || hasCategoryChanged) {
+
+    // Skip if these exact params were already fetched (e.g. back-navigation restoring same filters)
+    const fetchParams = JSON.stringify({ page: 1, perPage: productsPerPage, search: debouncedSearch, filters });
+    if (lastFetchParamsRef.current === fetchParams) return;
+
+    if (search !== '' || filters.category !== '') {
       cacheManager.clearAll();
     }
-    
+
     setCurrentPage(1);
-    
-    // Debounce the fetch to prevent rapid successive calls
     fetchProducts(1);
   }, [debouncedSearch, filters.category, filters.status, filters.isAmazonsChoice]);
 
@@ -900,31 +922,26 @@ const AdminProducts = () => {
   useEffect(() => { hasInitiallyLoadedRef.current = hasInitiallyLoaded; }, [hasInitiallyLoaded]);
 
   useEffect(() => {
-    let lastRefreshTime = Date.now();
     const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+    const TS_KEY = 'adminProductsLastFetch';
+
+    const getLastFetch = () => parseInt(sessionStorage.getItem(TS_KEY) || '0', 10);
+    const setLastFetch = () => sessionStorage.setItem(TS_KEY, String(Date.now()));
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && hasInitiallyLoadedRef.current) {
-        const now = Date.now();
-        if (now - lastRefreshTime > REFRESH_INTERVAL) {
-          console.log('🔄 Page visible after 5+ minutes, refreshing products...');
+        if (Date.now() - getLastFetch() > REFRESH_INTERVAL) {
           fetchProducts(currentPageRef.current);
-          lastRefreshTime = now;
-        } else {
-          console.log('⏸️ Page visible but data is fresh, skipping refresh...');
+          setLastFetch();
         }
       }
     };
 
     const handleFocus = () => {
       if (hasInitiallyLoadedRef.current) {
-        const now = Date.now();
-        if (now - lastRefreshTime > REFRESH_INTERVAL) {
-          console.log('🔄 Window focused after 5+ minutes, refreshing products...');
+        if (Date.now() - getLastFetch() > REFRESH_INTERVAL) {
           fetchProducts(currentPageRef.current);
-          lastRefreshTime = now;
-        } else {
-          console.log('⏸️ Window focused but data is fresh, skipping refresh...');
+          setLastFetch();
         }
       }
     };
@@ -1085,20 +1102,26 @@ const AdminProducts = () => {
 
       const data = await response.json();
       setProducts(data.products);
-      setTotalProducts(data.total || data.products.length);
+      const total = data.total || data.products.length;
+      setTotalProducts(total);
       setFilteredProducts(data.products);
-      
-      // Update pagination info
-      const totalPagesCalc = Math.ceil((data.total || data.products.length) / perPage);
+      const totalPagesCalc = Math.ceil(total / perPage);
       setTotalPages(totalPagesCalc);
+
+      // Save to sessionStorage cache for instant restore on back-navigation
+      try {
+        sessionStorage.setItem('adminProductsCache', JSON.stringify({
+          data: { products: data.products, total },
+          ts: Date.now()
+        }));
+      } catch {}
       
       // Store the fetch parameters
       lastFetchParamsRef.current = fetchParams;
       
       // Mark initial load as done — subsequent fetches won't block the UI
       isInitialLoadRef.current = false;
-      
-      console.log('✅ Products loaded successfully:', data.products.length);
+      sessionStorage.setItem('adminProductsLastFetch', String(Date.now()));
       
     } catch (error) {
       console.error('❌ Error fetching products:', error);
@@ -2343,9 +2366,9 @@ const AdminProducts = () => {
         .products-table th:nth-child(6),
         .products-table td:nth-child(6) { width: 120px; min-width: 120px; } /* Category */
         .products-table th:nth-child(7),
-        .products-table td:nth-child(7) { width: 80px; min-width: 80px; } /* Price */
+        .products-table td:nth-child(7) { width: 130px; min-width: 130px; } /* Price */
         .products-table th:nth-child(8),
-        .products-table td:nth-child(8) { width: 80px; min-width: 80px; } /* Shipping */
+        .products-table td:nth-child(8) { width: 130px; min-width: 130px; } /* Shipping */
         .products-table th:nth-child(9),
         .products-table td:nth-child(9) { width: 70px; min-width: 70px; } /* Stock */
         .products-table th:nth-child(10),
@@ -2530,10 +2553,10 @@ const AdminProducts = () => {
           .products-table td:nth-child(6) { width: 120px !important; min-width: 120px !important; } /* Category */
           
           .products-table th:nth-child(7),
-          .products-table td:nth-child(7) { width: 80px !important; min-width: 80px !important; } /* Price */
+          .products-table td:nth-child(7) { width: 130px !important; min-width: 130px !important; } /* Price */
           
           .products-table th:nth-child(8),
-          .products-table td:nth-child(8) { width: 80px !important; min-width: 80px !important; } /* Shipping */
+          .products-table td:nth-child(8) { width: 130px !important; min-width: 130px !important; } /* Shipping */
           
           .products-table th:nth-child(9),
           .products-table td:nth-child(9) { width: 70px !important; min-width: 70px !important; } /* Stock */
@@ -3141,21 +3164,14 @@ const AdminProducts = () => {
           }}>
             <div className="spinner" style={{
               display: 'inline-block',
-              width: '40px',
-              height: '40px',
-              border: '4px solid #f3f4f6',
+              width: '36px',
+              height: '36px',
+              border: '3px solid #f3f4f6',
               borderTopColor: '#007bff',
               borderRadius: '50%',
               animation: 'spin 0.8s linear infinite',
-              marginBottom: '16px'
+              marginBottom: '12px'
             }}></div>
-            <p style={{ margin: '8px 0', fontWeight: '500', color: '#374151', fontSize: '1rem' }}>
-              Loading products{filters.category ? ` in ${categories.find(c => c.value === filters.category)?.label}` : ''}
-              {filters.isAmazonsChoice ? ` (Amazon's Choice)` : ''}...
-            </p>
-            <small style={{ display: 'block', marginTop: '8px', color: '#9ca3af', fontSize: '0.875rem' }}>
-              Please wait while we fetch your data
-            </small>
           </div>
           <div style={{
             width: '100%',
@@ -3926,8 +3942,7 @@ const AdminProducts = () => {
                         <IconButton
                           size="small"
                           onClick={() => {
-                            const editUrl = `/admin/products/edit/${product._id}${filters.category ? `?returnCategory=${filters.category}` : ''}`;
-                            navigate(editUrl, { state: { category: filters.category } });
+                            setEditModalProduct(product._id);
                           }}
                           sx={{ background: '#667eea', color: 'white', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', marginRight: '3px', '&:hover': { background: '#5a67d8' } }}
                         >
@@ -6234,6 +6249,20 @@ const AdminProducts = () => {
         onBulkUpdate={handleBulkOperations}
         categories={categories}
         allProducts={products}
+      />
+
+      {/* Edit Product Modal */}
+      <EditProductModal
+        open={!!editModalProduct}
+        productId={editModalProduct}
+        onClose={() => setEditModalProduct(null)}
+        onSaved={() => {
+          // Invalidate cache and refresh
+          sessionStorage.removeItem('adminProductsCache');
+          sessionStorage.removeItem('adminProductsLastFetch');
+          lastFetchParamsRef.current = null;
+          fetchProducts(currentPage, productsPerPage);
+        }}
       />
       </div>
     </>

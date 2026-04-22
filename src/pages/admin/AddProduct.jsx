@@ -771,7 +771,7 @@ const AddProduct = () => {
   return (
     <div className="admin-product-form">
       <header className="form-header">
-        <h1>➕ Add New Product</h1>
+        <h1 style={{ paddingLeft: '12px' }}>➕ Add New Product</h1>
         <button 
           onClick={() => {
             const returnUrl = returnCategory 
@@ -782,6 +782,7 @@ const AddProduct = () => {
             });
           }} 
           className="back-btn"
+          style={{ marginRight: '12px' }}
         >
           ← Back to Products
         </button>

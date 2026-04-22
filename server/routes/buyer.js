@@ -1032,6 +1032,40 @@ router.get('/payment-verification-status', authenticateBuyer, async (req, res) =
   }
 });
 
+// Get buyer's own quotations
+router.get('/quotations', authenticateBuyer, async (req, res) => {
+  try {
+    const Quotation = (await import('../models/Quotation.js')).default;
+    const buyer = await Buyer.findById(req.buyer.id).select('email name firstName lastName').lean();
+    if (!buyer) return res.status(404).json({ message: 'Buyer not found' });
+
+    // Match by buyerId or by email
+    const quotations = await Quotation.find({
+      $or: [
+        { buyerId: req.buyer.id },
+        { buyerEmail: buyer.email }
+      ]
+    })
+      .sort({ submittedAt: -1 })
+      .lean();
+
+    // Enrich with product SKU
+    const Product = (await import('../models/Product.js')).default;
+    const productIds = [...new Set(quotations.map(q => q.productId?.toString()).filter(Boolean))];
+    const products = await Product.find({ _id: { $in: productIds } }).select('_id sku').lean();
+    const skuMap = Object.fromEntries(products.map(p => [p._id.toString(), p.sku || '']));
+
+    const enriched = quotations.map(q => ({
+      ...q,
+      sku: skuMap[q.productId?.toString()] || q.sku || ''
+    }));
+
+    res.json({ success: true, quotations: enriched });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 export default router;
 
 // Admin: Get all pending payments

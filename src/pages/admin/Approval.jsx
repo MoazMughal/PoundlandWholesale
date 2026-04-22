@@ -813,11 +813,10 @@ const Approval = () => {
     return (
       <div className="admin-product-form">
         <header className="form-header">
-          <h1>⏳ Product Approval (Loading...)</h1>
+          <h1 style={{ paddingLeft: '12px' }}>✅ Product Approval</h1>
         </header>
         <div style={{ textAlign: 'center', padding: '50px' }}>
-          <div style={{ fontSize: '24px', marginBottom: '20px' }}>⏳</div>
-          <p>Loading pending products...</p>
+          <div style={{ display: 'inline-block', width: 36, height: 36, border: '3px solid #f3f4f6', borderTopColor: '#007bff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
         </div>
       </div>
     );
@@ -916,13 +915,14 @@ const Approval = () => {
       
       <header className="form-header">
         <div>
-          <h1>✅ Product Approval ({totalProducts} total products)</h1>
+          <h1 style={{ paddingLeft: '12px' }}>✅ Product Approval ({totalProducts} total products)</h1>
           {lastRefreshTime && (
             <p style={{ 
               fontSize: '0.75rem', 
-              color: '#6c757d', 
-              margin: '4px 0 0 0',
-              fontWeight: 'normal'
+              color: '#ffffff', 
+              margin: '4px 0 0 12px',
+              fontWeight: 'normal',
+              opacity: 0.85
             }}>
               Last refreshed: {lastRefreshTime.toLocaleTimeString()} (Auto-refresh every 30s)
             </p>
@@ -957,6 +957,7 @@ const Approval = () => {
           <button 
             onClick={() => navigate('/admin/products')} 
             className="back-btn"
+            style={{ marginRight: '12px' }}
           >
             ← Back to Products
           </button>

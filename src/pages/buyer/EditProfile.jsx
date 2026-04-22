@@ -372,7 +372,7 @@ const EditProfile = () => {
 
   return (
     <div style={{
-      padding: '10px', 
+      padding: '20px', 
       maxWidth: '1200px', 
       margin: '0 auto',
       minHeight: '100vh',
@@ -381,43 +381,49 @@ const EditProfile = () => {
       {/* Header */}
       <header style={{
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '10px 15px',
-        borderRadius: '8px',
-        marginBottom: '15px',
+        padding: '20px 24px',
+        borderRadius: '12px',
+        marginBottom: '24px',
         color: 'white',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
       }}>
         <div style={{
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
           flexWrap: 'wrap', 
-          gap: '10px'
+          gap: '12px'
         }}>
           <div>
             <h1 style={{
-              fontSize: 'clamp(1.1rem, 3vw, 1.4rem)', 
+              fontSize: 'clamp(1.3rem, 3vw, 1.7rem)', 
               margin: 0, 
-              marginBottom: '3px'
+              marginBottom: '6px',
+              fontWeight: 800,
+              paddingLeft: '12px',
+              color: '#ffffff'
             }}>✏️ Edit Profile</h1>
             <p style={{
-              fontSize: 'clamp(0.75rem, 2vw, 0.85rem)', 
+              fontSize: '0.9rem', 
               margin: 0, 
-              opacity: 0.9
+              opacity: 0.85,
+              paddingLeft: '12px',
+              color: '#ffffff'
             }}>Update your account information</p>
           </div>
           <button 
             onClick={() => navigate('/buyer/dashboard')}
             style={{
-              padding: '6px 12px',
+              padding: '10px 20px',
               background: 'rgba(255,255,255,0.2)',
-              color: 'white',
-              border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: '6px',
-              fontSize: 'clamp(0.75rem, 2vw, 0.85rem)',
+              color: '#ffffff',
+              border: '1px solid rgba(255,255,255,0.35)',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
               fontWeight: '600',
               cursor: 'pointer',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
+              marginRight: '12px'
             }}
           >
             ← Back to Dashboard

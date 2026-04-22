@@ -262,10 +262,7 @@ const BuyerRegister = () => {
                     disabled={loading}
                   >
                     {loading ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-1" role="status" style={{width: '0.8rem', height: '0.8rem'}}></span>
-                        Creating...
-                      </>
+                      <span className="spinner-border spinner-border-sm" role="status" aria-label="Creating account"></span>
                     ) : (
                       'Create Buyer Account'
                     )}

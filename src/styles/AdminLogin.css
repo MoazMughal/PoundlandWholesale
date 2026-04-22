@@ -181,3 +181,12 @@ div[style*="animation: float"] {
   animation: float 6s ease-in-out infinite;
   opacity: 0.1;
 }
+
+/* Fix: ensure submit buttons always have white text */
+.min-vh-100 .card button[type="submit"],
+.min-vh-100 .card button[type="submit"] *,
+.min-vh-100 .card button[type="submit"] span,
+.min-vh-100 .card button[type="submit"] i {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}

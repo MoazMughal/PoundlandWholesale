@@ -202,10 +202,10 @@
   .products-table td:nth-child(6) { width: 120px !important; min-width: 120px !important; }
   
   .products-table th:nth-child(7),
-  .products-table td:nth-child(7) { width: 80px !important; min-width: 80px !important; }
+  .products-table td:nth-child(7) { width: 130px !important; min-width: 130px !important; }
   
   .products-table th:nth-child(8),
-  .products-table td:nth-child(8) { width: 80px !important; min-width: 80px !important; }
+  .products-table td:nth-child(8) { width: 130px !important; min-width: 130px !important; }
   
   .products-table th:nth-child(9),
   .products-table td:nth-child(9) { width: 70px !important; min-width: 70px !important; }

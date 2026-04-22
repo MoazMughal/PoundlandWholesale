@@ -352,10 +352,7 @@ const SupplierRegister = () => {
                     disabled={loading}
                   >
                     {loading ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                        Creating Account...
-                      </>
+                      <span className="spinner-border spinner-border-sm" role="status" aria-label="Creating account"></span>
                     ) : (
                       'Create Supplier Account'
                     )}

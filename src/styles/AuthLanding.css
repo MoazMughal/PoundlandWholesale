@@ -165,3 +165,12 @@
 .min-vh-100 .card .text-primary {
   color: #0d6efd !important;
 }
+
+/* Fix: ensure submit buttons always have white text */
+.min-vh-100 .card button[type="submit"],
+.min-vh-100 .card button[type="submit"] *,
+.min-vh-100 .card button[type="submit"] span,
+.min-vh-100 .card button[type="submit"] i {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}

@@ -211,15 +211,12 @@ const SupplierLogin = () => {
                     }}
                   >
                     {loading ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                        Signing In...
-                      </>
+                      <span className="spinner-border spinner-border-sm" role="status" aria-label="Signing in"></span>
                     ) : (
-                      <>
+                      <span style={{ color: 'white' }}>
                         <i className="fas fa-sign-in-alt me-2"></i>
                         Sign In as Supplier
-                      </>
+                      </span>
                     )}
                   </button>
                 </form>

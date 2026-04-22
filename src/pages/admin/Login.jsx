@@ -241,15 +241,12 @@ const AdminLogin = () => {
                     }}
                   >
                     {isSubmitting ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                        Authenticating...
-                      </>
+                      <span className="spinner-border spinner-border-sm" role="status" aria-label="Authenticating"></span>
                     ) : (
-                      <>
+                      <span style={{ color: 'white' }}>
                         <i className="fas fa-sign-in-alt me-2"></i>
                         Admin Login
-                      </>
+                      </span>
                     )}
                   </button>
                 </form>

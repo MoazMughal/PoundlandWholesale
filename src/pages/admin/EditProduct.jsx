@@ -992,32 +992,32 @@ const EditProduct = () => {
   };
 
   if (loading) {
-    return <div className="loading">Loading product...</div>;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <div style={{ display: 'inline-block', width: 40, height: 40, border: '4px solid #f3f4f6', borderTopColor: '#007bff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+      </div>
+    );
   }
 
   return (
     <div className="admin-product-form">
       <header className="form-header">
-        <h1>✏️ Edit Product</h1>
+        <h1 style={{ paddingLeft: '12px' }}>✏️ Edit Product</h1>
         
         <div className="header-actions">
           <button onClick={handleDelete} className="delete-btn">
             🗑️ Delete Product
           </button>
           <button onClick={() => {
-            // Check if we came from approval page
             const urlParams = new URLSearchParams(location.search);
             const returnTo = urlParams.get('returnTo');
-            
             if (returnTo === 'approval') {
               navigate('/admin/approval');
             } else {
               const backUrl = `/admin/products${returnCategory ? `?category=${returnCategory}` : ''}`;
-              navigate(backUrl, {
-                state: { category: returnCategory }
-              });
+              navigate(backUrl, { state: { category: returnCategory } });
             }
-          }} className="back-btn">
+          }} className="back-btn" style={{ marginRight: '12px' }}>
             ← Back to Products
           </button>
         </div>
