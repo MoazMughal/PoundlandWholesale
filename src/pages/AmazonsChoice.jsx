@@ -618,6 +618,14 @@ const AmazonsChoice = () => {
   const [listingSubmitting, setListingSubmitting] = useState(false)
   const [listingSuccess, setListingSuccess] = useState(false)
 
+  // Bulk selection state
+  const [selectedProducts, setSelectedProducts] = useState([])
+  const [bulkModal, setBulkModal] = useState(false)
+  const [bulkRows, setBulkRows] = useState({})
+  const [bulkSubmitting, setBulkSubmitting] = useState(false)
+  const [bulkResults, setBulkResults] = useState(null)
+  const [bulkCount, setBulkCount] = useState(0)
+
   // Context hooks
   const { formatPrice, currency } = useCurrency()
   const { addToBasket, isInBasket } = useBasket()
@@ -758,6 +766,106 @@ const AmazonsChoice = () => {
       setListingSubmitting(false)
     }
   }
+
+  // Bulk selection handlers
+  const toggleSelectProduct = (product) => {
+    setSelectedProducts(prev =>
+      prev.find(p => p.id === product.id)
+        ? prev.filter(p => p.id !== product.id)
+        : [...prev, product]
+    )
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedProducts.length === currentProducts.length) {
+      setSelectedProducts([])
+    } else {
+      setSelectedProducts([...currentProducts])
+    }
+  }
+
+  const openBulkModal = () => {
+    const rows = {}
+    selectedProducts.forEach(p => {
+      const rawPrice = p.rawPrice || 0
+      rows[p.id] = {
+        price: rawPrice > 0 ? Math.max(0.01, rawPrice - 0.01).toFixed(2) : '0.01',
+        shipping: '0.00',
+        moq: '1',
+        listingCountries: currency ? [currency] : [],
+        notes: ''
+      }
+    })
+    setBulkRows(rows)
+    setBulkResults(null)
+    setBulkModal(true)
+  }
+
+  const updateBulkRow = (productId, field, value) => {
+    setBulkRows(prev => ({ ...prev, [productId]: { ...prev[productId], [field]: value } }))
+  }
+
+  const toggleBulkCountry = (productId, code) => {
+    setBulkRows(prev => {
+      const current = prev[productId].listingCountries
+      return {
+        ...prev,
+        [productId]: {
+          ...prev[productId],
+          listingCountries: current.includes(code) ? current.filter(c => c !== code) : [...current, code]
+        }
+      }
+    })
+  }
+
+  const handleBulkRequest = async () => {
+    if (selectedProducts.length === 0) return
+    setBulkSubmitting(true)
+    setBulkResults(null)
+    setBulkCount(selectedProducts.length)
+    const token = localStorage.getItem('sellerToken')
+
+    try {
+      const items = selectedProducts.map(product => {
+        const row = bulkRows[product.id] || {}
+        return {
+          adminProductId: product.id,
+          productName: product.name,
+          productPrice: product.rawPrice || 0,
+          sellerPrice: parseFloat(row.price) || 0.01,
+          sellerShipping: parseFloat(row.shipping) || 0,
+          moq: parseInt(row.moq) || 1,
+          listingCountries: row.listingCountries || [],
+          notes: row.notes || ''
+        }
+      })
+
+      const response = await fetch(getApiUrl('sellers/bulk-request-listing'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ items })
+      })
+      const data = await response.json()
+
+      if (response.ok) {
+        setBulkResults({ success: data.submitted || [], failed: (data.failed || []).map(f => ({ name: f.name, reason: f.reason })) })
+        if ((data.submitted || []).length > 0) { setSelectedProducts([]); fetchProducts(selectedCategory, searchQuery, currentPage, showAllProducts) }
+      } else {
+        setBulkResults({ success: [], failed: selectedProducts.map(p => ({ name: p.name, reason: data.message || 'Failed' })) })
+      }
+    } catch {
+      setBulkResults({ success: [], failed: selectedProducts.map(p => ({ name: p.name, reason: 'Network error' })) })
+    } finally {
+      setBulkSubmitting(false)
+    }
+  }
+
+  const COUNTRY_OPTIONS = [
+    { code: 'GBP', flag: '🇬🇧', label: 'UK (£ GBP)' },
+    { code: 'PKR', flag: '🇵🇰', label: 'Pakistan (Rs PKR)' },
+    { code: 'AED', flag: '🇦🇪', label: 'UAE (د.إ AED)' },
+    { code: 'USD', flag: '🇺🇸', label: 'USA ($ USD)' }
+  ]
 
   // Fetch products with server-side filtering and pagination
   const fetchProducts = async (category = null, search = null, page = 1, showAll = showAllProducts) => {
@@ -1495,6 +1603,144 @@ const AmazonsChoice = () => {
 
   return (
     <>
+      {/* ── Bulk Request Modal ── */}
+      {isSellerLoggedIn && bulkModal && (
+        <div onClick={() => !bulkSubmitting && !bulkResults && setBulkModal(false)}
+          style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(0,0,0,0.55)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:'#fff', borderRadius:'16px', width:'100%', maxWidth:'540px', boxShadow:'0 25px 60px rgba(0,0,0,0.3)', overflow:'hidden', maxHeight:'90vh', display:'flex', flexDirection:'column' }}>
+            {/* Header */}
+            <div style={{ background:'linear-gradient(135deg,#ff6600,#ff8533)', padding:'16px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                <div style={{ width:'36px', height:'36px', borderRadius:'50%', background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <i className="fas fa-layer-group" style={{ color:'#fff', fontSize:'15px' }}></i>
+                </div>
+                <div>
+                  <div style={{ color:'#fff', fontWeight:'700', fontSize:'15px' }}>
+                    Bulk Request ({bulkResults ? bulkCount : selectedProducts.length} product{(bulkResults ? bulkCount : selectedProducts.length) !== 1 ? 's' : ''})
+                  </div>
+                  <div style={{ color:'rgba(255,255,255,0.85)', fontSize:'11px' }}>Edit each product individually</div>
+                </div>
+              </div>
+              {!bulkSubmitting && !bulkResults && (
+                <button onClick={() => setBulkModal(false)}
+                  style={{ background:'rgba(255,255,255,0.2)', border:'none', borderRadius:'50%', width:'32px', height:'32px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff' }}>
+                  <i className="fas fa-times"></i>
+                </button>
+              )}
+            </div>
+
+            {bulkResults ? (
+              <div style={{ padding:'24px', overflowY:'auto' }}>
+                {bulkResults.success.length > 0 && (
+                  <div style={{ background:'#d4edda', borderRadius:'10px', padding:'14px', marginBottom:'12px' }}>
+                    <div style={{ fontWeight:'700', color:'#155724', marginBottom:'6px' }}>
+                      <i className="fas fa-check-circle me-2"></i>{bulkResults.success.length} request{bulkResults.success.length > 1 ? 's' : ''} submitted
+                    </div>
+                    {bulkResults.success.map((name, i) => (
+                      <div key={i} style={{ fontSize:'0.8rem', color:'#155724', padding:'2px 0' }}>• {name}</div>
+                    ))}
+                  </div>
+                )}
+                {bulkResults.failed.length > 0 && (
+                  <div style={{ background:'#fde8e8', borderRadius:'10px', padding:'14px', marginBottom:'12px' }}>
+                    <div style={{ fontWeight:'700', color:'#721c24', marginBottom:'6px' }}>
+                      <i className="fas fa-exclamation-circle me-2"></i>{bulkResults.failed.length} failed
+                    </div>
+                    {bulkResults.failed.map((f, i) => (
+                      <div key={i} style={{ fontSize:'0.8rem', color:'#721c24', padding:'2px 0' }}>• {f.name} — {f.reason}</div>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => { setBulkModal(false); setBulkResults(null) }}
+                  style={{ width:'100%', padding:'12px', background:'linear-gradient(135deg,#ff6600,#ff8533)', color:'#fff', border:'none', borderRadius:'10px', fontWeight:'700', cursor:'pointer', fontSize:'14px' }}>
+                  Done
+                </button>
+              </div>
+            ) : (
+              <div style={{ padding:'16px 18px', overflowY:'auto', flex:1 }}>
+                <p style={{ fontSize:'0.78rem', color:'#6b7280', marginBottom:'12px' }}>
+                  Edit price, shipping, MOQ and countries for each product individually.
+                </p>
+                <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+                  {selectedProducts.map((product) => {
+                    const row = bulkRows[product.id] || {}
+                    return (
+                      <div key={product.id} style={{ border:'1.5px solid #e9ecef', borderRadius:'10px', overflow:'hidden' }}>
+                        <div style={{ background:'#f8f9fa', padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid #e9ecef' }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:'8px', minWidth:0 }}>
+                            {product.image && (
+                              <img src={product.image} alt="" style={{ width:'28px', height:'28px', objectFit:'contain', borderRadius:'4px', flexShrink:0 }}
+                                onError={e => e.target.style.display='none'} />
+                            )}
+                            <span style={{ fontSize:'0.78rem', fontWeight:'700', color:'#374151', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{product.name}</span>
+                          </div>
+                          <span style={{ fontSize:'0.72rem', color:'#28a745', fontWeight:'700', flexShrink:0, marginLeft:'8px' }}>RRP £{parseFloat(product.rawPrice||0).toFixed(2)}</span>
+                        </div>
+                        <div style={{ padding:'10px 12px', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px' }}>
+                          <div>
+                            <label style={{ fontSize:'0.7rem', fontWeight:'700', color:'#6b7280', display:'block', marginBottom:'3px' }}>Your Price (£)</label>
+                            <input type="number" step="0.01" min="0.01" value={row.price || ''}
+                              onChange={e => updateBulkRow(product.id, 'price', e.target.value)}
+                              style={{ width:'100%', padding:'6px 8px', border:'1.5px solid #e9ecef', borderRadius:'6px', fontSize:'12px' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize:'0.7rem', fontWeight:'700', color:'#6b7280', display:'block', marginBottom:'3px' }}>Shipping (£)</label>
+                            <input type="number" step="0.01" min="0" value={row.shipping || ''}
+                              onChange={e => updateBulkRow(product.id, 'shipping', e.target.value)}
+                              style={{ width:'100%', padding:'6px 8px', border:'1.5px solid #e9ecef', borderRadius:'6px', fontSize:'12px' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize:'0.7rem', fontWeight:'700', color:'#6b7280', display:'block', marginBottom:'3px' }}>MOQ</label>
+                            <input type="number" step="1" min="1" value={row.moq || ''}
+                              onChange={e => updateBulkRow(product.id, 'moq', e.target.value)}
+                              style={{ width:'100%', padding:'6px 8px', border:'1.5px solid #e9ecef', borderRadius:'6px', fontSize:'12px' }} />
+                          </div>
+                        </div>
+                        <div style={{ padding:'0 12px 8px' }}>
+                          <label style={{ fontSize:'0.7rem', fontWeight:'700', color:'#6b7280', display:'block', marginBottom:'5px' }}>
+                            Countries <span style={{ fontWeight:'400', color:'#aaa' }}>(empty = all)</span>
+                          </label>
+                          <div style={{ display:'flex', flexWrap:'wrap', gap:'5px' }}>
+                            {COUNTRY_OPTIONS.map(c => {
+                              const sel = (row.listingCountries || []).includes(c.code)
+                              return (
+                                <button key={c.code} type="button"
+                                  onClick={() => toggleBulkCountry(product.id, c.code)}
+                                  style={{ padding:'4px 9px', borderRadius:'6px', border: sel ? '1.5px solid #ff6600' : '1.5px solid #e9ecef', background: sel ? '#fff5f0' : '#fff', cursor:'pointer', fontSize:'11px', fontWeight: sel ? '700' : '500', color: sel ? '#ff6600' : '#6b7280' }}>
+                                  {c.flag} {c.code}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                        <div style={{ padding:'0 12px 10px' }}>
+                          <input type="text" value={row.notes || ''} placeholder="Notes (optional)"
+                            onChange={e => updateBulkRow(product.id, 'notes', e.target.value)}
+                            style={{ width:'100%', padding:'6px 8px', border:'1.5px solid #e9ecef', borderRadius:'6px', fontSize:'11px', color:'#6b7280' }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div style={{ display:'flex', gap:'10px', marginTop:'16px' }}>
+                  <button onClick={() => setBulkModal(false)}
+                    style={{ flex:1, padding:'11px', background:'#f8f9fa', color:'#6b7280', border:'1.5px solid #e9ecef', borderRadius:'10px', fontWeight:'600', cursor:'pointer', fontSize:'13px' }}>
+                    Cancel
+                  </button>
+                  <button onClick={handleBulkRequest} disabled={bulkSubmitting}
+                    style={{ flex:2, padding:'11px', background: bulkSubmitting ? '#ccc' : 'linear-gradient(135deg,#ff6600,#ff8533)', color:'#fff', border:'none', borderRadius:'10px', fontWeight:'700', cursor: bulkSubmitting ? 'not-allowed' : 'pointer', fontSize:'13px', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px' }}>
+                    {bulkSubmitting
+                      ? <><span className="spinner-border spinner-border-sm"></span> Submitting...</>
+                      : <><i className="fas fa-paper-plane"></i> Submit {selectedProducts.length} Requests</>}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Request-to-List Modal ── */}
       {listingModal.open && listingModal.product && (
         <div
@@ -2191,6 +2437,44 @@ const AmazonsChoice = () => {
         )}
 
         {/* Enhanced Products Grid */}
+        {isSellerLoggedIn && selectedProducts.length > 0 && (
+          <div style={{ margin:'0 0 10px', background:'linear-gradient(135deg,#ff6600,#ff8533)', borderRadius:'10px', padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'8px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              <span style={{ color:'#fff', fontWeight:'700', fontSize:'0.88rem' }}>
+                <i className="fas fa-check-square me-2"></i>{selectedProducts.length} product{selectedProducts.length > 1 ? 's' : ''} selected
+              </span>
+              <button onClick={() => setSelectedProducts([])}
+                style={{ background:'rgba(255,255,255,0.2)', border:'none', borderRadius:'6px', color:'#fff', padding:'3px 10px', fontSize:'0.75rem', cursor:'pointer' }}>
+                Clear
+              </button>
+            </div>
+            <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
+              <label style={{ display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'0.8rem', color:'#fff', fontWeight:'600', userSelect:'none' }}>
+                <input type="checkbox"
+                  checked={selectedProducts.length === currentProducts.length && currentProducts.length > 0}
+                  onChange={toggleSelectAll}
+                  style={{ width:'16px', height:'16px', cursor:'pointer' }} />
+                Select All
+              </label>
+              <button onClick={openBulkModal}
+                style={{ background:'#fff', color:'#ff6600', border:'none', borderRadius:'8px', padding:'8px 18px', fontWeight:'700', fontSize:'0.85rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}>
+                <i className="fas fa-layer-group"></i> Bulk Request All
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Select All bar — shown when seller is logged in and products are loaded */}
+        {isSellerLoggedIn && selectedProducts.length === 0 && currentProducts.length > 0 && (
+          <div style={{ margin:'0 0 8px', display:'flex', justifyContent:'flex-end' }}>
+            <label style={{ display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'0.82rem', color:'#ff6600', fontWeight:'700', userSelect:'none', background:'#fff5f0', border:'1.5px solid #ff6600', borderRadius:'8px', padding:'6px 14px' }}>
+              <input type="checkbox" checked={false} onChange={toggleSelectAll}
+                style={{ width:'15px', height:'15px', cursor:'pointer' }} />
+              Select All for Bulk Request
+            </label>
+          </div>
+        )}
+
         <div id="products-grid" style={{
           display: 'grid', 
           gridTemplateColumns: windowWidth < 576 ? 'repeat(2, 1fr)' : 
@@ -2344,6 +2628,14 @@ const AmazonsChoice = () => {
                 overflow: 'visible',
                 marginBottom: '0px' // Removed margin bottom to eliminate space
               }}>
+                {/* Bulk select checkbox — only for logged-in sellers */}
+                {isSellerLoggedIn && (
+                  <div
+                    onClick={e => { e.preventDefault(); e.stopPropagation(); toggleSelectProduct(product) }}
+                    style={{ position:'absolute', top:'6px', left:'6px', zIndex:10, width:'20px', height:'20px', borderRadius:'5px', border: selectedProducts.find(p => p.id === product.id) ? '2px solid #ff6600' : '2px solid #ccc', background: selectedProducts.find(p => p.id === product.id) ? '#ff6600' : 'rgba(255,255,255,0.9)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'all 0.15s' }}>
+                    {selectedProducts.find(p => p.id === product.id) && <i className="fas fa-check" style={{ color:'#fff', fontSize:'10px' }}></i>}
+                  </div>
+                )}
                 <ProductImage
                   src={product.image}
                   alt={product.name}

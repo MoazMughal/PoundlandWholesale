@@ -15,6 +15,55 @@ const AdminSellerProducts = () => {
   const [sortBy, setSortBy] = useState('newest')
   const [showSuccessToast, setShowSuccessToast] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+
+  // Bulk selection state (only for pending requests)
+  const [selectedIds, setSelectedIds] = useState([])
+  const [bulkApproving, setBulkApproving] = useState(false)
+
+  const toggleSelect = (product) => {
+    const id = product._id
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  const toggleSelectAll = () => {
+    const pendingIds = filteredAndSortedProducts.filter(p => p.approvalStatus === 'pending').map(p => p._id)
+    setSelectedIds(prev => prev.length === pendingIds.length ? [] : pendingIds)
+  }
+
+  const handleBulkApprove = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Approve ${selectedIds.length} listing request${selectedIds.length > 1 ? 's' : ''}?`)) return
+
+    setBulkApproving(true)
+    try {
+      const token = localStorage.getItem('adminToken')
+      const items = selectedIds.map(id => {
+        const product = filteredAndSortedProducts.find(p => p._id === id)
+        return { sellerId: product.originalSellerId, requestId: product.originalRequestId }
+      }).filter(i => i.sellerId && i.requestId)
+
+      const response = await fetch(getApiUrl('sellers/admin/listing-requests/bulk-approve'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ items })
+      })
+      const data = await response.json()
+
+      if (response.ok) {
+        const approvedCount = (data.approved || []).length
+        showSuccess(`${approvedCount} request${approvedCount !== 1 ? 's' : ''} approved successfully!`)
+        setProducts(prev => prev.filter(p => !selectedIds.includes(p._id)))
+        setStats(prev => ({ ...prev, pending: Math.max(0, prev.pending - approvedCount), approved: prev.approved + approvedCount }))
+        setSelectedIds([])
+      } else {
+        alert('❌ ' + (data.message || 'Bulk approve failed'))
+      }
+    } catch {
+      alert('❌ Network error during bulk approve')
+    } finally {
+      setBulkApproving(false)
+    }
+  }
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
@@ -1305,6 +1354,33 @@ const AdminSellerProducts = () => {
         </div>
       </div>
 
+      {/* Bulk Action Toolbar — only shown for pending filter with selections */}
+      {filter === 'pending' && filteredAndSortedProducts.some(p => p.approvalStatus === 'pending') && (
+        <div style={{ marginBottom:'10px', background: selectedIds.length > 0 ? 'linear-gradient(135deg,#28a745,#20c997)' : '#f8f9fa', border: '1px solid #e9ecef', borderRadius:'8px', padding:'10px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'8px', transition:'background 0.2s' }}>
+          <label style={{ display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', margin:0, color: selectedIds.length > 0 ? '#fff' : '#374151', fontWeight:'600', fontSize:'0.85rem' }}>
+            <input type="checkbox"
+              checked={selectedIds.length > 0 && selectedIds.length === filteredAndSortedProducts.filter(p => p.approvalStatus === 'pending').length}
+              onChange={toggleSelectAll}
+              style={{ width:'16px', height:'16px', cursor:'pointer' }} />
+            {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Select All Pending'}
+          </label>
+          {selectedIds.length > 0 && (
+            <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
+              <button onClick={() => setSelectedIds([])}
+                style={{ background:'rgba(255,255,255,0.25)', border:'none', borderRadius:'6px', color:'#fff', padding:'4px 12px', fontSize:'0.78rem', cursor:'pointer', fontWeight:'600' }}>
+                Clear
+              </button>
+              <button onClick={handleBulkApprove} disabled={bulkApproving}
+                style={{ background:'#fff', color:'#28a745', border:'none', borderRadius:'8px', padding:'7px 18px', fontWeight:'700', fontSize:'0.85rem', cursor: bulkApproving ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', gap:'6px', opacity: bulkApproving ? 0.7 : 1 }}>
+                {bulkApproving
+                  ? <><span className="spinner-border spinner-border-sm"></span> Approving...</>
+                  : <><i className="fas fa-check-double"></i> Approve All ({selectedIds.length})</>}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Products Grid */}
       {filteredAndSortedProducts.length === 0 ? (
         <div className="empty-state">
@@ -1322,6 +1398,13 @@ const AdminSellerProducts = () => {
             {filteredAndSortedProducts.map(product => (
               <div key={product._id} className="col-6 col-sm-4 col-md-3 col-lg-2 col-xl-2">
                 <div className="product-card">
+                  {/* Bulk select checkbox for pending items */}
+                  {product.approvalStatus === 'pending' && product.isListingRequest && (
+                    <div onClick={e => { e.stopPropagation(); toggleSelect(product) }}
+                      style={{ position:'absolute', top:'6px', left:'6px', zIndex:10, width:'20px', height:'20px', borderRadius:'4px', border: selectedIds.includes(product._id) ? '2px solid #28a745' : '2px solid #ccc', background: selectedIds.includes(product._id) ? '#28a745' : 'rgba(255,255,255,0.9)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'all 0.15s' }}>
+                      {selectedIds.includes(product._id) && <i className="fas fa-check" style={{ color:'#fff', fontSize:'10px' }}></i>}
+                    </div>
+                  )}
                   {/* Product Image */}
                   <div className="product-image-container">
                     {product.images && product.images[0] ? (

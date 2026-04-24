@@ -1028,6 +1028,80 @@ router.post('/request-admin-product-listing', authenticateSeller, async (req, re
   }
 });
 
+// ── Bulk listing request — single DB round-trip ──
+router.post('/bulk-request-listing', authenticateSeller, async (req, res) => {
+  try {
+    const { items } = req.body;
+    // items: [{ adminProductId, productName, productPrice, sellerPrice, sellerShipping, moq, listingCountries, notes }]
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: 'No items provided' });
+    }
+
+    const Product = (await import('../models/Product.js')).default;
+
+    // 1. Fetch seller once
+    const seller = await Seller.findById(req.seller._id);
+    if (!seller) return res.status(404).json({ message: 'Seller not found' });
+    if (!seller.productListingRequests) seller.productListingRequests = [];
+
+    // 2. Fetch all products in one batch query
+    const productIds = items.map(i => i.adminProductId).filter(Boolean);
+    const adminProducts = await Product.find({ _id: { $in: productIds } }).select('_id name price sellers').lean();
+    const productMap = {};
+    adminProducts.forEach(p => { productMap[p._id.toString()] = p; });
+
+    const success = [];
+    const failed = [];
+    const now = new Date();
+
+    // 3. Process all in memory — no per-item DB calls
+    for (const item of items) {
+      const { adminProductId, sellerPrice, sellerShipping = 0, moq = 1, listingCountries = [], notes } = item;
+      const adminProduct = productMap[adminProductId];
+
+      if (!adminProduct) { failed.push({ id: adminProductId, name: item.productName || adminProductId, reason: 'Product not found' }); continue; }
+
+      // Check existing request
+      const existingRequest = seller.productListingRequests.find(
+        r => r.productId.toString() === adminProductId && (r.status === 'pending_approval' || r.status === 'approved')
+      );
+      if (existingRequest) { failed.push({ id: adminProductId, name: adminProduct.name, reason: 'Request already exists' }); continue; }
+
+      // Check already listed
+      const alreadyListed = adminProduct.sellers?.some(s => s.sellerId?.toString() === req.seller._id.toString());
+      if (alreadyListed) { failed.push({ id: adminProductId, name: adminProduct.name, reason: 'Already listed' }); continue; }
+
+      seller.productListingRequests.push({
+        productId: adminProduct._id,
+        productName: adminProduct.name,
+        productPrice: adminProduct.price,
+        sellerPrice: parseFloat(sellerPrice) || parseFloat(adminProduct.price),
+        sellerShipping: parseFloat(sellerShipping) || 0,
+        moq: Math.max(1, parseInt(moq) || 1),
+        transactionId: `REQ_${Date.now()}_${adminProductId.slice(-4)}`,
+        paymentMethod: 'Pending Admin Approval',
+        notes: notes || `Bulk listing request for "${adminProduct.name}"`,
+        listingCountries: Array.isArray(listingCountries) ? listingCountries : [],
+        status: 'pending_approval',
+        submittedAt: now,
+        requestType: 'admin_product_listing'
+      });
+
+      success.push(adminProduct.name);
+    }
+
+    // 4. Single save for all requests
+    if (success.length > 0) await seller.save();
+
+    console.log(`✅ Bulk listing: ${success.length} added, ${failed.length} failed for seller ${seller.username}`);
+
+    res.json({ success: true, submitted: success, failed, total: items.length });
+  } catch (error) {
+    console.error('Bulk listing request error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
 // DEPRECATED: Direct listing route - now requires admin approval
 // Use /request-admin-product-listing instead
 router.post('/list-admin-product', authenticateSeller, async (req, res) => {
@@ -1321,6 +1395,123 @@ router.put('/admin/listing-requests/:sellerId/:requestId/approve', authenticateA
   } catch (error) {
     console.error('Approve listing request error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// ── Bulk approve listing requests — minimal DB round-trips ──
+router.put('/admin/listing-requests/bulk-approve', authenticateAdmin, async (req, res) => {
+  try {
+    // items: [{ sellerId, requestId }]
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: 'No items provided' });
+    }
+
+    const Product = (await import('../models/Product.js')).default;
+    const now = new Date();
+
+    // 1. Group by sellerId to minimise seller fetches
+    const bySellerMap = {};
+    items.forEach(({ sellerId, requestId }) => {
+      if (!bySellerMap[sellerId]) bySellerMap[sellerId] = [];
+      bySellerMap[sellerId].push(requestId);
+    });
+
+    const sellerIds = Object.keys(bySellerMap);
+
+    // 2. Fetch all sellers in one query
+    const sellers = await Seller.find({ _id: { $in: sellerIds } });
+    const sellerMap = {};
+    sellers.forEach(s => { sellerMap[s._id.toString()] = s; });
+
+    // 3. Collect all productIds we need to update
+    const productUpdates = []; // { productId, sellerInfo }
+    const success = [];
+    const failed = [];
+
+    for (const sellerId of sellerIds) {
+      const seller = sellerMap[sellerId];
+      if (!seller) { bySellerMap[sellerId].forEach(rid => failed.push({ requestId: rid, reason: 'Seller not found' })); continue; }
+
+      for (const requestId of bySellerMap[sellerId]) {
+        const request = seller.productListingRequests.id(requestId);
+        if (!request) { failed.push({ requestId, reason: 'Request not found' }); continue; }
+        if (request.status !== 'pending_approval') { failed.push({ requestId, reason: 'Not pending' }); continue; }
+
+        productUpdates.push({
+          productId: request.productId.toString(),
+          request,
+          seller,
+          requestId
+        });
+      }
+    }
+
+    // 4. Batch-fetch all products in one query
+    const productIds = [...new Set(productUpdates.map(u => u.productId))];
+    const products = await Product.find({ _id: { $in: productIds } });
+    const productMap = {};
+    products.forEach(p => { productMap[p._id.toString()] = p; });
+
+    // 5. Process all in memory
+    const dirtyProducts = new Set();
+    const dirtySellers = new Set();
+
+    for (const { productId, request, seller, requestId } of productUpdates) {
+      const adminProduct = productMap[productId];
+      if (!adminProduct) { failed.push({ requestId, reason: 'Product not found' }); continue; }
+
+      const alreadyListed = adminProduct.sellers?.some(
+        s => s.sellerId?.toString() === seller._id.toString()
+      );
+
+      if (!alreadyListed) {
+        if (!adminProduct.sellers) adminProduct.sellers = [];
+        const sellerInfo = {
+          sellerId: seller._id,
+          username: seller.username,
+          email: seller.email,
+          whatsappNo: seller.whatsappNo,
+          city: seller.city,
+          country: seller.country,
+          verificationStatus: seller.verificationStatus,
+          sellerPrice: request.sellerPrice,
+          sellerShipping: request.sellerShipping || 0,
+          moq: request.moq || 1,
+          listingCountries: Array.isArray(request.listingCountries) ? request.listingCountries : [],
+          listedAt: now,
+          transactionId: request.transactionId,
+          paymentMethod: 'Admin Approved',
+          notes: request.notes
+        };
+        adminProduct.sellers.push(sellerInfo);
+
+        if (adminProduct.sellers.length === 1 && !adminProduct.seller) {
+          adminProduct.sellerInfo = { username: seller.username, email: seller.email, whatsappNo: seller.whatsappNo, city: seller.city, country: seller.country, verificationStatus: seller.verificationStatus, sellerPrice: request.sellerPrice, sellerShipping: request.sellerShipping || 0, _id: seller._id };
+          adminProduct.seller = seller._id;
+        }
+        dirtyProducts.add(productId);
+      }
+
+      request.status = 'approved';
+      request.approvedAt = now;
+      request.approvedBy = req.admin._id;
+      dirtySellers.add(seller._id.toString());
+      success.push({ requestId, productName: adminProduct.name });
+    }
+
+    // 6. Save all dirty products and sellers in parallel
+    await Promise.all([
+      ...Array.from(dirtyProducts).map(pid => productMap[pid].save()),
+      ...Array.from(dirtySellers).map(sid => sellerMap[sid].save())
+    ]);
+
+    console.log(`✅ Bulk approve: ${success.length} approved, ${failed.length} failed by admin ${req.admin._id}`);
+
+    res.json({ success: true, approved: success, failed, total: items.length });
+  } catch (error) {
+    console.error('Bulk approve error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
