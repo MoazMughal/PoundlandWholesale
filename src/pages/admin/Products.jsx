@@ -785,21 +785,25 @@ const AdminProducts = () => {
 
   // Helper functions for input handling
   const getInputValue = (inputKey, fallbackValue) => {
-    // If this input is being edited, return the raw input value
-    if (editingInput === inputKey && inputValues[inputKey] !== undefined) {
+    // Always prefer the raw typed value if present
+    if (inputValues[inputKey] !== undefined) {
       return inputValues[inputKey];
     }
-    // Otherwise return the formatted fallback value
-    return safeFormatNumber(fallbackValue) || '';
+    // Otherwise return the raw number (no toFixed formatting that fights typing)
+    const num = parseFloat(fallbackValue);
+    return isNaN(num) ? '' : String(num);
   };
 
   const handleInputFocus = (inputKey, currentValue) => {
     setEditingInput(inputKey);
-    // setIsManuallyEditing(true); // Temporarily disabled
-    setInputValues(prev => ({
-      ...prev,
-      [inputKey]: safeFormatNumber(currentValue) || ''
-    }));
+    // Only seed if not already being tracked
+    if (inputValues[inputKey] === undefined) {
+      const num = parseFloat(currentValue);
+      setInputValues(prev => ({
+        ...prev,
+        [inputKey]: isNaN(num) ? '' : String(num)
+      }));
+    }
   };
 
   const handleInputChange = (inputKey, newValue) => {
@@ -811,8 +815,7 @@ const AdminProducts = () => {
 
   const handleInputBlur = (inputKey) => {
     setEditingInput(null);
-    // setIsManuallyEditing(false); // Temporarily disabled
-    // Clean up the input value from state
+    // Clean up the raw string — keep it until next focus so value stays stable
     setInputValues(prev => {
       const newValues = { ...prev };
       delete newValues[inputKey];
@@ -4309,7 +4312,6 @@ const AdminProducts = () => {
                           type="number"
                           step="0.01"
                           min="0"
-                          key={`rrp-${index}-${platform.rrpPerUnit}`}
                           value={getInputValue(`rrp-${index}`, platform.rrpPerUnit)}
                           onFocus={() => handleInputFocus(`rrp-${index}`, platform.rrpPerUnit)}
                           onChange={(e) => {
@@ -4405,8 +4407,11 @@ const AdminProducts = () => {
                           type="number"
                           step="1"
                           min="1"
-                          value={platform.units || 200}
+                          value={getInputValue(`units-${index}`, platform.units || 200)}
+                          onFocus={() => handleInputFocus(`units-${index}`, platform.units || 200)}
+                          onBlur={() => handleInputBlur(`units-${index}`)}
                           onChange={(e) => {
+                            handleInputChange(`units-${index}`, e.target.value);
                             const newUnits = parseInt(e.target.value) || 200;
                             const newPlatforms = [...profitEditProduct.platformComparison];
                             

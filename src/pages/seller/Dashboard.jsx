@@ -510,7 +510,7 @@ const SellerDashboard = () => {
           <div className="sd-card-body">
             <div className="row g-2">
               {[
-                { icon: 'fas fa-paper-plane', label: 'Request Products', sub: 'Browse & request', color: '#28a745', path: '/seller/admin-products', disabled: !(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active') },
+                { icon: 'fas fa-paper-plane', label: 'Request Products', sub: 'Browse & request', color: '#28a745', path: '/seller/admin-products', disabled: seller?.verificationStatus !== 'approved' },
                 { icon: 'fas fa-list', label: 'My Products', sub: 'View listings', color: '#17a2b8', path: '/seller/listed-products' },
                 { icon: 'fas fa-inbox', label: 'Buyer Queries', sub: 'Product demands', color: '#e74c3c', path: '/seller/buyer-queries' },
                 { icon: 'fas fa-edit', label: 'Edit Profile', sub: 'Update info', color: '#fd7e14', path: '/seller/profile/edit' },
@@ -585,7 +585,7 @@ const SellerDashboard = () => {
                 <span><i className="fas fa-list-alt me-2" style={{color: '#28a745'}}></i>Recent Listing Requests</span>
                 <button className="btn btn-sm" style={{fontSize: '0.72rem', padding: '3px 10px', background: '#ff6b35', color: '#fff', border: 'none', borderRadius: '6px'}}
                   onClick={() => navigate('/seller/admin-products')}
-                  disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}>
+                  disabled={seller?.verificationStatus !== 'approved'}>
                   <i className="fas fa-paper-plane me-1"></i>Browse &amp; Request
                 </button>
               </div>
@@ -622,7 +622,7 @@ const SellerDashboard = () => {
             <span><i className="fas fa-boxes me-2"></i>Available Products — Request to List</span>
             <button className="btn btn-sm" style={{background: '#ff6b35', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700}}
               onClick={() => navigate('/seller/admin-products')}
-              disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}>
+              disabled={seller?.verificationStatus !== 'approved'}>
               <i className="fas fa-th-large me-1"></i>View All Products
             </button>
           </div>
@@ -650,7 +650,7 @@ const SellerDashboard = () => {
                           className="btn btn-sm mt-auto"
                           style={{fontSize: '0.62rem', padding: '3px 6px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', width: '100%'}}
                           onClick={() => navigate('/seller/admin-products')}
-                          disabled={!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active')}>
+                          disabled={seller?.verificationStatus !== 'approved'}>
                           <i className="fas fa-paper-plane me-1"></i>Request to List
                         </button>
                       </div>
@@ -661,9 +661,13 @@ const SellerDashboard = () => {
             ) : (
               <div className="text-center py-3 text-muted" style={{fontSize: '0.85rem'}}>No products available.</div>
             )}
-            {!(seller?.canListProducts || seller?.verificationStatus === 'approved' || seller?.status === 'active') && (
+            {seller?.verificationStatus !== 'approved' && (
               <div className="sd-alert sd-alert-warning mt-3 mb-0">
-                <i className="fas fa-exclamation-triangle me-2"></i><strong>Verification Required:</strong> Complete your verification to request products.
+                <i className="fas fa-exclamation-triangle me-2"></i>
+                {seller?.verificationStatus === 'pending'
+                  ? <><strong>Under Review:</strong> Your documents are being reviewed. You'll be able to request products once approved.</>
+                  : <><strong>Verification Required:</strong> Complete your verification to request products.</>
+                }
               </div>
             )}
           </div>

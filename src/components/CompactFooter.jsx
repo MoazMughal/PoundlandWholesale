@@ -18,7 +18,7 @@ const FooterLink = ({ to, children }) => (
       textDecoration: 'none',
       fontSize: '0.875rem',
       transition: 'all 0.2s ease',
-      '&:hover': { color: '#ff9900', transform: 'translateX(5px)' },
+      '&:hover': { color: '#ff9900', transform: 'translateX(5px)', textDecoration: 'none' },
     }}
   >
     {children}

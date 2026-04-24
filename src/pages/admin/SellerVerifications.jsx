@@ -120,18 +120,16 @@ const AdminSellerVerifications = () => {
   }
 
   return (
-    <div className="container-fluid mt-4">
+    <div style={{maxWidth: '1400px', margin: '0 auto', padding: '24px 16px'}}>
       {/* Header */}
-      <div className="row mb-4">
-        <div className="col-md-8">
-          <h2>Seller Verifications</h2>
-          <p className="text-muted">Review and approve seller verification documents</p>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px'}}>
+        <div>
+          <h2 style={{margin: 0, fontWeight: 700}}>Seller Verifications</h2>
+          <p style={{margin: '4px 0 0', color: '#6b7280'}}>Review and approve seller verification documents</p>
         </div>
-        <div className="col-md-4 text-end">
-          <button className="btn btn-secondary" onClick={() => navigate('/admin/dashboard')}>
-            <i className="fas fa-arrow-left"></i> Back to Dashboard
-          </button>
-        </div>
+        <button className="btn btn-secondary" onClick={() => navigate('/admin/dashboard')}>
+          <i className="fas fa-arrow-left me-1"></i> Back to Dashboard
+        </button>
       </div>
 
       {/* Verifications List */}
@@ -142,9 +140,9 @@ const AdminSellerVerifications = () => {
           <p className="text-muted">All seller verifications are up to date</p>
         </div>
       ) : (
-        <div className="row">
+        <div className="row g-3">
           {sellers.map(seller => (
-            <div key={seller._id} className="col-lg-6 col-xl-4 mb-4">
+            <div key={seller._id} className="col-12 col-md-6 col-xl-4">
               <div className="card h-100">
                 <div className="card-header">
                   <h6 className="mb-0">

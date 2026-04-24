@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { completeProductsData, getProductById } from '../data/completeProducts'
 import { products } from '../data/allProducts'
@@ -5400,7 +5400,7 @@ _This quotation was generated from PoundlandWholesale.com_
               </div>
               
               {/* Trust Indicators */}
-              <div className="row g-2 mt-3">
+              <div className="row g-2 mt-5" style={{paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.3)'}}>
                 <div className="col-md-4">
                   <div className="text-center text-white">
                     <i className="fas fa-users" style={{fontSize: '1.5rem', marginBottom: '8px'}}></i>
