@@ -158,7 +158,10 @@ const SellerInformation = ({
   const maskPhone = (phone) => {
     if (!phone) return '';
     const c = phone.replace(/[^0-9+]/g, '');
-    return c.length <= 4 ? c : c.slice(0, 4) + '****' + c.slice(-2);
+    if (c.length <= 4) return c;
+    // Show first half clearly, replace second half with ****
+    const half = Math.ceil(c.length / 2);
+    return c.slice(0, half) + '****';
   };
 
   const mainPrice = parseFloat(String(product.price || '0').replace(/[£₨$€]/g, '')) || 0;
@@ -345,7 +348,15 @@ const SellerInformation = ({
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <a
                       href="#"
-                      onClick={e => { e.preventDefault(); handleContactSupplier(se); }}
+                      onClick={e => {
+                        e.preventDefault();
+                        if (!isBuyerLoggedIn) {
+                          // Not logged in — prompt login, don't show guest form
+                          navigate('/login/buyer');
+                          return;
+                        }
+                        handleContactSupplier(se);
+                      }}
                       style={{
                         flex: '3', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                         background: '#25d366', color: 'white', padding: '6px 8px',
@@ -358,9 +369,15 @@ const SellerInformation = ({
                         : <>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
                               <i className="fab fa-whatsapp" style={{ fontSize: '0.85rem' }}></i>
-                              {isBuyerLoggedIn ? 'Contact Supplier' : 'Contact as Guest'}
+                              {isBuyerLoggedIn ? 'Contact Supplier' : 'Login to Contact'}
                             </span>
-                            <span style={{ opacity: 0.9, fontSize: '0.6rem', whiteSpace: 'nowrap' }}>{maskPhone(se.whatsappNo)}</span>
+                            {/* Show masked number when not logged in, full number when logged in */}
+                            <span style={{ opacity: 0.9, fontSize: '0.6rem', whiteSpace: 'nowrap', letterSpacing: '0.3px' }}>
+                              {isBuyerLoggedIn
+                                ? se.whatsappNo
+                                : maskPhone(se.whatsappNo)
+                              }
+                            </span>
                           </>}
                     </a>
                     <button onClick={() => addToBasket({ ...product, selectedSeller: se, quantity: getQty(se.sellerId || se._id, se.moq) })}
@@ -376,48 +393,6 @@ const SellerInformation = ({
                       <span style={{ whiteSpace: 'nowrap', color: '#000000' }}>Add to Cart</span>
                     </button>
                   </div>
-
-                  {/* Guest form — shown when guest clicks Contact */}
-                  {!isBuyerLoggedIn && guestForm[sid]?.show && (
-                    <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', padding: '10px', fontSize: '0.72rem' }}>
-                      <div style={{ fontWeight: 700, color: '#166534', marginBottom: '8px' }}>
-                        📋 Enter your details to contact supplier
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <input
-                          placeholder="Your name *"
-                          value={guestForm[sid]?.name || ''}
-                          onChange={e => setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], name: e.target.value } }))}
-                          style={{ padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.72rem', width: '100%', boxSizing: 'border-box' }}
-                        />
-                        <input
-                          placeholder="WhatsApp / Phone *"
-                          value={guestForm[sid]?.phone || ''}
-                          onChange={e => setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], phone: e.target.value } }))}
-                          style={{ padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.72rem', width: '100%', boxSizing: 'border-box' }}
-                        />
-                        <input
-                          placeholder="Email (optional)"
-                          value={guestForm[sid]?.email || ''}
-                          onChange={e => setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], email: e.target.value } }))}
-                          style={{ padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.72rem', width: '100%', boxSizing: 'border-box' }}
-                        />
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button
-                            onClick={() => handleGuestSubmit(se)}
-                            disabled={sending[sid]}
-                            style={{ flex: 1, padding: '7px', background: '#25d366', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>
-                            {sending[sid] ? 'Sending...' : '📲 Send via WhatsApp'}
-                          </button>
-                          <button
-                            onClick={() => setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], show: false } }))}
-                            style={{ padding: '7px 10px', background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.72rem', cursor: 'pointer' }}>
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 

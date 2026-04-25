@@ -1632,3 +1632,25 @@ div.badge.bg-success *,
   width: auto !important;
   margin-bottom: 8px !important;
 }
+
+/* ============================================
+   PROFIT BOX — prevent overflow on all screens
+   ============================================ */
+@media (max-width: 768px) {
+  /* Profit box container — full width, no overflow */
+  .profit-info-box,
+  [class*="profit"] > div,
+  .product-detail-right > div {
+    min-width: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  /* Profit row values — allow wrapping */
+  .profit-row,
+  .profit-value-row {
+    flex-wrap: wrap !important;
+    gap: 2px !important;
+  }
+}

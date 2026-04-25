@@ -7,6 +7,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
 import useWishlistNotifications from '../hooks/useWishlistNotifications';
 import apiConfig from '../config/api.config';
+import useAlgoliaSearch from '../hooks/useAlgoliaSearch';
 
 
 const MobileHeader = () => {
@@ -19,6 +20,9 @@ const MobileHeader = () => {
   const { getBasketCount } = useBasket();
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const { suggestions, searchAlgolia, clearSuggestions, isSearching } = useAlgoliaSearch();
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = useRef(null);
 
   // Wishlist / query notification counts
   const buyerNotif = useWishlistNotifications('buyer', 'buyerToken', isBuyerLoggedIn);
@@ -253,10 +257,37 @@ const MobileHeader = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      clearSuggestions();
+      setShowSuggestions(false);
       navigate(`/?search=${encodeURIComponent(searchQuery)}`);
       setShowMobileMenu(false);
     }
   };
+
+  const handleSuggestionClick = (suggestion) => {
+    setSearchQuery(suggestion);
+    clearSuggestions();
+    setShowSuggestions(false);
+    setShowMobileMenu(false);
+    navigate(`/?search=${encodeURIComponent(suggestion)}`);
+  };
+
+  const handleSearchInput = (value) => {
+    setSearchQuery(value);
+    searchAlgolia(value);
+    setShowSuggestions(true);
+  };
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
 
   return (
     <>
@@ -771,16 +802,50 @@ const MobileHeader = () => {
 
         {/* Mobile Search Bar */}
         <div className="mobile-search-bar">
-          <form onSubmit={handleSearch} className="mobile-search-form">
-            <i className="fas fa-search mobile-search-icon"></i>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, SKU, category, or keywords..."
-              className="mobile-search-input"
-            />
-          </form>
+          <div ref={searchContainerRef} style={{ position: 'relative' }}>
+            <form onSubmit={handleSearch} className="mobile-search-form">
+              <i className="fas fa-search mobile-search-icon"></i>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchInput(e.target.value)}
+                onFocus={() => searchQuery.trim() && setShowSuggestions(true)}
+                onKeyDown={(e) => e.key === 'Escape' && setShowSuggestions(false)}
+                placeholder="Search by name, SKU, category, or keywords..."
+                className="mobile-search-input"
+              />
+            </form>
+            {/* Algolia suggestions */}
+            {showSuggestions && (suggestions.length > 0 || isSearching) && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, right: 0,
+                background: '#fff', border: '1px solid #e5e7eb',
+                borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                zIndex: 99999, marginTop: '4px', overflow: 'hidden'
+              }}>
+                {isSearching && suggestions.length === 0 && (
+                  <div style={{ padding: '10px 14px', fontSize: '12px', color: '#999', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #fc5e03', borderTopColor: 'transparent', borderRadius: '50%', animation: 'algolia-spin 0.6s linear infinite' }} />
+                    Searching...
+                  </div>
+                )}
+                {suggestions.map((s, i) => (
+                  <button key={i} type="button" onClick={() => handleSuggestionClick(s)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', border: 'none', background: 'white', cursor: 'pointer', fontSize: '13px', color: '#111', textAlign: 'left', borderBottom: i < suggestions.length - 1 ? '1px solid #f3f4f6' : 'none' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#fff7ed'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                  >
+                    <i className="fas fa-search" style={{ color: '#fc5e03', fontSize: '10px', flexShrink: 0 }} />
+                    {s}
+                  </button>
+                ))}
+                <div style={{ padding: '5px 14px', background: '#fafafa', borderTop: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '9px', color: '#aaa' }}>Powered by</span>
+                  <span style={{ fontSize: '9px', fontWeight: '700', color: '#003dff' }}>Algolia</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Desktop Header (Original) */}
@@ -848,7 +913,9 @@ const MobileHeader = () => {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchInput(e.target.value)}
+                onFocus={() => searchQuery.trim() && setShowSuggestions(true)}
+                onKeyDown={(e) => e.key === 'Escape' && setShowSuggestions(false)}
                 placeholder="Search by name, SKU, category, or keywords..."
                 style={{
                   width: '100%',
@@ -868,7 +935,38 @@ const MobileHeader = () => {
                 fontSize: '11px',
                 pointerEvents: 'none'
               }}></i>
+              {/* Algolia suggestions dropdown for desktop */}
+              {showSuggestions && (suggestions.length > 0 || isSearching) && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0,
+                  background: '#fff', border: '1px solid #e5e7eb',
+                  borderRadius: '4px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  zIndex: 99999, marginTop: '2px', overflow: 'hidden'
+                }}>
+                  {isSearching && suggestions.length === 0 && (
+                    <div style={{ padding: '10px 14px', fontSize: '12px', color: '#999', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #fc5e03', borderTopColor: 'transparent', borderRadius: '50%', animation: 'algolia-spin 0.6s linear infinite' }} />
+                      Searching...
+                    </div>
+                  )}
+                  {suggestions.map((s, i) => (
+                    <button key={i} type="button" onClick={() => handleSuggestionClick(s)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '9px 14px', border: 'none', background: 'white', cursor: 'pointer', fontSize: '12px', color: '#111', textAlign: 'left', borderBottom: i < suggestions.length - 1 ? '1px solid #f3f4f6' : 'none' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#fff7ed'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                    >
+                      <i className="fas fa-search" style={{ color: '#fc5e03', fontSize: '10px', flexShrink: 0 }} />
+                      {s}
+                    </button>
+                  ))}
+                  <div style={{ padding: '5px 14px', background: '#fafafa', borderTop: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '9px', color: '#aaa' }}>Powered by</span>
+                    <span style={{ fontSize: '9px', fontWeight: '700', color: '#003dff' }}>Algolia</span>
+                  </div>
+                </div>
+              )}
             </form>
+            <style>{`@keyframes algolia-spin { to { transform: rotate(360deg); } }`}</style>
 
             <div style={{
               display: 'flex',

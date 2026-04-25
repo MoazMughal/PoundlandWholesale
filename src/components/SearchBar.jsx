@@ -5,7 +5,10 @@ const SearchBar = ({
   onSearch, 
   suggestions = [],
   showSuggestions = false,
-  className = "" 
+  className = "",
+  // Algolia props
+  onQueryChange,   // called on every keystroke for instant suggestions
+  isSearching = false,
 }) => {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -27,8 +30,11 @@ const SearchBar = ({
     const value = e.target.value;
     setQuery(value);
     setSelectedIndex(-1);
-    
-    if (showSuggestions && value.trim()) {
+
+    // Notify parent for Algolia instant suggestions
+    if (onQueryChange) onQueryChange(value);
+
+    if ((showSuggestions || onQueryChange) && value.trim()) {
       setIsOpen(true);
     } else {
       setIsOpen(false);
@@ -94,12 +100,14 @@ const SearchBar = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter suggestions based on query
-  const filteredSuggestions = showSuggestions 
-    ? suggestions.filter(suggestion => 
-        suggestion.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 8)
-    : [];
+  // Filter suggestions based on query (local fallback) or use Algolia suggestions directly
+  const filteredSuggestions = onQueryChange
+    ? suggestions // Algolia already filtered server-side
+    : showSuggestions
+      ? suggestions.filter(suggestion =>
+          suggestion.toLowerCase().includes(query.toLowerCase())
+        ).slice(0, 8)
+      : [];
 
   return (
     <div className={`search-container ${className}`} ref={searchRef}>
@@ -192,12 +200,18 @@ const SearchBar = ({
       </div>
 
       {/* Suggestions Dropdown */}
-      {isOpen && filteredSuggestions.length > 0 && (
+      {isOpen && (filteredSuggestions.length > 0 || isSearching) && (
         <div 
           className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg mt-2 py-2 z-50 max-h-64 overflow-y-auto"
           ref={suggestionsRef}
           role="listbox"
         >
+          {isSearching && filteredSuggestions.length === 0 && (
+            <div className="px-4 py-3 text-gray-400 text-sm flex items-center gap-2">
+              <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid #ff6600', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+              Searching...
+            </div>
+          )}
           {filteredSuggestions.map((suggestion, index) => (
             <button
               key={index}

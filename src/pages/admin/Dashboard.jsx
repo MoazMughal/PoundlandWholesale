@@ -317,6 +317,28 @@ const AdminDashboard = () => {
     }
   };
 
+  const syncAlgolia = async () => {
+    if (!confirm('🔍 Sync all Amazon\'s Choice products to Algolia search index?')) return;
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(getApiUrl('algolia/sync'), {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert(`✅ Algolia sync complete! ${result.synced} products indexed.`);
+      } else {
+        alert(`❌ Sync failed: ${result.message}`);
+      }
+    } catch (error) {
+      alert('❌ Algolia sync failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSearch = async (query) => {
     setSearchQuery(query);
     
@@ -911,6 +933,9 @@ const AdminDashboard = () => {
         </button>
         <button onClick={importHardcodedProducts} className="tool-btn success" style={{color: 'black'}}>
           📥 Import JSON
+        </button>
+        <button onClick={syncAlgolia} className="tool-btn info" style={{background: '#003dff', color: 'white'}}>
+          🔍 Sync Algolia
         </button>
         <button onClick={() => navigate('/admin/sellers')} className="tool-btn">
           👥 Sellers ({stats?.sellers.total || 0})

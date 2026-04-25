@@ -3581,25 +3581,32 @@ _This quotation was generated from PoundlandWholesale.com_
                           fontSize: '0.65rem',
                           fontWeight: '600',
                           color: '#232f3e',
-                          minWidth: '200px',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
+                          minWidth: 0,
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                          overflow: 'hidden'
                         }}
                       >
                         <div style={{
                           display: 'flex',
+                          flexWrap: 'wrap',
                           justifyContent: 'space-between',
-                          alignItems: 'center',
+                          alignItems: 'flex-start',
+                          gap: '4px',
                           marginBottom: '6px',
                           paddingBottom: '4px',
                           borderBottom: '1px solid #e1e5e9'
                         }}>
                           <span style={{
-                            fontSize: '0.7rem', 
+                            fontSize: '0.62rem', 
                             fontWeight: '700', 
                             color: '#232f3e',
-                            letterSpacing: '0.2px'
+                            lineHeight: '1.3',
+                            flex: '1 1 120px',
+                            minWidth: 0
                           }}>
-                            Amazon/Ebay Average Monthly Sale Profit Calculation
+                            Amazon/Ebay Avg Monthly Sale Profit
                           </span>
                           <button
                             onClick={() => {
@@ -3616,40 +3623,32 @@ _This quotation was generated from PoundlandWholesale.com_
                               color: '#fff',
                               border: 'none',
                               borderRadius: '4px',
-                              padding: '3px 6px',
+                              padding: '3px 8px',
                               fontSize: '0.6rem',
                               fontWeight: '600',
                               cursor: 'pointer',
-                              boxShadow: '0 1px 3px rgba(255, 153, 0, 0.2)',
-                              transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.target.style.transform = 'translateY(-1px)';
-                              e.target.style.boxShadow = '0 2px 6px rgba(255, 153, 0, 0.3)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.transform = 'translateY(0)';
-                              e.target.style.boxShadow = '0 1px 3px rgba(255, 153, 0, 0.2)';
+                              flexShrink: 0,
+                              whiteSpace: 'nowrap'
                             }}
                           >
                             Verify
                           </button>
                         </div>
-                        <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>💰 Profit/unit:</span>
-                          <span style={{color: '#059669', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
+                        <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px', flexWrap: 'wrap'}}>
+                          <span style={{color: '#565959', flexShrink: 0}}>💰 Profit/unit:</span>
+                          <span style={{color: '#059669', fontWeight: '800', fontSize: '0.72rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', whiteSpace: 'nowrap'}}>
                             {formatPrice(safeNumber(product.profitCalculations.profitPerUnit))}
                           </span>
                         </div>
-                        <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>📈 Profit/{Math.floor((product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200) / 6)}:</span>
-                          <span style={{color: '#059669', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
+                        <div style={{marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px', flexWrap: 'wrap'}}>
+                          <span style={{color: '#565959', flexShrink: 0}}>📈 Profit/{Math.floor((product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200) / 6)}:</span>
+                          <span style={{color: '#059669', fontWeight: '800', fontSize: '0.72rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', whiteSpace: 'nowrap'}}>
                             {formatPrice(safeNumber(product.profitCalculations.profitPerUnit) * Math.floor((product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200) / 6))}
                           </span>
                         </div>
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <span style={{color: '#565959'}}>💰 Total cost/{Math.floor((product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200) / 6)}:</span>
-                          <span style={{color: '#B12704', fontWeight: '800', fontSize: '0.75rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>{(() => {
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px', flexWrap: 'wrap'}}>
+                          <span style={{color: '#565959', flexShrink: 0}}>💰 Total cost/{Math.floor((product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200) / 6)}:</span>
+                          <span style={{color: '#B12704', fontWeight: '800', fontSize: '0.72rem', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', whiteSpace: 'nowrap'}}>{(() => {
                             const dealUnits = Math.floor((product.platforms?.[0]?.units || product.platformUnits || product.dealUnits || 200) / 6);
                             // Use profitEvaluation productCost if available, otherwise calculate from price
                             if (product.profitEvaluation?.productCost) {

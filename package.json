@@ -17,6 +17,7 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^9.0.0",
     "@mui/material": "^9.0.0",
+    "algoliasearch": "^5.51.0",
     "dotenv": "^17.2.3",
     "framer-motion": "^12.33.0",
     "node-fetch": "^3.3.2",

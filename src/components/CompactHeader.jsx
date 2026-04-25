@@ -8,6 +8,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useBasket } from '../context/BasketContext';
 import CurrencySelector from './CurrencySelector';
 import { getApiUrl } from '../utils/api';
+import useAlgoliaSearch from '../hooks/useAlgoliaSearch';
 
 import '../styles/mobile-header.css';
 
@@ -18,6 +19,9 @@ const CompactHeader = () => {
   const { getBasketCount } = useBasket();
   const [searchQuery, setSearchQuery] = useState('');
   const [showLoginMenu, setShowLoginMenu] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = useRef(null);
+  const { suggestions, searchAlgolia, clearSuggestions, isSearching } = useAlgoliaSearch();
   const isBuyerLoggedIn = !!localStorage.getItem('buyerToken');
   const isAdminLoggedIn = !!localStorage.getItem('adminToken');
   const loginMenuRef = useRef(null);
@@ -167,9 +171,29 @@ const CompactHeader = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      clearSuggestions();
+      setShowSuggestions(false);
       navigate(`/?search=${encodeURIComponent(searchQuery)}`);
     }
   };
+
+  const handleSuggestionClick = (suggestion) => {
+    setSearchQuery(suggestion);
+    clearSuggestions();
+    setShowSuggestions(false);
+    navigate(`/?search=${encodeURIComponent(suggestion)}`);
+  };
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
 
   return (
     <>
@@ -287,7 +311,7 @@ const CompactHeader = () => {
           display: 'flex',
           gap: '6px'
         }}>
-          <div style={{
+          <div ref={searchContainerRef} style={{
             position: 'relative',
             flex: 1,
             display: 'flex',
@@ -296,7 +320,15 @@ const CompactHeader = () => {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                searchAlgolia(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => searchQuery.trim() && setShowSuggestions(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') { setShowSuggestions(false); clearSuggestions(); }
+              }}
               placeholder="Search products..."
               style={{
                 width: '100%',
@@ -314,6 +346,52 @@ const CompactHeader = () => {
               fontSize: '12px',
               pointerEvents: 'none'
             }}></i>
+
+            {/* Algolia Suggestions Dropdown */}
+            {showSuggestions && (suggestions.length > 0 || isSearching) && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                background: '#fff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '4px',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                zIndex: 99999,
+                marginTop: '2px',
+                overflow: 'hidden'
+              }}>
+                {isSearching && suggestions.length === 0 && (
+                  <div style={{ padding: '10px 14px', fontSize: '12px', color: '#999', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #ff9900', borderTopColor: 'transparent', borderRadius: '50%', animation: 'algolia-spin 0.6s linear infinite' }} />
+                    Searching...
+                  </div>
+                )}
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => handleSuggestionClick(s)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      width: '100%', padding: '9px 14px', border: 'none',
+                      background: 'white', cursor: 'pointer', fontSize: '12px',
+                      color: '#111', textAlign: 'left', borderBottom: i < suggestions.length - 1 ? '1px solid #f3f4f6' : 'none'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#fff7ed'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                  >
+                    <i className="fas fa-search" style={{ color: '#ff9900', fontSize: '10px', flexShrink: 0 }} />
+                    {s}
+                  </button>
+                ))}
+                <div style={{ padding: '6px 14px', background: '#fafafa', borderTop: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '9px', color: '#aaa' }}>Powered by</span>
+                  <span style={{ fontSize: '9px', fontWeight: '700', color: '#003dff' }}>Algolia</span>
+                </div>
+              </div>
+            )}
           </div>
           <button type="submit" style={{
             padding: '6px 15px',
@@ -328,6 +406,7 @@ const CompactHeader = () => {
             Search
           </button>
         </form>
+        <style>{`@keyframes algolia-spin { to { transform: rotate(360deg); } }`}</style>
 
         {/* User Actions */}
         <div className="header-actions" style={{
