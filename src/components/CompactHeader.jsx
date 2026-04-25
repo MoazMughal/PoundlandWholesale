@@ -178,10 +178,12 @@ const CompactHeader = () => {
   };
 
   const handleSuggestionClick = (suggestion) => {
-    setSearchQuery(suggestion);
+    const query = suggestion.query || suggestion;
+    setSearchQuery(query);
     clearSuggestions();
     setShowSuggestions(false);
-    navigate(`/?search=${encodeURIComponent(suggestion)}`);
+    window.dispatchEvent(new CustomEvent('algolia-search', { detail: { query } }));
+    navigate(`/?search=${encodeURIComponent(query)}`);
   };
 
   // Close suggestions on outside click
@@ -372,7 +374,7 @@ const CompactHeader = () => {
                   <button
                     key={i}
                     type="button"
-                    onClick={() => handleSuggestionClick(s)}
+                    onMouseDown={e => { e.preventDefault(); handleSuggestionClick(s); }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '8px',
                       width: '100%', padding: '9px 14px', border: 'none',
@@ -383,7 +385,7 @@ const CompactHeader = () => {
                     onMouseLeave={e => e.currentTarget.style.background = 'white'}
                   >
                     <i className="fas fa-search" style={{ color: '#ff9900', fontSize: '10px', flexShrink: 0 }} />
-                    {s}
+                    {s.display}
                   </button>
                 ))}
                 <div style={{ padding: '6px 14px', background: '#fafafa', borderTop: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '4px' }}>

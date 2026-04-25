@@ -38,18 +38,25 @@ const useAlgoliaSearch = () => {
           },
         });
 
-        // Deduplicate suggestion names
+        // Build suggestions: display = first 4 clean words, query = same 4 words (used for search)
         const seen = new Set();
         const names = hits
-          .map((h) => h.name)
-          .filter((n) => {
-            if (seen.has(n)) return false;
-            seen.add(n);
+          .map((h) => {
+            const raw = (h.name || '').split('|')[0].replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+            const words = raw.split(' ').filter(Boolean);
+            const display = words.slice(0, 4).join(' ');
+            return {
+              display,
+              query: display,  // search using the suggestion text itself
+            };
+          })
+          .filter(({ display }) => {
+            if (!display || seen.has(display.toLowerCase())) return false;
+            seen.add(display.toLowerCase());
             return true;
           });
 
-        setSuggestions(names);
-      } catch (err) {
+        setSuggestions(names);      } catch (err) {
         console.error('Algolia search error:', err);
         setSuggestions([]);
       } finally {

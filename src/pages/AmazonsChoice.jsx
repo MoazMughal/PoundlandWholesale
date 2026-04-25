@@ -868,7 +868,7 @@ const AmazonsChoice = () => {
   ]
 
   // Fetch products with server-side filtering and pagination
-  const fetchProducts = async (category = null, search = null, page = 1, showAll = showAllProducts) => {
+  const fetchProducts = async (category = null, search = null, page = 1, showAll = showAllProducts, force = false) => {
     try {
       // Create a key for this fetch to avoid duplicate requests
       const fetchKey = `${category || 'all'}-${search || ''}-${page}-${productsPerPage}-${showAll}`
@@ -879,8 +879,8 @@ const AmazonsChoice = () => {
         return
       }
       
-      // Prevent multiple simultaneous requests
-      if (isLoadingRequest) {
+      // Prevent multiple simultaneous requests (unless forced by Algolia suggestion)
+      if (isLoadingRequest && !force) {
         console.log('Request already in progress, skipping:', fetchKey)
         return
       }
@@ -1155,8 +1155,8 @@ const AmazonsChoice = () => {
   }
 
   // Server-side filtering - fetch products with filters and pagination
-  const applyFilters = async (category, search, page = currentPage, showAll = showAllProducts) => {
-    await fetchProducts(category, search, page, showAll)
+  const applyFilters = async (category, search, page = currentPage, showAll = showAllProducts, force = false) => {
+    await fetchProducts(category, search, page, showAll, force)
 
     // Track non-empty searches for admin analytics
     if (search && search.trim().length >= 2) {
@@ -1192,6 +1192,23 @@ const AmazonsChoice = () => {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  // Listen for Algolia suggestion clicks — reset loading guard and force fresh fetch
+  useEffect(() => {
+    const handleAlgoliaSearch = (e) => {
+      const query = e.detail?.query || ''
+      setIsLoadingRequest(false)
+      setLastFetchKey('')
+      setSearchQuery(query)
+      setCurrentPage(1)
+      // Force fetch immediately with the new query, bypassing isLoadingRequest guard
+      setTimeout(() => {
+        applyFilters(selectedCategory, query, 1, showAllProducts, true)
+      }, 0)
+    }
+    window.addEventListener('algolia-search', handleAlgoliaSearch)
+    return () => window.removeEventListener('algolia-search', handleAlgoliaSearch)
+  }, [selectedCategory, showAllProducts])
 
   // Badge rotation timer - change badges every 1.2 seconds (balanced speed)
   useEffect(() => {
