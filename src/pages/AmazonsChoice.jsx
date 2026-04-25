@@ -142,12 +142,11 @@ const AmazonsChoice = () => {
           background: white !important;
           border: 2px solid #1a1a1a !important;
           border-radius: 8px !important;
-          padding: 4px !important;
-          min-height: 300px !important; /* Increased from 280px for larger images */
-          max-height: 320px !important; /* Increased from 300px for larger images */
+          padding: 4px 4px 8px 4px !important;
+          min-height: 340px !important;
           width: 100% !important;
           position: relative !important;
-          overflow: hidden !important;
+          overflow: visible !important;
           box-shadow: 0 2px 8px rgba(255, 102, 0, 0.2) !important;
           margin: 0 !important;
         }
@@ -2750,25 +2749,37 @@ const AmazonsChoice = () => {
                   {product.name}
                 </h5>
 
-                {/* SKU Badge */}
-                {product.sku && (
+                {/* SKU + Seller count on same row */}
+                {(product.sku || (product.sellers && product.sellers.length > 0)) && (
                   <div style={{
-                    display: 'inline-block',
-                    fontSize: '9px',
-                    fontWeight: '600',
-                    color: '#6b7280',
-                    background: '#f3f4f6',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '3px',
-                    padding: '1px 5px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
                     marginBottom: '2px',
-                    letterSpacing: '0.3px',
-                    maxWidth: '100%',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
+                    gap: '4px'
                   }}>
-                    SKU: {product.sku}
+                    {product.sku ? (
+                      <div style={{
+                        fontSize: '9px', fontWeight: '600', color: '#6b7280',
+                        background: '#f3f4f6', border: '1px solid #e5e7eb',
+                        borderRadius: '3px', padding: '1px 5px',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        flex: '1 1 auto', minWidth: 0
+                      }}>
+                        SKU: {product.sku}
+                      </div>
+                    ) : <div />}
+                    {/* Seller count badge — mobile only (≤768px) */}
+                    {windowWidth <= 768 && product.sellers && product.sellers.length > 0 && (
+                      <div style={{
+                        fontSize: '9px', fontWeight: '700', color: '#16a34a',
+                        background: '#f0fdf4', border: '1px solid #bbf7d0',
+                        borderRadius: '3px', padding: '1px 5px',
+                        whiteSpace: 'nowrap', flexShrink: 0
+                      }}>
+                        {product.sellers.length} seller{product.sellers.length > 1 ? 's' : ''}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -2940,14 +2951,12 @@ const AmazonsChoice = () => {
                           >
                             ⚠️ Out of Stock
                           </div>
-                          {/* Show seller count */}
-                          <div style={{
-                            fontSize: '6px',
-                            color: '#666',
-                            fontStyle: 'italic'
-                          }}>
-                            No of sellers: {product.sellers ? product.sellers.length : 0}
-                          </div>
+                          {/* Seller count — desktop only, shown below price */}
+                          {windowWidth > 768 && product.sellers && product.sellers.length > 0 && (
+                            <div style={{ fontSize: '6px', color: '#666', fontStyle: 'italic' }}>
+                              No of sellers: {product.sellers.length}
+                            </div>
+                          )}
                           {/* Request to List button - only visible to logged-in sellers */}
                           {isSellerLoggedIn && (
                             <button
@@ -3065,14 +3074,9 @@ const AmazonsChoice = () => {
                         })()}
                       </div>
                       
-                      {/* Show seller count only (no basket button here) */}
-                      {product.sellers && product.sellers.length > 0 && (
-                        <div style={{
-                          fontSize: '8px',
-                          color: '#16a34a',
-                          fontWeight: '600',
-                          marginTop: '2px'
-                        }}>
+                      {/* Seller count — desktop only */}
+                      {windowWidth > 768 && product.sellers && product.sellers.length > 0 && (
+                        <div style={{ fontSize: '8px', color: '#16a34a', fontWeight: '600', marginTop: '2px' }}>
                           No of sellers: {product.sellers.length}
                         </div>
                       )}

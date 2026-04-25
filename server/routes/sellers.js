@@ -2074,6 +2074,79 @@ router.get('/listing-requests', authenticateSeller, async (req, res) => {
   }
 });
 
+// GET /sellers/my-stats — seller dashboard stats (quotations, listed products, views)
+router.get('/my-stats', authenticateSeller, async (req, res) => {
+  try {
+    const Product = (await import('../models/Product.js')).default;
+    const Quotation = (await import('../models/Quotation.js')).default;
+
+    const sellerId = req.seller._id;
+
+    // Listed products count by status
+    const [totalListed, approvedListed, pendingListed] = await Promise.all([
+      Product.countDocuments({ 'sellers.sellerId': sellerId }),
+      Product.countDocuments({ 'sellers.sellerId': sellerId, approvalStatus: 'approved' }),
+      Product.countDocuments({ 'sellers.sellerId': sellerId, approvalStatus: 'pending' }),
+    ]);
+
+    // Quotations received by this seller
+    const [totalQuotations, pendingQuotations, recentQuotations] = await Promise.all([
+      Quotation.countDocuments({ sellerId }),
+      Quotation.countDocuments({ sellerId, status: 'pending' }),
+      Quotation.find({ sellerId })
+        .sort({ submittedAt: -1 })
+        .limit(5)
+        .select('productName buyerName buyerPhone quantity submittedAt status senderType')
+        .lean(),
+    ]);
+
+    // Listing requests count from seller doc
+    const seller = await Seller.findById(sellerId).select('productListingRequests').lean();
+    const listingRequestsCount = seller?.productListingRequests?.length || 0;
+
+    res.json({
+      success: true,
+      listedProducts: { total: totalListed, approved: approvedListed, pending: pendingListed },
+      quotations: { total: totalQuotations, pending: pendingQuotations, recent: recentQuotations },
+      listingRequests: listingRequestsCount,
+    });
+  } catch (error) {
+    console.error('Seller stats error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /sellers/my-listed-preview — top 3 active listings for dashboard widget
+router.get('/my-listed-preview', authenticateSeller, async (req, res) => {
+  try {
+    const Product = (await import('../models/Product.js')).default;
+    const products = await Product.find({
+      'sellers.sellerId': req.seller._id,
+      approvalStatus: 'approved',
+      status: 'active',
+    })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('name price images category sellers')
+      .lean();
+
+    const result = products.map(p => {
+      const entry = p.sellers.find(s => s.sellerId.toString() === req.seller._id.toString());
+      return {
+        _id: p._id,
+        name: p.name,
+        image: p.images?.[0] || '',
+        category: p.category,
+        sellerPrice: entry?.sellerPrice || p.price,
+      };
+    });
+
+    res.json({ success: true, products: result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Debug route to check seller verification statuses
 router.get('/debug/statuses', authenticateAdmin, async (req, res) => {
   try {

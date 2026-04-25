@@ -21,6 +21,11 @@ const SellerDashboard = () => {
   const [previewProducts, setPreviewProducts] = useState([])
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [myStats, setMyStats] = useState(null)
+  const [myListedPreview, setMyListedPreview] = useState([])
+  const [quickEditId, setQuickEditId] = useState(null)
+  const [quickEditPrice, setQuickEditPrice] = useState('')
+  const [quickEditSaving, setQuickEditSaving] = useState(false)
   const [showVerificationModal, setShowVerificationModal] = useState(false)
   const [showVerifiedBanner, setShowVerifiedBanner] = useState(() => {
     // Only show if seller hasn't dismissed it before
@@ -65,65 +70,53 @@ const SellerDashboard = () => {
   }, [authResolved, isLoggedIn, seller?.username, navigate]) // Only re-run if these change
 
   const fetchDashboardData = async (token) => {
-    console.log('ðŸ“Š Starting dashboard data fetch...')
     setDashboardLoading(true)
     setLoadingPreview(true)
-    
     try {
-      // Fetch all data in parallel for better performance
-      const [accessResponse, paymentsResponse, listingResponse, previewResponse] = await Promise.allSettled([
-        // Dashboard access check
-        fetch(getApiUrl('sellers/dashboard-access'), {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        // Payment history
-        fetch(getApiUrl('sellers/payments'), {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        // Listing requests
-        fetch(getApiUrl('sellers/listing-requests'), {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        // Preview products
-        fetch(getApiUrl('products/admin/available?limit=6'), {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
+      const [accessRes, paymentsRes, listingRes, previewRes, statsRes, listedPreviewRes] = await Promise.allSettled([
+        fetch(getApiUrl('sellers/dashboard-access'), { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(getApiUrl('sellers/payments'), { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(getApiUrl('sellers/listing-requests'), { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(getApiUrl('products/admin/available?limit=6'), { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(getApiUrl('sellers/my-stats'), { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(getApiUrl('sellers/my-listed-preview'), { headers: { 'Authorization': `Bearer ${token}` } }),
       ])
-
-      // Process dashboard access
-      if (accessResponse.status === 'fulfilled' && accessResponse.value.ok) {
-        const accessData = await accessResponse.value.json()
-        setDashboardAccess(accessData)
+      if (accessRes.status === 'fulfilled' && accessRes.value.ok) setDashboardAccess(await accessRes.value.json())
+      if (paymentsRes.status === 'fulfilled' && paymentsRes.value.ok) setPaymentHistory(await paymentsRes.value.json())
+      if (listingRes.status === 'fulfilled' && listingRes.value.ok) { const d = await listingRes.value.json(); setListingRequests(d.requests || []) }
+      if (previewRes.status === 'fulfilled' && previewRes.value.ok) { const d = await previewRes.value.json(); setPreviewProducts(d.products || []) }
+      if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
+        const d = await statsRes.value.json()
+        setMyStats(d)
+        setStats(prev => ({ ...prev, totalProducts: d.listedProducts?.total || 0 }))
       }
-
-      // Process payment history
-      if (paymentsResponse.status === 'fulfilled' && paymentsResponse.value.ok) {
-        const paymentsData = await paymentsResponse.value.json()
-        setPaymentHistory(paymentsData)
-      }
-
-      // Process listing requests
-      if (listingResponse.status === 'fulfilled' && listingResponse.value.ok) {
-        const listingData = await listingResponse.value.json()
-        console.log('ðŸ“‹ Listing requests fetched:', listingData.requests)
-        setListingRequests(listingData.requests || [])
-      }
-
-      // Process preview products
-      if (previewResponse.status === 'fulfilled' && previewResponse.value.ok) {
-        const previewData = await previewResponse.value.json()
-        setPreviewProducts(previewData.products || [])
-      }
-
-      console.log('âœ… Dashboard data fetch completed')
+      if (listedPreviewRes.status === 'fulfilled' && listedPreviewRes.value.ok) { const d = await listedPreviewRes.value.json(); setMyListedPreview(d.products || []) }
     } catch (error) {
-      console.error('âŒ Error fetching dashboard data:', error)
+      console.error('Error fetching dashboard data:', error)
     } finally {
       setDashboardLoading(false)
       setLoadingPreview(false)
     }
   }
 
+  const handleQuickPriceSave = async (productId) => {
+    if (!quickEditPrice || isNaN(parseFloat(quickEditPrice))) return
+    setQuickEditSaving(true)
+    try {
+      const token = localStorage.getItem('sellerToken')
+      const res = await fetch(getApiUrl(`sellers/update-listing-price/${productId}`), {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellerPrice: parseFloat(quickEditPrice) })
+      })
+      if (res.ok) {
+        setMyListedPreview(prev => prev.map(p => p._id === productId ? { ...p, sellerPrice: parseFloat(quickEditPrice) } : p))
+        setQuickEditId(null)
+        setQuickEditPrice('')
+      }
+    } catch (e) { console.error(e) }
+    finally { setQuickEditSaving(false) }
+  }
   const handleLogout = () => {
     logout() // Use the context logout function
   }
@@ -142,7 +135,7 @@ const SellerDashboard = () => {
           const freshSellerData = await response.json()
           
           updateSeller(freshSellerData)
-          alert('âœ… Profile refreshed successfully!')
+          alert(' Profile refreshed successfully!')
         } else {
           alert('âŒ Failed to refresh profile')
         }
@@ -180,7 +173,7 @@ const SellerDashboard = () => {
       const data = await response.json()
 
       if (response.ok && data.success) {
-        alert('âœ… Verification documents submitted successfully! Admin will review your documents.')
+        alert(' Verification documents submitted successfully! Admin will review your documents.')
         setShowVerificationModal(false)
         // Refresh seller data
         if (seller) {
@@ -438,8 +431,8 @@ const SellerDashboard = () => {
         {/* â”€â”€ ALERTS â”€â”€ */}
         {seller.verificationStatus === 'approved' && showVerifiedBanner && (
           <div className="sd-alert sd-alert-success d-flex justify-content-between align-items-center">
-            <span><i className="fas fa-check-circle me-2"></i>Your account is fully verified! You have unlimited dashboard access.</span>
-            <button className="btn btn-sm p-0 ms-2" style={{background: 'none', border: 'none', color: '#155724', fontSize: '1rem'}} onClick={() => { localStorage.setItem('verifiedBannerDismissed', '1'); setShowVerifiedBanner(false); }}>âœ•</button>
+            <span><i className="fas fa-check-circle me-2"></i>Your account is fully verified! You can now list products and have unlimited dashboard access.</span>
+            <button className="btn btn-sm p-0 ms-2" style={{background: 'none', border: 'none', color: '#155724', fontSize: '1rem'}} onClick={() => { localStorage.setItem('verifiedBannerDismissed', '1'); setShowVerifiedBanner(false); }}>x</button>
           </div>
         )}
         {seller.verificationStatus === 'pending' && (
@@ -460,9 +453,7 @@ const SellerDashboard = () => {
         {dashboardAccess?.daysRemaining > 0 && dashboardAccess.daysRemaining <= 5 && (
           <div className="sd-alert sd-alert-warning"><i className="fas fa-clock me-2"></i><strong>{dashboardAccess.daysRemaining} days</strong> remaining in trial. Submit verification to avoid interruption.</div>
         )}
-        {seller.canListProducts && (
-          <div className="sd-alert sd-alert-success"><i className="fas fa-check-circle me-2"></i>You can now list products! Start adding your inventory.</div>
-        )}
+        
 
         {/* â”€â”€ STATS ROW â”€â”€ */}
         <div className="row g-2 mb-3">
@@ -731,3 +722,5 @@ const SellerDashboard = () => {
 }
 
 export default SellerDashboard
+
+

@@ -639,12 +639,7 @@ const MobileHeader = () => {
           border: 2px solid #fc5e03;
         }
 
-        /* Hide basket icon on very small mobile screens */
-        @media (max-width: 565px) {
-          .mobile-icon-btn[href="/basket"] {
-            display: none !important;
-          }
-        }
+        /* Basket icon always visible on mobile */
 
         /* Remove any white background from logo */
         .mobile-logo img,
@@ -792,14 +787,12 @@ const MobileHeader = () => {
               </select>
             </div>
 
-            {windowWidth > 565 && (
-              <Link to="/basket" className="mobile-icon-btn">
+            <Link to="/basket" className="mobile-icon-btn">
                 <i className="fas fa-shopping-basket"></i>
                 {getBasketCount() > 0 && (
                   <span className="basket-badge">{getBasketCount()}</span>
                 )}
               </Link>
-            )}
           </div>
         </div>
 

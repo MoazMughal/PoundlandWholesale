@@ -715,7 +715,17 @@ const AdminProducts = () => {
             (£{priceInfo.price.toFixed(2)} + £{priceInfo.shipping.toFixed(2)})
           </span>
           {priceInfo.isSellerPrice && (
-            <div style={{ fontSize: '0.6rem', color: '#28a745', fontWeight: '500' }}>
+            <div style={{ 
+              fontSize: '0.6rem', 
+              color: '#28a745', 
+              fontWeight: '500',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '120px'
+            }}
+            title={`by ${priceInfo.sellerName}`}
+            >
               by {priceInfo.sellerName}
             </div>
           )}
@@ -729,7 +739,17 @@ const AdminProducts = () => {
           £{priceInfo.price.toFixed(2)}
         </span>
         {priceInfo.isSellerPrice && (
-          <div style={{ fontSize: '0.6rem', color: '#28a745', fontWeight: '500' }}>
+          <div style={{ 
+            fontSize: '0.6rem', 
+            color: '#28a745', 
+            fontWeight: '500',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '120px'
+          }}
+          title={`by ${priceInfo.sellerName}`}
+          >
             by {priceInfo.sellerName}
           </div>
         )}
@@ -747,7 +767,17 @@ const AdminProducts = () => {
           £{priceInfo.shipping.toFixed(2)}
         </span>
         {priceInfo.isSellerPrice && (
-          <div style={{ fontSize: '0.6rem', color: '#28a745', fontWeight: '500' }}>
+          <div style={{ 
+            fontSize: '0.6rem', 
+            color: '#28a745', 
+            fontWeight: '500',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '120px'
+          }}
+          title={`by ${priceInfo.sellerName}`}
+          >
             by {priceInfo.sellerName}
           </div>
         )}
@@ -854,23 +884,37 @@ const AdminProducts = () => {
       const categoryFromUrl = urlParams.get('category') || location.state?.category || '';
       const statusFromUrl = urlParams.get('status') || '';
       const amazonsChoiceFromUrl = urlParams.get('amazonsChoice') === 'true';
-      setFilters(prev => ({
-        ...prev,
+      
+      const initialFilters = {
         category: categoryFromUrl,
         status: statusFromUrl,
         isAmazonsChoice: amazonsChoiceFromUrl
+      };
+      
+      // Set filters state
+      setFilters(prev => ({
+        ...prev,
+        ...initialFilters
       }));
+      
       setHasInitiallyLoaded(true);
 
       // If cache was already loaded synchronously, just do a silent background refresh
       if (_cache) {
-        lastFetchParamsRef.current = JSON.stringify({ page: 1, perPage: productsPerPage, search: '', filters: { category: categoryFromUrl, status: statusFromUrl, isAmazonsChoice: amazonsChoiceFromUrl } });
-        setTimeout(() => fetchProducts(1), 200); // silent background refresh
+        lastFetchParamsRef.current = JSON.stringify({ 
+          page: 1, 
+          perPage: productsPerPage, 
+          search: '', 
+          filters: initialFilters
+        });
+        // Pass filters directly to fetchProducts
+        setTimeout(() => fetchProducts(1, productsPerPage, initialFilters), 300);
         return;
       }
 
-      // No cache — fetch normally
-      fetchProducts(1);
+      // No cache — fetch with initial filters
+      // Pass filters directly to avoid state update delay
+      setTimeout(() => fetchProducts(1, productsPerPage, initialFilters), 100);
     }
   }, []);
 
@@ -1033,7 +1077,10 @@ const AdminProducts = () => {
     setFilteredProducts(products);
   }, [products]);
 
-  const fetchProducts = async (page = currentPage, perPage = productsPerPage) => {
+  const fetchProducts = async (page = currentPage, perPage = productsPerPage, customFilters = null) => {
+    // Use custom filters if provided, otherwise use state filters
+    const activeFilters = customFilters !== null ? customFilters : filters;
+    
     // Prevent duplicate fetches
     if (isFetchingRef.current) {
       console.log('⏸️ Fetch already in progress, skipping...');
@@ -1041,7 +1088,7 @@ const AdminProducts = () => {
     }
     
     // Check if we're fetching the same data
-    const fetchParams = JSON.stringify({ page, perPage, search: debouncedSearch, filters });
+    const fetchParams = JSON.stringify({ page, perPage, search: debouncedSearch, filters: activeFilters });
     if (lastFetchParamsRef.current === fetchParams && products.length > 0) {
       console.log('✅ Data already loaded with same parameters, skipping fetch...');
       return;
@@ -1071,15 +1118,15 @@ const AdminProducts = () => {
 
       const params = new URLSearchParams({
         ...(debouncedSearch && { search: debouncedSearch }),
-        ...(filters.category && { category: filters.category }),
-        ...(filters.status && { status: filters.status }),
-        ...(filters.isAmazonsChoice && { isAmazonsChoice: 'true' }),
+        ...(activeFilters.category && { category: activeFilters.category }),
+        ...(activeFilters.status && { status: activeFilters.status }),
+        ...(activeFilters.isAmazonsChoice && { isAmazonsChoice: 'true' }),
         excludeSellerCopies: 'true',
         limit: perPage.toString(),
         page: page.toString()
       });
 
-      const useFastEndpoint = !debouncedSearch && !filters.category && !filters.status && !filters.isAmazonsChoice;
+      const useFastEndpoint = !debouncedSearch && !activeFilters.category && !activeFilters.status && !activeFilters.isAmazonsChoice;
 
       // Add cache buster to ensure fresh data
       const cacheBuster = `_t=${Date.now()}`;
@@ -1088,6 +1135,7 @@ const AdminProducts = () => {
         : `${getApiUrl('products')}?${params}&${cacheBuster}`;
 
       console.log('🌐 Fetching from URL:', url);
+      console.log('🔍 Active filters:', activeFilters);
 
       const response = await fetch(url, {
         headers: {
@@ -3010,10 +3058,10 @@ const AdminProducts = () => {
                   >
                     <span style={{ fontSize: '0.7rem' }}>{cat.icon}</span>
                     <span>{cat.label}</span>
-                    {(isActive || showCategoryManager) && (
+                    {(isActive || showCategoryManager) && productCount > 0 && (
                       <span style={{
-                        background: isActive ? 'rgba(255,255,255,0.3)' : (productCount > 0 ? '#f3f4f6' : '#fef2f2'),
-                        color: isActive ? 'white' : (productCount > 0 ? '#6b7280' : '#ef4444'),
+                        background: isActive ? 'rgba(255,255,255,0.3)' : '#f3f4f6',
+                        color: isActive ? 'white' : '#6b7280',
                         padding: '1px 4px',
                         borderRadius: '8px',
                         fontSize: '0.6rem',
@@ -3280,15 +3328,6 @@ const AdminProducts = () => {
 
           <div className="table-info" style={{ padding: '4px 8px', fontSize: '0.7rem', color: '#374151', background: '#f9fafb', borderRadius: '4px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: '600' }}>
-                {filters.isAmazonsChoice && filters.category
-                  ? `🏆 Amazon's Choice - ${categories.find(c => c.value === filters.category)?.label}: ${totalProducts}`
-                  : filters.isAmazonsChoice
-                    ? `🏆 Amazon's Choice: ${totalProducts}`
-                    : filters.category
-                      ? `📂 ${categories.find(c => c.value === filters.category)?.label}: ${totalProducts}`
-                      : `📦 Showing: ${totalProducts}`}
-              </span>
               {selectedProducts.size > 0 && (
                 <>
                   <span style={{
@@ -3558,12 +3597,20 @@ const AdminProducts = () => {
                     </TableCell>
                     <TableCell 
                       className="category"
-                      style={{ padding: '4px 8px', cursor: 'pointer', transition: 'background 0.2s' }}
+                      style={{ 
+                        padding: '4px 8px', 
+                        cursor: 'pointer', 
+                        transition: 'background 0.2s',
+                        maxWidth: '120px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
                       data-cell={`${product._id}-category`}
                       onClick={() => handleCellClick(product._id, 'category', product.category)}
                       onMouseEnter={(e) => e.target.style.background = '#f0f0ff'}
                       onMouseLeave={(e) => e.target.style.background = ''}
-                      title="Click to edit category"
+                      title={`Category: ${product.category} - Click to edit`}
                     >
                       {editingCell === `${product._id}-category` ? (
                         categories.length > 0 ? (
@@ -3888,7 +3935,15 @@ const AdminProducts = () => {
                         })()
                       )}
                     </TableCell>
-                    <TableCell className="seller-info" style={{ padding: '4px 8px', fontSize: '0.7rem' }}>
+                    <TableCell 
+                      className="seller-info" 
+                      style={{ 
+                        padding: '4px 8px', 
+                        fontSize: '0.7rem',
+                        maxWidth: '100px',
+                        overflow: 'hidden'
+                      }}
+                    >
                       {(() => {
                         const sellersCount = product.sellers?.length || 0;
                         const hasLegacySeller = product.seller?.businessName;
@@ -3907,13 +3962,21 @@ const AdminProducts = () => {
                             })
                             .filter(name => name && name !== 'Unknown');
                           
+                          const fullSellerText = sellerNames.join(', ') + (sellersCount > 3 ? ` +${sellersCount - 3} more` : '');
+                          
                           return (
-                            <div>
+                            <div title={fullSellerText}>
                               <div style={{ fontWeight: '600', color: '#059669', marginBottom: '2px' }}>
                                 {sellersCount} Seller{sellersCount > 1 ? 's' : ''}
                               </div>
                               {sellerNames.length > 0 && (
-                                <div style={{ fontSize: '0.65rem', color: '#6b7280' }}>
+                                <div style={{ 
+                                  fontSize: '0.65rem', 
+                                  color: '#6b7280',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}>
                                   {sellerNames.join(', ')}
                                   {sellersCount > 3 && ` +${sellersCount - 3} more`}
                                 </div>
@@ -3922,8 +3985,14 @@ const AdminProducts = () => {
                           );
                         } else if (hasLegacySeller) {
                           return (
-                            <div>
-                              <div style={{ fontWeight: '600', color: '#6b7280' }}>
+                            <div title={product.seller.businessName}>
+                              <div style={{ 
+                                fontWeight: '600', 
+                                color: '#6b7280',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
                                 {product.seller.businessName}
                               </div>
                               <div style={{ fontSize: '0.65rem', color: '#6b7280' }}>
