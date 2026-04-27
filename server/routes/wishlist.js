@@ -70,7 +70,7 @@ router.get('/buyer', authenticateBuyer, async (req, res) => {
 // POST create a new wishlist query
 router.post('/buyer', authenticateBuyer, async (req, res) => {
   try {
-    const { productName, productDescription, quantity, targetPrice, currency, category, imageUrl, taggedSellerIds, notes } = req.body;
+    const { productName, productDescription, quantity, targetPrice, currency, category, imageUrl, taggedSellerIds, notes, productId } = req.body;
     if (!productName) return res.status(400).json({ message: 'Product name is required' });
 
     // Resolve tagged sellers
@@ -87,7 +87,8 @@ router.post('/buyer', authenticateBuyer, async (req, res) => {
       buyerWhatsapp: req.buyer.whatsappNo || req.buyer.phone || '',
       productName, productDescription, quantity: quantity || 1,
       targetPrice, currency: currency || 'GBP',
-      category, imageUrl, taggedSellers, notes
+      category, imageUrl, taggedSellers, notes,
+      ...(productId && { productId })
     });
 
     res.json({ success: true, query });
@@ -244,7 +245,39 @@ router.post('/seller/mark-seen', authenticateSeller, async (req, res) => {
 
 // ── ADMIN ROUTES ──────────────────────────────────────────────
 
-// GET all queries with full details
+// GET public wishlist queries (no auth — visible to everyone, hides private buyer info)
+router.get('/public', async (req, res) => {
+  try {
+    const { status, page = 1, limit = 50 } = req.query;
+    const filter = { status: status && status !== 'all' ? status : { $in: ['open', 'in_progress'] } };
+    const total = await WishlistQuery.countDocuments(filter);
+    const queries = await WishlistQuery.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .select('productName productDescription quantity targetPrice currency category imageUrl status responses taggedSellers createdAt notes');
+    // Strip private buyer info — only expose first name initial + last name
+    const safe = queries.map(q => ({
+      _id: q._id,
+      productName: q.productName,
+      productDescription: q.productDescription,
+      quantity: q.quantity,
+      targetPrice: q.targetPrice,
+      currency: q.currency,
+      category: q.category,
+      imageUrl: q.imageUrl,
+      status: q.status,
+      notes: q.notes,
+      createdAt: q.createdAt,
+      responsesCount: q.responses?.length || 0,
+    }));
+    res.json({ success: true, queries: safe, total, totalPages: Math.ceil(total / limit) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET all queries with full details (admin only)
 router.get('/admin', authenticateAdmin, async (req, res) => {
   try {
     const { status, page = 1, limit = 50 } = req.query;

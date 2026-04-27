@@ -26,6 +26,37 @@ const CompactHeader = () => {
   const isAdminLoggedIn = !!localStorage.getItem('adminToken');
   const loginMenuRef = useRef(null);
 
+  // Scroll-aware sticky header: shrink on scroll down, reappear on scroll up
+  const [scrolled, setScrolled] = useState(false);       // true = scrolled down → shrink
+  const [visible, setVisible] = useState(true);           // false = hidden (scrolling down fast)
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      const diff = y - lastScrollY.current;
+
+      if (y < 10) {
+        // At top — always show full header
+        setScrolled(false);
+        setVisible(true);
+      } else if (diff > 6) {
+        // Scrolling DOWN — shrink & hide
+        setScrolled(true);
+        setVisible(false);
+      } else if (diff < -4) {
+        // Scrolling UP — reappear (shrunk)
+        setScrolled(true);
+        setVisible(true);
+      }
+
+      lastScrollY.current = y;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   // Get user type and name
   const getUserInfo = () => {
     if (isAdminLoggedIn) return { type: 'Admin', name: 'Admin' };
@@ -251,20 +282,26 @@ const CompactHeader = () => {
         }
       `}</style>
       <header style={{
-        position: 'sticky',
+        position: 'fixed',
         top: 0,
+        left: 0,
+        right: 0,
         zIndex: 1000,
         background: '#fff',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        boxShadow: scrolled ? '0 2px 8px rgba(0,0,0,0.18)' : '0 2px 4px rgba(0,0,0,0.1)',
+        transform: visible ? 'translateY(0)' : 'translateY(-100%)',
+        transition: 'transform 0.28s ease, box-shadow 0.2s ease',
+        willChange: 'transform'
       }}>
         {/* Main Header */}
         <div className="header-main" style={{
-          padding: '2px 12px',
+          padding: scrolled ? '1px 12px' : '2px 12px',
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
           background: '#ff9900',
-          borderBottom: '1px solid #e67e00'
+          borderBottom: '1px solid #e67e00',
+          transition: 'padding 0.28s ease'
         }}>
         {/* Logo */}
         <Link to="/" className="header-logo" style={{
@@ -611,6 +648,30 @@ const CompactHeader = () => {
             </div>
           )}
           
+          {/* Wishlist Button */}
+          <Link 
+            to="/wishlist-queries"
+            title="View Buyer Demands & Wishlist"
+            style={{
+              fontSize: '11px',
+              color: '#fff',
+              textDecoration: 'none',
+              fontWeight: '600',
+              background: 'rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '4px',
+              padding: '5px 12px',
+              transition: 'all 0.2s',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+          >
+            <i className="fas fa-heart"></i> <span className="hide-mobile-text">Wishlist</span>
+          </Link>
+
           {/* Basket Button */}
           <Link 
             to="/basket"
@@ -632,7 +693,7 @@ const CompactHeader = () => {
             onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
           >
-            <i className="fas fa-shopping-basket"></i> Basket
+            <i className="fas fa-shopping-basket"></i> <span className="hide-mobile-text">Basket</span>
             {getBasketCount() > 0 && (
               <span style={{
                 position: 'absolute',

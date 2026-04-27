@@ -31,6 +31,50 @@ const MobileHeader = () => {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const loginMenuRef = useRef(null);
 
+  // Scroll-aware: hide on scroll down, reappear on scroll up
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const [scrolled, setScrolled] = useState(false);
+  const lastScrollY = useRef(0);
+  const headerRef = useRef(null);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      const diff = y - lastScrollY.current;
+
+      if (y < 10) {
+        setScrolled(false);
+        setHeaderVisible(true);
+      } else if (diff > 6) {
+        // Scrolling down — hide
+        setScrolled(true);
+        setHeaderVisible(false);
+      } else if (diff < -4) {
+        // Scrolling up — show
+        setScrolled(true);
+        setHeaderVisible(true);
+      }
+
+      lastScrollY.current = y;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Keep CSS variable in sync with actual header height
+  useEffect(() => {
+    const updateHeight = () => {
+      if (headerRef.current) {
+        const h = headerRef.current.offsetHeight;
+        document.documentElement.style.setProperty('--header-height', `${h}px`);
+      }
+    };
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, []);
+
   const getUserInfo = () => {
     // Use context providers instead of sessionAuthManager to avoid async issues
     if (isAdminLoggedIn && admin) {
@@ -297,11 +341,24 @@ const MobileHeader = () => {
       <style>{`
         /* Mobile First Responsive Design */
         .mobile-header {
-          position: sticky;
+          position: fixed;
           top: 0;
+          left: 0;
+          right: 0;
           z-index: 1000;
           background: #fff;
           box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          transform: translateY(0);
+          transition: transform 0.28s ease, box-shadow 0.2s ease;
+          will-change: transform;
+        }
+
+        .mobile-header.header-hidden {
+          transform: translateY(-100%);
+        }
+
+        .mobile-header.header-scrolled {
+          box-shadow: 0 2px 10px rgba(0,0,0,0.18);
         }
 
         .mobile-header-top {
@@ -705,7 +762,7 @@ const MobileHeader = () => {
         }
       `}</style>
 
-      <header className="mobile-header">
+      <header ref={headerRef} className={`mobile-header${!headerVisible ? ' header-hidden' : ''}${scrolled ? ' header-scrolled' : ''}`}>
         {/* Mobile Header Top */}
         <div className="mobile-header-top">
           <button className="mobile-menu-btn" onClick={() => setShowMobileMenu(true)}>
@@ -786,6 +843,10 @@ const MobileHeader = () => {
                 <option value="AED" style={{color: '#000'}}>🇦🇪 AED</option>
               </select>
             </div>
+
+            <Link to="/wishlist-queries" className="mobile-icon-btn" title="View Buyer Demands & Wishlist">
+              <i className="fas fa-heart"></i>
+            </Link>
 
             <Link to="/basket" className="mobile-icon-btn">
                 <i className="fas fa-shopping-basket"></i>
@@ -1372,6 +1433,9 @@ const MobileHeader = () => {
             </Link>
             <Link to="/about-us" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
               <i className="fas fa-info-circle"></i> About Us
+            </Link>
+            <Link to="/wishlist-queries" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
+              <i className="fas fa-heart"></i> Buyer Demands & Wishlist
             </Link>
             <Link to="/basket" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
               <i className="fas fa-shopping-basket"></i> Basket

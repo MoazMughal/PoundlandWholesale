@@ -9,6 +9,7 @@ const wishlistQuerySchema = new mongoose.Schema({
 
   // Product details (buyer describes what they want)
   productName: { type: String, required: true },
+  productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', default: null }, // linked product if from Amazon's Choice
   productDescription: String,
   quantity: { type: Number, default: 1 },
   targetPrice: Number,          // buyer's budget per unit

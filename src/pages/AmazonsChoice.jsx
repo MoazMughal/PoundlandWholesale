@@ -14,6 +14,7 @@ import { useCurrency } from '../context/CurrencyContext'
 import { useSeller } from '../context/SellerContext'
 import { useBasket } from '../context/BasketContext'
 import { useAdmin } from '../context/AdminContext'
+import { useBuyer } from '../context/BuyerContext'
 import { getImageUrl } from '../utils/imageImports'
 import { getApiUrl } from '../utils/api'
 import { logDeviceInfo } from '../utils/deviceDetection'
@@ -609,7 +610,7 @@ const AmazonsChoice = () => {
   // Pagination state
   const [totalPages, setTotalPages] = useState(1)
   const [totalProducts, setTotalProducts] = useState(0)
-  const [productsPerPage, setProductsPerPage] = useState(100) // Configurable products per page
+  const [productsPerPage] = useState(100) // Fixed at 100 per page
 
   // Request-to-list modal state
   const [listingModal, setListingModal] = useState({ open: false, product: null })
@@ -630,6 +631,52 @@ const AmazonsChoice = () => {
   const { addToBasket, isInBasket } = useBasket()
   const { isLoggedIn: isAdminContextLoggedIn } = useAdmin()
   const { seller: currentSeller, isLoggedIn: isSellerLoggedIn } = useSeller()
+  const { isLoggedIn: isBuyerLoggedIn } = useBuyer()
+
+  // Buyer wishlist modal state
+  const [wishlistModal, setWishlistModal] = useState({ open: false, product: null })
+  const [wishlistForm, setWishlistForm] = useState({ quantity: 1, targetPrice: '', notes: '' })
+  const [wishlistSubmitting, setWishlistSubmitting] = useState(false)
+  const [wishlistSuccess, setWishlistSuccess] = useState(false)
+
+  const handleAddToWishlist = (product) => {
+    setWishlistForm({ quantity: 1, targetPrice: product.rawPrice ? product.rawPrice.toFixed(2) : '', notes: '' })
+    setWishlistSuccess(false)
+    setWishlistModal({ open: true, product })
+  }
+
+  const handleWishlistSubmit = async () => {
+    const { product } = wishlistModal
+    setWishlistSubmitting(true)
+    try {
+      const token = localStorage.getItem('buyerToken')
+      const res = await fetch(getApiUrl('wishlist/buyer'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          productName: product.name,
+          productDescription: product.category ? `Category: ${product.category}` : '',
+          productId: product.id || product._id || undefined,
+          quantity: parseInt(wishlistForm.quantity) || 1,
+          targetPrice: wishlistForm.targetPrice ? parseFloat(wishlistForm.targetPrice) : undefined,
+          currency,
+          category: product.category || '',
+          imageUrl: product.image || '',
+          notes: wishlistForm.notes || `Requested from Amazon's Choice page — product currently out of stock.`
+        })
+      })
+      if (res.ok) {
+        setWishlistSuccess(true)
+      } else {
+        const d = await res.json()
+        alert('❌ ' + (d.message || 'Failed to submit wishlist query'))
+      }
+    } catch (err) {
+      alert('❌ Failed to submit wishlist query')
+    } finally {
+      setWishlistSubmitting(false)
+    }
+  }
 
   // Helper function to format price with smaller Rs symbol
   const formatPriceWithSmallRs = (price) => {
@@ -691,8 +738,19 @@ const AmazonsChoice = () => {
     }
   }
 
-  // Server handles seller filtering via hasSellerListings param — just use products directly
-  const currentProducts = products
+  // Server handles seller filtering via hasSellerListings param
+  // Add client-side safety filter: when showAllProducts is false, hide products with no valid sellers
+  const currentProducts = showAllProducts
+    ? products
+    : products.filter(product => {
+        if (!product.sellers || product.sellers.length === 0) return false;
+        // Check that at least one seller matches the current currency AND has a valid price
+        return product.sellers.some(s => {
+          const matchesCurrency = !s.listingCountries || s.listingCountries.length === 0 || s.listingCountries.includes(currency)
+          const hasValidPrice = parseFloat(s.sellerPrice) > 0
+          return matchesCurrency && hasValidPrice
+        });
+      })
   
   // Handle page change
   const handlePageChange = (page) => {
@@ -2393,25 +2451,6 @@ const AmazonsChoice = () => {
             {/* Divider */}
             <div style={{ width: '1px', height: '20px', background: '#e1e5e9', margin: '0 4px' }} />
 
-            {/* Per-page selector */}
-            <span style={{ fontSize: '0.75rem', color: '#555', fontWeight: '500' }}>Show:</span>
-            {[100, 200, 300, 400, 500].map(n => (
-              <button
-                key={n}
-                onClick={() => {
-                  setProductsPerPage(n)
-                  setCurrentPage(1)
-                  setLastFetchKey('')
-                }}
-                style={{
-                  padding: '2px 7px', fontSize: '0.7rem', fontWeight: '600',
-                  border: '1px solid #e1e5e9', borderRadius: '5px', cursor: 'pointer',
-                  background: productsPerPage === n ? '#ff6600' : 'white',
-                  color: productsPerPage === n ? 'white' : '#374151'
-                }}
-              >{n}</button>
-            ))}
-
             <span style={{ fontSize: '0.75rem', color: '#888', marginLeft: 'auto' }}>
               {currentProducts.length} products shown
             </span>
@@ -3001,6 +3040,52 @@ const AmazonsChoice = () => {
                             >
                               <i className="fas fa-paper-plane" style={{ fontSize: windowWidth < 576 ? '8px' : '6px' }}></i>
                               Request to List
+                            </button>
+                          )}
+
+                          {/* Add to Wishlist button - only visible to logged-in buyers */}
+                          {isBuyerLoggedIn && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleAddToWishlist(product)
+                              }}
+                              style={{
+                                marginTop: '3px',
+                                padding: windowWidth < 576 ? '4px 8px' : '3px 6px',
+                                fontSize: windowWidth < 576 ? '9px' : '8px',
+                                fontWeight: '700',
+                                background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                whiteSpace: 'nowrap',
+                                boxShadow: '0 2px 4px rgba(124,58,237,0.3)',
+                                pointerEvents: 'auto',
+                                zIndex: 200,
+                                position: 'relative',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.3px',
+                                lineHeight: '1.4',
+                                minWidth: 'fit-content'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)'
+                                e.currentTarget.style.transform = 'translateY(-1px)'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)'
+                                e.currentTarget.style.transform = 'translateY(0)'
+                              }}
+                              title="Add to your wishlist — notify me when available"
+                            >
+                              <i className="fas fa-heart" style={{ fontSize: windowWidth < 576 ? '8px' : '6px' }}></i>
+                              Wishlist
                             </button>
                           )}
                         </div>
@@ -3599,6 +3684,94 @@ const AmazonsChoice = () => {
           />
         )}
       </div>
+
+      {/* Buyer Wishlist Modal */}
+      {wishlistModal.open && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)', zIndex: 99999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', padding: '24px',
+            maxWidth: '420px', width: '100%', boxShadow: '0 24px 60px rgba(0,0,0,0.3)'
+          }}>
+            {wishlistSuccess ? (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>✅</div>
+                <h3 style={{ margin: '0 0 8px', color: '#1f2937' }}>Added to Wishlist!</h3>
+                <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: '0 0 20px' }}>
+                  Your query has been submitted. You can view and manage it in your{' '}
+                  <a href="/buyer/wishlist" style={{ color: '#7c3aed', fontWeight: '600' }}>Wishlist</a>.
+                </p>
+                <button
+                  onClick={() => setWishlistModal({ open: false, product: null })}
+                  style={{ padding: '10px 24px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem' }}
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                <h3 style={{ margin: '0 0 4px', fontSize: '1rem', color: '#1f2937' }}>
+                  💜 Add to Wishlist
+                </h3>
+                <p style={{ margin: '0 0 16px', fontSize: '0.8rem', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {wishlistModal.product?.name}
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Quantity needed</label>
+                    <input
+                      type="number" min="1"
+                      value={wishlistForm.quantity}
+                      onChange={e => setWishlistForm(f => ({ ...f, quantity: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Target price per unit ({currency}) — optional</label>
+                    <input
+                      type="number" min="0" step="0.01"
+                      value={wishlistForm.targetPrice}
+                      onChange={e => setWishlistForm(f => ({ ...f, targetPrice: e.target.value }))}
+                      placeholder="e.g. 2.50"
+                      style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Notes — optional</label>
+                    <textarea
+                      rows={2}
+                      value={wishlistForm.notes}
+                      onChange={e => setWishlistForm(f => ({ ...f, notes: e.target.value }))}
+                      placeholder="Any specific requirements..."
+                      style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem', resize: 'vertical', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '18px' }}>
+                  <button
+                    onClick={() => setWishlistModal({ open: false, product: null })}
+                    style={{ flex: 1, padding: '10px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', color: '#374151' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleWishlistSubmit}
+                    disabled={wishlistSubmitting}
+                    style={{ flex: 2, padding: '10px', background: 'linear-gradient(135deg, #7c3aed, #a855f7)', border: 'none', borderRadius: '8px', cursor: wishlistSubmitting ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '700', color: '#fff', opacity: wishlistSubmitting ? 0.7 : 1 }}
+                  >
+                    {wishlistSubmitting ? 'Submitting...' : '💜 Submit Wishlist Query'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   )
 }

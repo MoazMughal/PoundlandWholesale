@@ -67,6 +67,7 @@ const AdminListingRequests = lazy(() => import('./pages/admin/ListingRequests'))
 const PaymentVerifications = lazy(() => import('./pages/admin/PaymentVerifications'))
 const AdminQuotations = lazy(() => import('./pages/admin/Quotations'))
 const AdminWishlistQueries = lazy(() => import('./pages/admin/WishlistQueries'))
+const WishlistQueries = lazy(() => import('./pages/WishlistQueries'))
 const AdminSellerCatalog = lazy(() => import('./pages/admin/SellerCatalog'))
 const AdminCategoryManager = lazy(() => import('./pages/admin/CategoryManager'))
 const BuyerDashboard = lazy(() => import('./pages/buyer/Dashboard'))
@@ -127,11 +128,14 @@ function App() {
         <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', margin: 0, padding: 0, overflowX: 'clip' }}>
           <ScrollToTopOnRouteChange />
           <MobileHeader />
+          {/* Spacer to offset fixed header height */}
+          <div id="header-spacer" style={{ height: 'var(--header-height, 90px)', flexShrink: 0 }} />
           <main style={{ flex: '1 0 auto', margin: 0, padding: 0 }}>
           <Suspense fallback={<PageLoader />}>
           <Routes>
           <Route path="/" element={<AmazonsChoice />} />
           <Route path="/basket" element={<Basket />} />
+          <Route path="/wishlist-queries" element={<WishlistQueries />} />
           <Route path="/about-us" element={<AboutUs />} />
           {/* Legacy routes - redirect to new auth system */}
           <Route path="/login" element={<RoleSelection />} />

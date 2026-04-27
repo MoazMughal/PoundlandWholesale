@@ -29,6 +29,25 @@ const Basket = () => {
   const [relatedTitle, setRelatedTitle] = useState('')
   const [showRelated, setShowRelated] = useState(false)
 
+  // Helper: check if a basket item has a seller available for the current currency
+  const isItemAvailableForCurrency = (item) => {
+    // If item has a selectedSeller, check its listingCountries
+    if (item.selectedSeller) {
+      const lc = item.selectedSeller.listingCountries
+      if (!lc || lc.length === 0) return true // all countries
+      return lc.includes(currency)
+    }
+    // If item has a sellers array, check if any seller matches
+    if (item.sellers && item.sellers.length > 0) {
+      return item.sellers.some(s => {
+        const lc = s.listingCountries
+        return !lc || lc.length === 0 || lc.includes(currency)
+      })
+    }
+    // No seller info stored — treat as available (legacy items)
+    return true
+  }
+
   const handleSaveForLater = (item, itemId, sellerId) => {
     const updated = [...savedForLater.filter(s => (s.id || s._id) !== itemId), item]
     setSavedForLater(updated)
@@ -457,9 +476,13 @@ _This quotation was generated from PoundlandWholesale.com_
         }
 
         // Create WhatsApp URL
-        const whatsappUrl = `https://wa.me/${finalWhatsApp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`
+        const phoneDigits = finalWhatsApp.replace(/[^0-9]/g, '')
+        // Use web.whatsapp.com/send so we always target WhatsApp Web in a named tab.
+        // wa.me redirects through a landing page which breaks named-window reuse.
+        const whatsappUrl = `https://web.whatsapp.com/send?phone=${phoneDigits}&text=${encodeURIComponent(message)}`
         whatsappUrls.push({
           url: whatsappUrl,
+          phone: phoneDigits,
           sellerName,
           productCount: products.length,
           items: products.map(product => {
@@ -736,6 +759,22 @@ _This quotation was generated from PoundlandWholesale.com_
                         </p>
                       )}
 
+                      {/* Out of stock warning when currency doesn't match seller's listing countries */}
+                      {!isItemAvailableForCurrency(item) && (
+                        <p style={{
+                          fontSize: '0.75rem',
+                          color: '#dc2626',
+                          background: '#fee2e2',
+                          border: '1px solid #fca5a5',
+                          borderRadius: '4px',
+                          padding: '4px 8px',
+                          margin: '4px 0',
+                          fontWeight: '600'
+                        }}>
+                          ⚠️ Not available in {currency} — change currency or remove this item
+                        </p>
+                      )}
+
                       {item.selectedSeller && (
                         <p style={{ fontSize: '0.75rem', color: '#059669', margin: '2px 0 4px', fontWeight: 600 }}>
                           Seller: {item.selectedSeller.username || item.selectedSeller.businessName || '—'}
@@ -920,13 +959,32 @@ _This quotation was generated from PoundlandWholesale.com_
                 </div>
 
                 {/* Proceed to Checkout Button */}
-                <button
-                  onClick={() => handleCheckout()}
-                  className="basket-checkout-btn"
-                  disabled={selectedCount === 0}
-                >
-                  Proceed to checkout
-                </button>
+                {(() => {
+                  const selectedBasket = basket.filter(item => {
+                    const iId  = item.id || item._id
+                    const iSid = item.selectedSeller?.sellerId || item.selectedSeller?._id || ''
+                    const key  = iSid ? `${iId}_${iSid}` : iId
+                    return selectedItems[key] === true
+                  })
+                  const hasUnavailable = selectedBasket.some(item => !isItemAvailableForCurrency(item))
+                  return (
+                    <>
+                      {hasUnavailable && (
+                        <p style={{ fontSize: '0.75rem', color: '#dc2626', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '8px 12px', marginBottom: '8px', fontWeight: '600', textAlign: 'center' }}>
+                          ⚠️ Some selected items are not available in {currency}. Remove them or change currency to proceed.
+                        </p>
+                      )}
+                      <button
+                        onClick={() => handleCheckout()}
+                        className="basket-checkout-btn"
+                        disabled={selectedCount === 0 || hasUnavailable}
+                        style={hasUnavailable ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                      >
+                        Proceed to checkout
+                      </button>
+                    </>
+                  )
+                })()}
 
                 {/* EMI Available */}
                 <div className="basket-emi-info">
@@ -1218,22 +1276,33 @@ _This quotation was generated from PoundlandWholesale.com_
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {whatsappLinks.map((w, i) => (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <a
-                      href={w.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => {
+                        // All WhatsApp Web links share the same named window "whatsapp_web".
+                        // First click opens a new tab named "whatsapp_web".
+                        // Every subsequent click reuses that same tab — no new tab opens.
+                        const win = window.open('', 'whatsapp_web')
+                        if (win) {
+                          win.location.href = w.url
+                          win.focus()
+                        } else {
+                          // Popup blocked fallback
+                          window.open(w.url, 'whatsapp_web')
+                        }
+                      }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: '10px',
                         padding: '12px 16px', background: '#25d366', color: '#fff',
                         borderRadius: '8px', textDecoration: 'none', fontWeight: '700',
-                        fontSize: '0.9rem', transition: 'background 0.2s'
+                        fontSize: '0.9rem', transition: 'background 0.2s',
+                        border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left'
                       }}
                       onMouseEnter={e => e.currentTarget.style.background = '#1ebe5d'}
                       onMouseLeave={e => e.currentTarget.style.background = '#25d366'}
                     >
                       <span style={{ fontSize: '1.2rem' }}>📲</span>
                       <span>Send to {w.sellerName} ({w.productCount} product{w.productCount !== 1 ? 's' : ''})</span>
-                    </a>
+                    </button>
                     {/* Product list under each seller button */}
                     <div style={{ paddingLeft: '8px', background: '#f9fafb', borderRadius: '6px', padding: '6px 10px' }}>
                       {w.items?.map((item, j) => (
