@@ -24,6 +24,9 @@ const SellerInformation = ({
   const [showAllSellers, setShowAllSellers] = useState(false);
   const [sellerQty, setSellerQty] = useState({});
   const [sending, setSending] = useState({});
+  const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [lockedSellerName, setLockedSellerName] = useState('');
+
   // Guest quotation form state
   const [guestForm, setGuestForm] = useState({}); // { [sellerId]: { name, phone, email, show } }
 
@@ -193,8 +196,69 @@ const SellerInformation = ({
 
   const visible = showAllSellers ? uniqueSellers : uniqueSellers.slice(0, 1);
 
+  // Lock logic: only the last seller (highest price) is open; all others are locked.
+  // Exception: if only 1 seller, keep open.
+  const isLocked = (index) => {
+    if (uniqueSellers.length <= 1) return false;
+    return index < uniqueSellers.length - 1;
+  };
+
   return (
     <div className="mb-2">
+      {/* Membership Modal */}
+      {showMembershipModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+        }} onClick={() => setShowMembershipModal(false)}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', padding: '28px 24px', maxWidth: '380px', width: '100%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.25)', textAlign: 'center'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🔒</div>
+            <h3 style={{ fontWeight: '800', color: '#1f2937', marginBottom: '8px', fontSize: '1.1rem' }}>
+              Premium Seller Access
+            </h3>
+            <p style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '16px', lineHeight: 1.5 }}>
+              <strong style={{ color: '#111' }}>{lockedSellerName}</strong> offers a lower price, but contacting this seller requires a <strong style={{ color: '#ff6600' }}>premium membership</strong>.
+            </p>
+            <div style={{
+              background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px',
+              padding: '14px', marginBottom: '18px', textAlign: 'left'
+            }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#c2410c', marginBottom: '8px' }}>
+                <i className="fas fa-crown me-1"></i> Membership Benefits
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '0.78rem', color: '#374151', lineHeight: 1.8 }}>
+                <li>Access all sellers including lowest price offers</li>
+                <li>Direct WhatsApp contact with suppliers</li>
+                <li>Priority quotation responses</li>
+                <li>Exclusive bulk deal pricing</li>
+              </ul>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setShowMembershipModal(false)}
+                style={{
+                  flex: 1, padding: '10px', fontSize: '0.8rem', fontWeight: '600',
+                  background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb',
+                  borderRadius: '8px', cursor: 'pointer'
+                }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowMembershipModal(false); navigate('/buyer/dashboard'); }}
+                style={{
+                  flex: 2, padding: '10px', fontSize: '0.8rem', fontWeight: '700',
+                  background: 'linear-gradient(135deg, #ff6600, #ff9900)', color: '#fff',
+                  border: 'none', borderRadius: '8px', cursor: 'pointer'
+                }}>
+                <i className="fas fa-crown me-1"></i> Upgrade Membership
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{`
         .seller-qty-input {
           width: 80px !important;
@@ -261,13 +325,41 @@ const SellerInformation = ({
           const moq = se.moq || 1;
           const qty = getQty(sid, moq);
           const isMine = isSellerLoggedIn && currentSeller && sid?.toString() === currentSeller._id?.toString();
+          const locked = isLocked(index) && isBuyerLoggedIn && !isMine;
 
           return (
             <div key={`si-${sid}-${index}`} style={{
               background: index === 0 ? '#f0f9ff' : '#f8f9fa',
               border: `1px solid ${index === 0 ? '#bae6fd' : '#e5e7eb'}`,
-              borderRadius: '8px', padding: '10px', marginBottom: '8px'
+              borderRadius: '8px', padding: '10px', marginBottom: '8px',
+              position: 'relative',
+              overflow: locked ? 'hidden' : 'visible'
             }}>
+              {/* Lock overlay for premium sellers */}
+              {locked && (
+                <div style={{
+                  position: 'absolute', inset: 0, borderRadius: '8px',
+                  background: 'rgba(255,255,255,0.55)',
+                  backdropFilter: 'blur(2px)',
+                  zIndex: 2,
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  cursor: 'pointer'
+                }} onClick={() => { setLockedSellerName(se.username); setShowMembershipModal(true); }}>
+                  <div style={{
+                    background: 'linear-gradient(135deg, #ff6600, #ff9900)',
+                    borderRadius: '50%', width: '36px', height: '36px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(255,102,0,0.4)'
+                  }}>
+                    <i className="fas fa-lock" style={{ color: '#fff', fontSize: '0.9rem' }}></i>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#c2410c', textAlign: 'center', lineHeight: 1.3 }}>
+                    Premium Only<br />
+                    <span style={{ fontSize: '0.62rem', fontWeight: '500', color: '#6b7280' }}>Click to unlock</span>
+                  </div>
+                </div>
+              )}
               {index === 0 && (
                 <div className="lowest-price-badge mb-2" style={{
                   display: 'inline-block', fontSize: '0.6rem', color: '#fff',
@@ -350,8 +442,12 @@ const SellerInformation = ({
                       href="#"
                       onClick={e => {
                         e.preventDefault();
+                        if (locked) {
+                          setLockedSellerName(se.username);
+                          setShowMembershipModal(true);
+                          return;
+                        }
                         if (!isBuyerLoggedIn) {
-                          // Not logged in — prompt login, don't show guest form
                           navigate('/login/buyer');
                           return;
                         }
