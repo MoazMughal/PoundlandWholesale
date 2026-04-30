@@ -1,7 +1,7 @@
 services:
   # Backend API Service
   - type: web
-    name: generic-wholesale-backend
+    name: poundlandwholesale-backend
     env: node
     region: singapore
     plan: free
@@ -54,7 +54,7 @@ services:
 
   # Frontend Static Site
   - type: web
-    name: generic-wholesale-frontend
+    name: poundlandwholesale-frontend
     env: static
     region: singapore
     buildCommand: npm install && npm run build

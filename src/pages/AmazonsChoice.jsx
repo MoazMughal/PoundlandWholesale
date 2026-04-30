@@ -594,6 +594,7 @@ const AmazonsChoice = () => {
   // Essential state for functionality
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
+  const [sortBy, setSortBy] = useState('default')
   const [loading, setLoading] = useState(true)
   const [showAllProducts, setShowAllProducts] = useState(false) // Default to FALSE - only show products with sellers by default
   const [isLoadingRequest, setIsLoadingRequest] = useState(false) // Track active requests
@@ -740,7 +741,7 @@ const AmazonsChoice = () => {
 
   // Server handles seller filtering via hasSellerListings param
   // Add client-side safety filter: when showAllProducts is false, hide products with no valid sellers
-  const currentProducts = showAllProducts
+  const baseProducts = showAllProducts
     ? products
     : products.filter(product => {
         if (!product.sellers || product.sellers.length === 0) return false;
@@ -751,6 +752,22 @@ const AmazonsChoice = () => {
           return matchesCurrency && hasValidPrice
         });
       })
+
+  // Apply sorting
+  const currentProducts = [...baseProducts].sort((a, b) => {
+    switch (sortBy) {
+      case 'price_asc':
+        return (a.rawPrice || 0) - (b.rawPrice || 0)
+      case 'price_desc':
+        return (b.rawPrice || 0) - (a.rawPrice || 0)
+      case 'reviews':
+        return (b.reviews || 0) - (a.reviews || 0)
+      case 'sellers':
+        return (b.sellers?.length || 0) - (a.sellers?.length || 0)
+      default:
+        return 0
+    }
+  })
   
   // Handle page change
   const handlePageChange = (page) => {
@@ -2450,6 +2467,33 @@ const AmazonsChoice = () => {
 
             {/* Divider */}
             <div style={{ width: '1px', height: '20px', background: '#e1e5e9', margin: '0 4px' }} />
+
+            {/* Sort Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <i className="fas fa-sort" style={{ fontSize: '0.75rem', color: '#666' }}></i>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: '500',
+                  color: '#232f3e',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  padding: '4px 8px',
+                  background: '#fff',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  appearance: 'auto'
+                }}
+              >
+                <option value="default">Sort: Default</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+                <option value="reviews">Most Reviews</option>
+                <option value="sellers">Most Sellers</option>
+              </select>
+            </div>
 
             <span style={{ fontSize: '0.75rem', color: '#888', marginLeft: 'auto' }}>
               {currentProducts.length} products shown
