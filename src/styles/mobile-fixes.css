@@ -39,7 +39,7 @@
   }
   
   /* Fix any element that might overflow */
-  * {
+  *:not(.mobile-menu-sidebar):not(.mobile-menu-overlay) {
     max-width: 100% !important;
   }
   
@@ -89,15 +89,15 @@
     font-size: 16px !important; /* Prevents zoom on iOS */
   }
   
-  /* Buttons - better touch targets */
+  /* Buttons - better touch targets (exclude sidebar items) */
   .btn,
-  button {
+  button:not(.mobile-menu-sidebar button):not(.mobile-menu-close):not(.mobile-menu-btn) {
     min-height: 44px !important;
     padding: 10px 15px !important;
   }
   
-  /* Links - better touch targets */
-  a {
+  /* Links - better touch targets (exclude sidebar items) */
+  a:not(.mobile-menu-item):not(.mobile-menu-sidebar a) {
     min-height: 44px !important;
     display: inline-flex !important;
     align-items: center !important;

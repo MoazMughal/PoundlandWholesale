@@ -125,7 +125,7 @@ function App() {
           <SellerProvider>
             <AdminProvider>
             <Router>
-        <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', margin: 0, padding: 0, overflowX: 'clip' }}>
+        <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', margin: 0, padding: 0 }}>
           <ScrollToTopOnRouteChange />
           <MobileHeader />
           {/* Spacer to offset fixed header height */}

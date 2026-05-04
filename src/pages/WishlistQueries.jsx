@@ -41,28 +41,30 @@ const WishlistQueries = () => {
           </p>
         </div>
 
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+        {/* Filter + Stats — single line */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          {/* Filter buttons */}
+          {[['all', 'All'], ['open', 'Open'], ['in_progress', 'In Progress'], ['fulfilled', 'Fulfilled']].map(([val, label]) => (
+            <button key={val} onClick={() => setFilter(val)}
+              style={{ padding: '4px 12px', borderRadius: '20px', border: '1px solid #dee2e6', fontSize: '12px', fontWeight: '600', cursor: 'pointer', background: filter === val ? '#ff6600' : '#fff', color: filter === val ? '#fff' : '#495057', whiteSpace: 'nowrap' }}>
+              {label}
+            </button>
+          ))}
+
+          {/* Divider */}
+          <div style={{ width: '1px', height: '20px', background: '#dee2e6', flexShrink: 0 }} />
+
+          {/* Stats */}
           {[
             { label: 'Total', value: queries.length, color: '#495057' },
             { label: 'Open', value: queries.filter(q => q.status === 'open').length, color: '#28a745' },
             { label: 'In Progress', value: queries.filter(q => q.status === 'in_progress').length, color: '#007bff' },
             { label: 'With Offers', value: queries.filter(q => q.responsesCount > 0).length, color: '#ff6600' },
           ].map(s => (
-            <div key={s.label} style={{ background: '#fff', borderRadius: '10px', padding: '14px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-              <div style={{ fontSize: '22px', fontWeight: '800', color: s.color }}>{s.value}</div>
-              <div style={{ fontSize: '11px', color: '#888' }}>{s.label}</div>
+            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '13px', fontWeight: '800', color: s.color }}>{s.value}</span>
+              <span style={{ fontSize: '11px', color: '#888' }}>{s.label}</span>
             </div>
-          ))}
-        </div>
-
-        {/* Filter */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-          {[['all', 'All'], ['open', 'Open'], ['in_progress', 'In Progress'], ['fulfilled', 'Fulfilled']].map(([val, label]) => (
-            <button key={val} onClick={() => setFilter(val)}
-              style={{ padding: '5px 14px', borderRadius: '20px', border: '1px solid #dee2e6', fontSize: '12px', fontWeight: '600', cursor: 'pointer', background: filter === val ? '#ff6600' : '#fff', color: filter === val ? '#fff' : '#495057' }}>
-              {label}
-            </button>
           ))}
         </div>
 

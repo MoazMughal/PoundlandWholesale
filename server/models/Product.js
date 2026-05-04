@@ -364,5 +364,6 @@ productSchema.index({ sku: 1 }, { sparse: true }); // SKU index (sparse allows n
 productSchema.index({ name: 1 }); // Product title index for Excel uploads
 productSchema.index({ category: 1 }); // Category index for Excel uploads
 productSchema.index({ isAdminProduct: 1, status: 1 }); // Admin products index
+productSchema.index({ 'sellers.sellerId': 1, approvalStatus: 1, createdAt: -1 }); // Seller listed-products query
 
 export default mongoose.model('Product', productSchema);

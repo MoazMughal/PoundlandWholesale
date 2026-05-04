@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import multer from 'multer';
 import Product from '../models/Product.js';
 import ExcelProduct from '../models/ExcelProduct.js';
@@ -69,7 +69,7 @@ async function syncExcelProductsOnDelete(mainProductId) {
     
     return updateResult;
   } catch (error) {
-    console.error('⚠️ Failed to update Excel products after main product deletion:', error);
+    console.error('âš ï¸ Failed to update Excel products after main product deletion:', error);
     throw error;
   }
 }
@@ -101,13 +101,13 @@ async function getProductsWithFallback(query = {}, options = {}) {
     };
     
   } catch (error) {
-    console.error('❌ Database query failed:', error.message);
+    console.error('âŒ Database query failed:', error.message);
     
     // Try cache first
     if (productCache.isFresh()) {
       // Only show cache usage in development
       if (process.env.NODE_ENV !== 'production') {
-        console.log('📦 Using fresh cache data');
+        console.log('ðŸ“¦ Using fresh cache data');
       }
       const cacheResult = productCache.getProducts({
         ...query,
@@ -416,7 +416,7 @@ router.get('/public/categories', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error fetching categories:', error);
+    console.error('âŒ Error fetching categories:', error);
     
     // Fallback categories
     const fallbackCategories = [
@@ -571,7 +571,7 @@ router.post('/public/categories', authenticateAdmin, async (req, res) => {
       hasExcelProducts = excelProductsCount > 0;
       
       if (hasExcelProducts) {
-        console.log(`ℹ️ Found ${excelProductsCount} Excel products with category "${normalizedCategoryName}"`);
+        console.log(`â„¹ï¸ Found ${excelProductsCount} Excel products with category "${normalizedCategoryName}"`);
         // Allow creation - Excel products can use this category
         return res.json({
           success: true,
@@ -584,7 +584,7 @@ router.post('/public/categories', authenticateAdmin, async (req, res) => {
         });
       }
     } catch (excelError) {
-      console.log('ℹ️ Excel model not available or no Excel products found');
+      console.log('â„¹ï¸ Excel model not available or no Excel products found');
     }
     
     // Create a placeholder product to establish the category
@@ -609,7 +609,7 @@ router.post('/public/categories', authenticateAdmin, async (req, res) => {
       label: normalizedCategoryName
     };
     
-    console.log(`✅ Category "${normalizedCategoryName}" created successfully with placeholder product`);
+    console.log(`âœ… Category "${normalizedCategoryName}" created successfully with placeholder product`);
     
     res.json({
       success: true,
@@ -618,7 +618,7 @@ router.post('/public/categories', authenticateAdmin, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error creating category:', error);
+    console.error('âŒ Error creating category:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to create category',
@@ -642,7 +642,7 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
     
     const trimmedNewName = newCategoryName.trim();
     
-    console.log(`🏷️ Renaming category "${categoryName}" to "${trimmedNewName}"`);
+    console.log(`ðŸ·ï¸ Renaming category "${categoryName}" to "${trimmedNewName}"`);
     
     // Find the actual category name in the database (case-insensitive)
     const actualCategoryProduct = await Product.findOne({
@@ -652,7 +652,7 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
     let sourceCategoryName = categoryName;
     if (actualCategoryProduct) {
       sourceCategoryName = actualCategoryProduct.category;
-      console.log(`🔍 Found actual category name: "${sourceCategoryName}" (searched for: "${categoryName}")`);
+      console.log(`ðŸ” Found actual category name: "${sourceCategoryName}" (searched for: "${categoryName}")`);
     }
     
     // Check if new category name already exists
@@ -662,7 +662,7 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
     
     if (existingCategory && trimmedNewName.toLowerCase() !== sourceCategoryName.toLowerCase()) {
       // Category already exists - merge them instead of rejecting
-      console.log(`🔄 Category "${trimmedNewName}" already exists. Merging "${sourceCategoryName}" into it.`);
+      console.log(`ðŸ”„ Category "${trimmedNewName}" already exists. Merging "${sourceCategoryName}" into it.`);
       
       // Update all products with the old category to use the existing category name
       const productUpdateResult = await Product.updateMany(
@@ -670,7 +670,7 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
         { $set: { category: existingCategory.category } } // Use the exact case from existing category
       );
       
-      console.log(`✅ Merged ${productUpdateResult.modifiedCount} products from "${sourceCategoryName}" into existing category "${existingCategory.category}"`);
+      console.log(`âœ… Merged ${productUpdateResult.modifiedCount} products from "${sourceCategoryName}" into existing category "${existingCategory.category}"`);
       
       // Update Excel products if they exist
       let excelUpdateCount = 0;
@@ -681,9 +681,9 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
           { $set: { category: existingCategory.category } }
         );
         excelUpdateCount = excelUpdateResult.modifiedCount;
-        console.log(`✅ Merged ${excelUpdateCount} Excel products from "${sourceCategoryName}" into existing category "${existingCategory.category}"`);
+        console.log(`âœ… Merged ${excelUpdateCount} Excel products from "${sourceCategoryName}" into existing category "${existingCategory.category}"`);
       } catch (excelError) {
-        console.log('ℹ️ No Excel products to update or Excel model not available');
+        console.log('â„¹ï¸ No Excel products to update or Excel model not available');
       }
       
       // Clear caches to ensure updates appear everywhere
@@ -706,7 +706,7 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
       { $set: { category: trimmedNewName } }
     );
     
-    console.log(`✅ Updated ${productUpdateResult.modifiedCount} products from "${sourceCategoryName}" to "${trimmedNewName}"`);
+    console.log(`âœ… Updated ${productUpdateResult.modifiedCount} products from "${sourceCategoryName}" to "${trimmedNewName}"`);
     
     // Update Excel products if they exist
     let excelUpdateCount = 0;
@@ -717,9 +717,9 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
         { $set: { category: trimmedNewName } }
       );
       excelUpdateCount = excelUpdateResult.modifiedCount;
-      console.log(`✅ Updated ${excelUpdateCount} Excel products from "${sourceCategoryName}" to "${trimmedNewName}"`);
+      console.log(`âœ… Updated ${excelUpdateCount} Excel products from "${sourceCategoryName}" to "${trimmedNewName}"`);
     } catch (excelError) {
-      console.log('ℹ️ No Excel products to update or Excel model not available');
+      console.log('â„¹ï¸ No Excel products to update or Excel model not available');
     }
     
     // Clear caches to ensure updates appear everywhere
@@ -735,7 +735,7 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
     });
     
   } catch (error) {
-    console.error('❌ Error renaming category:', error);
+    console.error('âŒ Error renaming category:', error);
     res.status(500).json({ 
       message: 'Error renaming category', 
       error: error.message,
@@ -750,7 +750,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
     const { categoryName } = req.params;
     const { force } = req.query;
     
-    console.log('🗑️ Smart category deletion for:', categoryName, force ? '(forced)' : '');
+    console.log('ðŸ—‘ï¸ Smart category deletion for:', categoryName, force ? '(forced)' : '');
     
     // Find the actual category name in the database (case-insensitive)
     const actualCategoryProduct = await Product.findOne({
@@ -760,7 +760,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
     let sourceCategoryName = categoryName;
     if (actualCategoryProduct) {
       sourceCategoryName = actualCategoryProduct.category;
-      console.log(`🔍 Found actual category name: "${sourceCategoryName}" (searched for: "${categoryName}")`);
+      console.log(`ðŸ” Found actual category name: "${sourceCategoryName}" (searched for: "${categoryName}")`);
     }
     
     // Find active/listed main products in this category
@@ -787,10 +787,10 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
       listedExcelProducts = allExcelProducts.filter(p => p.status === 'listed' && p.isConverted);
       
     } catch (excelError) {
-      console.log('ℹ️ No Excel products found or Excel model not available');
+      console.log('â„¹ï¸ No Excel products found or Excel model not available');
     }
     
-    console.log('📊 Category analysis:', {
+    console.log('ðŸ“Š Category analysis:', {
       activeMainProducts: activeProducts.length,
       totalMainProducts: allProducts.length,
       pendingExcelProducts: pendingExcelProducts.length,
@@ -800,7 +800,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
     // Smart deletion logic
     if (activeProducts.length === 0 && listedExcelProducts.length === 0) {
       // Category is empty of active/listed products - safe to delete
-      console.log('✅ Category is empty of active/listed products - proceeding with deletion');
+      console.log('âœ… Category is empty of active/listed products - proceeding with deletion');
       
       // Remove category from any remaining inactive main products
       const inactiveProducts = allProducts.filter(p => p.status !== 'active');
@@ -812,11 +812,11 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
           },
           { $unset: { category: "" } }
         );
-        console.log(`🗑️ Removed category from ${inactiveProducts.length} inactive main products`);
+        console.log(`ðŸ—‘ï¸ Removed category from ${inactiveProducts.length} inactive main products`);
       }
       
       // Leave pending Excel products untouched - they keep their category for future conversion
-      console.log(`ℹ️ Keeping category for ${pendingExcelProducts.length} pending Excel products`);
+      console.log(`â„¹ï¸ Keeping category for ${pendingExcelProducts.length} pending Excel products`);
       
       res.json({ 
         message: `Category "${sourceCategoryName}" deleted successfully. ${activeProducts.length} active products deleted, ${pendingExcelProducts.length} pending Excel products preserved.`,
@@ -828,7 +828,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
       
     } else if (force === 'true') {
       // Force deletion - delete everything including active products
-      console.log('⚠️ Force deletion - removing all products');
+      console.log('âš ï¸ Force deletion - removing all products');
       
       // Delete all active main products
       if (activeProducts.length > 0) {
@@ -836,7 +836,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
           category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') },
           status: 'active'
         });
-        console.log(`🗑️ Deleted ${activeProducts.length} active main products`);
+        console.log(`ðŸ—‘ï¸ Deleted ${activeProducts.length} active main products`);
       }
       
       // Remove category from inactive main products
@@ -849,7 +849,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
           },
           { $unset: { category: "" } }
         );
-        console.log(`🗑️ Removed category from ${inactiveProducts.length} inactive main products`);
+        console.log(`ðŸ—‘ï¸ Removed category from ${inactiveProducts.length} inactive main products`);
       }
       
       // Remove category from listed Excel products, leave pending ones
@@ -863,10 +863,10 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
           },
           { $unset: { category: "" } }
         );
-        console.log(`🗑️ Removed category from ${listedExcelProducts.length} listed Excel products`);
+        console.log(`ðŸ—‘ï¸ Removed category from ${listedExcelProducts.length} listed Excel products`);
       }
       
-      console.log(`ℹ️ Preserved ${pendingExcelProducts.length} pending Excel products`);
+      console.log(`â„¹ï¸ Preserved ${pendingExcelProducts.length} pending Excel products`);
       
       res.json({ 
         message: `Category "${sourceCategoryName}" force deleted. ${activeProducts.length} active products deleted, ${pendingExcelProducts.length} pending Excel products preserved.`,
@@ -879,8 +879,8 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
       
     } else {
       // Category has active products - cannot delete without force
-      const productList = activeProducts.slice(0, 5).map(p => `• ${p.name}`).join('\n');
-      const moreProducts = activeProducts.length > 5 ? `\n• ... and ${activeProducts.length - 5} more` : '';
+      const productList = activeProducts.slice(0, 5).map(p => `â€¢ ${p.name}`).join('\n');
+      const moreProducts = activeProducts.length > 5 ? `\nâ€¢ ... and ${activeProducts.length - 5} more` : '';
       
       return res.status(400).json({ 
         message: `Cannot delete category "${sourceCategoryName}" because it contains ${activeProducts.length} active product(s). Use force=true to delete anyway.`,
@@ -895,7 +895,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
     productCache.clear();
     
   } catch (error) {
-    console.error('❌ Error deleting category:', error);
+    console.error('âŒ Error deleting category:', error);
     res.status(500).json({ 
       message: 'Error deleting category', 
       error: error.message,
@@ -1329,7 +1329,7 @@ router.post('/:id/approval', authenticateAdmin, async (req, res) => {
     try {
       const excelProduct = await ExcelProduct.findOne({ mainProductId: id });
       if (excelProduct) {
-        console.log('🔄 Syncing Excel product status after approval:', excelProduct.name);
+        console.log('ðŸ”„ Syncing Excel product status after approval:', excelProduct.name);
         
         // Product is now approved and listed in Amazon's Choice
         await ExcelProduct.updateOne(
@@ -1343,10 +1343,10 @@ router.post('/:id/approval', authenticateAdmin, async (req, res) => {
           }
         );
         
-        console.log(`✅ Excel product status updated to: listed (Amazon's Choice)`);
+        console.log(`âœ… Excel product status updated to: listed (Amazon's Choice)`);
       }
     } catch (syncError) {
-      console.error('⚠️ Error syncing Excel product status:', syncError);
+      console.error('âš ï¸ Error syncing Excel product status:', syncError);
       // Don't fail the approval if sync fails
     }
     
@@ -1378,7 +1378,7 @@ router.post('/admin/clear-cache', authenticateAdmin, async (req, res) => {
       newTimestamp: cacheTimestamp
     });
   } catch (error) {
-    console.error('❌ Error clearing cache:', error);
+    console.error('âŒ Error clearing cache:', error);
     res.status(500).json({ message: 'Error clearing cache', error: error.message });
   }
 });
@@ -1407,7 +1407,7 @@ router.post('/admin/mark-amazons-choice', authenticateAdmin, async (req, res) =>
       matchedCount: result.matchedCount
     });
   } catch (error) {
-    console.error('❌ Error marking products as Amazon Choice:', error);
+    console.error('âŒ Error marking products as Amazon Choice:', error);
     res.status(500).json({ message: 'Error updating products', error: error.message });
   }
 });
@@ -1437,7 +1437,7 @@ router.post('/admin/mark-all-amazons-choice', authenticateAdmin, async (req, res
       matchedCount: result.matchedCount
     });
   } catch (error) {
-    console.error('❌ Error marking all products as Amazon Choice:', error);
+    console.error('âŒ Error marking all products as Amazon Choice:', error);
     res.status(500).json({ message: 'Error updating products', error: error.message });
   }
 });
@@ -1455,8 +1455,8 @@ router.post('/admin/bulk-update', authenticateAdmin, async (req, res) => {
       return res.status(400).json({ message: 'updateData is required' });
     }
     
-    console.log(`🔄 Bulk update request: ${productIds.length} products, mode: ${updateMode}`);
-    console.log('📝 Update data:', updateData);
+    console.log(`ðŸ”„ Bulk update request: ${productIds.length} products, mode: ${updateMode}`);
+    console.log('ðŸ“ Update data:', updateData);
     
     let successCount = 0;
     let failCount = 0;
@@ -1534,7 +1534,7 @@ router.post('/admin/bulk-update', authenticateAdmin, async (req, res) => {
       } catch (error) {
         failCount++;
         errors.push({ productId, error: error.message });
-        console.error(`❌ Error updating product ${productId}:`, error);
+        console.error(`âŒ Error updating product ${productId}:`, error);
       }
     }
     
@@ -1542,7 +1542,7 @@ router.post('/admin/bulk-update', authenticateAdmin, async (req, res) => {
     fastProductsCache = null;
     cacheTimestamp = Date.now();
     
-    console.log(`✅ Bulk update completed: ${successCount} success, ${failCount} failed`);
+    console.log(`âœ… Bulk update completed: ${successCount} success, ${failCount} failed`);
     
     res.json({
       message: `Bulk update completed: ${successCount} successful, ${failCount} failed`,
@@ -1552,7 +1552,7 @@ router.post('/admin/bulk-update', authenticateAdmin, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error in bulk update:', error);
+    console.error('âŒ Error in bulk update:', error);
     res.status(500).json({ message: 'Error performing bulk update', error: error.message });
   }
 });
@@ -1630,7 +1630,7 @@ router.get('/public/fast', mobileImageOptimization, optimizeProductImages, addRe
       }
       
     } catch (error) {
-      console.error('❌ Fast aggregation failed:', error);
+      console.error('âŒ Fast aggregation failed:', error);
       
       // Try simple query as fallback
       try {
@@ -1669,7 +1669,7 @@ router.get('/public/fast', mobileImageOptimization, optimizeProductImages, addRe
         .maxTimeMS(3000);
         
       } catch (fallbackError) {
-        console.error('❌ All queries failed, no products available');
+        console.error('âŒ All queries failed, no products available');
         fastProducts = []; // Return empty array instead of fake products
       }
     }
@@ -1688,7 +1688,7 @@ router.get('/public/fast', mobileImageOptimization, optimizeProductImages, addRe
     });
     
   } catch (error) {
-    console.error('❌ Fast API error:', error);
+    console.error('âŒ Fast API error:', error);
     res.status(500).json({ 
       products: [],
       error: 'Server error',
@@ -1826,14 +1826,14 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
       
       // Debug logging for ID searches (public route) - only in development
       if (process.env.NODE_ENV !== 'production' && search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
-        console.log('🔍 Public ID Search Debug:', {
+        console.log('ðŸ” Public ID Search Debug:', {
           searchTerm: search,
           isValidObjectId,
           route: 'public'
         });
       }
       
-      // Combine with existing query — use $and to preserve both status filter and search
+      // Combine with existing query â€” use $and to preserve both status filter and search
       query = {
         $and: [
           ...(query.$and || [{ $or: [{ status: 'active' }, { status: { $exists: false } }] }, { status: { $ne: 'inactive' } }]),
@@ -2005,7 +2005,7 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
         .lean();
       
     } catch (queryError) {
-      console.error('❌ Database query failed:', queryError.message);
+      console.error('âŒ Database query failed:', queryError.message);
       
       // Return empty result instead of fallback products
       return res.json({
@@ -2092,7 +2092,7 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
         count = products.length;
       }
     } catch (countError) {
-      console.error('❌ Count query timeout:', countError.message);
+      console.error('âŒ Count query timeout:', countError.message);
       count = products.length;
     }
 
@@ -2109,7 +2109,7 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
     });
     
   } catch (error) {
-    console.error('❌ Products API critical error:', error);
+    console.error('âŒ Products API critical error:', error);
     
     // Return empty result instead of emergency fallback
     res.status(500).json({ 
@@ -2372,7 +2372,7 @@ router.get('/admin/search-logs', authenticateAdmin, async (req, res) => {
   }
 });
 
-// ─── Site Visit Tracking ───────────────────────────────────────────────────
+// â”€â”€â”€ Site Visit Tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Public: log a site visit (called on app load)
 router.post('/public/site-visit', async (req, res) => {
@@ -2657,7 +2657,7 @@ router.get('/admin/fast', authenticateAdmin, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Fast admin API error:', error);
+    console.error('âŒ Fast admin API error:', error);
     res.status(500).json({ 
       products: [],
       error: 'Server error',
@@ -2759,7 +2759,7 @@ router.get('/', authenticateAdmin, async (req, res) => {
       
       // Debug logging for ID and ASIN searches - only in development
       if (process.env.NODE_ENV !== 'production' && search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
-        console.log('🔍 ID Search Debug:', {
+        console.log('ðŸ” ID Search Debug:', {
           searchTerm: search,
           isValidObjectId,
           queryStructure: JSON.stringify(searchQuery, null, 2)
@@ -2805,7 +2805,7 @@ router.get('/', authenticateAdmin, async (req, res) => {
         .lean(); // Use lean for better performance
       
     } catch (queryError) {
-      console.error('❌ MongoDB Query Error:', queryError);
+      console.error('âŒ MongoDB Query Error:', queryError);
       
       // Fallback for admin - return empty array with error message
       return res.status(200).json({
@@ -2864,7 +2864,7 @@ router.get('/', authenticateAdmin, async (req, res) => {
     try {
       adminCount = await Product.countDocuments(query).maxTimeMS(3000);
     } catch (countError) {
-      console.error('❌ Admin count query timeout:', countError);
+      console.error('âŒ Admin count query timeout:', countError);
       adminCount = adminProducts.length; // Use current page count as fallback
     }
 
@@ -2907,7 +2907,7 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
       
       // Keep full seller object for admin access
       product.sellerData = product.seller;
-      console.log('✅ Admin access - showing full seller info:', {
+      console.log('âœ… Admin access - showing full seller info:', {
         sellerId: product.seller._id,
         username: product.seller.username,
         verificationStatus: product.seller.verificationStatus
@@ -2938,7 +2938,7 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
       try {
         productData.features = JSON.parse(productData.features);
       } catch (parseError) {
-        console.warn('⚠️ Failed to parse features JSON, using empty array:', parseError.message);
+        console.warn('âš ï¸ Failed to parse features JSON, using empty array:', parseError.message);
         productData.features = [];
       }
     } else if (!productData.features) {
@@ -2950,7 +2950,7 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
       productData.category = normalizeCategoryName(productData.category);
     }
     
-    console.log('📦 Creating product with data:', {
+    console.log('ðŸ“¦ Creating product with data:', {
       name: productData.name,
       asin: productData.asin,
       sku: productData.sku,
@@ -2964,7 +2964,7 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
     
     // First, upload new files to Cloudinary (user-uploaded files take priority / come first)
     if (req.files && req.files.length > 0 && isCloudinaryConfigured()) {
-      console.log(`📤 Uploading ${req.files.length} images to Cloudinary...`);
+      console.log(`ðŸ“¤ Uploading ${req.files.length} images to Cloudinary...`);
       
       for (let i = 0; i < req.files.length; i++) {
         const file = req.files[i];
@@ -2978,9 +2978,9 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
           const cloudinaryResult = await uploadToCloudinary(file.path, publicId, 'products');
           imageUrls.push(cloudinaryResult.secure_url);
           
-          console.log(`✅ Uploaded image ${i + 1} to Cloudinary: ${cloudinaryResult.secure_url}`);
+          console.log(`âœ… Uploaded image ${i + 1} to Cloudinary: ${cloudinaryResult.secure_url}`);
         } catch (uploadError) {
-          console.error(`❌ Failed to upload image ${i + 1} to Cloudinary:`, uploadError.message);
+          console.error(`âŒ Failed to upload image ${i + 1} to Cloudinary:`, uploadError.message);
         }
       }
     }
@@ -2990,9 +2990,9 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
       try {
         const fetchedImageUrls = JSON.parse(productData.fetchedImages);
         imageUrls.push(...fetchedImageUrls);
-        console.log(`📷 Added ${fetchedImageUrls.length} fetched images from ASIN lookup`);
+        console.log(`ðŸ“· Added ${fetchedImageUrls.length} fetched images from ASIN lookup`);
       } catch (parseError) {
-        console.warn('⚠️ Failed to parse fetched images:', parseError.message);
+        console.warn('âš ï¸ Failed to parse fetched images:', parseError.message);
       }
     }
     
@@ -3032,7 +3032,7 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
     const product = new Product(productData);
     await product.save();
 
-    console.log('✅ Product created successfully:', {
+    console.log('âœ… Product created successfully:', {
       id: product._id,
       name: product.name,
       price: product.price,
@@ -3048,14 +3048,14 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
     // Clear cache when new product is created
     fastProductsCache = null;
     cacheTimestamp = Date.now();
-    console.log('🗑️ Cache cleared after product creation, new timestamp:', cacheTimestamp);
-    console.log('💰 New product created with currency:', product.currency);
-    console.log('🏷️ Product category normalized to:', product.category);
+    console.log('ðŸ—‘ï¸ Cache cleared after product creation, new timestamp:', cacheTimestamp);
+    console.log('ðŸ’° New product created with currency:', product.currency);
+    console.log('ðŸ·ï¸ Product category normalized to:', product.category);
     
     res.status(201).json(product);
     
   } catch (error) {
-    console.error('❌ Error creating product:', error);
+    console.error('âŒ Error creating product:', error);
     res.status(400).json({ message: 'Error creating product', error: error.message });
   } finally {
     // Clean up temporary files
@@ -3125,7 +3125,7 @@ router.get('/admin/categories-with-profit', authenticateAdmin, async (req, res) 
     });
     
   } catch (error) {
-    console.error('❌ Error fetching categories with profit data:', error);
+    console.error('âŒ Error fetching categories with profit data:', error);
     res.status(500).json({ 
       message: 'Error fetching categories', 
       error: error.message,
@@ -3162,7 +3162,7 @@ router.get('/admin/search-by-asin/:asin', authenticateAdmin, async (req, res) =>
     });
 
   } catch (error) {
-    console.error('❌ Error searching products by ASIN:', error);
+    console.error('âŒ Error searching products by ASIN:', error);
     res.status(500).json({
       success: false,
       message: 'Error searching products by ASIN',
@@ -3208,7 +3208,7 @@ router.get('/admin/category/:category/with-profit', authenticateAdmin, async (re
       .sort({ category: 1, updatedAt: -1 }) // Sort by category first, then by update time
       .lean();
     
-    console.log(`✅ Found ${products.length} products with profit data in category: ${category} (exactMatch: ${exactMatch})`);
+    console.log(`âœ… Found ${products.length} products with profit data in category: ${category} (exactMatch: ${exactMatch})`);
     
     // Group products by category for better organization
     const productsByCategory = products.reduce((acc, product) => {
@@ -3230,7 +3230,7 @@ router.get('/admin/category/:category/with-profit', authenticateAdmin, async (re
     });
     
   } catch (error) {
-    console.error('❌ Error fetching category products with profit data:', error);
+    console.error('âŒ Error fetching category products with profit data:', error);
     res.status(500).json({ 
       message: 'Error fetching products', 
       error: error.message,
@@ -3241,21 +3241,21 @@ router.get('/admin/category/:category/with-profit', authenticateAdmin, async (re
 
 // Test route to verify routing is working
 router.get('/test-route', (req, res) => {
-  console.log('🧪 Test route hit');
+  console.log('ðŸ§ª Test route hit');
   res.json({ message: 'Test route working', timestamp: new Date().toISOString() });
 });
 
 // Move selected products to a new category (admin only) - MUST be before /:id route
 router.put('/move-selected', authenticateAdmin, async (req, res) => {
   try {
-    console.log('🔄 Move-selected endpoint hit');
-    console.log('🔄 Request body:', req.body);
-    console.log('🔄 Admin user:', req.admin?.username || req.admin?.email);
+    console.log('ðŸ”„ Move-selected endpoint hit');
+    console.log('ðŸ”„ Request body:', req.body);
+    console.log('ðŸ”„ Admin user:', req.admin?.username || req.admin?.email);
     
     const { productIds, newCategory } = req.body;
     
     if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
-      console.log('❌ Invalid productIds:', productIds);
+      console.log('âŒ Invalid productIds:', productIds);
       return res.status(400).json({ 
         message: 'Product IDs array is required',
         success: false
@@ -3263,7 +3263,7 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
     }
     
     if (!newCategory || !newCategory.trim()) {
-      console.log('❌ Invalid newCategory:', newCategory);
+      console.log('âŒ Invalid newCategory:', newCategory);
       return res.status(400).json({ 
         message: 'New category is required',
         success: false
@@ -3272,8 +3272,8 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
     
     const trimmedNewCategory = newCategory.trim();
     
-    console.log(`🔄 Admin moving ${productIds.length} selected products to "${trimmedNewCategory}"`);
-    console.log('🔄 Product IDs to move:', productIds);
+    console.log(`ðŸ”„ Admin moving ${productIds.length} selected products to "${trimmedNewCategory}"`);
+    console.log('ðŸ”„ Product IDs to move:', productIds);
     
     // Validate that all product IDs exist (include pending products for approval page)
     const productsToMove = await Product.find({ 
@@ -3287,10 +3287,10 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
       ]
     });
     
-    console.log(`🔄 Found ${productsToMove.length} products to move:`, productsToMove.map(p => ({ id: p._id, name: p.name, category: p.category })));
+    console.log(`ðŸ”„ Found ${productsToMove.length} products to move:`, productsToMove.map(p => ({ id: p._id, name: p.name, category: p.category })));
     
     if (productsToMove.length === 0) {
-      console.log('❌ No products found with provided IDs');
+      console.log('âŒ No products found with provided IDs');
       return res.status(404).json({ 
         message: 'No products found with the provided IDs. Products may not exist or may have been deleted.',
         updatedCount: 0,
@@ -3300,10 +3300,10 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
     }
     
     if (productsToMove.length !== productIds.length) {
-      console.log(`⚠️ Warning: ${productIds.length - productsToMove.length} products were not found or not active`);
+      console.log(`âš ï¸ Warning: ${productIds.length - productsToMove.length} products were not found or not active`);
     }
     
-    console.log(`🔄 Moving ${productsToMove.length} products (including pending) to category: ${trimmedNewCategory}`);
+    console.log(`ðŸ”„ Moving ${productsToMove.length} products (including pending) to category: ${trimmedNewCategory}`);
     
     // Update the selected products (include pending products)
     const moveResult = await Product.updateMany(
@@ -3313,15 +3313,15 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
       { $set: { category: trimmedNewCategory } }
     );
     
-    console.log(`✅ Update result:`, moveResult);
-    console.log(`✅ Modified count: ${moveResult.modifiedCount}`);
+    console.log(`âœ… Update result:`, moveResult);
+    console.log(`âœ… Modified count: ${moveResult.modifiedCount}`);
     
     // Verify the update worked
     const verifyProducts = await Product.find({ 
       _id: { $in: productsToMove.map(p => p._id) }
     }).select('_id name category');
     
-    console.log('🔍 Verification - products after update:', verifyProducts.map(p => ({ id: p._id, name: p.name, category: p.category })));
+    console.log('ðŸ” Verification - products after update:', verifyProducts.map(p => ({ id: p._id, name: p.name, category: p.category })));
     
     // Update related Excel products (if ExcelProduct model exists)
     let excelUpdatedCount = 0;
@@ -3341,11 +3341,11 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
       }
       
       if (excelUpdatedCount > 0) {
-        console.log(`📊 Updated ${excelUpdatedCount} Excel products to category: ${trimmedNewCategory}`);
+        console.log(`ðŸ“Š Updated ${excelUpdatedCount} Excel products to category: ${trimmedNewCategory}`);
       }
       
     } catch (excelError) {
-      console.log('ℹ️ No Excel products to update or ExcelProduct model not found');
+      console.log('â„¹ï¸ No Excel products to update or ExcelProduct model not found');
     }
     
     // Clear all caches to ensure updates appear everywhere
@@ -3360,7 +3360,7 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
         global.categoriesCache = null;
       }
     } catch (cacheError) {
-      console.log('ℹ️ Additional cache clearing completed');
+      console.log('â„¹ï¸ Additional cache clearing completed');
     }
     
     const responseData = {
@@ -3373,12 +3373,12 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
       success: true
     };
     
-    console.log('🔄 Sending response:', responseData);
+    console.log('ðŸ”„ Sending response:', responseData);
     
     res.json(responseData);
     
   } catch (error) {
-    console.error('❌ Error moving selected products:', error);
+    console.error('âŒ Error moving selected products:', error);
     res.status(500).json({ 
       message: 'Error moving selected products', 
       error: error.message,
@@ -3393,21 +3393,21 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
   try {
     // Validate product ID format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      console.log('❌ Invalid product ID format:', req.params.id);
+      console.log('âŒ Invalid product ID format:', req.params.id);
       return res.status(400).json({ message: 'Invalid product ID format' });
     }
     
     // Get existing product
     const existingProduct = await Product.findById(req.params.id);
     if (!existingProduct) {
-      console.log('❌ Product not found:', req.params.id);
+      console.log('âŒ Product not found:', req.params.id);
       return res.status(404).json({ message: 'Product not found' });
     }
     
     // Handle image uploads to Cloudinary
     const newImageUrls = [];
     if (req.files && req.files.length > 0 && isCloudinaryConfigured()) {
-      console.log(`📤 Uploading ${req.files.length} new images to Cloudinary...`);
+      console.log(`ðŸ“¤ Uploading ${req.files.length} new images to Cloudinary...`);
 
       // Count how many existing images are being preserved so we offset the public_id index
       let existingCount = 0;
@@ -3428,9 +3428,9 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
           const cloudinaryResult = await uploadToCloudinary(file.path, publicId, 'products');
           newImageUrls.push(cloudinaryResult.secure_url);
           
-          console.log(`✅ Uploaded image ${i + 1} to Cloudinary: ${cloudinaryResult.secure_url}`);
+          console.log(`âœ… Uploaded image ${i + 1} to Cloudinary: ${cloudinaryResult.secure_url}`);
         } catch (uploadError) {
-          console.error(`❌ Failed to upload image ${i + 1} to Cloudinary:`, uploadError.message);
+          console.error(`âŒ Failed to upload image ${i + 1} to Cloudinary:`, uploadError.message);
           // Continue with other images even if one fails
         }
       }
@@ -3471,7 +3471,7 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       updateData.variations = cleanedVariations;
     }
     
-    console.log('📝 Product update request:', {
+    console.log('ðŸ“ Product update request:', {
       productId: req.params.id,
       requestBody: req.body,
       priceProvided: req.body.price !== undefined,
@@ -3488,7 +3488,7 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       try {
         updateData.features = JSON.parse(updateData.features);
       } catch (parseError) {
-        console.warn('⚠️ Failed to parse features JSON, keeping original:', parseError.message);
+        console.warn('âš ï¸ Failed to parse features JSON, keeping original:', parseError.message);
         // Keep existing features if parsing fails
         delete updateData.features;
       }
@@ -3499,7 +3499,7 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       try {
         updateData.profitEvaluation = JSON.parse(updateData.profitEvaluation);
       } catch (parseError) {
-        console.warn('⚠️ Failed to parse profitEvaluation JSON, keeping original:', parseError.message);
+        console.warn('âš ï¸ Failed to parse profitEvaluation JSON, keeping original:', parseError.message);
         // Keep existing profitEvaluation if parsing fails
         delete updateData.profitEvaluation;
       }
@@ -3527,16 +3527,16 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       try {
         const existingImageUrls = JSON.parse(req.body.existingImages);
         finalImageUrls.push(...existingImageUrls);
-        console.log(`📷 Preserved ${existingImageUrls.length} existing images`);
+        console.log(`ðŸ“· Preserved ${existingImageUrls.length} existing images`);
       } catch (parseError) {
-        console.warn('⚠️ Failed to parse existing images JSON:', parseError.message);
+        console.warn('âš ï¸ Failed to parse existing images JSON:', parseError.message);
       }
     }
     
     // Then, add any new images uploaded to Cloudinary
     if (newImageUrls.length > 0) {
       finalImageUrls.push(...newImageUrls);
-      console.log(`📤 Added ${newImageUrls.length} new Cloudinary images`);
+      console.log(`ðŸ“¤ Added ${newImageUrls.length} new Cloudinary images`);
     }
     
     // Handle images - prioritize combined approach for FormData, fallback to direct array for JSON
@@ -3545,23 +3545,23 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       updateData.images = finalImageUrls.filter(url => url && typeof url === 'string' && url.trim() !== '');
       if (updateData.images.length > 0) {
         updateData.image = updateData.images[0]; // Set first image as main image
-        console.log(`✅ Updated images via FormData. Total images: ${updateData.images.length}`);
-        console.log(`📸 Final image URLs:`, updateData.images);
+        console.log(`âœ… Updated images via FormData. Total images: ${updateData.images.length}`);
+        console.log(`ðŸ“¸ Final image URLs:`, updateData.images);
       }
     } else if (req.body.images && Array.isArray(req.body.images)) {
       // JSON approach - Frontend sent Cloudinary URLs directly (from Edit Product page without new uploads)
       updateData.images = req.body.images.filter(url => url && typeof url === 'string' && url.trim() !== '');
       if (updateData.images.length > 0) {
         updateData.image = updateData.images[0]; // Set first image as main image
-        console.log(`✅ Updated images from request body. Total images: ${updateData.images.length}`);
-        console.log(`📸 Image URLs:`, updateData.images);
+        console.log(`âœ… Updated images from request body. Total images: ${updateData.images.length}`);
+        console.log(`ðŸ“¸ Image URLs:`, updateData.images);
       }
     }
     
     // Normalize category to prevent duplicates
     if (updateData.category) {
       updateData.category = normalizeCategoryName(updateData.category);
-      console.log('🏷️ Product category normalized to:', updateData.category);
+      console.log('ðŸ·ï¸ Product category normalized to:', updateData.category);
     }
     
     const product = await Product.findByIdAndUpdate(
@@ -3570,7 +3570,7 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       { new: true, runValidators: true }
     );
 
-    console.log('✅ Product updated successfully:', {
+    console.log('âœ… Product updated successfully:', {
       id: product._id,
       name: product.name,
       price: product.price,
@@ -3586,7 +3586,7 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
     res.json(product);
     
   } catch (error) {
-    console.error('❌ Error updating product:', error);
+    console.error('âŒ Error updating product:', error);
     
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => err.message);
@@ -3632,7 +3632,7 @@ router.patch('/:id/platform-units', authenticateAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Invalid platform units value' });
     }
     
-    console.log('📝 Updating platform units for product:', req.params.id, 'to:', platformUnits);
+    console.log('ðŸ“ Updating platform units for product:', req.params.id, 'to:', platformUnits);
     
     const product = await Product.findByIdAndUpdate(
       req.params.id,
@@ -3641,22 +3641,22 @@ router.patch('/:id/platform-units', authenticateAdmin, async (req, res) => {
     );
 
     if (!product) {
-      console.log('❌ Product not found:', req.params.id);
+      console.log('âŒ Product not found:', req.params.id);
       return res.status(404).json({ message: 'Product not found' });
     }
 
     // Clear cache when platform units are updated
     fastProductsCache = null;
     cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
-    console.log('🗑️ Cache cleared after platform units update, new timestamp:', cacheTimestamp);
+    console.log('ðŸ—‘ï¸ Cache cleared after platform units update, new timestamp:', cacheTimestamp);
 
-    console.log('✅ Platform units updated successfully:', product.name, 'units:', product.platformUnits);
+    console.log('âœ… Platform units updated successfully:', product.name, 'units:', product.platformUnits);
     res.json({ 
       message: 'Platform units updated successfully', 
       platformUnits: product.platformUnits 
     });
   } catch (error) {
-    console.error('❌ Error updating platform units:', error);
+    console.error('âŒ Error updating platform units:', error);
     res.status(400).json({ message: 'Error updating platform units', error: error.message });
   }
 });
@@ -3673,14 +3673,14 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     try {
       await syncExcelProductsOnDelete(req.params.id);
     } catch (excelUpdateError) {
-      console.error('⚠️ Excel product sync failed, but main product was deleted:', excelUpdateError);
+      console.error('âš ï¸ Excel product sync failed, but main product was deleted:', excelUpdateError);
       // Don't fail the main deletion if Excel update fails
     }
 
     // Clear cache when product is deleted
     fastProductsCache = null;
     cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
-    console.log('🗑️ Cache cleared after product deletion, new timestamp:', cacheTimestamp);
+    console.log('ðŸ—‘ï¸ Cache cleared after product deletion, new timestamp:', cacheTimestamp);
 
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
@@ -3888,7 +3888,7 @@ router.post('/seller/add', authenticateSeller, async (req, res) => {
     const product = new Product(productData);
     await product.save();
 
-    console.log('✅ New seller product created with cached seller info:', {
+    console.log('âœ… New seller product created with cached seller info:', {
       productId: product._id,
       sellerId: seller._id,
       sellerUsername: seller.username,
@@ -3900,7 +3900,7 @@ router.post('/seller/add', authenticateSeller, async (req, res) => {
       product
     });
   } catch (error) {
-    console.error('❌ Error creating seller product:', error);
+    console.error('âŒ Error creating seller product:', error);
     res.status(400).json({ message: 'Error creating product', error: error.message });
   }
 });
@@ -3961,7 +3961,7 @@ router.put('/seller/:id', authenticateSeller, async (req, res) => {
     product.sellerInfo = enhancedSellerInfo; // Always cache fresh seller info
     await product.save();
 
-    console.log('✅ Seller product updated with cached seller info:', {
+    console.log('âœ… Seller product updated with cached seller info:', {
       productId: product._id,
       sellerId: seller._id,
       sellerUsername: seller.username,
@@ -3970,7 +3970,7 @@ router.put('/seller/:id', authenticateSeller, async (req, res) => {
 
     res.json({ message: 'Product updated successfully', product });
   } catch (error) {
-    console.error('❌ Error updating seller product:', error);
+    console.error('âŒ Error updating seller product:', error);
     res.status(400).json({ message: 'Error updating product', error: error.message });
   }
 });
@@ -4431,7 +4431,7 @@ router.get('/admin/all-seller-listings', authenticateAdmin, async (req, res) => 
       });
     }
   } catch (error) {
-    console.error('❌ Error fetching all seller listings:', error);
+    console.error('âŒ Error fetching all seller listings:', error);
     
     // Better error handling for timeout errors
     if (error.message.includes('timeout') || error.name === 'MongoNetworkTimeoutError') {
@@ -4464,12 +4464,12 @@ router.put('/admin/approve/:id', authenticateAdmin, async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    console.log(`✅ Product approved and added to Amazon's Choice: ${product.name}`);
+    console.log(`âœ… Product approved and added to Amazon's Choice: ${product.name}`);
 
     // Clear cache when product approval status changes
     fastProductsCache = null;
     cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
-    console.log('🗑️ Cache cleared after product approval, new timestamp:', cacheTimestamp);
+    console.log('ðŸ—‘ï¸ Cache cleared after product approval, new timestamp:', cacheTimestamp);
 
     res.json({ message: 'Product approved and added to Amazon\'s Choice successfully', product });
   } catch (error) {
@@ -4583,7 +4583,7 @@ router.put('/seller/update-inventory/:id', authenticateSeller, async (req, res) 
     const { price, stock, sellerPrice } = req.body;
     const productId = req.params.id;
 
-    console.log('🔄 Seller updating inventory:', {
+    console.log('ðŸ”„ Seller updating inventory:', {
       productId,
       sellerId: req.seller._id,
       price,
@@ -4642,7 +4642,7 @@ router.put('/seller/update-inventory/:id', authenticateSeller, async (req, res) 
       { new: true }
     );
 
-    console.log('✅ Product inventory updated:', {
+    console.log('âœ… Product inventory updated:', {
       productId,
       sellerId: req.seller._id,
       updatedFields: updateData
@@ -4660,7 +4660,7 @@ router.put('/seller/update-inventory/:id', authenticateSeller, async (req, res) 
     });
 
   } catch (error) {
-    console.error('❌ Error updating product inventory:', error);
+    console.error('âŒ Error updating product inventory:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -4670,10 +4670,12 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
   try {
     const { page = 1, limit = 50, status, marketplace, search, category } = req.query;
     const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
+    const limitNum = Math.min(parseInt(limit), 100); // cap at 100
     const skip = (pageNum - 1) * limitNum;
 
-    // Build search filter
+    const sellerId = req.seller._id;
+
+    // Build filters
     const searchFilter = search ? {
       $or: [
         { name: { $regex: search, $options: 'i' } },
@@ -4681,104 +4683,49 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
         { sku: { $regex: search, $options: 'i' } }
       ]
     } : {};
-
-    // Build category filter
     const categoryFilter = category ? { category: { $regex: category, $options: 'i' } } : {};
-    
-    // Build query for products — only show products where seller is in the sellers array
-    // (approved listings), not admin products where seller is the primary seller field
-    const productQuery = {
-      'sellers.sellerId': req.seller._id,
-      ...(status && status !== 'pending' && { approvalStatus: status }),
-      // When no status filter or 'all', still only show approved products (not pending admin approval)
-      ...(!status || status === 'all' ? { approvalStatus: 'approved' } : {}),
+
+    const baseQuery = {
+      'sellers.sellerId': sellerId,
+      approvalStatus: 'approved',
       ...(marketplace && { marketplace }),
       ...searchFilter,
       ...categoryFilter
     };
-    
-    // Get seller info first
-    const seller = await Seller.findById(req.seller._id)
-      .select('username email whatsappNo city country verificationStatus productListingRequests')
-      .lean()
-      .maxTimeMS(10000);
-    
-    // Filter listing requests based on status
-    let requestsToInclude = [];
-    if (seller?.productListingRequests) {
-      if (status === 'pending') {
-        requestsToInclude = seller.productListingRequests.filter(r => r.status === 'pending_approval');
-      } else if (status === 'rejected') {
-        requestsToInclude = seller.productListingRequests.filter(r => r.status === 'rejected');
-      } else if (status === 'approved') {
-        requestsToInclude = [];
-      } else {
-        // 'all' - include pending and rejected requests
-        requestsToInclude = seller.productListingRequests.filter(r => 
-          r.status === 'pending_approval' || r.status === 'rejected'
-        );
-      }
-    }
-    
-    // Count totals for stats (before pagination) — only seller-listed products
-    const [totalProducts, totalPending, totalApproved, totalRejected] = await Promise.all([
-      Product.countDocuments({
-        'sellers.sellerId': req.seller._id
-      }).maxTimeMS(5000),
-      Product.countDocuments({
-        'sellers.sellerId': req.seller._id,
-        approvalStatus: 'pending'
-      }).maxTimeMS(5000),
-      Product.countDocuments({
-        'sellers.sellerId': req.seller._id,
-        approvalStatus: 'approved'
-      }).maxTimeMS(5000),
-      Product.countDocuments({
-        'sellers.sellerId': req.seller._id,
-        approvalStatus: 'rejected'
-      }).maxTimeMS(5000)
+
+    // Run seller fetch + counts + products all in parallel
+    const [seller, totalApproved, products] = await Promise.all([
+      Seller.findById(sellerId)
+        .select('username email whatsappNo city country verificationStatus productListingRequests')
+        .lean()
+        .maxTimeMS(8000),
+      Product.countDocuments(baseQuery).maxTimeMS(5000),
+      Product.find(baseQuery)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images asin sku sellers shipping')
+        .lean()
+        .maxTimeMS(15000)
     ]);
-    
-    // Add request counts to totals
-    const pendingRequests = seller?.productListingRequests?.filter(r => r.status === 'pending_approval').length || 0;
-    const rejectedRequests = seller?.productListingRequests?.filter(r => r.status === 'rejected').length || 0;
-    
+
+    // Listing requests from seller doc (no extra DB call)
+    const allRequests = seller?.productListingRequests || [];
+    const pendingRequests = allRequests.filter(r => r.status === 'pending_approval');
+    const rejectedRequests = allRequests.filter(r => r.status === 'rejected');
+
     const counts = {
-      total: totalProducts + pendingRequests + rejectedRequests,
-      pending: totalPending + pendingRequests,
+      total: totalApproved + pendingRequests.length + rejectedRequests.length,
+      pending: pendingRequests.length,
       approved: totalApproved,
-      rejected: totalRejected + rejectedRequests
+      rejected: rejectedRequests.length
     };
-    
-    // Calculate total items for current filter
-    let totalItemsForFilter = totalProducts;
-    if (status === 'pending') {
-      totalItemsForFilter = totalPending + pendingRequests;
-    } else if (status === 'approved') {
-      totalItemsForFilter = totalApproved;
-    } else if (status === 'rejected') {
-      totalItemsForFilter = totalRejected + rejectedRequests;
-    } else {
-      // 'all'
-      totalItemsForFilter = totalProducts + pendingRequests + rejectedRequests;
-    }
-    
-    // Combine products and requests, then paginate
-    let allItems = [];
-    
-    // Get products from database
-    const products = await Product.find(productQuery)
-      .sort({ createdAt: -1 })
-      .select('name price stock category marketplace currency approvalStatus status isAmazonsChoice createdAt images asin sku sellers seller shipping')
-      .lean()
-      .maxTimeMS(15000);
-    
-    // Process products (add seller info)
+
+    // Process products â€” attach seller-specific info
     const processedProducts = products.map(product => {
       const sellerEntry = product.sellers?.find(
-        s => s.sellerId.toString() === req.seller._id.toString()
+        s => s.sellerId.toString() === sellerId.toString()
       );
-      
       return {
         ...product,
         sellerInfo: {
@@ -4797,75 +4744,77 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
         sellerMoq: sellerEntry?.moq || 1
       };
     });
-    
-    // Fetch admin products for requests
+
+    // Handle pending/rejected listing requests only when that tab is active
     let transformedRequests = [];
-    if (requestsToInclude.length > 0) {
+    const requestsToInclude = status === 'pending' ? pendingRequests
+      : status === 'rejected' ? rejectedRequests
+      : status === 'approved' ? []
+      : [...pendingRequests, ...rejectedRequests]; // 'all'
+
+    if (requestsToInclude.length > 0 && status !== 'approved') {
       const productIds = requestsToInclude.map(r => r.productId).filter(Boolean);
       const adminProducts = await Product.find({ _id: { $in: productIds } })
         .select('name category marketplace images asin')
         .lean()
-        .maxTimeMS(10000);
-      
+        .maxTimeMS(8000);
+
       const adminProductMap = {};
-      adminProducts.forEach(p => {
-        adminProductMap[p._id.toString()] = p;
-      });
-      
-      // Transform requests
-      transformedRequests = requestsToInclude
-        .map(request => {
-          const adminProduct = adminProductMap[request.productId?.toString()];
-          if (!adminProduct) return null;
-          
-          return {
-            _id: `request_${request._id}`,
-            name: request.productName || adminProduct.name,
-            price: request.sellerPrice,
-            shipping: request.sellerShipping || 0,
-            stock: 0,
-            category: adminProduct.category,
-            marketplace: adminProduct.marketplace || 'UK',
-            currency: 'GBP',
-            approvalStatus: request.status === 'pending_approval' ? 'pending' : 'rejected',
-            status: 'inactive',
-            isAmazonsChoice: false,
-            createdAt: request.submittedAt,
-            images: adminProduct.images,
-            asin: adminProduct.asin,
-            isListingRequest: true,
-            originalRequestId: request._id,
-            rejectionReason: request.rejectionReason,
-            rejectedAt: request.rejectedAt,
-            sellerMoq: request.moq || 1,
-            sellerInfo: {
-              username: seller.username,
-              _id: seller._id
-            }
-          };
-        })
-        .filter(Boolean);
+      adminProducts.forEach(p => { adminProductMap[p._id.toString()] = p; });
+
+      transformedRequests = requestsToInclude.map(request => {
+        const adminProduct = adminProductMap[request.productId?.toString()];
+        if (!adminProduct) return null;
+        return {
+          _id: `request_${request._id}`,
+          name: request.productName || adminProduct.name,
+          price: request.sellerPrice,
+          shipping: request.sellerShipping || 0,
+          stock: 0,
+          category: adminProduct.category,
+          marketplace: adminProduct.marketplace || 'UK',
+          currency: 'GBP',
+          approvalStatus: request.status === 'pending_approval' ? 'pending' : 'rejected',
+          status: 'inactive',
+          isAmazonsChoice: false,
+          createdAt: request.submittedAt,
+          images: adminProduct.images,
+          asin: adminProduct.asin,
+          isListingRequest: true,
+          originalRequestId: request._id,
+          rejectionReason: request.rejectionReason,
+          rejectedAt: request.rejectedAt,
+          sellerMoq: request.moq || 1,
+          sellerInfo: { username: seller.username, _id: seller._id }
+        };
+      }).filter(Boolean);
     }
-    
-    // Combine and sort by date
-    allItems = [...processedProducts, ...transformedRequests].sort((a, b) => 
-      new Date(b.createdAt) - new Date(a.createdAt)
-    );
-    
-    // Apply pagination AFTER combining
-    const paginatedItems = allItems.slice(skip, skip + limitNum);
-    
+
+    // For non-approved tabs, combine and paginate in memory (small sets)
+    let finalProducts = processedProducts;
+    let totalPages = Math.ceil(totalApproved / limitNum);
+
+    if (status !== 'approved' && transformedRequests.length > 0) {
+      const combined = [...processedProducts, ...transformedRequests]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const totalItems = status === 'pending' ? pendingRequests.length
+        : status === 'rejected' ? rejectedRequests.length
+        : counts.total;
+      finalProducts = combined.slice(0, limitNum);
+      totalPages = Math.ceil(totalItems / limitNum);
+    }
+
     res.json({
-      products: paginatedItems,
+      products: finalProducts,
       counts,
-      total: totalItemsForFilter,
+      total: totalApproved,
       page: pageNum,
-      totalPages: Math.ceil(totalItemsForFilter / limitNum)
+      totalPages
     });
   } catch (error) {
-    console.error('❌ Error fetching seller listed products:', error);
-    res.status(500).json({ 
-      message: 'Server error', 
+    console.error('âŒ Error fetching seller listed products:', error);
+    res.status(500).json({
+      message: 'Server error',
       error: error.message,
       products: [],
       counts: { total: 0, pending: 0, approved: 0, rejected: 0 }
@@ -4877,7 +4826,7 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
 // Use /sellers/request-admin-product-listing instead
 router.post('/seller/list-admin-product', authenticateSeller, async (req, res) => {
   try {
-    console.log('⚠️ DEPRECATED: Direct listing attempt blocked via products route - admin approval required');
+    console.log('âš ï¸ DEPRECATED: Direct listing attempt blocked via products route - admin approval required');
     
     return res.status(403).json({
       success: false,
@@ -4914,1216 +4863,9 @@ router.put('/admin/reject/:id', authenticateAdmin, async (req, res) => {
     // Clear cache when product is rejected
     fastProductsCache = null;
     cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
-    console.log('🗑️ Cache cleared after product rejection, new timestamp:', cacheTimestamp);
+    console.log('ðŸ—‘ï¸ Cache cleared after product rejection, new timestamp:', cacheTimestamp);
 
     res.json({ message: 'Product rejected', product });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Create sample admin products (for testing)
-router.post('/admin/create-samples', async (req, res) => {
-  try {
-    const sampleProducts = [
-      {
-        name: 'Wireless Bluetooth Headphones',
-        description: 'High-quality wireless headphones with noise cancellation',
-        price: 2500,
-        originalPrice: 3000,
-        discount: 17,
-        category: 'electronics',
-        brand: 'TechPro',
-        images: ['https://via.placeholder.com/300x300?text=Headphones'],
-        rating: 4.5,
-        reviews: 150,
-        stock: 50,
-        isAdminProduct: true,
-        isAmazonsChoice: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Smart Watch Series 5',
-        description: 'Advanced smartwatch with health monitoring features',
-        price: 8000,
-        originalPrice: 10000,
-        discount: 20,
-        category: 'electronics',
-        brand: 'SmartTech',
-        images: ['https://via.placeholder.com/300x300?text=SmartWatch'],
-        rating: 4.7,
-        reviews: 200,
-        stock: 30,
-        isAdminProduct: true,
-        isAmazonsChoice: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'LED Desk Lamp',
-        description: 'Adjustable LED desk lamp with USB charging port',
-        price: 1500,
-        originalPrice: 2000,
-        discount: 25,
-        category: 'home',
-        brand: 'LightPro',
-        images: ['https://via.placeholder.com/300x300?text=DeskLamp'],
-        rating: 4.3,
-        reviews: 80,
-        stock: 100,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      }
-    ];
-
-    // Check if products already exist
-    const existingCount = await Product.countDocuments({ isAdminProduct: true });
-    if (existingCount > 0) {
-      return res.json({ message: 'Sample products already exist', count: existingCount });
-    }
-
-    const createdProducts = await Product.insertMany(sampleProducts);
-    res.json({ 
-      message: 'Sample admin products created successfully', 
-      count: createdProducts.length,
-      products: createdProducts
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Debug route to check admin products
-router.get('/admin/count', async (req, res) => {
-  try {
-    const count = await Product.countDocuments({ isAdminProduct: true });
-    const products = await Product.find({ isAdminProduct: true }).limit(5);
-    
-    res.json({ 
-      message: 'Admin products count',
-      count: count,
-      sampleProducts: products.map(p => ({ name: p.name, category: p.category, price: p.price }))
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Add 30 more diverse products
-router.post('/admin/add-diverse-products', async (req, res) => {
-  try {
-    const diverseProducts = [
-      // Electronics - 10 products
-      {
-        name: 'Wireless Gaming Headset RGB',
-        description: 'Professional gaming headset with 7.1 surround sound, RGB lighting, and noise-canceling microphone.',
-        price: 4500,
-        originalPrice: 6500,
-        discount: 31,
-        category: 'Electronics',
-        subcategory: 'Gaming',
-        brand: 'GameMax',
-        images: ['https://images.unsplash.com/photo-1599669454699-248893623440?w=400'],
-        rating: 4.6,
-        reviews: 180,
-        stock: 35,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: '4K Webcam with Auto Focus',
-        description: 'Ultra HD webcam with auto focus, built-in microphone, and wide-angle lens for streaming and video calls.',
-        price: 3200,
-        originalPrice: 4800,
-        discount: 33,
-        category: 'Electronics',
-        subcategory: 'Accessories',
-        brand: 'StreamPro',
-        images: ['https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=400'],
-        rating: 4.4,
-        reviews: 95,
-        stock: 60,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Portable SSD 1TB External Drive',
-        description: 'High-speed portable SSD with USB 3.2 Gen 2 interface, perfect for data backup and transfer.',
-        price: 8500,
-        originalPrice: 12000,
-        discount: 29,
-        category: 'Electronics',
-        subcategory: 'Storage',
-        brand: 'DataMax',
-        images: ['https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=400'],
-        rating: 4.8,
-        reviews: 220,
-        stock: 25,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Smartphone Car Mount Magnetic',
-        description: 'Universal magnetic car mount with 360-degree rotation and strong magnetic hold for all smartphones.',
-        price: 1200,
-        originalPrice: 1800,
-        discount: 33,
-        category: 'Electronics',
-        subcategory: 'Automotive',
-        brand: 'CarTech',
-        images: ['https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400'],
-        rating: 4.3,
-        reviews: 140,
-        stock: 80,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Bluetooth Mechanical Keyboard',
-        description: 'Compact mechanical keyboard with blue switches, RGB backlighting, and wireless connectivity.',
-        price: 5500,
-        originalPrice: 7500,
-        discount: 27,
-        category: 'Electronics',
-        subcategory: 'Accessories',
-        brand: 'KeyPro',
-        images: ['https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=400'],
-        rating: 4.7,
-        reviews: 165,
-        stock: 40,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Wireless Charging Pad 15W',
-        description: 'Fast wireless charging pad compatible with all Qi-enabled devices, with LED indicator.',
-        price: 2200,
-        originalPrice: 3200,
-        discount: 31,
-        category: 'Electronics',
-        subcategory: 'Accessories',
-        brand: 'ChargeFast',
-        images: ['https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400'],
-        rating: 4.5,
-        reviews: 110,
-        stock: 70,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'USB-C Hub 7-in-1 Adapter',
-        description: 'Multi-port USB-C hub with HDMI, USB 3.0, SD card reader, and PD charging support.',
-        price: 3800,
-        originalPrice: 5200,
-        discount: 27,
-        category: 'Electronics',
-        subcategory: 'Accessories',
-        brand: 'HubMax',
-        images: ['https://images.unsplash.com/photo-1625842268584-8f3296236761?w=400'],
-        rating: 4.4,
-        reviews: 85,
-        stock: 55,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Smart Home Security Camera',
-        description: '1080p WiFi security camera with night vision, motion detection, and mobile app control.',
-        price: 6500,
-        originalPrice: 9000,
-        discount: 28,
-        category: 'Electronics',
-        subcategory: 'Security',
-        brand: 'SecureHome',
-        images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400'],
-        rating: 4.6,
-        reviews: 195,
-        stock: 30,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Portable Bluetooth Speaker 20W',
-        description: 'Waterproof portable speaker with 20W output, 12-hour battery, and bass boost technology.',
-        price: 3500,
-        originalPrice: 5000,
-        discount: 30,
-        category: 'Electronics',
-        subcategory: 'Audio',
-        brand: 'BassMax',
-        images: ['https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=400'],
-        rating: 4.5,
-        reviews: 130,
-        stock: 45,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Smart LED Strip Lights 5M',
-        description: 'WiFi-controlled RGB LED strip lights with music sync, timer, and smartphone app control.',
-        price: 2800,
-        originalPrice: 4000,
-        discount: 30,
-        category: 'Electronics',
-        subcategory: 'Lighting',
-        brand: 'LightSmart',
-        images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400'],
-        rating: 4.3,
-        reviews: 175,
-        stock: 65,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-
-      // Clothing & Fashion - 8 products
-      {
-        name: 'Premium Cotton Hoodie Unisex',
-        description: 'Comfortable cotton blend hoodie with kangaroo pocket and adjustable drawstring hood.',
-        price: 2500,
-        originalPrice: 3500,
-        discount: 29,
-        category: 'Clothing',
-        subcategory: 'Hoodies',
-        brand: 'ComfortWear',
-        images: ['https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400'],
-        rating: 4.4,
-        reviews: 120,
-        stock: 90,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Leather Wallet RFID Blocking',
-        description: 'Genuine leather wallet with RFID blocking technology and multiple card slots.',
-        price: 1800,
-        originalPrice: 2800,
-        discount: 36,
-        category: 'Clothing',
-        subcategory: 'Accessories',
-        brand: 'LeatherCraft',
-        images: ['https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400'],
-        rating: 4.6,
-        reviews: 200,
-        stock: 75,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Sports Running Shoes Lightweight',
-        description: 'Breathable running shoes with cushioned sole and lightweight design for comfort.',
-        price: 4200,
-        originalPrice: 6000,
-        discount: 30,
-        category: 'Clothing',
-        subcategory: 'Footwear',
-        brand: 'RunFast',
-        images: ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400'],
-        rating: 4.5,
-        reviews: 155,
-        stock: 50,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Denim Jacket Classic Blue',
-        description: 'Classic blue denim jacket with button closure and chest pockets, perfect for casual wear.',
-        price: 3200,
-        originalPrice: 4500,
-        discount: 29,
-        category: 'Clothing',
-        subcategory: 'Jackets',
-        brand: 'DenimStyle',
-        images: ['https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400'],
-        rating: 4.3,
-        reviews: 90,
-        stock: 60,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Silk Scarf Luxury Pattern',
-        description: 'Premium silk scarf with elegant pattern, perfect accessory for any outfit.',
-        price: 1500,
-        originalPrice: 2200,
-        discount: 32,
-        category: 'Clothing',
-        subcategory: 'Accessories',
-        brand: 'SilkLux',
-        images: ['https://images.unsplash.com/photo-1584464491033-06628f3a6b7b?w=400'],
-        rating: 4.7,
-        reviews: 85,
-        stock: 100,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Baseball Cap Adjustable',
-        description: 'Classic baseball cap with adjustable strap and embroidered logo, one size fits all.',
-        price: 800,
-        originalPrice: 1200,
-        discount: 33,
-        category: 'Clothing',
-        subcategory: 'Hats',
-        brand: 'CapStyle',
-        images: ['https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=400'],
-        rating: 4.2,
-        reviews: 110,
-        stock: 120,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Yoga Leggings High Waist',
-        description: 'High-waist yoga leggings with moisture-wicking fabric and four-way stretch.',
-        price: 1800,
-        originalPrice: 2600,
-        discount: 31,
-        category: 'Clothing',
-        subcategory: 'Activewear',
-        brand: 'YogaFit',
-        images: ['https://images.unsplash.com/photo-1506629905607-d405d7d3b0d2?w=400'],
-        rating: 4.6,
-        reviews: 140,
-        stock: 80,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Formal Dress Shirt White',
-        description: 'Classic white formal dress shirt with French cuffs and mother-of-pearl buttons.',
-        price: 2200,
-        originalPrice: 3200,
-        discount: 31,
-        category: 'Clothing',
-        subcategory: 'Shirts',
-        brand: 'FormalWear',
-        images: ['https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400'],
-        rating: 4.4,
-        reviews: 95,
-        stock: 70,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-
-      // Home & Garden - 6 products
-      {
-        name: 'Indoor Plant Pot Set Ceramic',
-        description: 'Set of 3 ceramic plant pots with drainage holes and saucers, perfect for indoor plants.',
-        price: 1800,
-        originalPrice: 2600,
-        discount: 31,
-        category: 'Home & Garden',
-        subcategory: 'Planters',
-        brand: 'GreenHome',
-        images: ['https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=400'],
-        rating: 4.5,
-        reviews: 125,
-        stock: 85,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Aromatherapy Essential Oil Diffuser',
-        description: 'Ultrasonic essential oil diffuser with LED lights, timer, and auto shut-off feature.',
-        price: 2800,
-        originalPrice: 4000,
-        discount: 30,
-        category: 'Home & Garden',
-        subcategory: 'Wellness',
-        brand: 'AromaMax',
-        images: ['https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400'],
-        rating: 4.6,
-        reviews: 160,
-        stock: 55,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Memory Foam Pillow Ergonomic',
-        description: 'Ergonomic memory foam pillow with cooling gel layer and breathable bamboo cover.',
-        price: 3500,
-        originalPrice: 5000,
-        discount: 30,
-        category: 'Home & Garden',
-        subcategory: 'Bedding',
-        brand: 'SleepWell',
-        images: ['https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400'],
-        rating: 4.7,
-        reviews: 180,
-        stock: 40,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Wall Clock Modern Minimalist',
-        description: 'Modern minimalist wall clock with silent movement and elegant wooden frame.',
-        price: 1500,
-        originalPrice: 2200,
-        discount: 32,
-        category: 'Home & Garden',
-        subcategory: 'Decor',
-        brand: 'TimeStyle',
-        images: ['https://images.unsplash.com/photo-1563861826100-9cb868fdbe1c?w=400'],
-        rating: 4.3,
-        reviews: 75,
-        stock: 90,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Bamboo Cutting Board Set',
-        description: 'Set of 3 bamboo cutting boards in different sizes with juice grooves and handles.',
-        price: 2200,
-        originalPrice: 3200,
-        discount: 31,
-        category: 'Home & Garden',
-        subcategory: 'Kitchen',
-        brand: 'BambooChef',
-        images: ['https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400'],
-        rating: 4.5,
-        reviews: 135,
-        stock: 65,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Vacuum Storage Bags Set',
-        description: 'Set of 6 vacuum storage bags in various sizes for clothes, bedding, and seasonal items.',
-        price: 1200,
-        originalPrice: 1800,
-        discount: 33,
-        category: 'Home & Garden',
-        subcategory: 'Storage',
-        brand: 'SpaceSaver',
-        images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400'],
-        rating: 4.4,
-        reviews: 200,
-        stock: 100,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-
-      // Books & Education - 3 products
-      {
-        name: 'Programming Guide Complete Set',
-        description: 'Comprehensive programming guide covering Python, JavaScript, and web development fundamentals.',
-        price: 2500,
-        originalPrice: 3500,
-        discount: 29,
-        category: 'Books',
-        subcategory: 'Technology',
-        brand: 'TechBooks',
-        images: ['https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400'],
-        rating: 4.8,
-        reviews: 250,
-        stock: 45,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Notebook Set Leather Bound',
-        description: 'Set of 3 leather-bound notebooks with lined pages, perfect for journaling and note-taking.',
-        price: 1800,
-        originalPrice: 2600,
-        discount: 31,
-        category: 'Books',
-        subcategory: 'Stationery',
-        brand: 'WriteWell',
-        images: ['https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400'],
-        rating: 4.5,
-        reviews: 120,
-        stock: 80,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Educational Puzzle World Map',
-        description: '1000-piece educational puzzle featuring detailed world map with country names and capitals.',
-        price: 1200,
-        originalPrice: 1800,
-        discount: 33,
-        category: 'Books',
-        subcategory: 'Educational',
-        brand: 'LearnFun',
-        images: ['https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400'],
-        rating: 4.6,
-        reviews: 95,
-        stock: 60,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-
-      // Sports & Fitness - 3 products
-      {
-        name: 'Resistance Bands Set 5 Levels',
-        description: 'Complete resistance bands set with 5 resistance levels, handles, and door anchor.',
-        price: 2200,
-        originalPrice: 3200,
-        discount: 31,
-        category: 'Sports',
-        subcategory: 'Fitness',
-        brand: 'FitMax',
-        images: ['https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400'],
-        rating: 4.5,
-        reviews: 165,
-        stock: 70,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Yoga Mat Non-Slip Premium',
-        description: 'Premium non-slip yoga mat with extra thickness and carrying strap, eco-friendly material.',
-        price: 1800,
-        originalPrice: 2600,
-        discount: 31,
-        category: 'Sports',
-        subcategory: 'Yoga',
-        brand: 'YogaPro',
-        images: ['https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400'],
-        rating: 4.7,
-        reviews: 190,
-        stock: 85,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Water Bottle Insulated 750ml',
-        description: 'Stainless steel insulated water bottle that keeps drinks cold for 24h and hot for 12h.',
-        price: 1500,
-        originalPrice: 2200,
-        discount: 32,
-        category: 'Sports',
-        subcategory: 'Hydration',
-        brand: 'HydroMax',
-        images: ['https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400'],
-        rating: 4.6,
-        reviews: 140,
-        stock: 95,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      }
-    ];
-
-    // Check if diverse products already exist
-    const existingDiverseCount = await Product.countDocuments({ 
-      isAdminProduct: true,
-      $or: [
-        { name: { $regex: 'Gaming Headset', $options: 'i' } },
-        { name: { $regex: 'Webcam', $options: 'i' } },
-        { name: { $regex: 'Hoodie', $options: 'i' } }
-      ]
-    });
-    
-    if (existingDiverseCount > 0) {
-      return res.json({ 
-        message: 'Diverse products already exist', 
-        count: existingDiverseCount,
-        note: 'Use /admin/count to see current product count'
-      });
-    }
-
-    const createdProducts = await Product.insertMany(diverseProducts);
-    res.json({ 
-      message: '30 diverse products added successfully', 
-      count: createdProducts.length,
-      categories: {
-        electronics: 10,
-        clothing: 8,
-        home: 6,
-        books: 3,
-        sports: 3
-      },
-      products: createdProducts.map(p => ({ 
-        name: p.name, 
-        category: p.category, 
-        price: p.price 
-      }))
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Initialize sample Excel products (no auth required for setup)
-router.post('/admin/init-samples', async (req, res) => {
-  try {
-    // Check if we already have diverse products
-    const electronicsCount = await Product.countDocuments({ 
-      isAdminProduct: true,
-      category: { $regex: 'Electronics', $options: 'i' }
-    });
-    
-    if (electronicsCount > 50) {
-      return res.json({ 
-        message: 'Diverse products already exist', 
-        electronicsCount,
-        note: 'Electronics products found in database'
-      });
-    }
-
-    const diverseProducts = [
-      // Electronics - 15 products
-      {
-        name: 'Premium Wireless Headphones',
-        description: 'High-quality wireless headphones with noise cancellation and 30-hour battery life.',
-        price: 2500,
-        originalPrice: 3500,
-        discount: 29,
-        category: 'Electronics',
-        brand: 'TechPro',
-        images: ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400'],
-        rating: 4.5,
-        reviews: 150,
-        stock: 50,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Smart Fitness Watch',
-        description: 'Advanced smartwatch with health monitoring and GPS tracking.',
-        price: 8000,
-        originalPrice: 12000,
-        discount: 33,
-        category: 'Electronics',
-        brand: 'SmartTech',
-        images: ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400'],
-        rating: 4.7,
-        reviews: 200,
-        stock: 30,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Wireless Gaming Mouse RGB',
-        description: 'High-precision wireless gaming mouse with RGB lighting.',
-        price: 2200,
-        originalPrice: 3000,
-        discount: 27,
-        category: 'Electronics',
-        brand: 'GamePro',
-        images: ['https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400'],
-        rating: 4.6,
-        reviews: 95,
-        stock: 60,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Bluetooth Speaker Portable',
-        description: 'Compact portable Bluetooth speaker with excellent sound quality.',
-        price: 1800,
-        originalPrice: 2500,
-        discount: 28,
-        category: 'Electronics',
-        brand: 'SoundMax',
-        images: ['https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=400'],
-        rating: 4.2,
-        reviews: 85,
-        stock: 40,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Power Bank 20000mAh Fast Charging',
-        description: 'High-capacity power bank with fast charging technology.',
-        price: 3000,
-        originalPrice: 4000,
-        discount: 25,
-        category: 'Electronics',
-        brand: 'PowerMax',
-        images: ['https://images.unsplash.com/photo-1609592806596-4d8b5b1d7e7e?w=400'],
-        rating: 4.4,
-        reviews: 120,
-        stock: 75,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: '4K Webcam with Auto Focus',
-        description: 'Ultra HD webcam with auto focus and built-in microphone.',
-        price: 3200,
-        originalPrice: 4800,
-        discount: 33,
-        category: 'Electronics',
-        brand: 'StreamPro',
-        images: ['https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=400'],
-        rating: 4.4,
-        reviews: 95,
-        stock: 60,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Wireless Charging Pad 15W',
-        description: 'Fast wireless charging pad compatible with all Qi-enabled devices.',
-        price: 2200,
-        originalPrice: 3200,
-        discount: 31,
-        category: 'Electronics',
-        brand: 'ChargeFast',
-        images: ['https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400'],
-        rating: 4.5,
-        reviews: 110,
-        stock: 70,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'USB-C Hub 7-in-1 Adapter',
-        description: 'Multi-port USB-C hub with HDMI and USB 3.0 ports.',
-        price: 3800,
-        originalPrice: 5200,
-        discount: 27,
-        category: 'Electronics',
-        brand: 'HubMax',
-        images: ['https://images.unsplash.com/photo-1625842268584-8f3296236761?w=400'],
-        rating: 4.4,
-        reviews: 85,
-        stock: 55,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Smart Security Camera 1080p',
-        description: 'WiFi security camera with night vision and motion detection.',
-        price: 6500,
-        originalPrice: 9000,
-        discount: 28,
-        category: 'Electronics',
-        brand: 'SecureHome',
-        images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400'],
-        rating: 4.6,
-        reviews: 195,
-        stock: 30,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Mechanical Keyboard RGB Backlit',
-        description: 'Compact mechanical keyboard with blue switches and RGB lighting.',
-        price: 5500,
-        originalPrice: 7500,
-        discount: 27,
-        category: 'Electronics',
-        brand: 'KeyPro',
-        images: ['https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=400'],
-        rating: 4.7,
-        reviews: 165,
-        stock: 40,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-
-      // Clothing - 10 products
-      {
-        name: 'Premium Cotton Hoodie Unisex',
-        description: 'Comfortable cotton blend hoodie with kangaroo pocket.',
-        price: 2500,
-        originalPrice: 3500,
-        discount: 29,
-        category: 'Clothing',
-        brand: 'ComfortWear',
-        images: ['https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400'],
-        rating: 4.4,
-        reviews: 120,
-        stock: 90,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Leather Wallet RFID Blocking',
-        description: 'Genuine leather wallet with RFID blocking technology.',
-        price: 1800,
-        originalPrice: 2800,
-        discount: 36,
-        category: 'Clothing',
-        brand: 'LeatherCraft',
-        images: ['https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400'],
-        rating: 4.6,
-        reviews: 200,
-        stock: 75,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Running Shoes Lightweight',
-        description: 'Breathable running shoes with cushioned sole.',
-        price: 4200,
-        originalPrice: 6000,
-        discount: 30,
-        category: 'Clothing',
-        brand: 'RunFast',
-        images: ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400'],
-        rating: 4.5,
-        reviews: 155,
-        stock: 50,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Denim Jacket Classic Blue',
-        description: 'Classic blue denim jacket with button closure.',
-        price: 3200,
-        originalPrice: 4500,
-        discount: 29,
-        category: 'Clothing',
-        brand: 'DenimStyle',
-        images: ['https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400'],
-        rating: 4.3,
-        reviews: 90,
-        stock: 60,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Cotton T-Shirt Premium',
-        description: '100% cotton premium t-shirt, comfortable and breathable.',
-        price: 1200,
-        originalPrice: 1800,
-        discount: 33,
-        category: 'Clothing',
-        brand: 'ComfortWear',
-        images: ['https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400'],
-        rating: 4.1,
-        reviews: 65,
-        stock: 150,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Baseball Cap Adjustable',
-        description: 'Classic baseball cap with adjustable strap.',
-        price: 800,
-        originalPrice: 1200,
-        discount: 33,
-        category: 'Clothing',
-        brand: 'CapStyle',
-        images: ['https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=400'],
-        rating: 4.2,
-        reviews: 110,
-        stock: 120,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Yoga Leggings High Waist',
-        description: 'High-waist yoga leggings with moisture-wicking fabric.',
-        price: 1800,
-        originalPrice: 2600,
-        discount: 31,
-        category: 'Clothing',
-        brand: 'YogaFit',
-        images: ['https://images.unsplash.com/photo-1506629905607-d405d7d3b0d2?w=400'],
-        rating: 4.6,
-        reviews: 140,
-        stock: 80,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Formal Dress Shirt White',
-        description: 'Classic white formal dress shirt with French cuffs.',
-        price: 2200,
-        originalPrice: 3200,
-        discount: 31,
-        category: 'Clothing',
-        brand: 'FormalWear',
-        images: ['https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400'],
-        rating: 4.4,
-        reviews: 95,
-        stock: 70,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Silk Scarf Luxury Pattern',
-        description: 'Premium silk scarf with elegant pattern.',
-        price: 1500,
-        originalPrice: 2200,
-        discount: 32,
-        category: 'Clothing',
-        brand: 'SilkLux',
-        images: ['https://images.unsplash.com/photo-1584464491033-06628f3a6b7b?w=400'],
-        rating: 4.7,
-        reviews: 85,
-        stock: 100,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Winter Gloves Touchscreen',
-        description: 'Warm winter gloves with touchscreen fingertips.',
-        price: 1000,
-        originalPrice: 1500,
-        discount: 33,
-        category: 'Clothing',
-        brand: 'WarmWear',
-        images: ['https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=400'],
-        rating: 4.3,
-        reviews: 75,
-        stock: 85,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-
-      // Home & Garden - 15 products
-      {
-        name: 'LED Desk Lamp with USB Port',
-        description: 'Adjustable LED desk lamp with built-in USB charging port.',
-        price: 1500,
-        originalPrice: 2200,
-        discount: 32,
-        category: 'Home & Garden',
-        brand: 'LightPro',
-        images: ['https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400'],
-        rating: 4.3,
-        reviews: 80,
-        stock: 100,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Ceramic Plant Pot Set of 3',
-        description: 'Set of 3 ceramic plant pots with drainage holes.',
-        price: 1800,
-        originalPrice: 2600,
-        discount: 31,
-        category: 'Home & Garden',
-        brand: 'GreenHome',
-        images: ['https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=400'],
-        rating: 4.5,
-        reviews: 125,
-        stock: 85,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Essential Oil Diffuser Ultrasonic',
-        description: 'Ultrasonic essential oil diffuser with LED lights.',
-        price: 2800,
-        originalPrice: 4000,
-        discount: 30,
-        category: 'Home & Garden',
-        brand: 'AromaMax',
-        images: ['https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400'],
-        rating: 4.6,
-        reviews: 160,
-        stock: 55,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Memory Foam Pillow Ergonomic',
-        description: 'Ergonomic memory foam pillow with cooling gel layer.',
-        price: 3500,
-        originalPrice: 5000,
-        discount: 30,
-        category: 'Home & Garden',
-        brand: 'SleepWell',
-        images: ['https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400'],
-        rating: 4.7,
-        reviews: 180,
-        stock: 40,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Modern Wall Clock Minimalist',
-        description: 'Modern minimalist wall clock with silent movement.',
-        price: 1500,
-        originalPrice: 2200,
-        discount: 32,
-        category: 'Home & Garden',
-        brand: 'TimeStyle',
-        images: ['https://images.unsplash.com/photo-1563861826100-9cb868fdbe1c?w=400'],
-        rating: 4.3,
-        reviews: 75,
-        stock: 90,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Bamboo Cutting Board Set',
-        description: 'Set of 3 bamboo cutting boards in different sizes.',
-        price: 2200,
-        originalPrice: 3200,
-        discount: 31,
-        category: 'Home & Garden',
-        brand: 'BambooChef',
-        images: ['https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400'],
-        rating: 4.5,
-        reviews: 135,
-        stock: 65,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Vacuum Storage Bags Set',
-        description: 'Set of 6 vacuum storage bags for clothes and bedding.',
-        price: 1200,
-        originalPrice: 1800,
-        discount: 33,
-        category: 'Home & Garden',
-        brand: 'SpaceSaver',
-        images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400'],
-        rating: 4.4,
-        reviews: 200,
-        stock: 100,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Coffee Mug Set Ceramic 4-Pack',
-        description: 'Set of 4 ceramic coffee mugs with elegant design.',
-        price: 1600,
-        originalPrice: 2400,
-        discount: 33,
-        category: 'Home & Garden',
-        brand: 'CoffeePro',
-        images: ['https://images.unsplash.com/photo-1514228742587-6b1558fcf93a?w=400'],
-        rating: 4.4,
-        reviews: 90,
-        stock: 80,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Throw Blanket Soft Fleece',
-        description: 'Ultra-soft fleece throw blanket perfect for couch.',
-        price: 2000,
-        originalPrice: 3000,
-        discount: 33,
-        category: 'Home & Garden',
-        brand: 'CozyHome',
-        images: ['https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400'],
-        rating: 4.6,
-        reviews: 150,
-        stock: 70,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      },
-      {
-        name: 'Picture Frame Set Wood 5-Pack',
-        description: 'Set of 5 wooden picture frames in various sizes.',
-        price: 1800,
-        originalPrice: 2700,
-        discount: 33,
-        category: 'Home & Garden',
-        brand: 'FrameArt',
-        images: ['https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400'],
-        rating: 4.2,
-        reviews: 65,
-        stock: 95,
-        isAdminProduct: true,
-        status: 'active',
-        approvalStatus: 'approved'
-      }
-    ];
-
-    const createdProducts = await Product.insertMany(diverseProducts);
-    res.json({ 
-      message: 'Diverse products created successfully', 
-      count: createdProducts.length,
-      categories: {
-        Electronics: createdProducts.filter(p => p.category === 'Electronics').length,
-        Clothing: createdProducts.filter(p => p.category === 'Clothing').length,
-        'Home & Garden': createdProducts.filter(p => p.category === 'Home & Garden').length
-      },
-      products: createdProducts.map(p => ({ name: p.name, price: p.price, category: p.category }))
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Remove sample products (temporary endpoint)
-router.delete('/admin/remove-samples', async (req, res) => {
-  try {
-    // Remove the sample products I added
-    const sampleNames = [
-      'Premium Wireless Headphones', 'Smart Fitness Watch', 'Wireless Gaming Mouse RGB',
-      'Bluetooth Speaker Portable', 'Power Bank 20000mAh Fast Charging', '4K Webcam with Auto Focus',
-      'Wireless Charging Pad 15W', 'USB-C Hub 7-in-1 Adapter', 'Smart Security Camera 1080p',
-      'Mechanical Keyboard RGB Backlit', 'Premium Cotton Hoodie Unisex', 'Leather Wallet RFID Blocking',
-      'Running Shoes Lightweight', 'Denim Jacket Classic Blue', 'Cotton T-Shirt Premium',
-      'Baseball Cap Adjustable', 'Yoga Leggings High Waist', 'Formal Dress Shirt White',
-      'Silk Scarf Luxury Pattern', 'Winter Gloves Touchscreen', 'LED Desk Lamp with USB Port',
-      'Ceramic Plant Pot Set of 3', 'Essential Oil Diffuser Ultrasonic', 'Memory Foam Pillow Ergonomic',
-      'Modern Wall Clock Minimalist', 'Bamboo Cutting Board Set', 'Vacuum Storage Bags Set',
-      'Coffee Mug Set Ceramic 4-Pack', 'Throw Blanket Soft Fleece', 'Picture Frame Set Wood 5-Pack'
-    ];
-
-    const result = await Product.deleteMany({
-      name: { $in: sampleNames },
-      isAdminProduct: true
-    });
-
-    res.json({
-      message: 'Sample products removed successfully',
-      deletedCount: result.deletedCount,
-      removedProducts: sampleNames
-    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -6153,7 +4895,7 @@ router.delete('/category/:categoryValue', authenticateAdmin, async (req, res) =>
   try {
     const { categoryValue } = req.params;
     
-    console.log(`🗑️ Admin deleting all products in category: ${categoryValue}`);
+    console.log(`ðŸ—‘ï¸ Admin deleting all products in category: ${categoryValue}`);
     
     // Find all products in this category
     const productsToDelete = await Product.find({ category: categoryValue });
@@ -6166,7 +4908,7 @@ router.delete('/category/:categoryValue', authenticateAdmin, async (req, res) =>
       });
     }
     
-    console.log(`🗑️ Found ${productsToDelete.length} products to delete in category: ${categoryValue}`);
+    console.log(`ðŸ—‘ï¸ Found ${productsToDelete.length} products to delete in category: ${categoryValue}`);
     
     // Get product IDs for Excel sync
     const productIds = productsToDelete.map(p => p._id);
@@ -6195,17 +4937,17 @@ router.delete('/category/:categoryValue', authenticateAdmin, async (req, res) =>
       excelUpdatedCount = excelUpdateResult.modifiedCount;
       
       if (excelUpdatedCount > 0) {
-        console.log(`📊 Updated ${excelUpdatedCount} Excel products after category deletion`);
+        console.log(`ðŸ“Š Updated ${excelUpdatedCount} Excel products after category deletion`);
       }
       
     } catch (excelError) {
-      console.log('ℹ️ No Excel products to update or ExcelProduct model not found');
+      console.log('â„¹ï¸ No Excel products to update or ExcelProduct model not found');
     }
     
     // Delete all products in the category
     const deleteResult = await Product.deleteMany({ category: categoryValue });
     
-    console.log(`✅ Deleted ${deleteResult.deletedCount} products from category: ${categoryValue}`);
+    console.log(`âœ… Deleted ${deleteResult.deletedCount} products from category: ${categoryValue}`);
     
     // Clear all caches to ensure updates appear everywhere
     productCache.clear();
@@ -6222,7 +4964,7 @@ router.delete('/category/:categoryValue', authenticateAdmin, async (req, res) =>
         global.categoriesCache = null;
       }
     } catch (cacheError) {
-      console.log('ℹ️ Additional cache clearing completed');
+      console.log('â„¹ï¸ Additional cache clearing completed');
     }
     
     res.json({
@@ -6234,7 +4976,7 @@ router.delete('/category/:categoryValue', authenticateAdmin, async (req, res) =>
     });
     
   } catch (error) {
-    console.error('❌ Error deleting products by category:', error);
+    console.error('âŒ Error deleting products by category:', error);
     res.status(500).json({ 
       message: 'Error deleting products by category', 
       error: error.message,
@@ -6258,7 +5000,7 @@ router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, 
     
     const trimmedNewName = newCategoryName.trim();
     
-    console.log(`🏷️ Admin renaming category: "${oldCategoryValue}" → "${trimmedNewName}"`);
+    console.log(`ðŸ·ï¸ Admin renaming category: "${oldCategoryValue}" â†’ "${trimmedNewName}"`);
     
     // Check if the new category name already exists (case-insensitive)
     const existingCategory = await Product.findOne({ 
@@ -6285,7 +5027,7 @@ router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, 
       });
     }
     
-    console.log(`🏷️ Found ${productsToUpdate.length} products to rename in category: ${oldCategoryValue}`);
+    console.log(`ðŸ·ï¸ Found ${productsToUpdate.length} products to rename in category: ${oldCategoryValue}`);
     
     // Update all products in the category
     const updateResult = await Product.updateMany(
@@ -6293,7 +5035,7 @@ router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, 
       { $set: { category: trimmedNewName } }
     );
     
-    console.log(`✅ Updated ${updateResult.modifiedCount} products to new category: ${trimmedNewName}`);
+    console.log(`âœ… Updated ${updateResult.modifiedCount} products to new category: ${trimmedNewName}`);
     
     // Update related Excel products (if ExcelProduct model exists)
     let excelUpdatedCount = 0;
@@ -6309,11 +5051,11 @@ router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, 
       excelUpdatedCount = excelUpdateResult.modifiedCount;
       
       if (excelUpdatedCount > 0) {
-        console.log(`📊 Updated ${excelUpdatedCount} Excel products to new category: ${trimmedNewName}`);
+        console.log(`ðŸ“Š Updated ${excelUpdatedCount} Excel products to new category: ${trimmedNewName}`);
       }
       
     } catch (excelError) {
-      console.log('ℹ️ No Excel products to update or ExcelProduct model not found');
+      console.log('â„¹ï¸ No Excel products to update or ExcelProduct model not found');
     }
     
     // Clear all caches to ensure updates appear everywhere
@@ -6328,7 +5070,7 @@ router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, 
         global.categoriesCache = null;
       }
     } catch (cacheError) {
-      console.log('ℹ️ Additional cache clearing completed');
+      console.log('â„¹ï¸ Additional cache clearing completed');
     }
     
     res.json({
@@ -6341,7 +5083,7 @@ router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, 
     });
     
   } catch (error) {
-    console.error('❌ Error renaming category:', error);
+    console.error('âŒ Error renaming category:', error);
     res.status(500).json({ 
       message: 'Error renaming category', 
       error: error.message,
@@ -6365,7 +5107,7 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
     
     const trimmedNewCategory = newCategory.trim();
     
-    console.log(`🔄 Admin moving products: "${oldCategoryValue}" → "${trimmedNewCategory}" (onlyActive: ${onlyActive})`);
+    console.log(`ðŸ”„ Admin moving products: "${oldCategoryValue}" â†’ "${trimmedNewCategory}" (onlyActive: ${onlyActive})`);
     
     // First, find the actual category name in the database (case-insensitive)
     const actualCategoryName = await Product.findOne({
@@ -6375,9 +5117,9 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
     let sourceCategory = oldCategoryValue;
     if (actualCategoryName) {
       sourceCategory = actualCategoryName.category;
-      console.log(`🔍 Found actual category name: "${sourceCategory}" (searched for: "${oldCategoryValue}")`);
+      console.log(`ðŸ” Found actual category name: "${sourceCategory}" (searched for: "${oldCategoryValue}")`);
     } else {
-      console.log(`⚠️ No products found with category matching: "${oldCategoryValue}"`);
+      console.log(`âš ï¸ No products found with category matching: "${oldCategoryValue}"`);
     }
     
     // Build query based on onlyActive parameter
@@ -6403,7 +5145,7 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
       });
     }
     
-    console.log(`🔄 Found ${productsToMove.length} products to move from category: ${sourceCategory}`);
+    console.log(`ðŸ”„ Found ${productsToMove.length} products to move from category: ${sourceCategory}`);
     
     // Update products
     const moveResult = await Product.updateMany(
@@ -6411,7 +5153,7 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
       { $set: { category: trimmedNewCategory } }
     );
     
-    console.log(`✅ Moved ${moveResult.modifiedCount} products to category: ${trimmedNewCategory}`);
+    console.log(`âœ… Moved ${moveResult.modifiedCount} products to category: ${trimmedNewCategory}`);
     
     // Update related Excel products (if ExcelProduct model exists)
     let excelUpdatedCount = 0;
@@ -6427,11 +5169,11 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
       excelUpdatedCount = excelMoveResult.modifiedCount;
       
       if (excelUpdatedCount > 0) {
-        console.log(`📊 Updated ${excelUpdatedCount} Excel products to category: ${trimmedNewCategory}`);
+        console.log(`ðŸ“Š Updated ${excelUpdatedCount} Excel products to category: ${trimmedNewCategory}`);
       }
       
     } catch (excelError) {
-      console.log('ℹ️ No Excel products to update or ExcelProduct model not found');
+      console.log('â„¹ï¸ No Excel products to update or ExcelProduct model not found');
     }
     
     // Clear all caches to ensure updates appear everywhere
@@ -6446,7 +5188,7 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
         global.categoriesCache = null;
       }
     } catch (cacheError) {
-      console.log('ℹ️ Additional cache clearing completed');
+      console.log('â„¹ï¸ Additional cache clearing completed');
     }
     
     res.json({
@@ -6461,7 +5203,7 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
     });
     
   } catch (error) {
-    console.error('❌ Error moving products between categories:', error);
+    console.error('âŒ Error moving products between categories:', error);
     res.status(500).json({ 
       message: 'Error moving products between categories', 
       error: error.message,
@@ -6551,7 +5293,7 @@ router.use('/excel-import', (req, res, next) => {
 // Fix Party Accessories category variations (admin only)
 router.post('/admin/fix-party-accessories-category', authenticateAdmin, async (req, res) => {
   try {
-    console.log('🎉 Fixing Party Accessories category variations...');
+    console.log('ðŸŽ‰ Fixing Party Accessories category variations...');
     
     const partyVariations = [
       'party-accessories',
@@ -6572,7 +5314,7 @@ router.post('/admin/fix-party-accessories-category', authenticateAdmin, async (r
       { $set: { category: 'Party Accessories' } }
     );
     
-    console.log(`✅ Fixed ${mainUpdateResult.modifiedCount} main products`);
+    console.log(`âœ… Fixed ${mainUpdateResult.modifiedCount} main products`);
     
     // Update Excel products
     let excelUpdated = 0;
@@ -6583,9 +5325,9 @@ router.post('/admin/fix-party-accessories-category', authenticateAdmin, async (r
         { $set: { category: 'Party Accessories' } }
       );
       excelUpdated = excelUpdateResult.modifiedCount;
-      console.log(`✅ Fixed ${excelUpdated} Excel products`);
+      console.log(`âœ… Fixed ${excelUpdated} Excel products`);
     } catch (excelError) {
-      console.log('ℹ️ No Excel products to update');
+      console.log('â„¹ï¸ No Excel products to update');
     }
     
     // Clear cache
@@ -6602,7 +5344,7 @@ router.post('/admin/fix-party-accessories-category', authenticateAdmin, async (r
     });
     
   } catch (error) {
-    console.error('❌ Error fixing Party Accessories category:', error);
+    console.error('âŒ Error fixing Party Accessories category:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fix Party Accessories category',
@@ -6614,7 +5356,7 @@ router.post('/admin/fix-party-accessories-category', authenticateAdmin, async (r
 // Clean up duplicate categories (admin only)
 router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req, res) => {
   try {
-    console.log('🧹 Starting duplicate category cleanup...');
+    console.log('ðŸ§¹ Starting duplicate category cleanup...');
     
     // SPECIAL CASE: Fix Party Accessories variations first
     const partyVariations = [
@@ -6636,7 +5378,7 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
       { $set: { category: 'Party Accessories' } }
     );
     
-    console.log(`🎉 Fixed ${partyUpdateResult.modifiedCount} Party Accessories products`);
+    console.log(`ðŸŽ‰ Fixed ${partyUpdateResult.modifiedCount} Party Accessories products`);
     
     // Also update Excel products
     let partyExcelUpdated = 0;
@@ -6647,9 +5389,9 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
         { $set: { category: 'Party Accessories' } }
       );
       partyExcelUpdated = partyExcelResult.modifiedCount;
-      console.log(`📊 Fixed ${partyExcelUpdated} Party Accessories Excel products`);
+      console.log(`ðŸ“Š Fixed ${partyExcelUpdated} Party Accessories Excel products`);
     } catch (excelError) {
-      console.log('ℹ️ No Excel products to update for Party Accessories');
+      console.log('â„¹ï¸ No Excel products to update for Party Accessories');
     }
     
     // Get all unique categories from products
@@ -6678,7 +5420,7 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
       }
     }
     
-    console.log(`🔍 Found ${duplicateGroups.length} groups with duplicate categories`);
+    console.log(`ðŸ” Found ${duplicateGroups.length} groups with duplicate categories`);
     
     let totalUpdated = partyUpdateResult.modifiedCount;
     const updateResults = [{
@@ -6696,7 +5438,7 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
         continue;
       }
       
-      console.log(`🔄 Processing group: ${normalized}`);
+      console.log(`ðŸ”„ Processing group: ${normalized}`);
       console.log(`   Duplicates: ${duplicates.join(', ')}`);
       
       // Update all products in this group to use the normalized category name
@@ -6713,7 +5455,7 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
         productsUpdated: updateResult.modifiedCount
       });
       
-      console.log(`✅ Updated ${updateResult.modifiedCount} products to "${normalized}"`);
+      console.log(`âœ… Updated ${updateResult.modifiedCount} products to "${normalized}"`);
     }
     
     // Also update Excel products if they exist
@@ -6737,9 +5479,9 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
         excelUpdated += excelUpdateResult.modifiedCount;
       }
       
-      console.log(`📊 Updated ${excelUpdated} Excel products total`);
+      console.log(`ðŸ“Š Updated ${excelUpdated} Excel products total`);
     } catch (excelError) {
-      console.log('ℹ️ No Excel products to update or Excel model not available');
+      console.log('â„¹ï¸ No Excel products to update or Excel model not available');
     }
     
     // Clear cache
@@ -6757,7 +5499,7 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
     });
     
   } catch (error) {
-    console.error('❌ Error cleaning up duplicate categories:', error);
+    console.error('âŒ Error cleaning up duplicate categories:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to clean up duplicate categories',
@@ -6832,7 +5574,7 @@ router.get('/public/debug/category/:categoryValue', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Debug endpoint error:', error);
+    console.error('âŒ Debug endpoint error:', error);
     res.status(500).json({ 
       debug: true,
       error: error.message,
@@ -6844,7 +5586,7 @@ router.get('/public/debug/category/:categoryValue', async (req, res) => {
 // Delete all Party-Accessories products and related categories (admin only)
 router.delete('/admin/delete-party-accessories', authenticateAdmin, async (req, res) => {
   try {
-    console.log('🗑️ Deleting all Party-Accessories products...');
+    console.log('ðŸ—‘ï¸ Deleting all Party-Accessories products...');
     
     const partyVariations = [
       'Party accessories',
@@ -6871,7 +5613,7 @@ router.delete('/admin/delete-party-accessories', authenticateAdmin, async (req, 
       ]
     });
     
-    console.log(`✅ Deleted ${mainProductsResult.deletedCount} products from Product collection`);
+    console.log(`âœ… Deleted ${mainProductsResult.deletedCount} products from Product collection`);
     
     // Delete from ExcelProduct collection
     let excelProductsResult = { deletedCount: 0 };
@@ -6883,9 +5625,9 @@ router.delete('/admin/delete-party-accessories', authenticateAdmin, async (req, 
           { category: { $regex: /party/i } }
         ]
       });
-      console.log(`✅ Deleted ${excelProductsResult.deletedCount} products from ExcelProduct collection`);
+      console.log(`âœ… Deleted ${excelProductsResult.deletedCount} products from ExcelProduct collection`);
     } catch (excelError) {
-      console.log('ℹ️ No Excel products to delete or Excel model not available');
+      console.log('â„¹ï¸ No Excel products to delete or Excel model not available');
     }
     
     // Clear cache
@@ -6901,7 +5643,7 @@ router.delete('/admin/delete-party-accessories', authenticateAdmin, async (req, 
     });
     
   } catch (error) {
-    console.error('❌ Error deleting Party-Accessories products:', error);
+    console.error('âŒ Error deleting Party-Accessories products:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete Party-Accessories products',
@@ -6913,7 +5655,7 @@ router.delete('/admin/delete-party-accessories', authenticateAdmin, async (req, 
 // Debug endpoint for Party-Accessories products (admin only)
 router.get('/admin/debug/party-accessories', authenticateAdmin, async (req, res) => {
   try {
-    console.log('🎉 Debugging Party-Accessories products...');
+    console.log('ðŸŽ‰ Debugging Party-Accessories products...');
     
     // Find all products with Party-related categories
     const partyVariations = [
@@ -7050,19 +5792,19 @@ router.get('/admin/debug/party-accessories', authenticateAdmin, async (req, res)
       })),
       recommendations: [
         statusCounts.total > 0 && Object.keys(categoryGroups).length > 1 
-          ? `⚠️ Found ${Object.keys(categoryGroups).length} different category names. Run consolidation endpoint.`
-          : '✅ Category names are consistent.',
+          ? `âš ï¸ Found ${Object.keys(categoryGroups).length} different category names. Run consolidation endpoint.`
+          : 'âœ… Category names are consistent.',
         approvedButNotLive.length > 0
-          ? `⚠️ ${approvedButNotLive.length} approved products not showing on Amazon's Choice. Check missing fields.`
-          : '✅ All approved products are live on Amazon\'s Choice.',
+          ? `âš ï¸ ${approvedButNotLive.length} approved products not showing on Amazon's Choice. Check missing fields.`
+          : 'âœ… All approved products are live on Amazon\'s Choice.',
         statusCounts.pending > 0
-          ? `ℹ️ ${statusCounts.pending} products pending approval.`
-          : '✅ No products pending approval.'
+          ? `â„¹ï¸ ${statusCounts.pending} products pending approval.`
+          : 'âœ… No products pending approval.'
       ]
     });
     
   } catch (error) {
-    console.error('❌ Error debugging Party-Accessories:', error);
+    console.error('âŒ Error debugging Party-Accessories:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to debug Party-Accessories products',
@@ -7097,7 +5839,7 @@ router.get('/public/:id', async (req, res) => {
       });
     }
 
-    console.log('🔍 Product seller info debug (public):', {
+    console.log('ðŸ” Product seller info debug (public):', {
       productId: id,
       hasSeller: !!product.seller,
       hasSellerInfo: !!product.sellerInfo,
@@ -7123,7 +5865,7 @@ router.get('/public/:id', async (req, res) => {
           }
           return { ...seller, listingCountries: seller.listingCountries || [] };
         });
-      console.log(`✅ Showing ${product.sellers.length} verified sellers (public access)`);
+      console.log(`âœ… Showing ${product.sellers.length} verified sellers (public access)`);
     }
 
     // For backward compatibility, handle legacy seller field
@@ -7138,13 +5880,13 @@ router.get('/public/:id', async (req, res) => {
           verificationStatus: product.seller.verificationStatus,
           _id: product.seller._id
         };
-        console.log('✅ Added legacy seller info for verified seller (public access)');
+        console.log('âœ… Added legacy seller info for verified seller (public access)');
       }
     } else {
       // Remove seller info for unverified sellers in public access
       delete product.sellerInfo;
       delete product.seller;
-      console.log('❌ Legacy seller info hidden for unverified seller (public access)');
+      console.log('âŒ Legacy seller info hidden for unverified seller (public access)');
     }
 
     res.json({
@@ -7152,7 +5894,7 @@ router.get('/public/:id', async (req, res) => {
       ...product
     });
   } catch (error) {
-    console.error('❌ Error fetching product by ID:', error);
+    console.error('âŒ Error fetching product by ID:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error', 
@@ -7186,7 +5928,7 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
       });
     }
 
-    console.log('🔍 Product seller info debug (seller access):', {
+    console.log('ðŸ” Product seller info debug (seller access):', {
       productId: id,
       requestingSellerId: req.seller._id.toString(),
       productSellerId: product.seller?._id?.toString(),
@@ -7209,7 +5951,7 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
           return sellerWithoutEmail;
         }
       });
-      console.log(`✅ Showing ${product.sellers.length} sellers (seller access)`);
+      console.log(`âœ… Showing ${product.sellers.length} sellers (seller access)`);
     }
 
     // Check if this seller owns the product (legacy field)
@@ -7228,7 +5970,7 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
           _id: product.seller._id
         };
       }
-      console.log('✅ Showing full seller info to product owner');
+      console.log('âœ… Showing full seller info to product owner');
     } else if (product.seller && product.seller.verificationStatus === 'approved') {
       // For other sellers' products, only show limited info if verified
       if (!product.sellerInfo) {
@@ -7244,12 +5986,12 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
         // Remove email from cached info for other sellers
         delete product.sellerInfo.email;
       }
-      console.log('✅ Showing limited seller info for verified seller');
+      console.log('âœ… Showing limited seller info for verified seller');
     } else {
       // Hide seller info for unverified sellers or if no seller
       delete product.sellerInfo;
       delete product.seller;
-      console.log('❌ Seller info hidden for unverified seller');
+      console.log('âŒ Seller info hidden for unverified seller');
     }
 
     res.json({
@@ -7257,7 +5999,7 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
       ...product
     });
   } catch (error) {
-    console.error('❌ Error fetching product by ID (seller):', error);
+    console.error('âŒ Error fetching product by ID (seller):', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error', 
@@ -7270,7 +6012,7 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
 // Use /sellers/request-admin-product-listing instead
 router.put('/seller-update/:id', authenticateSeller, async (req, res) => {
   try {
-    console.log('⚠️ DEPRECATED: Direct seller update attempt blocked - admin approval required');
+    console.log('âš ï¸ DEPRECATED: Direct seller update attempt blocked - admin approval required');
     
     return res.status(403).json({
       success: false,

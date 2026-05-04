@@ -30,6 +30,7 @@ const ListedProducts = () => {
   const [updatingProducts, setUpdatingProducts] = useState(new Set());
   const [retryCount, setRetryCount] = useState(0);
   const [showRetryButton, setShowRetryButton] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [updatingCountry, setUpdatingCountry] = useState(new Set());
@@ -79,11 +80,11 @@ const ListedProducts = () => {
     try {
       setPageLoading(true);
       setShowRetryButton(false);
+      setErrorMsg('');
       
       const token = localStorage.getItem('sellerToken');
       
       if (!token) {
-        alert('❌ No authentication token found. Please login again.');
         navigate('/login/supplier');
         return;
       }
@@ -92,72 +93,68 @@ const ListedProducts = () => {
       const searchParam = searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : '';
       const categoryParam = selectedCategory ? `&category=${encodeURIComponent(selectedCategory)}` : '';
       
-      // Add timeout to prevent hanging requests
+      // Timeout covers the full request + parse cycle
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
       
-      const response = await fetch(getApiUrl(`products/seller/listed-products?limit=${itemsPerPage}&page=${currentPage}${statusParam}${searchParam}${categoryParam}`), {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-      const data = await response.json();
-      
-      if (response.ok) {
-        // Enrich each product with the current seller's listingCountry
-        const enriched = (data.products || []).map(p => {
-          const sellerId = seller?._id?.toString();
-          const sellerEntry = p.sellers?.find(s => s.sellerId?.toString() === sellerId);
-          return {
-            ...p,
-            sellerListingCountries: sellerEntry?.listingCountries || [],
-            sellerAsinData: {
-              asinAvailable: sellerEntry?.asinAvailable || false,
-              asinYearlyCost: sellerEntry?.asinYearlyCost || 0,
-              asinReviews: sellerEntry?.asinReviews || 0,
-              asinYearlyIncome: sellerEntry?.asinYearlyIncome || 0
-            }
-          };
+      let data;
+      try {
+        const response = await fetch(getApiUrl(`products/seller/listed-products?limit=${itemsPerPage}&page=${currentPage}${statusParam}${searchParam}${categoryParam}`), {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: controller.signal
         });
-        setProducts(enriched);
-        setCounts(data.counts || { total: 0, pending: 0, approved: 0, rejected: 0 });
-        setTotalPages(data.totalPages || 1);
-        setRetryCount(0); // Reset retry count on success
-        // Products loaded successfully
-      } else {
-        console.error('Listed products error:', data);
-        if (response.status === 401) {
-          alert('❌ Authentication failed. Please login again.');
-          navigate('/login/supplier');
-        } else if (response.status >= 500) {
-          // Server error - show retry option
-          setShowRetryButton(true);
-          alert('❌ Server error. Please try again.');
+        data = await response.json(); // parse before clearing timeout
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const enriched = (data.products || []).map(p => {
+            const sellerId = seller?._id?.toString();
+            const sellerEntry = p.sellers?.find(s => s.sellerId?.toString() === sellerId);
+            return {
+              ...p,
+              sellerListingCountries: sellerEntry?.listingCountries || [],
+              sellerAsinData: {
+                asinAvailable: sellerEntry?.asinAvailable || false,
+                asinYearlyCost: sellerEntry?.asinYearlyCost || 0,
+                asinReviews: sellerEntry?.asinReviews || 0,
+                asinYearlyIncome: sellerEntry?.asinYearlyIncome || 0
+              }
+            };
+          });
+          setProducts(enriched);
+          setCounts(data.counts || { total: 0, pending: 0, approved: 0, rejected: 0 });
+          setTotalPages(data.totalPages || 1);
+          setRetryCount(0);
         } else {
-          alert('❌ ' + (data.message || 'Failed to load products'));
+          clearTimeout(timeoutId);
+          if (response.status === 401) {
+            navigate('/login/supplier');
+          } else {
+            setShowRetryButton(true);
+            setErrorMsg(data.message || 'Failed to load products');
+          }
         }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        throw fetchError;
       }
+
     } catch (error) {
       console.error('Network error:', error);
-      
       if (error.name === 'AbortError') {
         setShowRetryButton(true);
-        alert('❌ Request timed out. Please check your connection and try again.');
+        setErrorMsg('Request timed out. Please check your connection and try again.');
       } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
         setShowRetryButton(true);
-        alert('❌ Could not connect to server. Please check your internet connection and try again.');
+        setErrorMsg('Could not connect to server. Please check your internet connection.');
       } else {
-        // Auto-retry up to 2 times for network errors
         if (!isRetry && retryCount < 2) {
           setRetryCount(prev => prev + 1);
-          setTimeout(() => loadProducts(true), 2000); // Retry after 2 seconds
+          setTimeout(() => loadProducts(true), 2000);
           return;
         }
         setShowRetryButton(true);
-        alert('❌ Could not load products. Please try again.');
+        setErrorMsg('Could not load products. Please try again.');
       }
     } finally {
       setPageLoading(false);
@@ -598,7 +595,7 @@ const ListedProducts = () => {
         <div className="alert alert-warning d-flex justify-content-between align-items-center mb-3">
           <div>
             <i className="fas fa-exclamation-triangle me-2"></i>
-            Failed to load products. Please check your connection and try again.
+            {errorMsg || 'Failed to load products. Please check your connection and try again.'}
           </div>
           <button 
             className="btn btn-warning btn-sm"

@@ -556,7 +556,7 @@ const MobileHeader = () => {
           right: 0;
           bottom: 0;
           background: rgba(0,0,0,0.5);
-          z-index: 999;
+          z-index: 9998;
           display: none;
         }
 
@@ -571,10 +571,11 @@ const MobileHeader = () => {
           width: 280px;
           height: 100%;
           background: #fff;
-          z-index: 1000;
+          z-index: 9999;
           transition: left 0.3s ease;
           overflow-y: auto;
           box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+          max-width: 280px !important;
         }
 
         .mobile-menu-sidebar.active {
@@ -1210,6 +1211,24 @@ const MobileHeader = () => {
                 <i className="fas fa-info-circle"></i> About
               </Link>
 
+              {/* Wishlist icon - always visible on desktop */}
+              <Link to="/wishlist-queries" style={{
+                position: 'relative',
+                fontSize: '13px',
+                color: '#fff',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '24px',
+                height: '24px',
+                background: 'rgba(255,255,255,0.2)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '50%'
+              }} title="Buyer Demands & Wishlist">
+                <i className="fas fa-heart"></i>
+              </Link>
+
               <Link to="/basket" style={{
                 position: 'relative',
                 fontSize: '13px',
@@ -1322,130 +1341,131 @@ const MobileHeader = () => {
           </div>
         </div>
 
-        {/* Mobile Menu Overlay */}
-        <div 
-          className={`mobile-menu-overlay ${showMobileMenu ? 'active' : ''}`}
-          onClick={() => setShowMobileMenu(false)}
-        ></div>
+      </header>
 
-        {/* Mobile Menu Sidebar */}
-        <div className={`mobile-menu-sidebar ${showMobileMenu ? 'active' : ''}`}>
-          <div className="mobile-menu-header" style={{overflow: 'visible'}}>
-            <div style={{
-              position: 'relative',
-              display: 'inline-block',
-              lineHeight: '1',
-              paddingRight: '25px'
+      {/* Mobile Menu Overlay - OUTSIDE header for proper z-index stacking */}
+      <div 
+        className={`mobile-menu-overlay ${showMobileMenu ? 'active' : ''}`}
+        onClick={() => setShowMobileMenu(false)}
+      ></div>
+
+      {/* Mobile Menu Sidebar - OUTSIDE header for proper z-index stacking */}
+      <div className={`mobile-menu-sidebar ${showMobileMenu ? 'active' : ''}`}>
+        <div className="mobile-menu-header" style={{overflow: 'visible'}}>
+          <div style={{
+            position: 'relative',
+            display: 'inline-block',
+            lineHeight: '1',
+            paddingRight: '25px'
+          }}>
+            <span style={{
+              fontSize: '14px',
+              fontWeight: '700',
+              color: '#fff',
+              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              letterSpacing: '-0.5px'
             }}>
-              <span style={{
-                fontSize: '14px',
-                fontWeight: '700',
-                color: '#fff',
-                textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                letterSpacing: '-0.5px'
-              }}>
-                PoundlandWholesale
-              </span>
-              <span style={{
-                position: 'absolute',
-                top: '11px',
-                right: '-20px',
-                fontSize: '8px',
-                fontWeight: '600',
-                color: '#fff',
-                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                letterSpacing: '0px',
-                whiteSpace: 'nowrap'
-              }}>
-                .com
-              </span>
-            </div>
-            <button className="mobile-menu-close" onClick={() => setShowMobileMenu(false)}>
-              ×
-            </button>
+              PoundlandWholesale
+            </span>
+            <span style={{
+              position: 'absolute',
+              top: '11px',
+              right: '-20px',
+              fontSize: '8px',
+              fontWeight: '600',
+              color: '#fff',
+              textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+              letterSpacing: '0px',
+              whiteSpace: 'nowrap'
+            }}>
+              .com
+            </span>
           </div>
+          <button className="mobile-menu-close" onClick={() => setShowMobileMenu(false)}>
+            ×
+          </button>
+        </div>
 
-          {/* User Section */}
-          <div className="mobile-menu-section">
-            {!userInfo ? (
-              <>
-                <Link to="/login/buyer" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
-                  <i className="fas fa-user"></i> Buyer Login
-                </Link>
-                <Link to="/login/supplier" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
-                  <i className="fas fa-store"></i> Supplier Login
-                </Link>
-                <Link to="/admin/login" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
-                  <i className="fas fa-user-shield"></i> Admin Login
-                </Link>
-                <Link to="/register/buyer" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
-                  <i className="fas fa-user-plus"></i> Register
-                </Link>
-              </>
-            ) : (
-              <>
-                <div style={{ padding: '10px 12px', background: '#f3f4f6', borderRadius: '4px', marginBottom: '8px' }}>
-                  <div style={{ fontSize: '12px', color: '#666' }}>Logged in as</div>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#111' }}>{userInfo.name}</div>
-                  <div style={{ fontSize: '10px', color: '#888' }}>{userInfo.type}</div>
-                </div>
-                <Link 
-                  to={isAdminLoggedIn ? '/admin/dashboard' : isBuyerLoggedIn ? '/buyer/dashboard' : '/seller/dashboard'} 
-                  className="mobile-menu-item"
-                  onClick={() => setShowMobileMenu(false)}
-                >
-                  <i className="fas fa-tachometer-alt"></i> Dashboard
-                </Link>
-                <button
-                  onClick={() => {
-                    handleLogout();
-                    setShowMobileMenu(false);
-                  }}
-                  className="mobile-menu-item"
-                  style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626' }}
-                >
-                  <i className="fas fa-sign-out-alt"></i> Logout
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Categories */}
-          <div className="mobile-menu-section">
-            <div className="mobile-menu-title">Categories</div>
-            {categories.map(cat => (
-              <Link
-                key={cat.value}
-                to={cat.value === 'all' ? '/' : `/?cat=${encodeURIComponent(cat.value)}`}
+        {/* User Section */}
+        <div className="mobile-menu-section">
+          {!userInfo ? (
+            <>
+              <Link to="/login/buyer" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
+                <i className="fas fa-user"></i> Buyer Login
+              </Link>
+              <Link to="/login/supplier" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
+                <i className="fas fa-store"></i> Supplier Login
+              </Link>
+              <Link to="/admin/login" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
+                <i className="fas fa-user-shield"></i> Admin Login
+              </Link>
+              <Link to="/register/buyer" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
+                <i className="fas fa-user-plus"></i> Register
+              </Link>
+            </>
+          ) : (
+            <>
+              <div style={{ padding: '10px 12px', background: '#f3f4f6', borderRadius: '4px', marginBottom: '8px' }}>
+                <div style={{ fontSize: '12px', color: '#666' }}>Logged in as</div>
+                <div style={{ fontSize: '14px', fontWeight: '700', color: '#111' }}>{userInfo.name}</div>
+                <div style={{ fontSize: '10px', color: '#888' }}>{userInfo.type}</div>
+              </div>
+              <Link 
+                to={isAdminLoggedIn ? '/admin/dashboard' : isBuyerLoggedIn ? '/buyer/dashboard' : '/seller/dashboard'} 
                 className="mobile-menu-item"
                 onClick={() => setShowMobileMenu(false)}
               >
-                {cat.label}
+                <i className="fas fa-tachometer-alt"></i> Dashboard
               </Link>
-            ))}
-          </div>
-
-          {/* Quick Links */}
-          <div className="mobile-menu-section">
-            <div className="mobile-menu-title">Quick Links</div>
-            <Link to="/" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
-              <i className="fas fa-home"></i> Home
-            </Link>
-            <Link to="/about-us" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
-              <i className="fas fa-info-circle"></i> About Us
-            </Link>
-            <Link to="/wishlist-queries" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
-              <i className="fas fa-heart"></i> Buyer Demands & Wishlist
-            </Link>
-            <Link to="/basket" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
-              <i className="fas fa-shopping-basket"></i> Basket
-            </Link>
-            <Link to="/help-center" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
-              <i className="fas fa-question-circle"></i> Help Center
-            </Link>
-          </div>
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setShowMobileMenu(false);
+                }}
+                className="mobile-menu-item"
+                style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626' }}
+              >
+                <i className="fas fa-sign-out-alt"></i> Logout
+              </button>
+            </>
+          )}
         </div>
-      </header>
+
+        {/* Categories */}
+        <div className="mobile-menu-section">
+          <div className="mobile-menu-title">Categories</div>
+          {categories.map(cat => (
+            <Link
+              key={cat.value}
+              to={cat.value === 'all' ? '/' : `/?cat=${encodeURIComponent(cat.value)}`}
+              className="mobile-menu-item"
+              onClick={() => setShowMobileMenu(false)}
+            >
+              {cat.label}
+            </Link>
+          ))}
+        </div>
+
+        {/* Quick Links */}
+        <div className="mobile-menu-section">
+          <div className="mobile-menu-title">Quick Links</div>
+          <Link to="/" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
+            <i className="fas fa-home"></i> Home
+          </Link>
+          <Link to="/about-us" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
+            <i className="fas fa-info-circle"></i> About Us
+          </Link>
+          <Link to="/wishlist-queries" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
+            <i className="fas fa-heart"></i> Buyer Demands & Wishlist
+          </Link>
+          <Link to="/basket" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
+            <i className="fas fa-shopping-basket"></i> Basket
+          </Link>
+          <Link to="/help-center" className="mobile-menu-item" onClick={() => setShowMobileMenu(false)}>
+            <i className="fas fa-question-circle"></i> Help Center
+          </Link>
+        </div>
+      </div>
     </>
   );
 };

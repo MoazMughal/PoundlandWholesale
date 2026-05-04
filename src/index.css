@@ -1377,14 +1377,10 @@ input, textarea, select {
 
 /* CRITICAL: Ensure fixed/floating elements don't affect page layout */
 .whatsapp-float,
-.scroll-to-top-btn,
-[style*="position: fixed"],
-[style*="position:fixed"] {
+.scroll-to-top-btn {
   position: fixed !important;
   pointer-events: auto !important;
-  /* Don't affect document flow */
   margin: 0 !important;
-  /* Ensure they're above everything */
   z-index: 9999 !important;
 }
 

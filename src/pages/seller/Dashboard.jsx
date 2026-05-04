@@ -458,39 +458,39 @@ const SellerDashboard = () => {
         {/* â”€â”€ STATS ROW â”€â”€ */}
         <div className="row g-2 mb-3">
           <div className="col-6 col-md-3">
-            <div className="sd-stat" style={{background: 'linear-gradient(135deg, #ff6b35, #f7931e)'}}>
+            <div className="sd-stat" style={{background: 'linear-gradient(135deg, #ff6b35, #f7931e)', padding: '8px 12px'}}>
               <div>
-                <div style={{fontSize: '0.65rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Supplier ID</div>
-                <div style={{fontSize: '1.1rem', fontWeight: 800}}>{seller.supplierId}</div>
+                <div style={{fontSize: '0.6rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Supplier ID</div>
+                <div style={{fontSize: '0.85rem', fontWeight: 800}}>{seller.supplierId}</div>
               </div>
-              <i className="fas fa-id-card" style={{fontSize: '1.6rem', opacity: 0.5}}></i>
+              <i className="fas fa-id-card" style={{fontSize: '1.2rem', opacity: 0.4}}></i>
             </div>
           </div>
           <div className="col-6 col-md-3">
-            <div className="sd-stat" style={{background: 'linear-gradient(135deg, #28a745, #20c997)'}}>
+            <div className="sd-stat" style={{background: 'linear-gradient(135deg, #28a745, #20c997)', padding: '8px 12px'}}>
               <div>
-                <div style={{fontSize: '0.65rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Status</div>
-                <div style={{fontSize: '1.1rem', fontWeight: 800, textTransform: 'capitalize'}}>{seller.status}</div>
+                <div style={{fontSize: '0.6rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Status</div>
+                <div style={{fontSize: '0.85rem', fontWeight: 800, textTransform: 'capitalize'}}>{seller.status}</div>
               </div>
-              <i className="fas fa-check-circle" style={{fontSize: '1.6rem', opacity: 0.5}}></i>
+              <i className="fas fa-check-circle" style={{fontSize: '1.2rem', opacity: 0.4}}></i>
             </div>
           </div>
           <div className="col-6 col-md-3">
-            <div className="sd-stat" style={{background: 'linear-gradient(135deg, #17a2b8, #007bff)'}}>
+            <div className="sd-stat" style={{background: 'linear-gradient(135deg, #17a2b8, #007bff)', padding: '8px 12px'}}>
               <div>
-                <div style={{fontSize: '0.65rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Total Products</div>
-                <div style={{fontSize: '1.1rem', fontWeight: 800}}>{stats.totalProducts}</div>
+                <div style={{fontSize: '0.6rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Total Products</div>
+                <div style={{fontSize: '0.85rem', fontWeight: 800}}>{myStats?.listedProducts?.approved ?? myStats?.listedProducts?.total ?? stats.totalProducts}</div>
               </div>
-              <i className="fas fa-box" style={{fontSize: '1.6rem', opacity: 0.5}}></i>
+              <i className="fas fa-box" style={{fontSize: '1.2rem', opacity: 0.4}}></i>
             </div>
           </div>
           <div className="col-6 col-md-3">
-            <div className="sd-stat" style={{background: 'linear-gradient(135deg, #ffc107, #fd7e14)'}}>
+            <div className="sd-stat" style={{background: 'linear-gradient(135deg, #ffc107, #fd7e14)', padding: '8px 12px'}}>
               <div>
-                <div style={{fontSize: '0.65rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Listing Requests</div>
-                <div style={{fontSize: '1.1rem', fontWeight: 800}}>{listingRequests.length}</div>
+                <div style={{fontSize: '0.6rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Listing Requests</div>
+                <div style={{fontSize: '0.85rem', fontWeight: 800}}>{myStats?.listingRequests ?? listingRequests.length}</div>
               </div>
-              <i className="fas fa-list-alt" style={{fontSize: '1.6rem', opacity: 0.5}}></i>
+              <i className="fas fa-list-alt" style={{fontSize: '1.2rem', opacity: 0.4}}></i>
             </div>
           </div>
         </div>
@@ -722,5 +722,6 @@ const SellerDashboard = () => {
 }
 
 export default SellerDashboard
+
 
 
