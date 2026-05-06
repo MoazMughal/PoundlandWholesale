@@ -153,7 +153,14 @@ const SellerInformation = ({
     ].join('\n');
 
     const phone = se.whatsappNo?.replace(/[^0-9]/g, '');
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+    const waUrl = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`;
+    const win = window.open('', 'whatsapp_web');
+    if (win) {
+      win.location.href = waUrl;
+      win.focus();
+    } else {
+      window.open(waUrl, 'whatsapp_web');
+    }
 
     setSending(prev => ({ ...prev, [sid]: false }));
   };
@@ -434,6 +441,49 @@ const SellerInformation = ({
                 </div>
               )}
 
+              {/* Guest quotation form */}
+              {!isMine && isBuyer && !isBuyerLoggedIn && guestForm[sid]?.show && (
+                <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '10px', marginBottom: '6px' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#15803d', marginBottom: '8px' }}>
+                    <i className="fab fa-whatsapp me-1"></i>Contact Supplier — Enter your details
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Your name *"
+                    value={guestForm[sid]?.name || ''}
+                    onChange={e => setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], name: e.target.value } }))}
+                    style={{ width: '100%', padding: '5px 8px', fontSize: '0.7rem', border: '1px solid #d1d5db', borderRadius: '5px', marginBottom: '5px', boxSizing: 'border-box' }}
+                  />
+                  <input
+                    type="tel"
+                    placeholder="WhatsApp / Phone *"
+                    value={guestForm[sid]?.phone || ''}
+                    onChange={e => setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], phone: e.target.value } }))}
+                    style={{ width: '100%', padding: '5px 8px', fontSize: '0.7rem', border: '1px solid #d1d5db', borderRadius: '5px', marginBottom: '5px', boxSizing: 'border-box' }}
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email (optional)"
+                    value={guestForm[sid]?.email || ''}
+                    onChange={e => setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], email: e.target.value } }))}
+                    style={{ width: '100%', padding: '5px 8px', fontSize: '0.7rem', border: '1px solid #d1d5db', borderRadius: '5px', marginBottom: '8px', boxSizing: 'border-box' }}
+                  />
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={() => handleGuestSubmit(se)}
+                      disabled={sending[sid]}
+                      style={{ flex: 2, padding: '6px', fontSize: '0.7rem', fontWeight: '700', background: '#25d366', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
+                      {sending[sid] ? 'Sending...' : <><i className="fab fa-whatsapp me-1"></i>Send via WhatsApp</>}
+                    </button>
+                    <button
+                      onClick={() => setGuestForm(prev => ({ ...prev, [sid]: { ...prev[sid], show: false } }))}
+                      style={{ flex: 1, padding: '6px', fontSize: '0.7rem', fontWeight: '600', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: '5px', cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Buyer actions — only for buyers */}
               {!isMine && isBuyer && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -445,10 +495,6 @@ const SellerInformation = ({
                         if (locked) {
                           setLockedSellerName(se.username);
                           setShowMembershipModal(true);
-                          return;
-                        }
-                        if (!isBuyerLoggedIn) {
-                          navigate('/login/buyer');
                           return;
                         }
                         handleContactSupplier(se);
@@ -465,14 +511,10 @@ const SellerInformation = ({
                         : <>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
                               <i className="fab fa-whatsapp" style={{ fontSize: '0.85rem' }}></i>
-                              {isBuyerLoggedIn ? 'Contact Supplier' : 'Login to Contact'}
+                              Contact Supplier
                             </span>
-                            {/* Show masked number when not logged in, full number when logged in */}
                             <span style={{ opacity: 0.9, fontSize: '0.6rem', whiteSpace: 'nowrap', letterSpacing: '0.3px' }}>
-                              {isBuyerLoggedIn
-                                ? se.whatsappNo
-                                : maskPhone(se.whatsappNo)
-                              }
+                              {isBuyerLoggedIn ? se.whatsappNo : maskPhone(se.whatsappNo)}
                             </span>
                           </>}
                     </a>

@@ -24,6 +24,8 @@ const Basket = () => {
     try { return JSON.parse(localStorage.getItem('savedForLater') || '[]') } catch { return [] }
   })
   const [shareModal, setShareModal] = useState({ open: false, url: '', name: '' })
+  const [guestModal, setGuestModal] = useState(false)
+  const [guestInfo, setGuestInfo] = useState({ name: '', phone: '', email: '' })
   const [relatedProducts, setRelatedProducts] = useState([])
   const [relatedLoading, setRelatedLoading] = useState(false)
   const [relatedTitle, setRelatedTitle] = useState('')
@@ -247,7 +249,7 @@ const Basket = () => {
     }
   }
 
-  const handleCheckout = async (preOpenedTabs = []) => {
+  const handleCheckout = async (preOpenedTabs = [], overrideGuestInfo = null) => {
     // Only process selected items
     const selectedBasket = basket.filter(item => {
       const iId  = item.id || item._id
@@ -265,10 +267,12 @@ const Basket = () => {
     const buyerToken = localStorage.getItem('buyerToken')
     const sellerToken = localStorage.getItem('sellerToken')
     const adminToken = localStorage.getItem('adminToken')
-    
-    if (!buyerToken && !sellerToken && !adminToken) {
-      alert('Please login to proceed with checkout')
-      navigate('/login')
+    const isGuest = !buyerToken && !sellerToken && !adminToken
+    const resolvedGuestInfo = overrideGuestInfo || guestInfo
+
+    // If not logged in and guest info not yet collected, show the modal
+    if (isGuest && !resolvedGuestInfo.name.trim()) {
+      setGuestModal(true)
       return
     }
 
@@ -370,6 +374,12 @@ const Basket = () => {
         userName = adminData.username || adminData.name || 'Admin'
         userEmail = adminData.email || ''
         userType = 'Admin'
+      } else {
+        // Guest checkout
+        userName = resolvedGuestInfo.name || 'Guest'
+        userEmail = resolvedGuestInfo.email || ''
+        userPhone = resolvedGuestInfo.phone || ''
+        userType = 'Guest'
       }
 
       // If there are products without sellers, ask if they want to contact admin
@@ -432,59 +442,48 @@ _This quotation was generated from PoundlandWholesale.com_
 
         // Clean WhatsApp number (already cleaned as the key, but ensure)
         const finalWhatsApp = cleanWhatsApp.startsWith('+') ? cleanWhatsApp : `+${cleanWhatsApp}`
-        
-        // Save quotation to DB for each product in this seller group
-        for (const product of products) {
-          try {
-            const lowestSeller = product.sellers?.length > 0
-              ? product.sellers.reduce((lowest, current) => {
-                  const ct = (parseFloat(current.sellerPrice) || 0) + (parseFloat(current.sellerShipping) || 0);
-                  const lt = (parseFloat(lowest.sellerPrice) || 0) + (parseFloat(lowest.sellerShipping) || 0);
-                  return ct < lt ? current : lowest;
-                })
-              : null;
-            const sellerId = lowestSeller?.sellerId || lowestSeller?._id || null;
-            const sellerPrice = lowestSeller?.sellerPrice || null;
-            const productId = product._id || product.id;
 
-            if (!productId) continue; // skip if no product ID
-
-            await fetch(getApiUrl('sellers/quotation'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                productId,
-                sellerId,
-                sellerUsername: sellerName,
-                sellerWhatsapp: cleanWhatsApp,
-                buyerName: userName,
-                buyerEmail: userEmail,
-                buyerPhone: userPhone,
-                quantity: (() => {
-                  const iId  = product.id || product._id
-                  const iSid = product.selectedSeller?.sellerId || product.selectedSeller?._id || ''
-                  const key  = iSid ? `${iId}_${iSid}` : iId
-                  return quantities[key] ?? product.quantity ?? 1
-                })(),
-                sellerPrice,
-                message: `Basket checkout — ${products.length} product(s) in order to ${sellerName}`
+        // Build per-product quotation payloads (saved only when user clicks the button)
+        const quotationPayloads = products.map(product => {
+          const lowestSeller = product.sellers?.length > 0
+            ? product.sellers.reduce((lowest, current) => {
+                const ct = (parseFloat(current.sellerPrice) || 0) + (parseFloat(current.sellerShipping) || 0);
+                const lt = (parseFloat(lowest.sellerPrice) || 0) + (parseFloat(lowest.sellerShipping) || 0);
+                return ct < lt ? current : lowest;
               })
-            });
-          } catch (err) {
-            console.error('Failed to save quotation for', product.name, err);
+            : null;
+          const sellerId = product.selectedSeller?.sellerId || product.selectedSeller?._id || lowestSeller?.sellerId || lowestSeller?._id || null;
+          const sellerPrice = product.selectedSeller?.sellerPrice || lowestSeller?.sellerPrice || null;
+          const productId = product._id || product.id;
+          if (!productId) return null;
+          const iId  = product.id || product._id
+          const iSid = product.selectedSeller?.sellerId || product.selectedSeller?._id || ''
+          const key  = iSid ? `${iId}_${iSid}` : iId
+          return {
+            productId,
+            sellerId,
+            sellerUsername: sellerName,
+            sellerWhatsapp: cleanWhatsApp,
+            buyerName: userName,
+            buyerEmail: userEmail,
+            buyerPhone: userPhone,
+            buyerId: buyerToken ? (JSON.parse(localStorage.getItem('buyerData') || localStorage.getItem('buyer') || '{}')?._id || null) : null,
+            senderType: isGuest ? 'guest' : userType.toLowerCase(),
+            quantity: quantities[key] ?? product.quantity ?? 1,
+            sellerPrice,
+            message: `Basket checkout — ${products.length} product(s) in order to ${sellerName}`
           }
-        }
+        }).filter(Boolean)
 
         // Create WhatsApp URL
         const phoneDigits = finalWhatsApp.replace(/[^0-9]/g, '')
-        // Use web.whatsapp.com/send so we always target WhatsApp Web in a named tab.
-        // wa.me redirects through a landing page which breaks named-window reuse.
         const whatsappUrl = `https://web.whatsapp.com/send?phone=${phoneDigits}&text=${encodeURIComponent(message)}`
         whatsappUrls.push({
           url: whatsappUrl,
           phone: phoneDigits,
           sellerName,
           productCount: products.length,
+          quotationPayloads,
           items: products.map(product => {
             const iId  = product.id || product._id
             const iSid = product.selectedSeller?.sellerId || product.selectedSeller?._id || ''
@@ -565,6 +564,67 @@ _This quotation was generated from PoundlandWholesale.com_
 
   return (
     <>
+      {/* Guest Checkout Modal */}
+      {guestModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+        }} onClick={() => setGuestModal(false)}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', padding: '28px 24px', maxWidth: '400px', width: '100%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.25)'
+          }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontWeight: '800', color: '#1f2937', marginBottom: '6px', fontSize: '1.1rem' }}>
+              <i className="fab fa-whatsapp me-2" style={{ color: '#25d366' }}></i>Send Quotation
+            </h3>
+            <p style={{ color: '#6b7280', fontSize: '0.82rem', marginBottom: '16px' }}>
+              Enter your details so sellers can get back to you.
+            </p>
+            <input
+              type="text"
+              placeholder="Your name *"
+              value={guestInfo.name}
+              onChange={e => setGuestInfo(prev => ({ ...prev, name: e.target.value }))}
+              style={{ width: '100%', padding: '8px 10px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '7px', marginBottom: '10px', boxSizing: 'border-box' }}
+            />
+            <input
+              type="tel"
+              placeholder="WhatsApp / Phone *"
+              value={guestInfo.phone}
+              onChange={e => setGuestInfo(prev => ({ ...prev, phone: e.target.value }))}
+              style={{ width: '100%', padding: '8px 10px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '7px', marginBottom: '10px', boxSizing: 'border-box' }}
+            />
+            <input
+              type="email"
+              placeholder="Email (optional)"
+              value={guestInfo.email}
+              onChange={e => setGuestInfo(prev => ({ ...prev, email: e.target.value }))}
+              style={{ width: '100%', padding: '8px 10px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '7px', marginBottom: '16px', boxSizing: 'border-box' }}
+            />
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setGuestModal(false)}
+                style={{ flex: 1, padding: '10px', fontSize: '0.85rem', fontWeight: '600', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: '8px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!guestInfo.name.trim()) { alert('Please enter your name.'); return; }
+                  if (!guestInfo.phone.trim()) { alert('Please enter your phone/WhatsApp number.'); return; }
+                  setGuestModal(false)
+                  handleCheckout([], guestInfo)
+                }}
+                style={{ flex: 2, padding: '10px', fontSize: '0.85rem', fontWeight: '700', background: '#25d366', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
+                <i className="fab fa-whatsapp me-1"></i>Continue to WhatsApp
+              </button>
+            </div>
+            <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.75rem', color: '#9ca3af' }}>
+              Already have an account? <a href="/login/buyer" style={{ color: '#059669', fontWeight: '600' }}>Login</a>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Animation styles */}
       <style>
         {`
@@ -1278,15 +1338,22 @@ _This quotation was generated from PoundlandWholesale.com_
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <button
                       onClick={() => {
-                        // All WhatsApp Web links share the same named window "whatsapp_web".
-                        // First click opens a new tab named "whatsapp_web".
-                        // Every subsequent click reuses that same tab — no new tab opens.
+                        // Save quotations to DB only when user actually clicks this button
+                        if (w.quotationPayloads?.length) {
+                          w.quotationPayloads.forEach(payload => {
+                            fetch(getApiUrl('sellers/quotation'), {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify(payload)
+                            }).catch(err => console.error('Failed to save quotation:', err))
+                          })
+                        }
+                        // Open WhatsApp Web in a named tab (reuses same tab on repeat clicks)
                         const win = window.open('', 'whatsapp_web')
                         if (win) {
                           win.location.href = w.url
                           win.focus()
                         } else {
-                          // Popup blocked fallback
                           window.open(w.url, 'whatsapp_web')
                         }
                       }}
