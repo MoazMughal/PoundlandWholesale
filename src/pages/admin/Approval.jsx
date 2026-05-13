@@ -38,6 +38,7 @@ const Approval = () => {
   const [allProductsSelected, setAllProductsSelected] = useState(false); // Track if all products across pages are selected
   const [allProductIds, setAllProductIds] = useState([]); // Store all product IDs for bulk operations
   const [lastRefreshTime, setLastRefreshTime] = useState(null);
+  const [categoryCounts, setCategoryCounts] = useState({});
 
   // Helper function to show toast notifications
   const showToast = (message, type = 'success', duration = 3000) => {
@@ -111,6 +112,7 @@ const Approval = () => {
         setFilteredProducts(data.products || []); // Since filtering is now server-side
         setTotalPages(data.pagination?.totalPages || 1);
         setTotalProducts(data.pagination?.totalProducts || 0);
+        setCategoryCounts(data.categoryCounts || {});
         setLastRefreshTime(new Date()); // Update last refresh time
         
         console.log(`✅ Loaded ${data.products?.length || 0} pending products (Total: ${data.pagination?.totalProducts || 0})`);
@@ -172,28 +174,21 @@ const Approval = () => {
     
     try {
       const response = await adminPost(`products/${productId}/approval`, {
-        action, // 'approve' or 'disapprove'
+        action,
         approvalStatus: action === 'approve' ? 'approved' : 'disapproved'
       });
       
       if (response.ok) {
-        // Clear cache
         cacheManager.clearAll();
         
-        // Show success message
         const actionText = action === 'approve' ? 'approved' : 'disapproved';
         const emoji = action === 'approve' ? '✅' : '❌';
-        showToast(
-          `Product ${actionText} successfully! Page will refresh in 1.5 seconds...`,
-          action === 'approve' ? 'success' : 'info',
-          1500
-        );
-        setIsRefreshing(true);
-        
-        // Refresh the page to load fresh data
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+        showToast(`${emoji} Product ${actionText} successfully!`, action === 'approve' ? 'success' : 'info', 3000);
+
+        // Remove product from local state — no page reload needed
+        setPendingProducts(prev => prev.filter(p => p._id !== productId));
+        setFilteredProducts(prev => prev.filter(p => p._id !== productId));
+        setTotalProducts(prev => Math.max(0, prev - 1));
       } else {
         const errorData = await response.json();
         alert(`❌ Error: ${errorData.message || 'Failed to process approval'}`);
@@ -206,10 +201,8 @@ const Approval = () => {
   };
 
   const getCategoryCount = (category) => {
-    // Since we're using server-side pagination, we'll show the total count from server
     if (category === 'all') return totalProducts;
-    // For individual categories, we'll need to make a separate API call or show approximate count
-    return '?'; // We could implement a separate endpoint to get category counts
+    return categoryCounts[category] ?? 0;
   };
 
   const clearAllFilters = () => {
@@ -355,27 +348,26 @@ const Approval = () => {
       
       if (response.ok) {
         const data = await response.json();
-        
-        // Clear cache
         cacheManager.clearAll();
         
         const isNewCategory = bulkTargetCategory.startsWith('NEW:');
         const movedCount = data.updatedCount || data.movedCount || productIds.length;
         
-        // Show success message
         showToast(
           `Successfully moved ${movedCount} products to "${targetCategory}" category!` +
-          (isNewCategory ? ' (New category created)' : '') +
-          ' Page will refresh in 2 seconds...',
-          'success',
-          2000
+          (isNewCategory ? ' (New category created)' : ''),
+          'success', 3000
         );
-        setIsRefreshing(true);
-        
-        // Reload page to show updated categories and products
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
+
+        // Update category in local state — no page reload
+        setPendingProducts(prev => prev.map(p =>
+          selectedProducts.has(p._id) ? { ...p, category: targetCategory } : p
+        ));
+        setFilteredProducts(prev => prev.map(p =>
+          selectedProducts.has(p._id) ? { ...p, category: targetCategory } : p
+        ));
+        clearSelection();
+        setBulkTargetCategory('');
       } else {
         let errorMessage = 'Failed to move products';
         
@@ -428,26 +420,20 @@ const Approval = () => {
       const failedUpdates = results.filter(result => !result.ok);
       
       if (successfulUpdates.length > 0) {
-        // Clear cache and selection
         cacheManager.clearAll();
-        clearSelection();
         
         const actionText = action === 'approve' ? 'approved' : 'disapproved';
         let message = `Successfully ${actionText} ${successfulUpdates.length} products!`;
-        
-        if (failedUpdates.length > 0) {
-          message += ` (${failedUpdates.length} failed)`;
-        }
-        
-        message += ' Page will refresh in 2 seconds...';
-        
-        showToast(message, action === 'approve' ? 'success' : 'info', 2000);
-        setIsRefreshing(true);
-        
-        // Refresh the page to load fresh data
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
+        if (failedUpdates.length > 0) message += ` (${failedUpdates.length} failed)`;
+
+        showToast(message, action === 'approve' ? 'success' : 'info', 3000);
+
+        // Remove approved/disapproved products from local state — no page reload
+        const approvedIds = new Set(productIds.slice(0, successfulUpdates.length));
+        setPendingProducts(prev => prev.filter(p => !approvedIds.has(p._id)));
+        setFilteredProducts(prev => prev.filter(p => !approvedIds.has(p._id)));
+        setTotalProducts(prev => Math.max(0, prev - successfulUpdates.length));
+        clearSelection();
       }
       
       if (failedUpdates.length > 0 && successfulUpdates.length === 0) {
@@ -888,7 +874,7 @@ const Approval = () => {
   }
 
   return (
-    <div className="admin-product-form" style={{ position: 'relative' }}>
+    <div className="admin-product-form" style={{ position: 'relative', paddingBottom: showBulkActions ? '100px' : '0' }}>
       {/* Refresh Overlay */}
       {isRefreshing && (
         <div style={{
@@ -1272,12 +1258,15 @@ const Approval = () => {
           {/* Bulk Actions Panel */}
           {showBulkActions && (
             <div style={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              zIndex: 9999,
               background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
               color: 'white',
-              padding: '12px',
-              borderRadius: '6px',
-              marginBottom: '10px',
-              boxShadow: '0 2px 6px rgba(40, 167, 69, 0.2)'
+              padding: '12px 24px',
+              boxShadow: '0 -4px 16px rgba(40, 167, 69, 0.4)'
             }}>
               {/* First Row - Category Management */}
               <div style={{

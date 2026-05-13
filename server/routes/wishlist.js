@@ -67,6 +67,32 @@ router.get('/buyer', authenticateBuyer, async (req, res) => {
   }
 });
 
+// POST create a new wishlist query (guest — no auth required)
+router.post('/guest', async (req, res) => {
+  try {
+    const { productName, productDescription, quantity, targetPrice, currency, category, imageUrl, notes, productId, guestName, guestPhone, guestEmail } = req.body;
+    if (!productName) return res.status(400).json({ message: 'Product name is required' });
+    if (!guestName?.trim()) return res.status(400).json({ message: 'Your name is required' });
+    if (!guestPhone?.trim()) return res.status(400).json({ message: 'Your phone/WhatsApp is required' });
+
+    const query = await WishlistQuery.create({
+      senderType: 'guest',
+      buyerId: null,
+      buyerName: guestName.trim(),
+      buyerEmail: guestEmail?.trim() || '',
+      buyerWhatsapp: guestPhone.trim(),
+      productName, productDescription, quantity: quantity || 1,
+      targetPrice, currency: currency || 'GBP',
+      category, imageUrl, notes,
+      ...(productId && { productId })
+    });
+
+    res.json({ success: true, query });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // POST create a new wishlist query
 router.post('/buyer', authenticateBuyer, async (req, res) => {
   try {
@@ -81,6 +107,7 @@ router.post('/buyer', authenticateBuyer, async (req, res) => {
     }
 
     const query = await WishlistQuery.create({
+      senderType: 'buyer',
       buyerId: req.buyer._id,
       buyerName: `${req.buyer.firstName} ${req.buyer.lastName}`.trim(),
       buyerEmail: req.buyer.email,
@@ -255,7 +282,7 @@ router.get('/public', async (req, res) => {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
-      .select('productName productDescription quantity targetPrice currency category imageUrl status responses taggedSellers createdAt notes');
+      .select('productName productDescription quantity targetPrice currency category imageUrl status responses taggedSellers createdAt notes buyerName senderType');
     // Strip private buyer info — only expose first name initial + last name
     const safe = queries.map(q => ({
       _id: q._id,
@@ -270,6 +297,8 @@ router.get('/public', async (req, res) => {
       notes: q.notes,
       createdAt: q.createdAt,
       responsesCount: q.responses?.length || 0,
+      buyerName: q.buyerName || '',
+      senderType: q.senderType || 'buyer',
     }));
     res.json({ success: true, queries: safe, total, totalPages: Math.ceil(total / limit) });
   } catch (err) {
@@ -280,8 +309,11 @@ router.get('/public', async (req, res) => {
 // GET all queries with full details (admin only)
 router.get('/admin', authenticateAdmin, async (req, res) => {
   try {
-    const { status, page = 1, limit = 50 } = req.query;
-    const filter = status ? { status } : {};
+    const { status, senderType, page = 1, limit = 50 } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    if (senderType === 'guest') filter.senderType = 'guest';
+    if (senderType === 'buyer') filter.$or = [{ senderType: 'buyer' }, { senderType: { $exists: false } }, { senderType: null }];
     const total = await WishlistQuery.countDocuments(filter);
     const queries = await WishlistQuery.find(filter)
       .sort({ createdAt: -1 })

@@ -8,6 +8,7 @@ import PaymentUploadModal from '../components/PaymentUploadModal'
 import SellerInformation from '../components/SellerInformation'
 import ImageZoomModal from '../components/ImageZoomModal'
 import apiConfig from '../config/api.config'
+import { getApiUrl } from '../utils/api'
 import { useCurrency } from '../context/CurrencyContext'
 import { useAdmin } from '../context/AdminContext'
 import { useBuyer } from '../context/BuyerContext'
@@ -116,6 +117,64 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1) // Set MOQ to 1
   const [showZoomModal, setShowZoomModal] = useState(false)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+
+  // Wishlist / demand modal state
+  const [wishlistModal, setWishlistModal] = useState(false)
+  const [wishlistForm, setWishlistForm] = useState({ quantity: 1, targetPrice: '', notes: '', guestName: '', guestPhone: '', guestEmail: '' })
+  const [wishlistSubmitting, setWishlistSubmitting] = useState(false)
+  const [wishlistSuccess, setWishlistSuccess] = useState(false)
+
+  const handleWishlistSubmit = async () => {
+    if (!product) return
+    setWishlistSubmitting(true)
+    const isActualBuyer = isBuyerLoggedIn && !!(buyer?.firstName || buyer?.lastName || buyer?.name || buyer?.email)
+    try {
+      if (isActualBuyer) {
+        const token = localStorage.getItem('buyerToken')
+        const res = await fetch(getApiUrl('wishlist/buyer'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            productName: product.name,
+            productDescription: product.category ? `Category: ${product.category}` : '',
+            productId: product._id || product.id,
+            quantity: parseInt(wishlistForm.quantity) || 1,
+            targetPrice: wishlistForm.targetPrice ? parseFloat(wishlistForm.targetPrice) : undefined,
+            currency,
+            category: product.category || '',
+            imageUrl: product.images?.[0] || product.image || '',
+            notes: wishlistForm.notes || ''
+          })
+        })
+        if (res.ok) setWishlistSuccess(true)
+        else { const d = await res.json(); alert('❌ ' + (d.message || 'Failed')) }
+      } else {
+        if (!wishlistForm.guestName.trim()) { alert('Please enter your name.'); setWishlistSubmitting(false); return }
+        if (!wishlistForm.guestPhone.trim()) { alert('Please enter your phone/WhatsApp.'); setWishlistSubmitting(false); return }
+        const res = await fetch(getApiUrl('wishlist/guest'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productName: product.name,
+            productDescription: product.category ? `Category: ${product.category}` : '',
+            productId: product._id || product.id,
+            quantity: parseInt(wishlistForm.quantity) || 1,
+            targetPrice: wishlistForm.targetPrice ? parseFloat(wishlistForm.targetPrice) : undefined,
+            currency,
+            category: product.category || '',
+            imageUrl: product.images?.[0] || product.image || '',
+            notes: wishlistForm.notes || '',
+            guestName: wishlistForm.guestName.trim(),
+            guestPhone: wishlistForm.guestPhone.trim(),
+            guestEmail: wishlistForm.guestEmail.trim()
+          })
+        })
+        if (res.ok) setWishlistSuccess(true)
+        else { const d = await res.json(); alert('❌ ' + (d.message || 'Failed')) }
+      }
+    } catch { alert('❌ Failed to submit wishlist query') }
+    finally { setWishlistSubmitting(false) }
+  }
 
   // Track window width for responsive design
   useEffect(() => {
@@ -3911,6 +3970,27 @@ _This quotation was generated from PoundlandWholesale.com_
                     quantity={quantity}
                   />
 
+                  {/* Wishlist & Demand button — buyers and guests */}
+                  <button
+                    onClick={() => {
+                      setWishlistForm({ quantity: 1, targetPrice: '', notes: '', guestName: '', guestPhone: '', guestEmail: '' })
+                      setWishlistSuccess(false)
+                      setWishlistModal(true)
+                    }}
+                    style={{
+                      width: '100%', marginTop: '8px', padding: '10px',
+                      background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                      color: '#ffffff', border: 'none', borderRadius: '8px',
+                      fontWeight: '700', fontSize: '0.95rem', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                      boxShadow: '0 2px 8px rgba(124,58,237,0.3)',
+                      WebkitTextFillColor: '#ffffff'
+                    }}
+                  >
+                    <i className="fas fa-heart" style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff', fontSize: '1rem' }}></i>
+                    <span style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff', paddingLeft: '8px' }}>Wishlist & Demand</span>
+                  </button>
+
                   
 
                  
@@ -5564,6 +5644,100 @@ _This quotation was generated from PoundlandWholesale.com_
           initialIndex={selectedImage}
         />
       )}
+
+      {/* Wishlist & Demand Modal */}
+      {wishlistModal && (() => {
+        const isActualBuyer = isBuyerLoggedIn && !!(buyer?.firstName || buyer?.lastName || buyer?.name || buyer?.email)
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+            onClick={() => setWishlistModal(false)}>
+            <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', maxWidth: '420px', width: '100%', boxShadow: '0 24px 60px rgba(0,0,0,0.3)' }}
+              onClick={e => e.stopPropagation()}>
+              {wishlistSuccess ? (
+                <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>✅</div>
+                  <h3 style={{ margin: '0 0 8px', color: '#1f2937' }}>Wishlist Submitted!</h3>
+                  <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: '0 0 20px' }}>
+                    {isActualBuyer
+                      ? <>Submitted. View it in your <a href="/buyer/wishlist" style={{ color: '#7c3aed', fontWeight: '600' }}>Wishlist</a>.</>
+                      : 'Your demand has been submitted. Sellers will be notified.'}
+                  </p>
+                  <button onClick={() => setWishlistModal(false)}
+                    style={{ padding: '10px 24px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h3 style={{ margin: '0 0 4px', fontSize: '1rem', color: '#1f2937' }}>
+                    💜 {isActualBuyer ? 'Add to Wishlist' : 'Send Wishlist & Demand'}
+                  </h3>
+                  <p style={{ margin: '0 0 16px', fontSize: '0.8rem', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {product?.name}
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {!isActualBuyer && (
+                      <>
+                        <div>
+                          <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Your name *</label>
+                          <input type="text" placeholder="Enter your name" value={wishlistForm.guestName}
+                            onChange={e => setWishlistForm(f => ({ ...f, guestName: e.target.value }))}
+                            style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>WhatsApp / Phone *</label>
+                          <input type="tel" placeholder="e.g. +44 7700 900000" value={wishlistForm.guestPhone}
+                            onChange={e => setWishlistForm(f => ({ ...f, guestPhone: e.target.value }))}
+                            style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Email — optional</label>
+                          <input type="email" placeholder="your@email.com" value={wishlistForm.guestEmail}
+                            onChange={e => setWishlistForm(f => ({ ...f, guestEmail: e.target.value }))}
+                            style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                        </div>
+                      </>
+                    )}
+                    <div>
+                      <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Quantity needed</label>
+                      <input type="number" min="1" value={wishlistForm.quantity}
+                        onChange={e => setWishlistForm(f => ({ ...f, quantity: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Target price per unit ({currency}) — optional</label>
+                      <input type="number" min="0" step="0.01" placeholder="e.g. 2.50" value={wishlistForm.targetPrice}
+                        onChange={e => setWishlistForm(f => ({ ...f, targetPrice: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Notes — optional</label>
+                      <textarea rows={2} placeholder="Any specific requirements..." value={wishlistForm.notes}
+                        onChange={e => setWishlistForm(f => ({ ...f, notes: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem', resize: 'vertical', boxSizing: 'border-box' }} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '18px' }}>
+                    <button onClick={() => setWishlistModal(false)}
+                      style={{ flex: 1, padding: '10px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', color: '#374151' }}>
+                      Cancel
+                    </button>
+                    <button onClick={handleWishlistSubmit} disabled={wishlistSubmitting}
+                      style={{ flex: 2, padding: '10px', background: 'linear-gradient(135deg, #7c3aed, #a855f7)', border: 'none', borderRadius: '8px', cursor: wishlistSubmitting ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '700', color: '#fff', opacity: wishlistSubmitting ? 0.7 : 1 }}>
+                      {wishlistSubmitting ? 'Submitting...' : '💜 Submit Wishlist & Demand'}
+                    </button>
+                  </div>
+                  {!isActualBuyer && (
+                    <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.75rem', color: '#9ca3af' }}>
+                      Have an account? <a href="/login/buyer" style={{ color: '#7c3aed', fontWeight: '600' }}>Login</a> to track your wishlist.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

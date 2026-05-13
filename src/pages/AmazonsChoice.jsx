@@ -408,7 +408,8 @@ const AmazonsChoice = () => {
         .mobile-badge {
           position: absolute !important;
           top: 4px !important;
-          right: 4px !important;
+          left: 4px !important;
+          right: auto !important;
           font-size: 6px !important;
           padding: 2px 4px !important;
           border-radius: 3px !important;
@@ -444,7 +445,7 @@ const AmazonsChoice = () => {
         }
       }
       
-      /* Desktop Badge Styling - Show badges on laptop/desktop - TOP RIGHT OF CARD */
+      /* Desktop Badge Styling - Show badges on laptop/desktop - TOP LEFT OF CARD */
       @media (min-width: 577px) {
         .mobile-badge {
           display: none !important;
@@ -458,7 +459,8 @@ const AmazonsChoice = () => {
         .desktop-badge {
           position: absolute !important;
           top: 6px !important;
-          right: 6px !important;
+          left: 6px !important;
+          right: auto !important;
           font-size: 7px !important;
           padding: 2px 4px !important;
           border-radius: 4px !important;
@@ -636,12 +638,12 @@ const AmazonsChoice = () => {
 
   // Buyer wishlist modal state
   const [wishlistModal, setWishlistModal] = useState({ open: false, product: null })
-  const [wishlistForm, setWishlistForm] = useState({ quantity: 1, targetPrice: '', notes: '' })
+  const [wishlistForm, setWishlistForm] = useState({ quantity: 1, targetPrice: '', notes: '', guestName: '', guestPhone: '', guestEmail: '' })
   const [wishlistSubmitting, setWishlistSubmitting] = useState(false)
   const [wishlistSuccess, setWishlistSuccess] = useState(false)
 
   const handleAddToWishlist = (product) => {
-    setWishlistForm({ quantity: 1, targetPrice: product.rawPrice ? product.rawPrice.toFixed(2) : '', notes: '' })
+    setWishlistForm({ quantity: 1, targetPrice: product.rawPrice ? product.rawPrice.toFixed(2) : '', notes: '', guestName: '', guestPhone: '', guestEmail: '' })
     setWishlistSuccess(false)
     setWishlistModal({ open: true, product })
   }
@@ -651,26 +653,51 @@ const AmazonsChoice = () => {
     setWishlistSubmitting(true)
     try {
       const token = localStorage.getItem('buyerToken')
-      const res = await fetch(getApiUrl('wishlist/buyer'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          productName: product.name,
-          productDescription: product.category ? `Category: ${product.category}` : '',
-          productId: product.id || product._id || undefined,
-          quantity: parseInt(wishlistForm.quantity) || 1,
-          targetPrice: wishlistForm.targetPrice ? parseFloat(wishlistForm.targetPrice) : undefined,
-          currency,
-          category: product.category || '',
-          imageUrl: product.image || '',
-          notes: wishlistForm.notes || `Requested from Amazon's Choice page — product currently out of stock.`
+      const isActuallyLoggedIn = isBuyerLoggedIn && !!token && !!(buyer?.firstName || buyer?.lastName || buyer?.name || buyer?.email)
+
+      if (isActuallyLoggedIn) {
+        // Logged-in buyer route
+        const res = await fetch(getApiUrl('wishlist/buyer'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            productName: product.name,
+            productDescription: product.category ? `Category: ${product.category}` : '',
+            productId: product.id || product._id || undefined,
+            quantity: parseInt(wishlistForm.quantity) || 1,
+            targetPrice: wishlistForm.targetPrice ? parseFloat(wishlistForm.targetPrice) : undefined,
+            currency,
+            category: product.category || '',
+            imageUrl: product.image || '',
+            notes: wishlistForm.notes || `Requested from Amazon's Choice page — product currently out of stock.`
+          })
         })
-      })
-      if (res.ok) {
-        setWishlistSuccess(true)
+        if (res.ok) { setWishlistSuccess(true) }
+        else { const d = await res.json(); alert('❌ ' + (d.message || 'Failed to submit wishlist query')) }
       } else {
-        const d = await res.json()
-        alert('❌ ' + (d.message || 'Failed to submit wishlist query'))
+        // Guest route
+        if (!wishlistForm.guestName.trim()) { alert('Please enter your name.'); setWishlistSubmitting(false); return; }
+        if (!wishlistForm.guestPhone.trim()) { alert('Please enter your phone/WhatsApp.'); setWishlistSubmitting(false); return; }
+        const res = await fetch(getApiUrl('wishlist/guest'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productName: product.name,
+            productDescription: product.category ? `Category: ${product.category}` : '',
+            productId: product.id || product._id || undefined,
+            quantity: parseInt(wishlistForm.quantity) || 1,
+            targetPrice: wishlistForm.targetPrice ? parseFloat(wishlistForm.targetPrice) : undefined,
+            currency,
+            category: product.category || '',
+            imageUrl: product.image || '',
+            notes: wishlistForm.notes || `Requested from Amazon's Choice page — product currently out of stock.`,
+            guestName: wishlistForm.guestName.trim(),
+            guestPhone: wishlistForm.guestPhone.trim(),
+            guestEmail: wishlistForm.guestEmail.trim()
+          })
+        })
+        if (res.ok) { setWishlistSuccess(true) }
+        else { const d = await res.json(); alert('❌ ' + (d.message || 'Failed to submit wishlist query')) }
       }
     } catch (err) {
       alert('❌ Failed to submit wishlist query')
@@ -2711,6 +2738,35 @@ const AmazonsChoice = () => {
                 }}
                 aria-label={`View ${product.name}`}
               />
+
+              {/* Heart / Wishlist button — sits above the overlay, always clickable */}
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddToWishlist(product) }}
+                style={{
+                  position: 'absolute',
+                  top: '6px',
+                  right: '6px',
+                  zIndex: 10,
+                  width: windowWidth <= 576 ? '22px' : '26px',
+                  height: windowWidth <= 576 ? '22px' : '26px',
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.92)',
+                  border: '1px solid #e5e7eb',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  padding: 0,
+                  pointerEvents: 'auto',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#fff0f0'; e.currentTarget.style.borderColor = '#f87171' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.92)'; e.currentTarget.style.borderColor = '#e5e7eb' }}
+                title="Add to wishlist / send demand"
+              >
+                <i className="fas fa-heart" style={{ fontSize: windowWidth <= 576 ? '9px' : '11px', color: '#e11d48' }}></i>
+              </button>
               
               {/* Card content with higher z-index for interactive elements */}
               <div style={{ position: 'relative', zIndex: 2, pointerEvents: 'none', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -2788,8 +2844,8 @@ const AmazonsChoice = () => {
                         backgroundColor: currentBadge.color,
                         ...(isMobile && {
                           width: calculateBadgeWidth(currentBadge.text),
-                          minWidth: 'auto', // Override CSS min-width
-                          maxWidth: 'none' // Override CSS max-width
+                          minWidth: 'auto',
+                          maxWidth: 'none'
                         })
                       }}
                     >
@@ -2798,6 +2854,8 @@ const AmazonsChoice = () => {
                     </span>
                   )
                 })()}
+
+                {/* Wishlist button moved to top-right heart icon overlay */}
 
               </div>
               
@@ -3087,51 +3145,7 @@ const AmazonsChoice = () => {
                             </button>
                           )}
 
-                          {/* Add to Wishlist button - only visible to logged-in buyers */}
-                          {isBuyerLoggedIn && (
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleAddToWishlist(product)
-                              }}
-                              style={{
-                                marginTop: '3px',
-                                padding: windowWidth < 576 ? '4px 8px' : '3px 6px',
-                                fontSize: windowWidth < 576 ? '9px' : '8px',
-                                fontWeight: '700',
-                                background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                                whiteSpace: 'nowrap',
-                                boxShadow: '0 2px 4px rgba(124,58,237,0.3)',
-                                pointerEvents: 'auto',
-                                zIndex: 200,
-                                position: 'relative',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.3px',
-                                lineHeight: '1.4',
-                                minWidth: 'fit-content'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)'
-                                e.currentTarget.style.transform = 'translateY(-1px)'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)'
-                                e.currentTarget.style.transform = 'translateY(0)'
-                              }}
-                              title="Add to your wishlist — notify me when available"
-                            >
-                              <i className="fas fa-heart" style={{ fontSize: windowWidth < 576 ? '8px' : '6px' }}></i>
-                              Wishlist
-                            </button>
-                          )}
+                          {/* Wishlist button moved to top-right heart icon overlay */}
                         </div>
                       );
                     }
@@ -3729,24 +3743,27 @@ const AmazonsChoice = () => {
         )}
       </div>
 
-      {/* Buyer Wishlist Modal */}
-      {wishlistModal.open && (
+      {/* Wishlist Modal — buyers + guests */}
+      {wishlistModal.open && (() => {
+        const isActualBuyer = isBuyerLoggedIn && !!(buyer?.firstName || buyer?.lastName || buyer?.name || buyer?.email)
+        return (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(0,0,0,0.6)', zIndex: 99999,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
-        }}>
+        }} onClick={() => setWishlistModal({ open: false, product: null })}>
           <div style={{
             background: '#fff', borderRadius: '14px', padding: '24px',
             maxWidth: '420px', width: '100%', boxShadow: '0 24px 60px rgba(0,0,0,0.3)'
-          }}>
+          }} onClick={e => e.stopPropagation()}>
             {wishlistSuccess ? (
               <div style={{ textAlign: 'center', padding: '16px 0' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>✅</div>
-                <h3 style={{ margin: '0 0 8px', color: '#1f2937' }}>Added to Wishlist!</h3>
+                <h3 style={{ margin: '0 0 8px', color: '#1f2937' }}>Wishlist Submitted!</h3>
                 <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: '0 0 20px' }}>
-                  Your query has been submitted. You can view and manage it in your{' '}
-                  <a href="/buyer/wishlist" style={{ color: '#7c3aed', fontWeight: '600' }}>Wishlist</a>.
+                  {isActualBuyer
+                    ? <>Your query has been submitted. View it in your <a href="/buyer/wishlist" style={{ color: '#7c3aed', fontWeight: '600' }}>Wishlist</a>.</>
+                    : 'Your demand has been submitted. Sellers will be notified and may contact you.'}
                 </p>
                 <button
                   onClick={() => setWishlistModal({ open: false, product: null })}
@@ -3758,13 +3775,49 @@ const AmazonsChoice = () => {
             ) : (
               <>
                 <h3 style={{ margin: '0 0 4px', fontSize: '1rem', color: '#1f2937' }}>
-                  💜 Add to Wishlist
+                  💜 {isActualBuyer ? 'Add to Wishlist' : 'Send Wishlist & Demand'}
                 </h3>
                 <p style={{ margin: '0 0 16px', fontSize: '0.8rem', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {wishlistModal.product?.name}
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Guest fields — only shown when not a verified logged-in buyer */}
+                  {!isActualBuyer && (
+                    <>
+                      <div>
+                        <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Your name *</label>
+                        <input
+                          type="text"
+                          placeholder="Enter your name"
+                          value={wishlistForm.guestName}
+                          onChange={e => setWishlistForm(f => ({ ...f, guestName: e.target.value }))}
+                          style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>WhatsApp / Phone *</label>
+                        <input
+                          type="tel"
+                          placeholder="e.g. +44 7700 900000"
+                          value={wishlistForm.guestPhone}
+                          onChange={e => setWishlistForm(f => ({ ...f, guestPhone: e.target.value }))}
+                          style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Email — optional</label>
+                        <input
+                          type="email"
+                          placeholder="your@email.com"
+                          value={wishlistForm.guestEmail}
+                          onChange={e => setWishlistForm(f => ({ ...f, guestEmail: e.target.value }))}
+                          style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                    </>
+                  )}
+
                   <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Quantity needed</label>
                     <input
@@ -3808,14 +3861,21 @@ const AmazonsChoice = () => {
                     disabled={wishlistSubmitting}
                     style={{ flex: 2, padding: '10px', background: 'linear-gradient(135deg, #7c3aed, #a855f7)', border: 'none', borderRadius: '8px', cursor: wishlistSubmitting ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '700', color: '#fff', opacity: wishlistSubmitting ? 0.7 : 1 }}
                   >
-                    {wishlistSubmitting ? 'Submitting...' : '💜 Submit Wishlist Query'}
+                    {wishlistSubmitting ? 'Submitting...' : '💜 Submit Wishlist & Demand'}
                   </button>
                 </div>
+
+                {!isActualBuyer && (
+                  <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.75rem', color: '#9ca3af' }}>
+                    Have an account? <a href="/login/buyer" style={{ color: '#7c3aed', fontWeight: '600' }}>Login</a> to track your wishlist.
+                  </p>
+                )}
               </>
             )}
           </div>
         </div>
-      )}
+        )
+      })()}
     </>
   )
 }

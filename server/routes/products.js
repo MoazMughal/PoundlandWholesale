@@ -1148,6 +1148,22 @@ router.get('/pending-approval', authenticateAdmin, async (req, res) => {
     const totalProducts = await Product.countDocuments(query);
     const totalPages = Math.ceil(totalProducts / limitNum);
 
+    // Get per-category counts (always based on full pending query without category filter)
+    const baseQuery = { approvalStatus: 'pending' };
+    if (search) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      baseQuery.$or = [
+        { name: searchRegex }, { category: searchRegex }, { brand: searchRegex },
+        { sku: searchRegex }, { asin: searchRegex }, { description: searchRegex }
+      ];
+    }
+    const categoryAgg = await Product.aggregate([
+      { $match: baseQuery },
+      { $group: { _id: '$category', count: { $sum: 1 } } }
+    ]);
+    const categoryCounts = {};
+    categoryAgg.forEach(({ _id, count }) => { if (_id) categoryCounts[_id] = count; });
+
     // If there's a search term, use aggregation for scoring
     let pendingProducts;
     
@@ -1251,6 +1267,7 @@ router.get('/pending-approval', authenticateAdmin, async (req, res) => {
     res.json({
       success: true,
       products: pendingProducts,
+      categoryCounts,
       pagination: {
         currentPage: pageNum,
         totalPages,

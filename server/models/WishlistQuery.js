@@ -1,8 +1,11 @@
 import mongoose from 'mongoose';
 
 const wishlistQuerySchema = new mongoose.Schema({
-  // Buyer who created this
-  buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer', required: true },
+  // Sender type
+  senderType: { type: String, enum: ['buyer', 'guest'], default: 'buyer' },
+
+  // Buyer who created this (optional for guests)
+  buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer', default: null },
   buyerName: String,
   buyerEmail: String,
   buyerWhatsapp: String,
