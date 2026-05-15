@@ -2747,25 +2747,25 @@ const AmazonsChoice = () => {
                   top: '6px',
                   right: '6px',
                   zIndex: 10,
-                  width: windowWidth <= 576 ? '22px' : '26px',
-                  height: windowWidth <= 576 ? '22px' : '26px',
+                  width: '20px',
+                  height: '20px',
+                  minWidth: '20px',
+                  minHeight: '20px',
                   borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.92)',
-                  border: '1px solid #e5e7eb',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  background: 'transparent',
+                  border: 'none',
+                  boxShadow: 'none',
                   cursor: 'pointer',
-                  padding: 0,
+                  padding: '0',
+                  lineHeight: '20px',
+                  textAlign: 'center',
                   pointerEvents: 'auto',
-                  transition: 'all 0.2s ease'
+                  flexShrink: 0,
+                  display: 'block'
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#fff0f0'; e.currentTarget.style.borderColor = '#f87171' }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.92)'; e.currentTarget.style.borderColor = '#e5e7eb' }}
                 title="Add to wishlist / send demand"
               >
-                <i className="fas fa-heart" style={{ fontSize: windowWidth <= 576 ? '9px' : '11px', color: '#e11d48' }}></i>
+                <i className="fas fa-heart" style={{ fontSize: '14px', color: '#ff6600', lineHeight: '20px', display: 'inline-block', verticalAlign: 'middle', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }}></i>
               </button>
               
               {/* Card content with higher z-index for interactive elements */}
