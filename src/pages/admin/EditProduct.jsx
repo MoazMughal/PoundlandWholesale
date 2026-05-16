@@ -1371,7 +1371,7 @@ const EditProduct = () => {
                                   <>
                                     <span style={{ flex: 1, fontSize: '13px', fontWeight: '500', color: '#1f2937' }}>{sub}</span>
                                     <button type="button"
-                                      onClick={() => { setFormData(prev => ({ ...prev, subcategory: sub, subSubcategory: '' })); fetchSubSubcategories(sub); }}}
+                                      onClick={() => { setFormData(prev => ({ ...prev, subcategory: sub, subSubcategory: '' })); fetchSubSubcategories(sub); }}
                                       style={{ padding: '3px 8px', background: formData.subcategory === sub ? '#10b981' : '#e0f2fe', color: formData.subcategory === sub ? '#fff' : '#0369a1', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
                                       {formData.subcategory === sub ? '✓' : 'Select'}
                                     </button>
