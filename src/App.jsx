@@ -86,7 +86,6 @@ const MyListedProducts = lazy(() => import('./pages/seller/MyListedProducts'))
 const SellerEditProduct = lazy(() => import('./pages/seller/EditProduct'))
 
 const CategoryPage = lazy(() => import('./pages/CategoryPage'))
-const AdminSubCategoryManager = lazy(() => import('./pages/admin/SubCategoryManager'))
 const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'))
 const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy'))
 const HelpCenter = lazy(() => import('./pages/legal/HelpCenter'))
@@ -193,7 +192,6 @@ function App() {
           <Route path="/admin/wishlist-queries" element={<ProtectedRoute><AdminWishlistQueries /></ProtectedRoute>} />
           <Route path="/admin/seller-catalog" element={<ProtectedRoute><AdminSellerCatalog /></ProtectedRoute>} />
           <Route path="/admin/category-manager" element={<ProtectedRoute><AdminCategoryManager /></ProtectedRoute>} />
-          <Route path="/admin/subcategory-manager" element={<ProtectedRoute><AdminSubCategoryManager /></ProtectedRoute>} />
           <Route path="/category/:category" element={<CategoryPage />} />
           <Route path="/category/:category/:subcategory" element={<CategoryPage />} />
           <Route path="/category/:category/:subcategory/:subsubcategory" element={<CategoryPage />} />
