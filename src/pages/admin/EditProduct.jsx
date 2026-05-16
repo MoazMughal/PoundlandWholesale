@@ -101,6 +101,16 @@ const EditProduct = () => {
 
   // Dynamic categories loaded from API
   const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
+  const [subSubcategories, setSubSubcategories] = useState([]);
+  const [showSubSubcatPanel, setShowSubSubcatPanel] = useState(false);
+  const [newSubSubcatName, setNewSubSubcatName] = useState('');
+  const [subSubcatError, setSubSubcatError] = useState('');
+  const [showSubcatPanel, setShowSubcatPanel] = useState(false);
+  const [newSubcatName, setNewSubcatName] = useState('');
+  const [renamingSubcat, setRenamingSubcat] = useState(null);
+  const [renameSubcatValue, setRenameSubcatValue] = useState('');
+  const [subcatError, setSubcatError] = useState('');
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [productLoaded, setProductLoaded] = useState(false);
@@ -196,6 +206,8 @@ const EditProduct = () => {
         status: product.status || 'active',
         description: product.description || '',
         features: product.features || [],
+        subcategory: product.subcategory || '',
+        subSubcategory: product.subsubcategory || '',
         // Load profit evaluation data
         profitEvaluation: {
           salesProceeds: product.profitEvaluation?.salesProceeds || 0,
@@ -244,6 +256,10 @@ const EditProduct = () => {
       }
       
       setProductLoaded(true);
+      // Load subcategories for the product's category
+      if (product.category) fetchSubcategories(product.category);
+      // Load sub-subcategories if product already has a subcategory
+      if (product.subcategory) fetchSubSubcategories(product.subcategory);
     } catch (error) {
       console.error('Error loading product:', error);
       alert('❌ Failed to load product: ' + error.message);
@@ -283,6 +299,112 @@ const EditProduct = () => {
       ]);
       setCategoriesLoaded(true);
     }
+  };
+
+  const fetchSubcategories = async (categoryLabel) => {
+    if (!categoryLabel) { setSubcategories([]); setSubSubcategories([]); return; }
+    try {
+      const res = await fetch(getApiUrl(`products/public/subcategories/${encodeURIComponent(categoryLabel)}`));
+      if (res.ok) {
+        const data = await res.json();
+        setSubcategories(data.subcategories || []);
+      } else { setSubcategories([]); }
+    } catch { setSubcategories([]); }
+    setSubSubcategories([]);
+  };
+
+  const fetchSubSubcategories = async (subcategoryLabel) => {
+    if (!subcategoryLabel) { setSubSubcategories([]); return; }
+    try {
+      const res = await fetch(getApiUrl(`products/public/subcategories/${encodeURIComponent(subcategoryLabel)}`));
+      if (res.ok) {
+        const data = await res.json();
+        setSubSubcategories(data.subcategories || []);
+      } else { setSubSubcategories([]); }
+    } catch { setSubSubcategories([]); }
+  };
+
+  const saveSubcategories = async (newList) => {
+    if (!formData.category) return;
+    const token = localStorage.getItem('adminToken');
+    try {
+      await fetch(getApiUrl(`products/admin/category-hierarchy/${encodeURIComponent(formData.category)}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ children: newList })
+      });
+      setSubcategories(newList);
+      localStorage.setItem('categoriesUpdated', Date.now().toString());
+      window.dispatchEvent(new CustomEvent('refreshCategories'));
+    } catch { alert('Failed to save subcategories'); }
+  };
+
+  const handleAddSubcat = async () => {
+    const val = newSubcatName.trim();
+    if (!val) return;
+    if (subcategories.map(s => s.toLowerCase()).includes(val.toLowerCase())) {
+      setSubcatError(`"${val}" already exists.`); return;
+    }
+    await saveSubcategories([...subcategories, val]);
+    setFormData(prev => ({ ...prev, subcategory: val, subSubcategory: '' }));
+    fetchSubSubcategories(val);
+    setNewSubcatName('');
+    setSubcatError('');
+  };
+
+  const handleDeleteSubcat = async (name) => {
+    if (!confirm(`Delete subcategory "${name}"?`)) return;
+    await saveSubcategories(subcategories.filter(s => s !== name));
+    if (formData.subcategory === name) setFormData(prev => ({ ...prev, subcategory: '' }));
+  };
+
+  const handleRenameSubcat = async (oldName) => {
+    const val = renameSubcatValue.trim();
+    if (!val || val === oldName) { setRenamingSubcat(null); return; }
+    if (subcategories.map(s => s.toLowerCase()).includes(val.toLowerCase())) {
+      setSubcatError(`"${val}" already exists.`); return;
+    }
+    await saveSubcategories(subcategories.map(s => s === oldName ? val : s));
+    if (formData.subcategory === oldName) setFormData(prev => ({ ...prev, subcategory: val }));
+    setRenamingSubcat(null);
+    setRenameSubcatValue('');
+    setSubcatError('');
+  };
+
+  // ── Sub-subcategory helpers ──
+  const saveSubSubcategories = async (newList) => {
+    if (!formData.subcategory) return;
+    const token = localStorage.getItem('adminToken');
+    try {
+      await fetch(getApiUrl(`products/admin/category-hierarchy/${encodeURIComponent(formData.subcategory)}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ children: newList })
+      });
+      setSubSubcategories(newList);
+      localStorage.setItem('categoriesUpdated', Date.now().toString());
+      window.dispatchEvent(new CustomEvent('refreshCategories'));
+    } catch { alert('Failed to save sub-subcategories'); }
+  };
+
+  const handleAddSubSubcat = async () => {
+    const val = newSubSubcatName.trim();
+    if (!val) return;
+    if (subSubcategories.map(s => s.toLowerCase()).includes(val.toLowerCase())) {
+      setSubSubcatError(`"${val}" already exists.`); return;
+    }
+    const updated = [...subSubcategories, val];
+    await saveSubSubcategories(updated);
+    setFormData(prev => ({ ...prev, subSubcategory: val }));
+    setNewSubSubcatName('');
+    setSubSubcatError('');
+  };
+
+  const handleDeleteSubSubcat = async (name) => {
+    if (!confirm(`Delete sub-subcategory "${name}"?`)) return;
+    const updated = subSubcategories.filter(s => s !== name);
+    await saveSubSubcategories(updated);
+    if (formData.subSubcategory === name) setFormData(prev => ({ ...prev, subSubcategory: '' }));
   };
 
   const handleAddNewCategory = async () => {
@@ -374,6 +496,19 @@ const EditProduct = () => {
         // ASIN changed to a valid 10-character value, check for images
         checkAndAddAsinImages(normalizedAsin);
       }
+    }
+
+    // When category changes, reset subcategory and fetch new subcategories
+    if (name === 'category') {
+      newFormData.subcategory = '';
+      newFormData.subSubcategory = '';
+      fetchSubcategories(value);
+    }
+
+    // When subcategory changes, reset sub-subcategory and fetch new sub-subcategories
+    if (name === 'subcategory') {
+      newFormData.subSubcategory = '';
+      fetchSubSubcategories(value);
     }
 
     setFormData(newFormData);
@@ -791,6 +926,8 @@ const EditProduct = () => {
         formDataToSend.append('shipping', parseFloat(formData.shipping) || 0);
         formDataToSend.append('currency', 'GBP');
         formDataToSend.append('category', formData.category);
+        if (formData.subcategory) formDataToSend.append('subcategory', formData.subcategory);
+        if (formData.subSubcategory) formDataToSend.append('subsubcategory', formData.subSubcategory);
         formDataToSend.append('brand', formData.brand || '');
         formDataToSend.append('asin', formData.asin.trim() || '');
         formDataToSend.append('sku', formData.sku.trim() || '');
@@ -890,6 +1027,8 @@ const EditProduct = () => {
           shipping: parseFloat(formData.shipping) || 0,
           currency: 'GBP',
           category: formData.category,
+          subcategory: formData.subcategory || '',
+          subsubcategory: formData.subSubcategory || '',
           brand: formData.brand || '',
           asin: formData.asin.trim() || '',
           sku: formData.sku.trim() || '',
@@ -1145,6 +1284,247 @@ const EditProduct = () => {
                 </div>
               )}
             </div>
+
+            <div className="form-group">
+              <label>Sub Category</label>
+
+              {!formData.category ? (
+                <div style={{ padding: '10px 14px', background: '#f9fafb', border: '1px dashed #d1d5db', borderRadius: '8px', fontSize: '13px', color: '#9ca3af' }}>
+                  Select a main category first to manage subcategories.
+                </div>
+              ) : (
+                <div style={{ border: '2px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden' }}>
+
+                  {/* Dropdown row */}
+                  <div style={{ display: 'flex', gap: '8px', padding: '10px', background: '#f9fafb', alignItems: 'center' }}>
+                    <select
+                      name="subcategory"
+                      value={formData.subcategory || ''}
+                      onChange={handleChange}
+                      style={{
+                        flex: 1, padding: '10px 14px', fontSize: '14px',
+                        border: '1.5px solid #d1d5db', borderRadius: '7px',
+                        background: 'white', cursor: 'pointer', fontWeight: '500'
+                      }}
+                    >
+                      <option value="">-- Select Sub Category --</option>
+                      {subcategories.map(sub => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => { setShowSubcatPanel(p => !p); setSubcatError(''); setNewSubcatName(''); setRenamingSubcat(null); }}
+                      style={{
+                        padding: '10px 14px', borderRadius: '7px', border: 'none',
+                        background: showSubcatPanel ? '#6366f1' : '#e0e7ff',
+                        color: showSubcatPanel ? '#fff' : '#4338ca',
+                        fontWeight: '700', cursor: 'pointer', fontSize: '13px',
+                        whiteSpace: 'nowrap', transition: 'all 0.2s'
+                      }}
+                    >
+                      ⚙️ Manage
+                    </button>
+                  </div>
+
+                  {/* Selected badge */}
+                  {formData.subcategory && (
+                    <div style={{ padding: '6px 12px', background: '#f0fdf4', borderTop: '1px solid #bbf7d0', fontSize: '12px', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>📁</span>
+                      <span>Selected: <strong>{formData.subcategory}</strong></span>
+                      <button type="button" onClick={() => setFormData(prev => ({ ...prev, subcategory: '' }))}
+                        style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontWeight: '700', fontSize: '14px' }}>×</button>
+                    </div>
+                  )}
+
+                  {/* Management panel */}
+                  {showSubcatPanel && (
+                    <div style={{ padding: '12px', borderTop: '1px solid #e5e7eb', background: '#fff' }}>
+                      {subcategories.length > 0 && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Existing Subcategories
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {subcategories.map(sub => (
+                              <div key={sub} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                {renamingSubcat === sub ? (
+                                  <>
+                                    <input
+                                      type="text"
+                                      value={renameSubcatValue}
+                                      onChange={e => { setRenameSubcatValue(e.target.value); setSubcatError(''); }}
+                                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleRenameSubcat(sub); } if (e.key === 'Escape') setRenamingSubcat(null); }}
+                                      autoFocus
+                                      style={{ flex: 1, padding: '4px 8px', border: '1.5px solid #6366f1', borderRadius: '5px', fontSize: '13px' }}
+                                    />
+                                    <button type="button" onClick={() => handleRenameSubcat(sub)}
+                                      style={{ padding: '4px 10px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+                                      Save
+                                    </button>
+                                    <button type="button" onClick={() => setRenamingSubcat(null)}
+                                      style={{ padding: '4px 8px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '5px', cursor: 'pointer', fontSize: '12px' }}>
+                                      ✕
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span style={{ flex: 1, fontSize: '13px', fontWeight: '500', color: '#1f2937' }}>{sub}</span>
+                                    <button type="button"
+                                      onClick={() => { setFormData(prev => ({ ...prev, subcategory: sub, subSubcategory: '' })); fetchSubSubcategories(sub); }}}
+                                      style={{ padding: '3px 8px', background: formData.subcategory === sub ? '#10b981' : '#e0f2fe', color: formData.subcategory === sub ? '#fff' : '#0369a1', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
+                                      {formData.subcategory === sub ? '✓' : 'Select'}
+                                    </button>
+                                    <button type="button"
+                                      onClick={() => { setRenamingSubcat(sub); setRenameSubcatValue(sub); setSubcatError(''); }}
+                                      style={{ padding: '3px 8px', background: '#fef3c7', color: '#92400e', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
+                                      ✏️
+                                    </button>
+                                    <button type="button"
+                                      onClick={() => handleDeleteSubcat(sub)}
+                                      style={{ padding: '3px 8px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
+                                      🗑️
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {subcatError && (
+                        <div style={{ padding: '6px 10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '12px', color: '#dc2626', marginBottom: '8px' }}>
+                          {subcatError}
+                        </div>
+                      )}
+
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Add New Subcategory
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <input
+                          type="text"
+                          value={newSubcatName}
+                          onChange={e => { setNewSubcatName(e.target.value); setSubcatError(''); }}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubcat(); } }}
+                          placeholder="e.g. Mobiles, Laptops…"
+                          style={{ flex: 1, padding: '8px 12px', border: '1.5px solid #d1d5db', borderRadius: '7px', fontSize: '13px' }}
+                        />
+                        <button type="button" onClick={handleAddSubcat}
+                          style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' }}>
+                          + Add
+                        </button>
+                      </div>
+                      <div style={{ marginTop: '6px', fontSize: '11px', color: '#9ca3af' }}>
+                        Changes apply to all products in <strong>{formData.category}</strong>.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Sub-Subcategory — always shown when a subcategory is selected */}
+            {formData.subcategory && (
+              <div className="form-group">
+                <label>Sub-Subcategory <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '400' }}>(optional)</span></label>
+                <div style={{ border: '2px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden' }}>
+
+                  {/* Dropdown + Manage button */}
+                  <div style={{ display: 'flex', gap: '8px', padding: '10px', background: '#f9fafb', alignItems: 'center' }}>
+                    <select
+                      name="subSubcategory"
+                      value={formData.subSubcategory || ''}
+                      onChange={handleChange}
+                      style={{ flex: 1, padding: '10px 14px', fontSize: '14px', border: '1.5px solid #d1d5db', borderRadius: '7px', background: 'white', cursor: 'pointer', fontWeight: '500' }}
+                    >
+                      <option value="">-- Select Sub-Subcategory --</option>
+                      {subSubcategories.map(sub => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => { setShowSubSubcatPanel(p => !p); setSubSubcatError(''); setNewSubSubcatName(''); }}
+                      style={{
+                        padding: '10px 14px', borderRadius: '7px', border: 'none',
+                        background: showSubSubcatPanel ? '#7c3aed' : '#ede9fe',
+                        color: showSubSubcatPanel ? '#fff' : '#6d28d9',
+                        fontWeight: '700', cursor: 'pointer', fontSize: '13px',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      ⚙️ Manage
+                    </button>
+                  </div>
+
+                  {/* Selected badge */}
+                  {formData.subSubcategory && (
+                    <div style={{ padding: '6px 12px', background: '#f0fdf4', borderTop: '1px solid #bbf7d0', fontSize: '12px', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>📂</span>
+                      <span>Selected: <strong>{formData.subSubcategory}</strong></span>
+                      <button type="button" onClick={() => setFormData(prev => ({ ...prev, subSubcategory: '' }))}
+                        style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontWeight: '700', fontSize: '14px' }}>×</button>
+                    </div>
+                  )}
+
+                  {/* Management panel */}
+                  {showSubSubcatPanel && (
+                    <div style={{ padding: '12px', borderTop: '1px solid #e5e7eb', background: '#fff' }}>
+                      {subSubcategories.length > 0 && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Existing Sub-Subcategories
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {subSubcategories.map(sub => (
+                              <div key={sub} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                <span style={{ flex: 1, fontSize: '13px', fontWeight: '500', color: '#1f2937' }}>↳ {sub}</span>
+                                <button type="button"
+                                  onClick={() => setFormData(prev => ({ ...prev, subSubcategory: sub }))}
+                                  style={{ padding: '3px 8px', background: formData.subSubcategory === sub ? '#10b981' : '#e0f2fe', color: formData.subSubcategory === sub ? '#fff' : '#0369a1', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
+                                  {formData.subSubcategory === sub ? '✓' : 'Select'}
+                                </button>
+                                <button type="button" onClick={() => handleDeleteSubSubcat(sub)}
+                                  style={{ padding: '3px 8px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
+                                  🗑️
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {subSubcatError && (
+                        <div style={{ padding: '6px 10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '12px', color: '#dc2626', marginBottom: '8px' }}>
+                          {subSubcatError}
+                        </div>
+                      )}
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Add New Sub-Subcategory
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <input
+                          type="text"
+                          value={newSubSubcatName}
+                          onChange={e => { setNewSubSubcatName(e.target.value); setSubSubcatError(''); }}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubSubcat(); } }}
+                          placeholder="e.g. Dresses, Tops…"
+                          style={{ flex: 1, padding: '8px 12px', border: '1.5px solid #d1d5db', borderRadius: '7px', fontSize: '13px' }}
+                        />
+                        <button type="button" onClick={handleAddSubSubcat}
+                          style={{ padding: '8px 16px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' }}>
+                          + Add
+                        </button>
+                      </div>
+                      <div style={{ marginTop: '6px', fontSize: '11px', color: '#9ca3af' }}>
+                        Sub-subcategories of <strong>{formData.subcategory}</strong>.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="form-group">
               <label>Brand</label>

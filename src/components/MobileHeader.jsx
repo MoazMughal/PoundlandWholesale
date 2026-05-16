@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAdmin } from '../context/AdminContext';
 import { useSeller } from '../context/SellerContext';
@@ -158,6 +159,7 @@ const MobileHeader = () => {
     { value: 'Stickers', label: 'Stickers' },
     { value: 'Toys & Games', label: 'Toys & Games' }
   ]);
+  const [hierarchy, setHierarchy] = useState({}); // { "Fashion": ["Girl's Fashion", ...] }
 
   // Fetch dynamic categories
   useEffect(() => {
@@ -240,30 +242,35 @@ const MobileHeader = () => {
 
     fetchCategories();
 
+    // Fetch hierarchy for desktop dropdown
+    const fetchHierarchy = () => {
+      fetch(apiConfig.getApiUrl('products/public/category-hierarchy'))
+        .then(r => r.ok ? r.json() : { hierarchy: [] })
+        .then(d => {
+          const map = {};
+          (d.hierarchy || []).forEach(h => { map[h.parent] = h.children; });
+          setHierarchy(map);
+        })
+        .catch(() => {});
+    };
+    fetchHierarchy();
+
     // Auto-cleanup duplicates when header loads (silent)
     const autoCleanupDuplicates = async () => {
       try {
         const response = await fetch(apiConfig.getApiUrl('products/admin/cleanup-duplicate-categories'), {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          headers: { 'Content-Type': 'application/json' }
         });
-        if (response.ok) {
-          // Refresh categories after cleanup
-          setTimeout(fetchCategories, 1000);
-        }
-      } catch (error) {
-        // Auto-cleanup failed, but continuing normally
-      }
+        if (response.ok) setTimeout(fetchCategories, 1000);
+      } catch {}
     };
-    
-    // Run cleanup after initial load
     setTimeout(autoCleanupDuplicates, 3000);
 
     // Listen for category refresh events
     const handleCategoryRefresh = () => {
       fetchCategories();
+      fetchHierarchy(); // also refresh subcategory dropdowns
     };
 
     // Listen for custom event to refresh categories
@@ -273,7 +280,6 @@ const MobileHeader = () => {
     window.addEventListener('storage', (e) => {
       if (e.key === 'categoriesUpdated') {
         handleCategoryRefresh();
-        // Clear the flag
         localStorage.removeItem('categoriesUpdated');
       }
     });
@@ -283,7 +289,7 @@ const MobileHeader = () => {
       const lastUpdate = localStorage.getItem('categoriesUpdated');
       if (lastUpdate) {
         const timeDiff = Date.now() - parseInt(lastUpdate);
-        if (timeDiff < 30000) { // If updated within last 30 seconds
+        if (timeDiff < 30000) {
           handleCategoryRefresh();
           localStorage.removeItem('categoriesUpdated');
         }
@@ -1285,57 +1291,18 @@ const MobileHeader = () => {
               const currentCategory = searchParams.get('cat') || 'all';
               const isActive = (cat.value === 'all' && currentCategory === 'all') || 
                               (cat.value !== 'all' && currentCategory === cat.value);
+              const subs = hierarchy[cat.label] || hierarchy[cat.value] || [];
               
               return (
-                <div key={cat.value} style={{ display: 'flex', alignItems: 'center' }}>
-                  <Link
-                    to={cat.value === 'all' ? '/' : `/?cat=${encodeURIComponent(cat.value)}`}
-                    style={{
-                      fontSize: '10px',
-                      color: isActive ? '#ffffff' : '#1a1a1a',
-                      textDecoration: 'none',
-                      fontWeight: isActive ? '800' : '600',
-                      padding: '3px 6px',
-                      borderRadius: '4px',
-                      background: isActive ? 
-                        'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)' : 
-                        'transparent',
-                      border: isActive ? '1px solid #ffffff' : '1px solid transparent',
-                      boxShadow: isActive ? '0 2px 6px rgba(255, 102, 0, 0.4)' : 'none',
-                      transition: 'all 0.3s ease',
-                      whiteSpace: 'nowrap',
-                      textShadow: isActive ? '0 1px 2px rgba(0, 0, 0, 0.3)' : 'none',
-                      transform: isActive ? 'scale(1.05)' : 'scale(1)'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.target.style.background = 'rgba(255, 102, 0, 0.1)';
-                        e.target.style.color = '#ff6600';
-                        e.target.style.transform = 'scale(1.02)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.target.style.background = 'transparent';
-                        e.target.style.color = '#1a1a1a';
-                        e.target.style.transform = 'scale(1)';
-                      }
-                    }}
-                  >
-                    {cat.label}
-                  </Link>
-                  
-                  {/* Divider line between categories */}
-                  {index < categories.length - 1 && (
-                    <div style={{
-                      width: '1px',
-                      height: '16px',
-                      background: 'linear-gradient(to bottom, transparent 0%, #ff6600 20%, #ff6600 80%, transparent 100%)',
-                      margin: '0 2px',
-                      opacity: 0.6
-                    }}></div>
-                  )}
-                </div>
+                <DesktopCatItem
+                  key={cat.value}
+                  cat={cat}
+                  isActive={isActive}
+                  subs={subs}
+                  hierarchy={hierarchy}
+                  index={index}
+                  total={categories.length}
+                />
               );
             })}
           </div>
@@ -1434,16 +1401,18 @@ const MobileHeader = () => {
         {/* Categories */}
         <div className="mobile-menu-section">
           <div className="mobile-menu-title">Categories</div>
-          {categories.map(cat => (
-            <Link
-              key={cat.value}
-              to={cat.value === 'all' ? '/' : `/?cat=${encodeURIComponent(cat.value)}`}
-              className="mobile-menu-item"
-              onClick={() => setShowMobileMenu(false)}
-            >
-              {cat.label}
-            </Link>
-          ))}
+          {categories.map(cat => {
+            const subs = hierarchy[cat.label] || hierarchy[cat.value] || [];
+            return (
+              <MobileCatItem
+                key={cat.value}
+                cat={cat}
+                subs={subs}
+                hierarchy={hierarchy}
+                onClose={() => setShowMobileMenu(false)}
+              />
+            );
+          })}
         </div>
 
         {/* Quick Links */}
@@ -1466,6 +1435,179 @@ const MobileHeader = () => {
           </Link>
         </div>
       </div>
+    </>
+  );
+};
+
+// Mobile sidebar category item with expandable subcategories
+const MobileCatItem = ({ cat, subs, hierarchy, onClose }) => {
+  const [expanded, setExpanded] = useState(false);
+  const catUrl = cat.value === 'all' ? '/' : `/?cat=${encodeURIComponent(cat.label)}`;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <Link
+          to={catUrl}
+          className="mobile-menu-item"
+          onClick={onClose}
+          style={{ flex: 1, display: 'block', padding: '10px 12px', color: '#111', textDecoration: 'none', fontSize: '14px' }}
+        >
+          {cat.label}
+        </Link>
+        {subs.length > 0 && (
+          <button
+            onClick={() => setExpanded(e => !e)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '10px 12px', color: '#ff6600', fontSize: '12px', fontWeight: '700' }}
+          >
+            {expanded ? '▲' : '▼'}
+          </button>
+        )}
+      </div>
+      {expanded && subs.length > 0 && (
+        <div style={{ paddingLeft: '16px', borderLeft: '2px solid #ff6600', marginLeft: '12px', marginBottom: '4px' }}>
+          {subs.map(sub => {
+            const subSubs = hierarchy?.[sub] || [];
+            return (
+              <div key={sub}>
+                <Link
+                  to={`/?cat=${encodeURIComponent(cat.label)}&subcat=${encodeURIComponent(sub)}`}
+                  className="mobile-menu-item"
+                  onClick={onClose}
+                  style={{ display: 'block', padding: '8px 12px', color: '#374151', textDecoration: 'none', fontSize: '13px', fontWeight: subSubs.length ? '600' : '400' }}
+                >
+                  ↳ {sub}
+                </Link>
+                {subSubs.map(ss => (
+                  <Link
+                    key={ss}
+                    to={`/?cat=${encodeURIComponent(cat.label)}&subcat=${encodeURIComponent(sub)}&subsubcat=${encodeURIComponent(ss)}`}
+                    className="mobile-menu-item"
+                    onClick={onClose}
+                    style={{ display: 'block', padding: '6px 12px 6px 24px', color: '#6b7280', textDecoration: 'none', fontSize: '12px' }}
+                  >
+                    ↳↳ {ss}
+                  </Link>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Desktop category item with hover subcategory dropdown
+const DesktopCatItem = ({ cat, isActive, subs, hierarchy, index, total }) => {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const itemRef = useRef(null);
+  const timerRef = useRef(null);
+
+  const show = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (subs.length > 0 && itemRef.current) {
+      const rect = itemRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 2, left: rect.left });
+      setOpen(true);
+    }
+  };
+  const hide = () => { timerRef.current = setTimeout(() => setOpen(false), 150); };
+  const keepOpen = () => { if (timerRef.current) clearTimeout(timerRef.current); };
+
+  const catUrl = cat.value === 'all' ? '/' : `/?cat=${encodeURIComponent(cat.label)}`;
+
+  return (
+    <>
+      <div
+        ref={itemRef}
+        style={{ display: 'flex', alignItems: 'center' }}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+      >
+        <Link
+          to={catUrl}
+          style={{
+            fontSize: '10px',
+            color: isActive ? '#ffffff' : '#1a1a1a',
+            textDecoration: 'none',
+            fontWeight: isActive ? '800' : '600',
+            padding: '3px 6px',
+            borderRadius: '4px',
+            background: isActive ? 'linear-gradient(135deg, #ff6600 0%, #ff3300 100%)' : 'transparent',
+            border: isActive ? '1px solid #ffffff' : '1px solid transparent',
+            boxShadow: isActive ? '0 2px 6px rgba(255, 102, 0, 0.4)' : 'none',
+            transition: 'all 0.3s ease',
+            whiteSpace: 'nowrap',
+            display: 'inline-flex', alignItems: 'center', gap: '2px'
+          }}
+          onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,102,0,0.1)'; e.currentTarget.style.color = '#ff6600'; } }}
+          onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#1a1a1a'; } }}
+        >
+          {cat.label}
+          {subs.length > 0 && <span style={{ fontSize: '7px', opacity: 0.7 }}>▼</span>}
+        </Link>
+
+        {/* Divider */}
+        {index < total - 1 && (
+          <div style={{ width: '1px', height: '16px', background: 'linear-gradient(to bottom, transparent 0%, #ff6600 20%, #ff6600 80%, transparent 100%)', margin: '0 2px', opacity: 0.6 }} />
+        )}
+      </div>
+
+      {open && subs.length > 0 && createPortal(
+        <div
+          style={{
+            position: 'fixed', top: pos.top, left: pos.left,
+            background: 'white', borderRadius: '8px', minWidth: '190px',
+            boxShadow: '0 8px 28px rgba(0,0,0,0.18)', zIndex: 999999,
+            border: '1px solid #e5e7eb', overflow: 'hidden'
+          }}
+          onMouseEnter={keepOpen}
+          onMouseLeave={hide}
+        >
+          {/* All [Category] */}
+          <Link
+            to={catUrl}
+            onClick={() => setOpen(false)}
+            style={{ display: 'block', padding: '10px 16px', fontSize: '13px', color: '#1f2937', textDecoration: 'none', fontWeight: '700', borderBottom: '2px solid #f3f4f6', background: '#fafafa' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+            onMouseLeave={e => e.currentTarget.style.background = '#fafafa'}
+          >
+            All {cat.label}
+          </Link>
+          {/* Subcategories + sub-subcategories */}
+          {subs.map(sub => {
+            const subSubs = hierarchy?.[sub] || [];
+            return (
+              <div key={sub}>
+                <Link
+                  to={`/?cat=${encodeURIComponent(cat.label)}&subcat=${encodeURIComponent(sub)}`}
+                  onClick={() => setOpen(false)}
+                  style={{ display: 'block', padding: '9px 16px 9px 26px', fontSize: '13px', color: '#374151', textDecoration: 'none', borderBottom: '1px solid #f9fafb', background: 'white', fontWeight: subSubs.length ? '600' : '400' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#fff7ed'; e.currentTarget.style.color = '#c2410c'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#374151'; }}
+                >
+                  ↳ {sub}
+                </Link>
+                {subSubs.map(ss => (
+                  <Link
+                    key={ss}
+                    to={`/?cat=${encodeURIComponent(cat.label)}&subcat=${encodeURIComponent(sub)}&subsubcat=${encodeURIComponent(ss)}`}
+                    onClick={() => setOpen(false)}
+                    style={{ display: 'block', padding: '7px 16px 7px 40px', fontSize: '12px', color: '#6b7280', textDecoration: 'none', borderBottom: '1px solid #f9fafb', background: '#fafafa' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#fff7ed'; e.currentTarget.style.color = '#c2410c'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#fafafa'; e.currentTarget.style.color = '#6b7280'; }}
+                  >
+                    ↳↳ {ss}
+                  </Link>
+                ))}
+              </div>
+            );
+          })}
+        </div>,
+        document.body
+      )}
     </>
   );
 };

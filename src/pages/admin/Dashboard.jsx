@@ -958,7 +958,7 @@ const AdminDashboard = () => {
         <button onClick={() => navigate('/admin/wishlist-queries')} className="tool-btn" style={{background: '#e74c3c', color: '#fff'}}>
           ❤️ Buyer Wishlist Queries
         </button>
-        <button onClick={() => navigate('/admin/category-manager')} className="tool-btn info">
+        <button onClick={() => navigate('/admin/category-manager')} className="tool-btn info" style={{background: '#ec4899', color: '#fff'}}>
           🗂️ Category Manager
         </button>
         <button onClick={() => navigate('/admin/seller-catalog')} className="tool-btn success" style={{color: 'black'}}>

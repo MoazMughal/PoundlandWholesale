@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import ProductCardSkeleton from '../components/ProductCardSkeleton'
 import SearchBar from '../components/SearchBar'
 import Breadcrumb from '../components/Breadcrumb'
@@ -603,6 +603,8 @@ const AmazonsChoice = () => {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(decodeURIComponent(searchParams.get('cat') || 'all'))
+  const [selectedSubcategory, setSelectedSubcategory] = useState(searchParams.get('subcat') ? decodeURIComponent(searchParams.get('subcat')) : null)
+  const [selectedSubSubcategory, setSelectedSubSubcategory] = useState(searchParams.get('subsubcat') ? decodeURIComponent(searchParams.get('subsubcat')) : null)
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '')
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page')) || 1)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
@@ -969,10 +971,10 @@ const AmazonsChoice = () => {
   ]
 
   // Fetch products with server-side filtering and pagination
-  const fetchProducts = async (category = null, search = null, page = 1, showAll = showAllProducts, force = false) => {
+  const fetchProducts = async (category = null, search = null, page = 1, showAll = showAllProducts, force = false, subcategory = null, subsubcategory = null) => {
     try {
       // Create a key for this fetch to avoid duplicate requests
-      const fetchKey = `${category || 'all'}-${search || ''}-${page}-${productsPerPage}-${showAll}`
+      const fetchKey = `${category || 'all'}-${search || ''}-${page}-${productsPerPage}-${showAll}-${subcategory || ''}-${subsubcategory || ''}`
       
       // Skip if we just fetched the same data and we have products
       if (fetchKey === lastFetchKey && products.length > 0 && !loading) {
@@ -994,14 +996,21 @@ const AmazonsChoice = () => {
       
       // Build API parameters
       const params = new URLSearchParams()
-      params.append('isAmazonsChoice', 'true') // Always filter for Amazon Choice products
-      params.append('limit', productsPerPage.toString()) // Use our products per page
-      params.append('page', page.toString()) // Add page parameter
-      
-      // Only fetch products with sellers unless showAll is checked
-      if (!showAll) {
-        params.append('hasSellerListings', 'true')
-        params.append('currency', currency) // pass active currency for country filtering
+      params.append('limit', productsPerPage.toString())
+      params.append('page', page.toString())
+
+      // When filtering by subcategory: show ALL active approved products in that subcategory
+      // (not just Amazon's Choice, not just those with seller listings)
+      if (subcategory) {
+        params.append('approvalStatus', 'approved')
+        params.append('status', 'active')
+      } else {
+        params.append('isAmazonsChoice', 'true') // normal homepage: only Amazon's Choice
+        // Only fetch products with sellers unless showAll is checked
+        if (!showAll) {
+          params.append('hasSellerListings', 'true')
+          params.append('currency', currency)
+        }
       }
       
       // Add image optimization parameters for mobile
@@ -1012,6 +1021,12 @@ const AmazonsChoice = () => {
       
       if (category && category !== 'all') {
         params.append('category', category)
+      }
+      if (subcategory) {
+        params.append('subcategory', subcategory)
+      }
+      if (subsubcategory) {
+        params.append('subsubcategory', subsubcategory)
       }
       if (search) {
         params.append('search', search)
@@ -1256,8 +1271,8 @@ const AmazonsChoice = () => {
   }
 
   // Server-side filtering - fetch products with filters and pagination
-  const applyFilters = async (category, search, page = currentPage, showAll = showAllProducts, force = false) => {
-    await fetchProducts(category, search, page, showAll, force)
+  const applyFilters = async (category, search, page = currentPage, showAll = showAllProducts, force = false, subcategory = null, subsubcategory = null) => {
+    await fetchProducts(category, search, page, showAll, force, subcategory, subsubcategory)
 
     // Track non-empty searches for admin analytics
     if (search && search.trim().length >= 2) {
@@ -1323,6 +1338,8 @@ const AmazonsChoice = () => {
   // Handle URL parameters and trigger server-side filtering
   useEffect(() => {
     const catParam = decodeURIComponent(searchParams.get('cat') || 'all')
+    const subcatParam = searchParams.get('subcat') ? decodeURIComponent(searchParams.get('subcat')) : null
+    const subsubcatParam = searchParams.get('subsubcat') ? decodeURIComponent(searchParams.get('subsubcat')) : null
     const searchParam = searchParams.get('search') || ''
     const pageParam = parseInt(searchParams.get('page')) || 1
     
@@ -1333,14 +1350,15 @@ const AmazonsChoice = () => {
     
     // Update state
     setSelectedCategory(catParam)
+    setSelectedSubcategory(subcatParam)
+    setSelectedSubSubcategory(subsubcatParam)
     setSearchQuery(searchParam)
     setCurrentPage(pageParam)
     
     // Only fetch if parameters have actually changed or it's the first load
-    const newFetchKey = `${catParam}-${searchParam}-${pageParam}`
+    const newFetchKey = `${catParam}-${searchParam}-${pageParam}-${subcatParam || ''}-${subsubcatParam || ''}`
     if (newFetchKey !== lastFetchKey || !hasLoadedOnce) {
-      // Fetch products with filters and pagination
-      applyFilters(catParam, searchParam, pageParam)
+      applyFilters(catParam, searchParam, pageParam, showAllProducts, false, subcatParam, subsubcatParam)
     }
   }, [searchParams, hasLoadedOnce, lastFetchKey])
 
@@ -2598,6 +2616,33 @@ const AmazonsChoice = () => {
                 style={{ width:'15px', height:'15px', cursor:'pointer' }} />
               Select All for Bulk Request
             </label>
+          </div>
+        )}
+
+        {/* Subcategory breadcrumb strip */}
+        {selectedSubcategory && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', marginBottom: '8px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', fontSize: '13px', flexWrap: 'wrap' }}>
+            <Link to="/" style={{ color: '#9ca3af', textDecoration: 'none' }}>All</Link>
+            <span style={{ color: '#d1d5db' }}>›</span>
+            <Link to={`/?cat=${encodeURIComponent(selectedCategory)}`} style={{ color: '#ff9900', textDecoration: 'none', fontWeight: '600' }}>{selectedCategory}</Link>
+            <span style={{ color: '#d1d5db' }}>›</span>
+            {selectedSubSubcategory ? (
+              <Link to={`/?cat=${encodeURIComponent(selectedCategory)}&subcat=${encodeURIComponent(selectedSubcategory)}`} style={{ color: '#ff9900', textDecoration: 'none', fontWeight: '600' }}>{selectedSubcategory}</Link>
+            ) : (
+              <span style={{ color: '#c2410c', fontWeight: '700' }}>{selectedSubcategory}</span>
+            )}
+            {selectedSubSubcategory && (
+              <>
+                <span style={{ color: '#d1d5db' }}>›</span>
+                <span style={{ color: '#c2410c', fontWeight: '700' }}>{selectedSubSubcategory}</span>
+              </>
+            )}
+            <Link
+              to={`/?cat=${encodeURIComponent(selectedCategory)}`}
+              style={{ marginLeft: 'auto', color: '#6b7280', textDecoration: 'none', fontSize: '11px', background: '#f3f4f6', padding: '2px 8px', borderRadius: '4px' }}
+            >
+              ✕ Clear
+            </Link>
           </div>
         )}
 
