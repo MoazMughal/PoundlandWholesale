@@ -178,7 +178,23 @@ const AddProduct = () => {
       const res = await fetch(getApiUrl(`products/public/subcategories/${encodeURIComponent(categoryLabel)}`));
       if (res.ok) {
         const data = await res.json();
-        setSubcategories(data.subcategories || []);
+        const subs = data.subcategories || [];
+        setSubcategories(subs);
+        // If hierarchy returns empty, try fetching distinct subcategories from products
+        if (subs.length === 0) {
+          const token = localStorage.getItem('adminToken');
+          const r2 = await fetch(
+            getApiUrl(`products?category=${encodeURIComponent(categoryLabel)}&limit=500&includeEmpty=true`),
+            { headers: { 'Authorization': `Bearer ${token}` } }
+          );
+          if (r2.ok) {
+            const d2 = await r2.json();
+            const distinct = [...new Set(
+              (d2.products || []).map(p => p.subcategory).filter(Boolean)
+            )];
+            setSubcategories(distinct);
+          }
+        }
       } else {
         setSubcategories([]);
       }

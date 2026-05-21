@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import multer from 'multer';
 import Product from '../models/Product.js';
 import ExcelProduct from '../models/ExcelProduct.js';
@@ -69,7 +69,7 @@ async function syncExcelProductsOnDelete(mainProductId) {
     
     return updateResult;
   } catch (error) {
-    console.error('âš ï¸ Failed to update Excel products after main product deletion:', error);
+    console.error('⚠️ Failed to update Excel products after main product deletion:', error);
     throw error;
   }
 }
@@ -101,13 +101,13 @@ async function getProductsWithFallback(query = {}, options = {}) {
     };
     
   } catch (error) {
-    console.error('âŒ Database query failed:', error.message);
+    console.error('❌ Database query failed:', error.message);
     
     // Try cache first
     if (productCache.isFresh()) {
       // Only show cache usage in development
       if (process.env.NODE_ENV !== 'production') {
-        console.log('ðŸ“¦ Using fresh cache data');
+        console.log('📦 Using fresh cache data');
       }
       const cacheResult = productCache.getProducts({
         ...query,
@@ -194,6 +194,32 @@ router.get('/public/cache-version', async (req, res) => {
     cacheActive: !!fastProductsCache 
   });
 });
+
+// Debug endpoint for subcategory products (public)
+router.get('/public/debug/subcategory', async (req, res) => {
+  try {
+    const { category } = req.query;
+    const allInCategory = await Product.find({ category: { $regex: new RegExp(`^${category}$`, 'i') } })
+      .select('name subcategory approvalStatus status isAmazonsChoice sellers asin images')
+      .lean();
+    res.json({
+      total: allInCategory.length,
+      products: allInCategory.map(p => ({
+        name: p.name,
+        subcategory: p.subcategory,
+        approvalStatus: p.approvalStatus,
+        status: p.status,
+        isAmazonsChoice: p.isAmazonsChoice,
+        hasAsin: !!p.asin,
+        hasImages: !!(p.images && p.images.length),
+        sellersCount: p.sellers ? p.sellers.length : 0
+      }))
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 
 // Debug endpoint to check Amazon Choice products count (public)
 router.get('/public/debug/amazons-choice-count', async (req, res) => {
@@ -416,7 +442,7 @@ router.get('/public/categories', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('âŒ Error fetching categories:', error);
+    console.error('❌ Error fetching categories:', error);
     
     // Fallback categories
     const fallbackCategories = [
@@ -452,6 +478,35 @@ router.get('/public/category-hierarchy', async (req, res) => {
   }
 });
 
+// Public: get subcategories for a specific parent category
+router.get('/public/subcategories/:category', async (req, res) => {
+  try {
+    const { category } = req.params;
+    const decodedCategory = decodeURIComponent(category);
+    const CategoryHierarchy = (await import('../models/CategoryHierarchy.js')).default;
+    // Try exact match first, then case-insensitive
+    let doc = await CategoryHierarchy.findOne({ parent: decodedCategory }).lean();
+    if (!doc) {
+      doc = await CategoryHierarchy.findOne({ parent: { $regex: new RegExp(`^${decodedCategory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }).lean();
+    }
+
+    let subcategories = doc ? doc.children : [];
+
+    // Fallback: if hierarchy has no children, derive from products collection
+    if (subcategories.length === 0) {
+      const distinctSubs = await Product.distinct('subcategory', {
+        category: { $regex: new RegExp(`^${decodedCategory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        subcategory: { $exists: true, $ne: null, $ne: '' }
+      });
+      subcategories = distinctSubs.filter(Boolean);
+    }
+
+    res.json({ success: true, subcategories });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Admin: upsert hierarchy for a parent category
 router.put('/admin/category-hierarchy/:parent', authenticateAdmin, async (req, res) => {
   try {
@@ -477,6 +532,43 @@ router.delete('/admin/category-hierarchy/:parent', authenticateAdmin, async (req
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: link an existing category as a subcategory of a parent
+// Adds to hierarchy AND bulk-updates all products of that existing category
+router.post('/admin/category-hierarchy/:parent/link-category', authenticateAdmin, async (req, res) => {
+  try {
+    const parentName = req.params.parent.trim();
+    const childName = (req.body.existingCategory || '').trim();
+    if (!childName) return res.status(400).json({ success: false, message: 'existingCategory required' });
+    if (parentName.toLowerCase() === childName.toLowerCase())
+      return res.status(400).json({ success: false, message: 'Cannot link a category to itself' });
+
+    const CategoryHierarchy = (await import('../models/CategoryHierarchy.js')).default;
+    const existing = await CategoryHierarchy.findOne({ parent: parentName });
+    const children = existing ? [...existing.children] : [];
+    if (!children.map(c => c.toLowerCase()).includes(childName.toLowerCase())) children.push(childName);
+    await CategoryHierarchy.findOneAndUpdate(
+      { parent: parentName },
+      { parent: parentName, children },
+      { upsert: true, new: true }
+    );
+
+    // Bulk-update products: move them under the parent category, set subcategory
+    const updateResult = await Product.updateMany(
+      { category: { $regex: new RegExp(`^${childName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+      { $set: { subcategory: childName, category: parentName } }
+    );
+    productCache.clear();
+
+    res.json({
+      success: true,
+      message: `"${childName}" linked under "${parentName}". ${updateResult.modifiedCount} products updated.`,
+      updatedProducts: updateResult.modifiedCount
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
@@ -571,7 +663,7 @@ router.post('/public/categories', authenticateAdmin, async (req, res) => {
       hasExcelProducts = excelProductsCount > 0;
       
       if (hasExcelProducts) {
-        console.log(`â„¹ï¸ Found ${excelProductsCount} Excel products with category "${normalizedCategoryName}"`);
+        console.log(`ℹ️ Found ${excelProductsCount} Excel products with category "${normalizedCategoryName}"`);
         // Allow creation - Excel products can use this category
         return res.json({
           success: true,
@@ -584,7 +676,7 @@ router.post('/public/categories', authenticateAdmin, async (req, res) => {
         });
       }
     } catch (excelError) {
-      console.log('â„¹ï¸ Excel model not available or no Excel products found');
+      console.log('ℹ️ Excel model not available or no Excel products found');
     }
     
     // Create a placeholder product to establish the category
@@ -609,7 +701,7 @@ router.post('/public/categories', authenticateAdmin, async (req, res) => {
       label: normalizedCategoryName
     };
     
-    console.log(`âœ… Category "${normalizedCategoryName}" created successfully with placeholder product`);
+    console.log(`✅ Category "${normalizedCategoryName}" created successfully with placeholder product`);
     
     res.json({
       success: true,
@@ -618,7 +710,7 @@ router.post('/public/categories', authenticateAdmin, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('âŒ Error creating category:', error);
+    console.error('❌ Error creating category:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to create category',
@@ -642,7 +734,7 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
     
     const trimmedNewName = newCategoryName.trim();
     
-    console.log(`ðŸ·ï¸ Renaming category "${categoryName}" to "${trimmedNewName}"`);
+    console.log(`🏷️ Renaming category "${categoryName}" to "${trimmedNewName}"`);
     
     // Find the actual category name in the database (case-insensitive)
     const actualCategoryProduct = await Product.findOne({
@@ -652,7 +744,7 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
     let sourceCategoryName = categoryName;
     if (actualCategoryProduct) {
       sourceCategoryName = actualCategoryProduct.category;
-      console.log(`ðŸ” Found actual category name: "${sourceCategoryName}" (searched for: "${categoryName}")`);
+      console.log(`🔍 Found actual category name: "${sourceCategoryName}" (searched for: "${categoryName}")`);
     }
     
     // Check if new category name already exists
@@ -662,7 +754,7 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
     
     if (existingCategory && trimmedNewName.toLowerCase() !== sourceCategoryName.toLowerCase()) {
       // Category already exists - merge them instead of rejecting
-      console.log(`ðŸ”„ Category "${trimmedNewName}" already exists. Merging "${sourceCategoryName}" into it.`);
+      console.log(`🔄 Category "${trimmedNewName}" already exists. Merging "${sourceCategoryName}" into it.`);
       
       // Update all products with the old category to use the existing category name
       const productUpdateResult = await Product.updateMany(
@@ -670,7 +762,7 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
         { $set: { category: existingCategory.category } } // Use the exact case from existing category
       );
       
-      console.log(`âœ… Merged ${productUpdateResult.modifiedCount} products from "${sourceCategoryName}" into existing category "${existingCategory.category}"`);
+      console.log(`✅ Merged ${productUpdateResult.modifiedCount} products from "${sourceCategoryName}" into existing category "${existingCategory.category}"`);
       
       // Update Excel products if they exist
       let excelUpdateCount = 0;
@@ -681,9 +773,9 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
           { $set: { category: existingCategory.category } }
         );
         excelUpdateCount = excelUpdateResult.modifiedCount;
-        console.log(`âœ… Merged ${excelUpdateCount} Excel products from "${sourceCategoryName}" into existing category "${existingCategory.category}"`);
+        console.log(`✅ Merged ${excelUpdateCount} Excel products from "${sourceCategoryName}" into existing category "${existingCategory.category}"`);
       } catch (excelError) {
-        console.log('â„¹ï¸ No Excel products to update or Excel model not available');
+        console.log('ℹ️ No Excel products to update or Excel model not available');
       }
       
       // Clear caches to ensure updates appear everywhere
@@ -706,7 +798,7 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
       { $set: { category: trimmedNewName } }
     );
     
-    console.log(`âœ… Updated ${productUpdateResult.modifiedCount} products from "${sourceCategoryName}" to "${trimmedNewName}"`);
+    console.log(`✅ Updated ${productUpdateResult.modifiedCount} products from "${sourceCategoryName}" to "${trimmedNewName}"`);
     
     // Update Excel products if they exist
     let excelUpdateCount = 0;
@@ -717,9 +809,9 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
         { $set: { category: trimmedNewName } }
       );
       excelUpdateCount = excelUpdateResult.modifiedCount;
-      console.log(`âœ… Updated ${excelUpdateCount} Excel products from "${sourceCategoryName}" to "${trimmedNewName}"`);
+      console.log(`✅ Updated ${excelUpdateCount} Excel products from "${sourceCategoryName}" to "${trimmedNewName}"`);
     } catch (excelError) {
-      console.log('â„¹ï¸ No Excel products to update or Excel model not available');
+      console.log('ℹ️ No Excel products to update or Excel model not available');
     }
     
     // Clear caches to ensure updates appear everywhere
@@ -735,7 +827,7 @@ router.put('/admin/categories/:categoryName/rename', authenticateAdmin, async (r
     });
     
   } catch (error) {
-    console.error('âŒ Error renaming category:', error);
+    console.error('❌ Error renaming category:', error);
     res.status(500).json({ 
       message: 'Error renaming category', 
       error: error.message,
@@ -750,7 +842,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
     const { categoryName } = req.params;
     const { force } = req.query;
     
-    console.log('ðŸ—‘ï¸ Smart category deletion for:', categoryName, force ? '(forced)' : '');
+    console.log('🗑️ Smart category deletion for:', categoryName, force ? '(forced)' : '');
     
     // Find the actual category name in the database (case-insensitive)
     const actualCategoryProduct = await Product.findOne({
@@ -760,7 +852,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
     let sourceCategoryName = categoryName;
     if (actualCategoryProduct) {
       sourceCategoryName = actualCategoryProduct.category;
-      console.log(`ðŸ” Found actual category name: "${sourceCategoryName}" (searched for: "${categoryName}")`);
+      console.log(`🔍 Found actual category name: "${sourceCategoryName}" (searched for: "${categoryName}")`);
     }
     
     // Find active/listed main products in this category
@@ -787,10 +879,10 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
       listedExcelProducts = allExcelProducts.filter(p => p.status === 'listed' && p.isConverted);
       
     } catch (excelError) {
-      console.log('â„¹ï¸ No Excel products found or Excel model not available');
+      console.log('ℹ️ No Excel products found or Excel model not available');
     }
     
-    console.log('ðŸ“Š Category analysis:', {
+    console.log('📊 Category analysis:', {
       activeMainProducts: activeProducts.length,
       totalMainProducts: allProducts.length,
       pendingExcelProducts: pendingExcelProducts.length,
@@ -800,7 +892,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
     // Smart deletion logic
     if (activeProducts.length === 0 && listedExcelProducts.length === 0) {
       // Category is empty of active/listed products - safe to delete
-      console.log('âœ… Category is empty of active/listed products - proceeding with deletion');
+      console.log('✅ Category is empty of active/listed products - proceeding with deletion');
       
       // Remove category from any remaining inactive main products
       const inactiveProducts = allProducts.filter(p => p.status !== 'active');
@@ -812,11 +904,11 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
           },
           { $unset: { category: "" } }
         );
-        console.log(`ðŸ—‘ï¸ Removed category from ${inactiveProducts.length} inactive main products`);
+        console.log(`🗑️ Removed category from ${inactiveProducts.length} inactive main products`);
       }
       
       // Leave pending Excel products untouched - they keep their category for future conversion
-      console.log(`â„¹ï¸ Keeping category for ${pendingExcelProducts.length} pending Excel products`);
+      console.log(`ℹ️ Keeping category for ${pendingExcelProducts.length} pending Excel products`);
       
       res.json({ 
         message: `Category "${sourceCategoryName}" deleted successfully. ${activeProducts.length} active products deleted, ${pendingExcelProducts.length} pending Excel products preserved.`,
@@ -828,7 +920,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
       
     } else if (force === 'true') {
       // Force deletion - delete everything including active products
-      console.log('âš ï¸ Force deletion - removing all products');
+      console.log('⚠️ Force deletion - removing all products');
       
       // Delete all active main products
       if (activeProducts.length > 0) {
@@ -836,7 +928,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
           category: { $regex: new RegExp(`^${sourceCategoryName}$`, 'i') },
           status: 'active'
         });
-        console.log(`ðŸ—‘ï¸ Deleted ${activeProducts.length} active main products`);
+        console.log(`🗑️ Deleted ${activeProducts.length} active main products`);
       }
       
       // Remove category from inactive main products
@@ -849,7 +941,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
           },
           { $unset: { category: "" } }
         );
-        console.log(`ðŸ—‘ï¸ Removed category from ${inactiveProducts.length} inactive main products`);
+        console.log(`🗑️ Removed category from ${inactiveProducts.length} inactive main products`);
       }
       
       // Remove category from listed Excel products, leave pending ones
@@ -863,10 +955,10 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
           },
           { $unset: { category: "" } }
         );
-        console.log(`ðŸ—‘ï¸ Removed category from ${listedExcelProducts.length} listed Excel products`);
+        console.log(`🗑️ Removed category from ${listedExcelProducts.length} listed Excel products`);
       }
       
-      console.log(`â„¹ï¸ Preserved ${pendingExcelProducts.length} pending Excel products`);
+      console.log(`ℹ️ Preserved ${pendingExcelProducts.length} pending Excel products`);
       
       res.json({ 
         message: `Category "${sourceCategoryName}" force deleted. ${activeProducts.length} active products deleted, ${pendingExcelProducts.length} pending Excel products preserved.`,
@@ -879,8 +971,8 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
       
     } else {
       // Category has active products - cannot delete without force
-      const productList = activeProducts.slice(0, 5).map(p => `â€¢ ${p.name}`).join('\n');
-      const moreProducts = activeProducts.length > 5 ? `\nâ€¢ ... and ${activeProducts.length - 5} more` : '';
+      const productList = activeProducts.slice(0, 5).map(p => `• ${p.name}`).join('\n');
+      const moreProducts = activeProducts.length > 5 ? `\n• ... and ${activeProducts.length - 5} more` : '';
       
       return res.status(400).json({ 
         message: `Cannot delete category "${sourceCategoryName}" because it contains ${activeProducts.length} active product(s). Use force=true to delete anyway.`,
@@ -895,7 +987,7 @@ router.delete('/admin/categories/:categoryName', authenticateAdmin, async (req, 
     productCache.clear();
     
   } catch (error) {
-    console.error('âŒ Error deleting category:', error);
+    console.error('❌ Error deleting category:', error);
     res.status(500).json({ 
       message: 'Error deleting category', 
       error: error.message,
@@ -1346,7 +1438,7 @@ router.post('/:id/approval', authenticateAdmin, async (req, res) => {
     try {
       const excelProduct = await ExcelProduct.findOne({ mainProductId: id });
       if (excelProduct) {
-        console.log('ðŸ”„ Syncing Excel product status after approval:', excelProduct.name);
+        console.log('🔄 Syncing Excel product status after approval:', excelProduct.name);
         
         // Product is now approved and listed in Amazon's Choice
         await ExcelProduct.updateOne(
@@ -1360,10 +1452,10 @@ router.post('/:id/approval', authenticateAdmin, async (req, res) => {
           }
         );
         
-        console.log(`âœ… Excel product status updated to: listed (Amazon's Choice)`);
+        console.log(`✅ Excel product status updated to: listed (Amazon's Choice)`);
       }
     } catch (syncError) {
-      console.error('âš ï¸ Error syncing Excel product status:', syncError);
+      console.error('⚠️ Error syncing Excel product status:', syncError);
       // Don't fail the approval if sync fails
     }
     
@@ -1395,7 +1487,7 @@ router.post('/admin/clear-cache', authenticateAdmin, async (req, res) => {
       newTimestamp: cacheTimestamp
     });
   } catch (error) {
-    console.error('âŒ Error clearing cache:', error);
+    console.error('❌ Error clearing cache:', error);
     res.status(500).json({ message: 'Error clearing cache', error: error.message });
   }
 });
@@ -1424,7 +1516,7 @@ router.post('/admin/mark-amazons-choice', authenticateAdmin, async (req, res) =>
       matchedCount: result.matchedCount
     });
   } catch (error) {
-    console.error('âŒ Error marking products as Amazon Choice:', error);
+    console.error('❌ Error marking products as Amazon Choice:', error);
     res.status(500).json({ message: 'Error updating products', error: error.message });
   }
 });
@@ -1454,7 +1546,7 @@ router.post('/admin/mark-all-amazons-choice', authenticateAdmin, async (req, res
       matchedCount: result.matchedCount
     });
   } catch (error) {
-    console.error('âŒ Error marking all products as Amazon Choice:', error);
+    console.error('❌ Error marking all products as Amazon Choice:', error);
     res.status(500).json({ message: 'Error updating products', error: error.message });
   }
 });
@@ -1472,8 +1564,8 @@ router.post('/admin/bulk-update', authenticateAdmin, async (req, res) => {
       return res.status(400).json({ message: 'updateData is required' });
     }
     
-    console.log(`ðŸ”„ Bulk update request: ${productIds.length} products, mode: ${updateMode}`);
-    console.log('ðŸ“ Update data:', updateData);
+    console.log(`🔄 Bulk update request: ${productIds.length} products, mode: ${updateMode}`);
+    console.log('📝 Update data:', updateData);
     
     let successCount = 0;
     let failCount = 0;
@@ -1551,7 +1643,7 @@ router.post('/admin/bulk-update', authenticateAdmin, async (req, res) => {
       } catch (error) {
         failCount++;
         errors.push({ productId, error: error.message });
-        console.error(`âŒ Error updating product ${productId}:`, error);
+        console.error(`❌ Error updating product ${productId}:`, error);
       }
     }
     
@@ -1559,7 +1651,7 @@ router.post('/admin/bulk-update', authenticateAdmin, async (req, res) => {
     fastProductsCache = null;
     cacheTimestamp = Date.now();
     
-    console.log(`âœ… Bulk update completed: ${successCount} success, ${failCount} failed`);
+    console.log(`✅ Bulk update completed: ${successCount} success, ${failCount} failed`);
     
     res.json({
       message: `Bulk update completed: ${successCount} successful, ${failCount} failed`,
@@ -1569,7 +1661,7 @@ router.post('/admin/bulk-update', authenticateAdmin, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('âŒ Error in bulk update:', error);
+    console.error('❌ Error in bulk update:', error);
     res.status(500).json({ message: 'Error performing bulk update', error: error.message });
   }
 });
@@ -1647,7 +1739,7 @@ router.get('/public/fast', mobileImageOptimization, optimizeProductImages, addRe
       }
       
     } catch (error) {
-      console.error('âŒ Fast aggregation failed:', error);
+      console.error('❌ Fast aggregation failed:', error);
       
       // Try simple query as fallback
       try {
@@ -1686,7 +1778,7 @@ router.get('/public/fast', mobileImageOptimization, optimizeProductImages, addRe
         .maxTimeMS(3000);
         
       } catch (fallbackError) {
-        console.error('âŒ All queries failed, no products available');
+        console.error('❌ All queries failed, no products available');
         fastProducts = []; // Return empty array instead of fake products
       }
     }
@@ -1705,7 +1797,7 @@ router.get('/public/fast', mobileImageOptimization, optimizeProductImages, addRe
     });
     
   } catch (error) {
-    console.error('âŒ Fast API error:', error);
+    console.error('❌ Fast API error:', error);
     res.status(500).json({ 
       products: [],
       error: 'Server error',
@@ -1721,9 +1813,11 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
   try {
     const { 
       page = 1, 
-      limit = 100, // Increased default limit for Amazon's Choice page
+      limit = 100,
       search, 
-      category, 
+      category,
+      subcategory,
+      subsubcategory,
       status = 'active',
       sortBy = 'createdAt',
       order = 'desc',
@@ -1731,7 +1825,8 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
       isBestSeller,
       isLatestDeal,
       showOnHome,
-      source
+      source,
+      approvalStatus: approvalStatusParam
     } = req.query;
 
     // Check database connection state
@@ -1843,14 +1938,14 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
       
       // Debug logging for ID searches (public route) - only in development
       if (process.env.NODE_ENV !== 'production' && search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
-        console.log('ðŸ” Public ID Search Debug:', {
+        console.log('🔍 Public ID Search Debug:', {
           searchTerm: search,
           isValidObjectId,
           route: 'public'
         });
       }
       
-      // Combine with existing query â€” use $and to preserve both status filter and search
+      // Combine with existing query — use $and to preserve both status filter and search
       query = {
         $and: [
           ...(query.$and || [{ $or: [{ status: 'active' }, { status: { $exists: false } }] }, { status: { $ne: 'inactive' } }]),
@@ -1894,6 +1989,23 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
       }
       
       query = { ...query, ...categoryQuery };
+    }
+    // Subcategory filter
+    if (subcategory && subcategory !== 'all') {
+      const decodedSubcategory = decodeURIComponent(subcategory);
+      // Escape special regex chars, then allow flexible dash/space matching
+      const escapedSub = decodedSubcategory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.subcategory = { $regex: new RegExp(`^${escapedSub}$`, 'i') };
+    }
+    // Direct approvalStatus filter (used by subcategory pages)
+    if (approvalStatusParam) {
+      query.approvalStatus = approvalStatusParam;
+    }
+    // Sub-subcategory filter
+    if (subsubcategory && subsubcategory !== 'all') {
+      const decoded = decodeURIComponent(subsubcategory);
+      const escaped = decoded.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.subsubcategory = { $regex: new RegExp(`^${escaped}$`, 'i') };
     }
     if (isAmazonsChoice === 'true') {
       query.isAmazonsChoice = true;
@@ -2022,7 +2134,7 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
         .lean();
       
     } catch (queryError) {
-      console.error('âŒ Database query failed:', queryError.message);
+      console.error('❌ Database query failed:', queryError.message);
       
       // Return empty result instead of fallback products
       return res.json({
@@ -2109,7 +2221,7 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
         count = products.length;
       }
     } catch (countError) {
-      console.error('âŒ Count query timeout:', countError.message);
+      console.error('❌ Count query timeout:', countError.message);
       count = products.length;
     }
 
@@ -2126,7 +2238,7 @@ router.get('/public', mobileImageOptimization, optimizeProductImages, addRespons
     });
     
   } catch (error) {
-    console.error('âŒ Products API critical error:', error);
+    console.error('❌ Products API critical error:', error);
     
     // Return empty result instead of emergency fallback
     res.status(500).json({ 
@@ -2389,7 +2501,7 @@ router.get('/admin/search-logs', authenticateAdmin, async (req, res) => {
   }
 });
 
-// â”€â”€â”€ Site Visit Tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Site Visit Tracking ───────────────────────────────────────────────────
 
 // Public: log a site visit (called on app load)
 router.post('/public/site-visit', async (req, res) => {
@@ -2674,7 +2786,7 @@ router.get('/admin/fast', authenticateAdmin, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('âŒ Fast admin API error:', error);
+    console.error('❌ Fast admin API error:', error);
     res.status(500).json({ 
       products: [],
       error: 'Server error',
@@ -2776,7 +2888,7 @@ router.get('/', authenticateAdmin, async (req, res) => {
       
       // Debug logging for ID and ASIN searches - only in development
       if (process.env.NODE_ENV !== 'production' && search.length >= 3 && /^[a-fA-F0-9]+$/.test(search)) {
-        console.log('ðŸ” ID Search Debug:', {
+        console.log('🔍 ID Search Debug:', {
           searchTerm: search,
           isValidObjectId,
           queryStructure: JSON.stringify(searchQuery, null, 2)
@@ -2807,6 +2919,18 @@ router.get('/', authenticateAdmin, async (req, res) => {
       
       query = { ...query, ...categoryQuery };
     }
+    // Subcategory filter for admin route
+    const subcategoryParam = req.query.subcategory;
+    if (subcategoryParam) {
+      const escapedSub = subcategoryParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.subcategory = { $regex: new RegExp(`^${escapedSub}$`, 'i') };
+    }
+    // Sub-subcategory filter for admin route
+    const subsubcategoryParam = req.query.subsubcategory;
+    if (subsubcategoryParam) {
+      const escapedSubSub = subsubcategoryParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.subsubcategory = { $regex: new RegExp(`^${escapedSubSub}$`, 'i') };
+    }
     if (status) query.status = status;
 
     let adminProducts;
@@ -2822,7 +2946,7 @@ router.get('/', authenticateAdmin, async (req, res) => {
         .lean(); // Use lean for better performance
       
     } catch (queryError) {
-      console.error('âŒ MongoDB Query Error:', queryError);
+      console.error('❌ MongoDB Query Error:', queryError);
       
       // Fallback for admin - return empty array with error message
       return res.status(200).json({
@@ -2881,7 +3005,7 @@ router.get('/', authenticateAdmin, async (req, res) => {
     try {
       adminCount = await Product.countDocuments(query).maxTimeMS(3000);
     } catch (countError) {
-      console.error('âŒ Admin count query timeout:', countError);
+      console.error('❌ Admin count query timeout:', countError);
       adminCount = adminProducts.length; // Use current page count as fallback
     }
 
@@ -2924,7 +3048,7 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
       
       // Keep full seller object for admin access
       product.sellerData = product.seller;
-      console.log('âœ… Admin access - showing full seller info:', {
+      console.log('✅ Admin access - showing full seller info:', {
         sellerId: product.seller._id,
         username: product.seller.username,
         verificationStatus: product.seller.verificationStatus
@@ -2955,7 +3079,7 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
       try {
         productData.features = JSON.parse(productData.features);
       } catch (parseError) {
-        console.warn('âš ï¸ Failed to parse features JSON, using empty array:', parseError.message);
+        console.warn('⚠️ Failed to parse features JSON, using empty array:', parseError.message);
         productData.features = [];
       }
     } else if (!productData.features) {
@@ -2967,7 +3091,7 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
       productData.category = normalizeCategoryName(productData.category);
     }
     
-    console.log('ðŸ“¦ Creating product with data:', {
+    console.log('📦 Creating product with data:', {
       name: productData.name,
       asin: productData.asin,
       sku: productData.sku,
@@ -2981,7 +3105,7 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
     
     // First, upload new files to Cloudinary (user-uploaded files take priority / come first)
     if (req.files && req.files.length > 0 && isCloudinaryConfigured()) {
-      console.log(`ðŸ“¤ Uploading ${req.files.length} images to Cloudinary...`);
+      console.log(`📤 Uploading ${req.files.length} images to Cloudinary...`);
       
       for (let i = 0; i < req.files.length; i++) {
         const file = req.files[i];
@@ -2995,9 +3119,9 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
           const cloudinaryResult = await uploadToCloudinary(file.path, publicId, 'products');
           imageUrls.push(cloudinaryResult.secure_url);
           
-          console.log(`âœ… Uploaded image ${i + 1} to Cloudinary: ${cloudinaryResult.secure_url}`);
+          console.log(`✅ Uploaded image ${i + 1} to Cloudinary: ${cloudinaryResult.secure_url}`);
         } catch (uploadError) {
-          console.error(`âŒ Failed to upload image ${i + 1} to Cloudinary:`, uploadError.message);
+          console.error(`❌ Failed to upload image ${i + 1} to Cloudinary:`, uploadError.message);
         }
       }
     }
@@ -3007,9 +3131,9 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
       try {
         const fetchedImageUrls = JSON.parse(productData.fetchedImages);
         imageUrls.push(...fetchedImageUrls);
-        console.log(`ðŸ“· Added ${fetchedImageUrls.length} fetched images from ASIN lookup`);
+        console.log(`📷 Added ${fetchedImageUrls.length} fetched images from ASIN lookup`);
       } catch (parseError) {
-        console.warn('âš ï¸ Failed to parse fetched images:', parseError.message);
+        console.warn('⚠️ Failed to parse fetched images:', parseError.message);
       }
     }
     
@@ -3049,7 +3173,7 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
     const product = new Product(productData);
     await product.save();
 
-    console.log('âœ… Product created successfully:', {
+    console.log('✅ Product created successfully:', {
       id: product._id,
       name: product.name,
       price: product.price,
@@ -3065,14 +3189,14 @@ router.post('/', authenticateAdmin, upload.array('images', 5), async (req, res) 
     // Clear cache when new product is created
     fastProductsCache = null;
     cacheTimestamp = Date.now();
-    console.log('ðŸ—‘ï¸ Cache cleared after product creation, new timestamp:', cacheTimestamp);
-    console.log('ðŸ’° New product created with currency:', product.currency);
-    console.log('ðŸ·ï¸ Product category normalized to:', product.category);
+    console.log('🗑️ Cache cleared after product creation, new timestamp:', cacheTimestamp);
+    console.log('💰 New product created with currency:', product.currency);
+    console.log('🏷️ Product category normalized to:', product.category);
     
     res.status(201).json(product);
     
   } catch (error) {
-    console.error('âŒ Error creating product:', error);
+    console.error('❌ Error creating product:', error);
     res.status(400).json({ message: 'Error creating product', error: error.message });
   } finally {
     // Clean up temporary files
@@ -3142,7 +3266,7 @@ router.get('/admin/categories-with-profit', authenticateAdmin, async (req, res) 
     });
     
   } catch (error) {
-    console.error('âŒ Error fetching categories with profit data:', error);
+    console.error('❌ Error fetching categories with profit data:', error);
     res.status(500).json({ 
       message: 'Error fetching categories', 
       error: error.message,
@@ -3179,7 +3303,7 @@ router.get('/admin/search-by-asin/:asin', authenticateAdmin, async (req, res) =>
     });
 
   } catch (error) {
-    console.error('âŒ Error searching products by ASIN:', error);
+    console.error('❌ Error searching products by ASIN:', error);
     res.status(500).json({
       success: false,
       message: 'Error searching products by ASIN',
@@ -3225,7 +3349,7 @@ router.get('/admin/category/:category/with-profit', authenticateAdmin, async (re
       .sort({ category: 1, updatedAt: -1 }) // Sort by category first, then by update time
       .lean();
     
-    console.log(`âœ… Found ${products.length} products with profit data in category: ${category} (exactMatch: ${exactMatch})`);
+    console.log(`✅ Found ${products.length} products with profit data in category: ${category} (exactMatch: ${exactMatch})`);
     
     // Group products by category for better organization
     const productsByCategory = products.reduce((acc, product) => {
@@ -3247,7 +3371,7 @@ router.get('/admin/category/:category/with-profit', authenticateAdmin, async (re
     });
     
   } catch (error) {
-    console.error('âŒ Error fetching category products with profit data:', error);
+    console.error('❌ Error fetching category products with profit data:', error);
     res.status(500).json({ 
       message: 'Error fetching products', 
       error: error.message,
@@ -3258,21 +3382,21 @@ router.get('/admin/category/:category/with-profit', authenticateAdmin, async (re
 
 // Test route to verify routing is working
 router.get('/test-route', (req, res) => {
-  console.log('ðŸ§ª Test route hit');
+  console.log('🧪 Test route hit');
   res.json({ message: 'Test route working', timestamp: new Date().toISOString() });
 });
 
 // Move selected products to a new category (admin only) - MUST be before /:id route
 router.put('/move-selected', authenticateAdmin, async (req, res) => {
   try {
-    console.log('ðŸ”„ Move-selected endpoint hit');
-    console.log('ðŸ”„ Request body:', req.body);
-    console.log('ðŸ”„ Admin user:', req.admin?.username || req.admin?.email);
+    console.log('🔄 Move-selected endpoint hit');
+    console.log('🔄 Request body:', req.body);
+    console.log('🔄 Admin user:', req.admin?.username || req.admin?.email);
     
     const { productIds, newCategory } = req.body;
     
     if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
-      console.log('âŒ Invalid productIds:', productIds);
+      console.log('❌ Invalid productIds:', productIds);
       return res.status(400).json({ 
         message: 'Product IDs array is required',
         success: false
@@ -3280,7 +3404,7 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
     }
     
     if (!newCategory || !newCategory.trim()) {
-      console.log('âŒ Invalid newCategory:', newCategory);
+      console.log('❌ Invalid newCategory:', newCategory);
       return res.status(400).json({ 
         message: 'New category is required',
         success: false
@@ -3289,8 +3413,8 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
     
     const trimmedNewCategory = newCategory.trim();
     
-    console.log(`ðŸ”„ Admin moving ${productIds.length} selected products to "${trimmedNewCategory}"`);
-    console.log('ðŸ”„ Product IDs to move:', productIds);
+    console.log(`🔄 Admin moving ${productIds.length} selected products to "${trimmedNewCategory}"`);
+    console.log('🔄 Product IDs to move:', productIds);
     
     // Validate that all product IDs exist (include pending products for approval page)
     const productsToMove = await Product.find({ 
@@ -3304,10 +3428,10 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
       ]
     });
     
-    console.log(`ðŸ”„ Found ${productsToMove.length} products to move:`, productsToMove.map(p => ({ id: p._id, name: p.name, category: p.category })));
+    console.log(`🔄 Found ${productsToMove.length} products to move:`, productsToMove.map(p => ({ id: p._id, name: p.name, category: p.category })));
     
     if (productsToMove.length === 0) {
-      console.log('âŒ No products found with provided IDs');
+      console.log('❌ No products found with provided IDs');
       return res.status(404).json({ 
         message: 'No products found with the provided IDs. Products may not exist or may have been deleted.',
         updatedCount: 0,
@@ -3317,10 +3441,10 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
     }
     
     if (productsToMove.length !== productIds.length) {
-      console.log(`âš ï¸ Warning: ${productIds.length - productsToMove.length} products were not found or not active`);
+      console.log(`⚠️ Warning: ${productIds.length - productsToMove.length} products were not found or not active`);
     }
     
-    console.log(`ðŸ”„ Moving ${productsToMove.length} products (including pending) to category: ${trimmedNewCategory}`);
+    console.log(`🔄 Moving ${productsToMove.length} products (including pending) to category: ${trimmedNewCategory}`);
     
     // Update the selected products (include pending products)
     const moveResult = await Product.updateMany(
@@ -3330,15 +3454,15 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
       { $set: { category: trimmedNewCategory } }
     );
     
-    console.log(`âœ… Update result:`, moveResult);
-    console.log(`âœ… Modified count: ${moveResult.modifiedCount}`);
+    console.log(`✅ Update result:`, moveResult);
+    console.log(`✅ Modified count: ${moveResult.modifiedCount}`);
     
     // Verify the update worked
     const verifyProducts = await Product.find({ 
       _id: { $in: productsToMove.map(p => p._id) }
     }).select('_id name category');
     
-    console.log('ðŸ” Verification - products after update:', verifyProducts.map(p => ({ id: p._id, name: p.name, category: p.category })));
+    console.log('🔍 Verification - products after update:', verifyProducts.map(p => ({ id: p._id, name: p.name, category: p.category })));
     
     // Update related Excel products (if ExcelProduct model exists)
     let excelUpdatedCount = 0;
@@ -3358,11 +3482,11 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
       }
       
       if (excelUpdatedCount > 0) {
-        console.log(`ðŸ“Š Updated ${excelUpdatedCount} Excel products to category: ${trimmedNewCategory}`);
+        console.log(`📊 Updated ${excelUpdatedCount} Excel products to category: ${trimmedNewCategory}`);
       }
       
     } catch (excelError) {
-      console.log('â„¹ï¸ No Excel products to update or ExcelProduct model not found');
+      console.log('ℹ️ No Excel products to update or ExcelProduct model not found');
     }
     
     // Clear all caches to ensure updates appear everywhere
@@ -3377,7 +3501,7 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
         global.categoriesCache = null;
       }
     } catch (cacheError) {
-      console.log('â„¹ï¸ Additional cache clearing completed');
+      console.log('ℹ️ Additional cache clearing completed');
     }
     
     const responseData = {
@@ -3390,12 +3514,12 @@ router.put('/move-selected', authenticateAdmin, async (req, res) => {
       success: true
     };
     
-    console.log('ðŸ”„ Sending response:', responseData);
+    console.log('🔄 Sending response:', responseData);
     
     res.json(responseData);
     
   } catch (error) {
-    console.error('âŒ Error moving selected products:', error);
+    console.error('❌ Error moving selected products:', error);
     res.status(500).json({ 
       message: 'Error moving selected products', 
       error: error.message,
@@ -3410,21 +3534,21 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
   try {
     // Validate product ID format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      console.log('âŒ Invalid product ID format:', req.params.id);
+      console.log('❌ Invalid product ID format:', req.params.id);
       return res.status(400).json({ message: 'Invalid product ID format' });
     }
     
     // Get existing product
     const existingProduct = await Product.findById(req.params.id);
     if (!existingProduct) {
-      console.log('âŒ Product not found:', req.params.id);
+      console.log('❌ Product not found:', req.params.id);
       return res.status(404).json({ message: 'Product not found' });
     }
     
     // Handle image uploads to Cloudinary
     const newImageUrls = [];
     if (req.files && req.files.length > 0 && isCloudinaryConfigured()) {
-      console.log(`ðŸ“¤ Uploading ${req.files.length} new images to Cloudinary...`);
+      console.log(`📤 Uploading ${req.files.length} new images to Cloudinary...`);
 
       // Count how many existing images are being preserved so we offset the public_id index
       let existingCount = 0;
@@ -3445,9 +3569,9 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
           const cloudinaryResult = await uploadToCloudinary(file.path, publicId, 'products');
           newImageUrls.push(cloudinaryResult.secure_url);
           
-          console.log(`âœ… Uploaded image ${i + 1} to Cloudinary: ${cloudinaryResult.secure_url}`);
+          console.log(`✅ Uploaded image ${i + 1} to Cloudinary: ${cloudinaryResult.secure_url}`);
         } catch (uploadError) {
-          console.error(`âŒ Failed to upload image ${i + 1} to Cloudinary:`, uploadError.message);
+          console.error(`❌ Failed to upload image ${i + 1} to Cloudinary:`, uploadError.message);
           // Continue with other images even if one fails
         }
       }
@@ -3488,7 +3612,7 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       updateData.variations = cleanedVariations;
     }
     
-    console.log('ðŸ“ Product update request:', {
+    console.log('📝 Product update request:', {
       productId: req.params.id,
       requestBody: req.body,
       priceProvided: req.body.price !== undefined,
@@ -3505,7 +3629,7 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       try {
         updateData.features = JSON.parse(updateData.features);
       } catch (parseError) {
-        console.warn('âš ï¸ Failed to parse features JSON, keeping original:', parseError.message);
+        console.warn('⚠️ Failed to parse features JSON, keeping original:', parseError.message);
         // Keep existing features if parsing fails
         delete updateData.features;
       }
@@ -3516,7 +3640,7 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       try {
         updateData.profitEvaluation = JSON.parse(updateData.profitEvaluation);
       } catch (parseError) {
-        console.warn('âš ï¸ Failed to parse profitEvaluation JSON, keeping original:', parseError.message);
+        console.warn('⚠️ Failed to parse profitEvaluation JSON, keeping original:', parseError.message);
         // Keep existing profitEvaluation if parsing fails
         delete updateData.profitEvaluation;
       }
@@ -3544,16 +3668,16 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       try {
         const existingImageUrls = JSON.parse(req.body.existingImages);
         finalImageUrls.push(...existingImageUrls);
-        console.log(`ðŸ“· Preserved ${existingImageUrls.length} existing images`);
+        console.log(`📷 Preserved ${existingImageUrls.length} existing images`);
       } catch (parseError) {
-        console.warn('âš ï¸ Failed to parse existing images JSON:', parseError.message);
+        console.warn('⚠️ Failed to parse existing images JSON:', parseError.message);
       }
     }
     
     // Then, add any new images uploaded to Cloudinary
     if (newImageUrls.length > 0) {
       finalImageUrls.push(...newImageUrls);
-      console.log(`ðŸ“¤ Added ${newImageUrls.length} new Cloudinary images`);
+      console.log(`📤 Added ${newImageUrls.length} new Cloudinary images`);
     }
     
     // Handle images - prioritize combined approach for FormData, fallback to direct array for JSON
@@ -3562,23 +3686,23 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       updateData.images = finalImageUrls.filter(url => url && typeof url === 'string' && url.trim() !== '');
       if (updateData.images.length > 0) {
         updateData.image = updateData.images[0]; // Set first image as main image
-        console.log(`âœ… Updated images via FormData. Total images: ${updateData.images.length}`);
-        console.log(`ðŸ“¸ Final image URLs:`, updateData.images);
+        console.log(`✅ Updated images via FormData. Total images: ${updateData.images.length}`);
+        console.log(`📸 Final image URLs:`, updateData.images);
       }
     } else if (req.body.images && Array.isArray(req.body.images)) {
       // JSON approach - Frontend sent Cloudinary URLs directly (from Edit Product page without new uploads)
       updateData.images = req.body.images.filter(url => url && typeof url === 'string' && url.trim() !== '');
       if (updateData.images.length > 0) {
         updateData.image = updateData.images[0]; // Set first image as main image
-        console.log(`âœ… Updated images from request body. Total images: ${updateData.images.length}`);
-        console.log(`ðŸ“¸ Image URLs:`, updateData.images);
+        console.log(`✅ Updated images from request body. Total images: ${updateData.images.length}`);
+        console.log(`📸 Image URLs:`, updateData.images);
       }
     }
     
     // Normalize category to prevent duplicates
     if (updateData.category) {
       updateData.category = normalizeCategoryName(updateData.category);
-      console.log('ðŸ·ï¸ Product category normalized to:', updateData.category);
+      console.log('🏷️ Product category normalized to:', updateData.category);
     }
     
     const product = await Product.findByIdAndUpdate(
@@ -3587,7 +3711,7 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
       { new: true, runValidators: true }
     );
 
-    console.log('âœ… Product updated successfully:', {
+    console.log('✅ Product updated successfully:', {
       id: product._id,
       name: product.name,
       price: product.price,
@@ -3603,7 +3727,7 @@ router.put('/:id', authenticateAdmin, upload.array('images', 5), async (req, res
     res.json(product);
     
   } catch (error) {
-    console.error('âŒ Error updating product:', error);
+    console.error('❌ Error updating product:', error);
     
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => err.message);
@@ -3649,7 +3773,7 @@ router.patch('/:id/platform-units', authenticateAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Invalid platform units value' });
     }
     
-    console.log('ðŸ“ Updating platform units for product:', req.params.id, 'to:', platformUnits);
+    console.log('📝 Updating platform units for product:', req.params.id, 'to:', platformUnits);
     
     const product = await Product.findByIdAndUpdate(
       req.params.id,
@@ -3658,22 +3782,22 @@ router.patch('/:id/platform-units', authenticateAdmin, async (req, res) => {
     );
 
     if (!product) {
-      console.log('âŒ Product not found:', req.params.id);
+      console.log('❌ Product not found:', req.params.id);
       return res.status(404).json({ message: 'Product not found' });
     }
 
     // Clear cache when platform units are updated
     fastProductsCache = null;
     cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
-    console.log('ðŸ—‘ï¸ Cache cleared after platform units update, new timestamp:', cacheTimestamp);
+    console.log('🗑️ Cache cleared after platform units update, new timestamp:', cacheTimestamp);
 
-    console.log('âœ… Platform units updated successfully:', product.name, 'units:', product.platformUnits);
+    console.log('✅ Platform units updated successfully:', product.name, 'units:', product.platformUnits);
     res.json({ 
       message: 'Platform units updated successfully', 
       platformUnits: product.platformUnits 
     });
   } catch (error) {
-    console.error('âŒ Error updating platform units:', error);
+    console.error('❌ Error updating platform units:', error);
     res.status(400).json({ message: 'Error updating platform units', error: error.message });
   }
 });
@@ -3690,14 +3814,14 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     try {
       await syncExcelProductsOnDelete(req.params.id);
     } catch (excelUpdateError) {
-      console.error('âš ï¸ Excel product sync failed, but main product was deleted:', excelUpdateError);
+      console.error('⚠️ Excel product sync failed, but main product was deleted:', excelUpdateError);
       // Don't fail the main deletion if Excel update fails
     }
 
     // Clear cache when product is deleted
     fastProductsCache = null;
     cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
-    console.log('ðŸ—‘ï¸ Cache cleared after product deletion, new timestamp:', cacheTimestamp);
+    console.log('🗑️ Cache cleared after product deletion, new timestamp:', cacheTimestamp);
 
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
@@ -3905,7 +4029,7 @@ router.post('/seller/add', authenticateSeller, async (req, res) => {
     const product = new Product(productData);
     await product.save();
 
-    console.log('âœ… New seller product created with cached seller info:', {
+    console.log('✅ New seller product created with cached seller info:', {
       productId: product._id,
       sellerId: seller._id,
       sellerUsername: seller.username,
@@ -3917,7 +4041,7 @@ router.post('/seller/add', authenticateSeller, async (req, res) => {
       product
     });
   } catch (error) {
-    console.error('âŒ Error creating seller product:', error);
+    console.error('❌ Error creating seller product:', error);
     res.status(400).json({ message: 'Error creating product', error: error.message });
   }
 });
@@ -3978,7 +4102,7 @@ router.put('/seller/:id', authenticateSeller, async (req, res) => {
     product.sellerInfo = enhancedSellerInfo; // Always cache fresh seller info
     await product.save();
 
-    console.log('âœ… Seller product updated with cached seller info:', {
+    console.log('✅ Seller product updated with cached seller info:', {
       productId: product._id,
       sellerId: seller._id,
       sellerUsername: seller.username,
@@ -3987,7 +4111,7 @@ router.put('/seller/:id', authenticateSeller, async (req, res) => {
 
     res.json({ message: 'Product updated successfully', product });
   } catch (error) {
-    console.error('âŒ Error updating seller product:', error);
+    console.error('❌ Error updating seller product:', error);
     res.status(400).json({ message: 'Error updating product', error: error.message });
   }
 });
@@ -4448,7 +4572,7 @@ router.get('/admin/all-seller-listings', authenticateAdmin, async (req, res) => 
       });
     }
   } catch (error) {
-    console.error('âŒ Error fetching all seller listings:', error);
+    console.error('❌ Error fetching all seller listings:', error);
     
     // Better error handling for timeout errors
     if (error.message.includes('timeout') || error.name === 'MongoNetworkTimeoutError') {
@@ -4481,12 +4605,12 @@ router.put('/admin/approve/:id', authenticateAdmin, async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    console.log(`âœ… Product approved and added to Amazon's Choice: ${product.name}`);
+    console.log(`✅ Product approved and added to Amazon's Choice: ${product.name}`);
 
     // Clear cache when product approval status changes
     fastProductsCache = null;
     cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
-    console.log('ðŸ—‘ï¸ Cache cleared after product approval, new timestamp:', cacheTimestamp);
+    console.log('🗑️ Cache cleared after product approval, new timestamp:', cacheTimestamp);
 
     res.json({ message: 'Product approved and added to Amazon\'s Choice successfully', product });
   } catch (error) {
@@ -4600,7 +4724,7 @@ router.put('/seller/update-inventory/:id', authenticateSeller, async (req, res) 
     const { price, stock, sellerPrice } = req.body;
     const productId = req.params.id;
 
-    console.log('ðŸ”„ Seller updating inventory:', {
+    console.log('🔄 Seller updating inventory:', {
       productId,
       sellerId: req.seller._id,
       price,
@@ -4659,7 +4783,7 @@ router.put('/seller/update-inventory/:id', authenticateSeller, async (req, res) 
       { new: true }
     );
 
-    console.log('âœ… Product inventory updated:', {
+    console.log('✅ Product inventory updated:', {
       productId,
       sellerId: req.seller._id,
       updatedFields: updateData
@@ -4677,7 +4801,7 @@ router.put('/seller/update-inventory/:id', authenticateSeller, async (req, res) 
     });
 
   } catch (error) {
-    console.error('âŒ Error updating product inventory:', error);
+    console.error('❌ Error updating product inventory:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -4738,7 +4862,7 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
       rejected: rejectedRequests.length
     };
 
-    // Process products â€” attach seller-specific info
+    // Process products — attach seller-specific info
     const processedProducts = products.map(product => {
       const sellerEntry = product.sellers?.find(
         s => s.sellerId.toString() === sellerId.toString()
@@ -4829,7 +4953,7 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
       totalPages
     });
   } catch (error) {
-    console.error('âŒ Error fetching seller listed products:', error);
+    console.error('❌ Error fetching seller listed products:', error);
     res.status(500).json({
       message: 'Server error',
       error: error.message,
@@ -4843,7 +4967,7 @@ router.get('/seller/listed-products', authenticateSeller, async (req, res) => {
 // Use /sellers/request-admin-product-listing instead
 router.post('/seller/list-admin-product', authenticateSeller, async (req, res) => {
   try {
-    console.log('âš ï¸ DEPRECATED: Direct listing attempt blocked via products route - admin approval required');
+    console.log('⚠️ DEPRECATED: Direct listing attempt blocked via products route - admin approval required');
     
     return res.status(403).json({
       success: false,
@@ -4880,7 +5004,7 @@ router.put('/admin/reject/:id', authenticateAdmin, async (req, res) => {
     // Clear cache when product is rejected
     fastProductsCache = null;
     cacheTimestamp = Date.now(); // Update timestamp to invalidate client cache
-    console.log('ðŸ—‘ï¸ Cache cleared after product rejection, new timestamp:', cacheTimestamp);
+    console.log('🗑️ Cache cleared after product rejection, new timestamp:', cacheTimestamp);
 
     res.json({ message: 'Product rejected', product });
   } catch (error) {
@@ -4912,7 +5036,7 @@ router.delete('/category/:categoryValue', authenticateAdmin, async (req, res) =>
   try {
     const { categoryValue } = req.params;
     
-    console.log(`ðŸ—‘ï¸ Admin deleting all products in category: ${categoryValue}`);
+    console.log(`🗑️ Admin deleting all products in category: ${categoryValue}`);
     
     // Find all products in this category
     const productsToDelete = await Product.find({ category: categoryValue });
@@ -4925,7 +5049,7 @@ router.delete('/category/:categoryValue', authenticateAdmin, async (req, res) =>
       });
     }
     
-    console.log(`ðŸ—‘ï¸ Found ${productsToDelete.length} products to delete in category: ${categoryValue}`);
+    console.log(`🗑️ Found ${productsToDelete.length} products to delete in category: ${categoryValue}`);
     
     // Get product IDs for Excel sync
     const productIds = productsToDelete.map(p => p._id);
@@ -4954,17 +5078,17 @@ router.delete('/category/:categoryValue', authenticateAdmin, async (req, res) =>
       excelUpdatedCount = excelUpdateResult.modifiedCount;
       
       if (excelUpdatedCount > 0) {
-        console.log(`ðŸ“Š Updated ${excelUpdatedCount} Excel products after category deletion`);
+        console.log(`📊 Updated ${excelUpdatedCount} Excel products after category deletion`);
       }
       
     } catch (excelError) {
-      console.log('â„¹ï¸ No Excel products to update or ExcelProduct model not found');
+      console.log('ℹ️ No Excel products to update or ExcelProduct model not found');
     }
     
     // Delete all products in the category
     const deleteResult = await Product.deleteMany({ category: categoryValue });
     
-    console.log(`âœ… Deleted ${deleteResult.deletedCount} products from category: ${categoryValue}`);
+    console.log(`✅ Deleted ${deleteResult.deletedCount} products from category: ${categoryValue}`);
     
     // Clear all caches to ensure updates appear everywhere
     productCache.clear();
@@ -4981,7 +5105,7 @@ router.delete('/category/:categoryValue', authenticateAdmin, async (req, res) =>
         global.categoriesCache = null;
       }
     } catch (cacheError) {
-      console.log('â„¹ï¸ Additional cache clearing completed');
+      console.log('ℹ️ Additional cache clearing completed');
     }
     
     res.json({
@@ -4993,7 +5117,7 @@ router.delete('/category/:categoryValue', authenticateAdmin, async (req, res) =>
     });
     
   } catch (error) {
-    console.error('âŒ Error deleting products by category:', error);
+    console.error('❌ Error deleting products by category:', error);
     res.status(500).json({ 
       message: 'Error deleting products by category', 
       error: error.message,
@@ -5017,7 +5141,7 @@ router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, 
     
     const trimmedNewName = newCategoryName.trim();
     
-    console.log(`ðŸ·ï¸ Admin renaming category: "${oldCategoryValue}" â†’ "${trimmedNewName}"`);
+    console.log(`🏷️ Admin renaming category: "${oldCategoryValue}" → "${trimmedNewName}"`);
     
     // Check if the new category name already exists (case-insensitive)
     const existingCategory = await Product.findOne({ 
@@ -5044,7 +5168,7 @@ router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, 
       });
     }
     
-    console.log(`ðŸ·ï¸ Found ${productsToUpdate.length} products to rename in category: ${oldCategoryValue}`);
+    console.log(`🏷️ Found ${productsToUpdate.length} products to rename in category: ${oldCategoryValue}`);
     
     // Update all products in the category
     const updateResult = await Product.updateMany(
@@ -5052,7 +5176,7 @@ router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, 
       { $set: { category: trimmedNewName } }
     );
     
-    console.log(`âœ… Updated ${updateResult.modifiedCount} products to new category: ${trimmedNewName}`);
+    console.log(`✅ Updated ${updateResult.modifiedCount} products to new category: ${trimmedNewName}`);
     
     // Update related Excel products (if ExcelProduct model exists)
     let excelUpdatedCount = 0;
@@ -5068,11 +5192,11 @@ router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, 
       excelUpdatedCount = excelUpdateResult.modifiedCount;
       
       if (excelUpdatedCount > 0) {
-        console.log(`ðŸ“Š Updated ${excelUpdatedCount} Excel products to new category: ${trimmedNewName}`);
+        console.log(`📊 Updated ${excelUpdatedCount} Excel products to new category: ${trimmedNewName}`);
       }
       
     } catch (excelError) {
-      console.log('â„¹ï¸ No Excel products to update or ExcelProduct model not found');
+      console.log('ℹ️ No Excel products to update or ExcelProduct model not found');
     }
     
     // Clear all caches to ensure updates appear everywhere
@@ -5087,7 +5211,7 @@ router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, 
         global.categoriesCache = null;
       }
     } catch (cacheError) {
-      console.log('â„¹ï¸ Additional cache clearing completed');
+      console.log('ℹ️ Additional cache clearing completed');
     }
     
     res.json({
@@ -5100,7 +5224,7 @@ router.put('/category/:oldCategoryValue/rename', authenticateAdmin, async (req, 
     });
     
   } catch (error) {
-    console.error('âŒ Error renaming category:', error);
+    console.error('❌ Error renaming category:', error);
     res.status(500).json({ 
       message: 'Error renaming category', 
       error: error.message,
@@ -5124,7 +5248,7 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
     
     const trimmedNewCategory = newCategory.trim();
     
-    console.log(`ðŸ”„ Admin moving products: "${oldCategoryValue}" â†’ "${trimmedNewCategory}" (onlyActive: ${onlyActive})`);
+    console.log(`🔄 Admin moving products: "${oldCategoryValue}" → "${trimmedNewCategory}" (onlyActive: ${onlyActive})`);
     
     // First, find the actual category name in the database (case-insensitive)
     const actualCategoryName = await Product.findOne({
@@ -5134,9 +5258,9 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
     let sourceCategory = oldCategoryValue;
     if (actualCategoryName) {
       sourceCategory = actualCategoryName.category;
-      console.log(`ðŸ” Found actual category name: "${sourceCategory}" (searched for: "${oldCategoryValue}")`);
+      console.log(`🔍 Found actual category name: "${sourceCategory}" (searched for: "${oldCategoryValue}")`);
     } else {
-      console.log(`âš ï¸ No products found with category matching: "${oldCategoryValue}"`);
+      console.log(`⚠️ No products found with category matching: "${oldCategoryValue}"`);
     }
     
     // Build query based on onlyActive parameter
@@ -5162,7 +5286,7 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
       });
     }
     
-    console.log(`ðŸ”„ Found ${productsToMove.length} products to move from category: ${sourceCategory}`);
+    console.log(`🔄 Found ${productsToMove.length} products to move from category: ${sourceCategory}`);
     
     // Update products
     const moveResult = await Product.updateMany(
@@ -5170,7 +5294,7 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
       { $set: { category: trimmedNewCategory } }
     );
     
-    console.log(`âœ… Moved ${moveResult.modifiedCount} products to category: ${trimmedNewCategory}`);
+    console.log(`✅ Moved ${moveResult.modifiedCount} products to category: ${trimmedNewCategory}`);
     
     // Update related Excel products (if ExcelProduct model exists)
     let excelUpdatedCount = 0;
@@ -5186,11 +5310,11 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
       excelUpdatedCount = excelMoveResult.modifiedCount;
       
       if (excelUpdatedCount > 0) {
-        console.log(`ðŸ“Š Updated ${excelUpdatedCount} Excel products to category: ${trimmedNewCategory}`);
+        console.log(`📊 Updated ${excelUpdatedCount} Excel products to category: ${trimmedNewCategory}`);
       }
       
     } catch (excelError) {
-      console.log('â„¹ï¸ No Excel products to update or ExcelProduct model not found');
+      console.log('ℹ️ No Excel products to update or ExcelProduct model not found');
     }
     
     // Clear all caches to ensure updates appear everywhere
@@ -5205,7 +5329,7 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
         global.categoriesCache = null;
       }
     } catch (cacheError) {
-      console.log('â„¹ï¸ Additional cache clearing completed');
+      console.log('ℹ️ Additional cache clearing completed');
     }
     
     res.json({
@@ -5220,7 +5344,7 @@ router.put('/admin/categories/:oldCategoryValue/move', authenticateAdmin, async 
     });
     
   } catch (error) {
-    console.error('âŒ Error moving products between categories:', error);
+    console.error('❌ Error moving products between categories:', error);
     res.status(500).json({ 
       message: 'Error moving products between categories', 
       error: error.message,
@@ -5310,7 +5434,7 @@ router.use('/excel-import', (req, res, next) => {
 // Fix Party Accessories category variations (admin only)
 router.post('/admin/fix-party-accessories-category', authenticateAdmin, async (req, res) => {
   try {
-    console.log('ðŸŽ‰ Fixing Party Accessories category variations...');
+    console.log('🎉 Fixing Party Accessories category variations...');
     
     const partyVariations = [
       'party-accessories',
@@ -5331,7 +5455,7 @@ router.post('/admin/fix-party-accessories-category', authenticateAdmin, async (r
       { $set: { category: 'Party Accessories' } }
     );
     
-    console.log(`âœ… Fixed ${mainUpdateResult.modifiedCount} main products`);
+    console.log(`✅ Fixed ${mainUpdateResult.modifiedCount} main products`);
     
     // Update Excel products
     let excelUpdated = 0;
@@ -5342,9 +5466,9 @@ router.post('/admin/fix-party-accessories-category', authenticateAdmin, async (r
         { $set: { category: 'Party Accessories' } }
       );
       excelUpdated = excelUpdateResult.modifiedCount;
-      console.log(`âœ… Fixed ${excelUpdated} Excel products`);
+      console.log(`✅ Fixed ${excelUpdated} Excel products`);
     } catch (excelError) {
-      console.log('â„¹ï¸ No Excel products to update');
+      console.log('ℹ️ No Excel products to update');
     }
     
     // Clear cache
@@ -5361,7 +5485,7 @@ router.post('/admin/fix-party-accessories-category', authenticateAdmin, async (r
     });
     
   } catch (error) {
-    console.error('âŒ Error fixing Party Accessories category:', error);
+    console.error('❌ Error fixing Party Accessories category:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fix Party Accessories category',
@@ -5373,7 +5497,7 @@ router.post('/admin/fix-party-accessories-category', authenticateAdmin, async (r
 // Clean up duplicate categories (admin only)
 router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req, res) => {
   try {
-    console.log('ðŸ§¹ Starting duplicate category cleanup...');
+    console.log('🧹 Starting duplicate category cleanup...');
     
     // SPECIAL CASE: Fix Party Accessories variations first
     const partyVariations = [
@@ -5395,7 +5519,7 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
       { $set: { category: 'Party Accessories' } }
     );
     
-    console.log(`ðŸŽ‰ Fixed ${partyUpdateResult.modifiedCount} Party Accessories products`);
+    console.log(`🎉 Fixed ${partyUpdateResult.modifiedCount} Party Accessories products`);
     
     // Also update Excel products
     let partyExcelUpdated = 0;
@@ -5406,9 +5530,9 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
         { $set: { category: 'Party Accessories' } }
       );
       partyExcelUpdated = partyExcelResult.modifiedCount;
-      console.log(`ðŸ“Š Fixed ${partyExcelUpdated} Party Accessories Excel products`);
+      console.log(`📊 Fixed ${partyExcelUpdated} Party Accessories Excel products`);
     } catch (excelError) {
-      console.log('â„¹ï¸ No Excel products to update for Party Accessories');
+      console.log('ℹ️ No Excel products to update for Party Accessories');
     }
     
     // Get all unique categories from products
@@ -5437,7 +5561,7 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
       }
     }
     
-    console.log(`ðŸ” Found ${duplicateGroups.length} groups with duplicate categories`);
+    console.log(`🔍 Found ${duplicateGroups.length} groups with duplicate categories`);
     
     let totalUpdated = partyUpdateResult.modifiedCount;
     const updateResults = [{
@@ -5455,7 +5579,7 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
         continue;
       }
       
-      console.log(`ðŸ”„ Processing group: ${normalized}`);
+      console.log(`🔄 Processing group: ${normalized}`);
       console.log(`   Duplicates: ${duplicates.join(', ')}`);
       
       // Update all products in this group to use the normalized category name
@@ -5472,7 +5596,7 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
         productsUpdated: updateResult.modifiedCount
       });
       
-      console.log(`âœ… Updated ${updateResult.modifiedCount} products to "${normalized}"`);
+      console.log(`✅ Updated ${updateResult.modifiedCount} products to "${normalized}"`);
     }
     
     // Also update Excel products if they exist
@@ -5496,9 +5620,9 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
         excelUpdated += excelUpdateResult.modifiedCount;
       }
       
-      console.log(`ðŸ“Š Updated ${excelUpdated} Excel products total`);
+      console.log(`📊 Updated ${excelUpdated} Excel products total`);
     } catch (excelError) {
-      console.log('â„¹ï¸ No Excel products to update or Excel model not available');
+      console.log('ℹ️ No Excel products to update or Excel model not available');
     }
     
     // Clear cache
@@ -5516,7 +5640,7 @@ router.post('/admin/cleanup-duplicate-categories', authenticateAdmin, async (req
     });
     
   } catch (error) {
-    console.error('âŒ Error cleaning up duplicate categories:', error);
+    console.error('❌ Error cleaning up duplicate categories:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to clean up duplicate categories',
@@ -5591,7 +5715,7 @@ router.get('/public/debug/category/:categoryValue', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('âŒ Debug endpoint error:', error);
+    console.error('❌ Debug endpoint error:', error);
     res.status(500).json({ 
       debug: true,
       error: error.message,
@@ -5603,7 +5727,7 @@ router.get('/public/debug/category/:categoryValue', async (req, res) => {
 // Delete all Party-Accessories products and related categories (admin only)
 router.delete('/admin/delete-party-accessories', authenticateAdmin, async (req, res) => {
   try {
-    console.log('ðŸ—‘ï¸ Deleting all Party-Accessories products...');
+    console.log('🗑️ Deleting all Party-Accessories products...');
     
     const partyVariations = [
       'Party accessories',
@@ -5630,7 +5754,7 @@ router.delete('/admin/delete-party-accessories', authenticateAdmin, async (req, 
       ]
     });
     
-    console.log(`âœ… Deleted ${mainProductsResult.deletedCount} products from Product collection`);
+    console.log(`✅ Deleted ${mainProductsResult.deletedCount} products from Product collection`);
     
     // Delete from ExcelProduct collection
     let excelProductsResult = { deletedCount: 0 };
@@ -5642,9 +5766,9 @@ router.delete('/admin/delete-party-accessories', authenticateAdmin, async (req, 
           { category: { $regex: /party/i } }
         ]
       });
-      console.log(`âœ… Deleted ${excelProductsResult.deletedCount} products from ExcelProduct collection`);
+      console.log(`✅ Deleted ${excelProductsResult.deletedCount} products from ExcelProduct collection`);
     } catch (excelError) {
-      console.log('â„¹ï¸ No Excel products to delete or Excel model not available');
+      console.log('ℹ️ No Excel products to delete or Excel model not available');
     }
     
     // Clear cache
@@ -5660,7 +5784,7 @@ router.delete('/admin/delete-party-accessories', authenticateAdmin, async (req, 
     });
     
   } catch (error) {
-    console.error('âŒ Error deleting Party-Accessories products:', error);
+    console.error('❌ Error deleting Party-Accessories products:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete Party-Accessories products',
@@ -5672,7 +5796,7 @@ router.delete('/admin/delete-party-accessories', authenticateAdmin, async (req, 
 // Debug endpoint for Party-Accessories products (admin only)
 router.get('/admin/debug/party-accessories', authenticateAdmin, async (req, res) => {
   try {
-    console.log('ðŸŽ‰ Debugging Party-Accessories products...');
+    console.log('🎉 Debugging Party-Accessories products...');
     
     // Find all products with Party-related categories
     const partyVariations = [
@@ -5809,19 +5933,19 @@ router.get('/admin/debug/party-accessories', authenticateAdmin, async (req, res)
       })),
       recommendations: [
         statusCounts.total > 0 && Object.keys(categoryGroups).length > 1 
-          ? `âš ï¸ Found ${Object.keys(categoryGroups).length} different category names. Run consolidation endpoint.`
-          : 'âœ… Category names are consistent.',
+          ? `⚠️ Found ${Object.keys(categoryGroups).length} different category names. Run consolidation endpoint.`
+          : '✅ Category names are consistent.',
         approvedButNotLive.length > 0
-          ? `âš ï¸ ${approvedButNotLive.length} approved products not showing on Amazon's Choice. Check missing fields.`
-          : 'âœ… All approved products are live on Amazon\'s Choice.',
+          ? `⚠️ ${approvedButNotLive.length} approved products not showing on Amazon's Choice. Check missing fields.`
+          : '✅ All approved products are live on Amazon\'s Choice.',
         statusCounts.pending > 0
-          ? `â„¹ï¸ ${statusCounts.pending} products pending approval.`
-          : 'âœ… No products pending approval.'
+          ? `ℹ️ ${statusCounts.pending} products pending approval.`
+          : '✅ No products pending approval.'
       ]
     });
     
   } catch (error) {
-    console.error('âŒ Error debugging Party-Accessories:', error);
+    console.error('❌ Error debugging Party-Accessories:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to debug Party-Accessories products',
@@ -5856,7 +5980,7 @@ router.get('/public/:id', async (req, res) => {
       });
     }
 
-    console.log('ðŸ” Product seller info debug (public):', {
+    console.log('🔍 Product seller info debug (public):', {
       productId: id,
       hasSeller: !!product.seller,
       hasSellerInfo: !!product.sellerInfo,
@@ -5882,7 +6006,7 @@ router.get('/public/:id', async (req, res) => {
           }
           return { ...seller, listingCountries: seller.listingCountries || [] };
         });
-      console.log(`âœ… Showing ${product.sellers.length} verified sellers (public access)`);
+      console.log(`✅ Showing ${product.sellers.length} verified sellers (public access)`);
     }
 
     // For backward compatibility, handle legacy seller field
@@ -5897,13 +6021,13 @@ router.get('/public/:id', async (req, res) => {
           verificationStatus: product.seller.verificationStatus,
           _id: product.seller._id
         };
-        console.log('âœ… Added legacy seller info for verified seller (public access)');
+        console.log('✅ Added legacy seller info for verified seller (public access)');
       }
     } else {
       // Remove seller info for unverified sellers in public access
       delete product.sellerInfo;
       delete product.seller;
-      console.log('âŒ Legacy seller info hidden for unverified seller (public access)');
+      console.log('❌ Legacy seller info hidden for unverified seller (public access)');
     }
 
     res.json({
@@ -5911,7 +6035,7 @@ router.get('/public/:id', async (req, res) => {
       ...product
     });
   } catch (error) {
-    console.error('âŒ Error fetching product by ID:', error);
+    console.error('❌ Error fetching product by ID:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error', 
@@ -5945,7 +6069,7 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
       });
     }
 
-    console.log('ðŸ” Product seller info debug (seller access):', {
+    console.log('🔍 Product seller info debug (seller access):', {
       productId: id,
       requestingSellerId: req.seller._id.toString(),
       productSellerId: product.seller?._id?.toString(),
@@ -5968,7 +6092,7 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
           return sellerWithoutEmail;
         }
       });
-      console.log(`âœ… Showing ${product.sellers.length} sellers (seller access)`);
+      console.log(`✅ Showing ${product.sellers.length} sellers (seller access)`);
     }
 
     // Check if this seller owns the product (legacy field)
@@ -5987,7 +6111,7 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
           _id: product.seller._id
         };
       }
-      console.log('âœ… Showing full seller info to product owner');
+      console.log('✅ Showing full seller info to product owner');
     } else if (product.seller && product.seller.verificationStatus === 'approved') {
       // For other sellers' products, only show limited info if verified
       if (!product.sellerInfo) {
@@ -6003,12 +6127,12 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
         // Remove email from cached info for other sellers
         delete product.sellerInfo.email;
       }
-      console.log('âœ… Showing limited seller info for verified seller');
+      console.log('✅ Showing limited seller info for verified seller');
     } else {
       // Hide seller info for unverified sellers or if no seller
       delete product.sellerInfo;
       delete product.seller;
-      console.log('âŒ Seller info hidden for unverified seller');
+      console.log('❌ Seller info hidden for unverified seller');
     }
 
     res.json({
@@ -6016,7 +6140,7 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
       ...product
     });
   } catch (error) {
-    console.error('âŒ Error fetching product by ID (seller):', error);
+    console.error('❌ Error fetching product by ID (seller):', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error', 
@@ -6029,7 +6153,7 @@ router.get('/seller/detail/:id', authenticateSeller, async (req, res) => {
 // Use /sellers/request-admin-product-listing instead
 router.put('/seller-update/:id', authenticateSeller, async (req, res) => {
   try {
-    console.log('âš ï¸ DEPRECATED: Direct seller update attempt blocked - admin approval required');
+    console.log('⚠️ DEPRECATED: Direct seller update attempt blocked - admin approval required');
     
     return res.status(403).json({
       success: false,
