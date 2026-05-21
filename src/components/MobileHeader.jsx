@@ -636,7 +636,7 @@ const MobileHeader = () => {
         }
 
         .mobile-category-nav {
-          display: block; /* Show on mobile too */
+          display: none; /* Hidden on mobile — use sidebar menu instead */
         }
 
         /* Desktop Styles - Show desktop header, hide mobile */
@@ -1280,31 +1280,47 @@ const MobileHeader = () => {
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            overflowX: 'auto',
             padding: '4px 8px',
             background: 'linear-gradient(135deg, #fff5f0 0%, #ffebe0 100%)',
             borderTop: '1px solid #ff6600',
             borderBottom: '1px solid #ff6600',
-            boxShadow: '0 1px 4px rgba(255, 102, 0, 0.2)'
+            boxShadow: '0 1px 4px rgba(255, 102, 0, 0.2)',
+            gap: '2px',
+            overflow: 'hidden'
           }}>
-            {categories.map((cat, index) => {
+            {/* Browse All mega-menu button */}
+            <BrowseAllMenu categories={categories} hierarchy={hierarchy} />
+
+            {/* Divider */}
+            <div style={{ width: '1px', height: '16px', background: '#ffb380', margin: '0 4px', flexShrink: 0 }} />
+
+            {/* Pinned popular categories — fixed set, no scroll */}
+            {(() => {
+              const PINNED = ['Electronics & Photos', 'Fashion', 'Home & Garden', 'Beauty', 'Sports & Outdoor', 'Food', 'Baby Products', 'Clothing', 'Automotive', 'Computers & Accessories', 'Health & Personal Care'];
               const currentCategory = searchParams.get('cat') || 'all';
-              const isActive = (cat.value === 'all' && currentCategory === 'all') || 
-                              (cat.value !== 'all' && currentCategory === cat.value);
-              const subs = hierarchy[cat.label] || hierarchy[cat.value] || [];
-              
-              return (
-                <DesktopCatItem
-                  key={cat.value}
-                  cat={cat}
-                  isActive={isActive}
-                  subs={subs}
-                  hierarchy={hierarchy}
-                  index={index}
-                  total={categories.length}
-                />
-              );
-            })}
+              // Match pinned names against loaded categories (case-insensitive)
+              const pinned = PINNED.map(name =>
+                categories.find(c => c.label.toLowerCase() === name.toLowerCase())
+              ).filter(Boolean);
+              // Fallback: if none matched, show first 10 non-all categories
+              const toShow = pinned.length >= 3 ? pinned : categories.filter(c => c.value !== 'all').slice(0, 10);
+
+              return toShow.map((cat, index) => {
+                const isActive = currentCategory === cat.value || currentCategory === cat.label;
+                const subs = hierarchy[cat.label] || hierarchy[cat.value] || [];
+                return (
+                  <DesktopCatItem
+                    key={cat.value}
+                    cat={cat}
+                    isActive={isActive}
+                    subs={subs}
+                    hierarchy={hierarchy}
+                    index={index}
+                    total={toShow.length}
+                  />
+                );
+              });
+            })()}
           </div>
         </div>
 
@@ -1435,6 +1451,182 @@ const MobileHeader = () => {
           </Link>
         </div>
       </div>
+    </>
+  );
+};
+
+// Browse All Categories mega-menu — Amazon-style left drawer with overlay
+const BrowseAllMenu = ({ categories, hierarchy }) => {
+  const [open, setOpen] = useState(false);
+  const [hoveredCat, setHoveredCat] = useState(null);
+
+  const cats = categories.filter(c => c.value !== 'all');
+
+  // Get header height to position drawer below it
+  const headerHeight = typeof document !== 'undefined'
+    ? (document.documentElement.style.getPropertyValue('--header-height') || '90px')
+    : '90px';
+
+  const close = () => { setOpen(false); setHoveredCat(null); };
+
+  const activeSubs = hoveredCat ? (hierarchy[hoveredCat] || []) : [];
+
+  return (
+    <>
+      {/* Trigger button */}
+      <div style={{ flexShrink: 0, marginRight: '4px' }}>
+        <button
+          onClick={() => setOpen(o => !o)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            background: open ? '#cc5200' : '#ff6600', color: '#fff', border: 'none',
+            borderRadius: '4px', padding: '4px 10px', fontSize: '10px',
+            fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
+            transition: 'background 0.15s', outline: 'none'
+          }}
+        >
+          {`☰ All Categories`}
+        </button>
+      </div>
+
+      {open && createPortal(
+        <>
+          {/* Dark overlay — dims the page content */}
+          <div
+            onClick={close}
+            style={{
+              position: 'fixed', top: headerHeight, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.55)', zIndex: 99998,
+              animation: 'fadeInOverlay 0.15s ease'
+            }}
+          />
+
+          {/* Left drawer panel */}
+          <div style={{
+            position: 'fixed', top: headerHeight, left: 0, bottom: 0,
+            width: hoveredCat && activeSubs.length > 0 ? '520px' : '260px',
+            display: 'flex', zIndex: 99999,
+            transition: 'width 0.2s ease',
+            boxShadow: '4px 0 24px rgba(0,0,0,0.25)'
+          }}>
+
+            {/* Primary column — category list */}
+            <div style={{
+              width: '260px', flexShrink: 0,
+              background: '#fff', overflowY: 'auto',
+              borderRight: '1px solid #e5e7eb'
+            }}>
+              {/* Drawer header */}
+              <div style={{
+                padding: '14px 16px', background: '#ff6600', color: '#fff',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                position: 'sticky', top: 0, zIndex: 1
+              }}>
+                <span style={{ fontSize: '13px', fontWeight: '700' }}>Browse Categories</span>
+                <button onClick={close} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '16px', lineHeight: 1 }}>✕</button>
+              </div>
+
+              {/* Category rows */}
+              {cats.map(cat => {
+                const subs = hierarchy[cat.label] || [];
+                const isHovered = hoveredCat === cat.label;
+                return (
+                  <div
+                    key={cat.value}
+                    onMouseEnter={() => setHoveredCat(cat.label)}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '10px 16px',
+                      background: isHovered ? '#f0f7ff' : 'transparent',
+                      borderLeft: isHovered ? '3px solid #ff6600' : '3px solid transparent',
+                      cursor: 'pointer', transition: 'all 0.1s'
+                    }}
+                  >
+                    <Link
+                      to={`/?cat=${encodeURIComponent(cat.label)}`}
+                      onClick={close}
+                      style={{
+                        flex: 1, fontSize: '13px', fontWeight: isHovered ? '700' : '500',
+                        color: isHovered ? '#ff6600' : '#1f2937', textDecoration: 'none'
+                      }}
+                    >
+                      {cat.label}
+                    </Link>
+                    {subs.length > 0 && (
+                      <span style={{ fontSize: '14px', color: '#9ca3af', fontWeight: '400', lineHeight: 1 }}>›</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Secondary column — subcategories (shown on hover) */}
+            {hoveredCat && activeSubs.length > 0 && (
+              <div style={{
+                flex: 1, background: '#fafafa', overflowY: 'auto',
+                borderRight: '1px solid #e5e7eb'
+              }}>
+                <div style={{
+                  padding: '14px 16px', background: '#f3f4f6',
+                  fontSize: '11px', fontWeight: '700', color: '#6b7280',
+                  textTransform: 'uppercase', letterSpacing: '0.5px',
+                  position: 'sticky', top: 0, borderBottom: '1px solid #e5e7eb'
+                }}>
+                  {hoveredCat}
+                </div>
+                <Link
+                  to={`/?cat=${encodeURIComponent(hoveredCat)}`}
+                  onClick={close}
+                  style={{ display: 'block', padding: '10px 16px', fontSize: '13px', fontWeight: '700', color: '#ff6600', textDecoration: 'none', borderBottom: '1px solid #e5e7eb' }}
+                >
+                  All {hoveredCat}
+                </Link>
+                {activeSubs.map(sub => {
+                  const subSubs = hierarchy[sub] || [];
+                  return (
+                    <div key={sub}>
+                      <Link
+                        to={`/?cat=${encodeURIComponent(hoveredCat)}&subcat=${encodeURIComponent(sub)}`}
+                        onClick={close}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '9px 16px', fontSize: '13px', fontWeight: '500',
+                          color: '#1f2937', textDecoration: 'none',
+                          borderBottom: '1px solid #f3f4f6'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#f0f7ff'; e.currentTarget.style.color = '#ff6600'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#1f2937'; }}
+                      >
+                        <span>{sub}</span>
+                        {subSubs.length > 0 && <span style={{ fontSize: '10px', color: '#9ca3af' }}>›</span>}
+                      </Link>
+                      {subSubs.map(ss => (
+                        <Link
+                          key={ss}
+                          to={`/?cat=${encodeURIComponent(hoveredCat)}&subcat=${encodeURIComponent(sub)}&subsubcat=${encodeURIComponent(ss)}`}
+                          onClick={close}
+                          style={{
+                            display: 'block', padding: '7px 16px 7px 28px',
+                            fontSize: '12px', color: '#6b7280', textDecoration: 'none',
+                            borderBottom: '1px solid #f9fafb'
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#f0f7ff'; e.currentTarget.style.color = '#ff6600'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6b7280'; }}
+                        >
+                          ↳ {ss}
+                        </Link>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <style>{`@keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }`}</style>
+        </>,
+        document.body
+      )}
     </>
   );
 };

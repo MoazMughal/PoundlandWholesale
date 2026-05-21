@@ -2370,68 +2370,7 @@ const AmazonsChoice = () => {
           }
         `}</style>
 
-        {/* SEO Header Section */}
-        <div style={{
-          textAlign: 'center',
-          padding: windowWidth < 576 ? '4px 8px' : '6px 12px',
-          marginBottom: windowWidth < 576 ? '5px' : '6px',
-          background: 'linear-gradient(135deg, #fff8f5 0%, #ffede0 100%)',
-          borderRadius: '6px',
-          border: 'none',
-          boxShadow: 'none'
-        }}>
-          {windowWidth < 768 ? (
-            // Mobile/Tablet: Stack vertically
-            <>
-              <h1 style={{
-                margin: '0 0 2px 0',
-                fontSize: windowWidth < 576 ? '0.9rem' : '1rem',
-                fontWeight: '600',
-                color: '#ff6600',
-                letterSpacing: '0.2px'
-              }}>
-                Poundland Wholesalesss
-              </h1>
-              <p style={{
-                margin: 0,
-                fontSize: windowWidth < 576 ? '0.55rem' : '0.6rem',
-                color: '#666',
-                lineHeight: '1.2',
-                fontWeight: '400'
-              }}>
-                Online wholesale store offering quality products at competitive prices — multiple wholesaler suppliers available in one place.
-              </p>
-            </>
-          ) : (
-            // Desktop: Single line
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              flexWrap: 'wrap'
-            }}>
-              <h1 style={{
-                margin: 0,
-                fontSize: '1rem',
-                fontWeight: '600',
-                color: '#ff6600',
-                letterSpacing: '0.2px',
-                whiteSpace: 'nowrap'
-              }}>
-                PoundlandWholesale
-              </h1>
-              <span style={{
-                fontSize: '0.6rem',
-                color: '#666',
-                fontWeight: '400',
-                whiteSpace: 'nowrap'
-              }}>
-                - Online wholesale store offering quality products at competitive prices — multiple wholesaler suppliers available in one place.
-              </span>
-            </div>
-          )}
-        </div>
+        {/* SEO Header Section removed — tagline moved to footer */}
 
         {/* Data Source Indicator for Debugging - Only show for problematic sources */}
         {dataSource && dataSource !== 'database' && dataSource !== 'fast' && dataSource !== 'database_random' && (
@@ -2482,12 +2421,13 @@ const AmazonsChoice = () => {
             alignItems: 'center',
             gap: '12px',
             marginBottom: '15px',
-            padding: '10px 15px',
+            padding: '8px 15px',
             background: 'white',
             borderRadius: '8px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
             border: '1px solid #e1e5e9',
-            flexWrap: 'wrap'
+            flexWrap: 'nowrap',
+            overflow: 'hidden'
           }}>
             {/* Checkbox */}
             <input
@@ -2504,8 +2444,8 @@ const AmazonsChoice = () => {
               style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ff6600' }}
             />
             <label htmlFor="showAllProducts" style={{
-              fontSize: '0.9rem', fontWeight: '500', color: '#232f3e',
-              cursor: 'pointer', userSelect: 'none', margin: 0
+              fontSize: '0.78rem', fontWeight: '500', color: '#232f3e',
+              cursor: 'pointer', userSelect: 'none', margin: 0, whiteSpace: 'nowrap'
             }}>
               Include out of stock products
             </label>
@@ -2914,21 +2854,21 @@ const AmazonsChoice = () => {
                 justifyContent: 'space-between'
               }}>
                 <h5 style={{
-                  fontSize: '9px', // Fixed size for all devices
+                  fontSize: '9px',
                   fontWeight: '700', 
-                  margin: 0,
-                  lineHeight: '1.1', // Tighter line height to fit more text
-                  height: windowWidth < 576 ? '20px' : '22px', // Slightly reduced height for desktop
+                  margin: '0 0 2px 0',
+                  lineHeight: '1.3',
+                  maxHeight: '24px',
                   overflow: 'hidden',
                   color: '#1a1a1a',
                   textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
                   transition: 'color 0.3s ease',
-                  marginBottom: windowWidth < 576 ? '2px' : '0px', // Added small margin after title
-                  marginTop: '0px', // Removed margin top
                   display: '-webkit-box',
-                  WebkitLineClamp: 2, // Strict 2 lines for all devices
-                  WebkitBoxOrient: 'vertical'
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  wordBreak: 'break-word'
                 }}
+                title={product.name}
                 onMouseEnter={(e) => e.target.style.color = '#ff6600'}
                 onMouseLeave={(e) => e.target.style.color = '#1a1a1a'}
                 >

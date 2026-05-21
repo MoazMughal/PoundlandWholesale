@@ -41,7 +41,7 @@ const ProtectedRoute = ({ children }) => {
   if (authResolved && !loading && !isLoggedIn) {
     console.log('🛡️ ProtectedRoute: Redirecting to login - user not authenticated');
     const redirectUrl = location.pathname + location.search;
-    return <Navigate to={`/admin/login?redirect=${encodeURIComponent(redirectUrl)}`} replace />;
+    return <Navigate to={`/backend-management-portal?redirect=${encodeURIComponent(redirectUrl)}`} replace />;
   }
 
   // Render children if authenticated

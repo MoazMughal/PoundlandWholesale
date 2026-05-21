@@ -731,7 +731,7 @@ const AdminDashboard = () => {
       <div className="products-management">
         <div className="section-header compact" style={{cursor: 'pointer'}} onClick={() => toggleSection('amazonsChoice')}>
           <h2>
-            <span style={{marginRight: '10px'}}>{expandedSections.amazonsChoice ? '▼' : '▶'}</span>
+            <span style={{marginRight: '8px', fontSize: '12px', transition: 'transform 0.2s', display: 'inline-block', transform: expandedSections.amazonsChoice ? 'rotate(90deg)' : 'rotate(0deg)'}}>▶</span>
             🏆 Amazon's Choice Products ({amazonsChoice.length})
           </h2>
           <div style={{display: 'flex', gap: '8px'}}>
@@ -837,7 +837,7 @@ const AdminDashboard = () => {
       <div className="products-management">
         <div className="section-header compact" style={{cursor: 'pointer'}} onClick={() => toggleSection('sellers')}>
           <h2>
-            <span style={{marginRight: '10px'}}>{expandedSections.sellers ? '▼' : '▶'}</span>
+            <span style={{marginRight: '8px', fontSize: '12px', transition: 'transform 0.2s', display: 'inline-block', transform: expandedSections.sellers ? 'rotate(90deg)' : 'rotate(0deg)'}}>▶</span>
             👥 Registered Sellers ({sellers.length})
           </h2>
           <div style={{display: 'flex', gap: '8px'}}>
@@ -924,49 +924,114 @@ const AdminDashboard = () => {
         )}
       </div>
 
-      <div className="quick-tools compact">
-        <button onClick={() => navigate('/admin/products')} className="tool-btn">
-          📦 Manage All ({stats?.products.total || 0})
-        </button>
-        <button onClick={() => navigate('/admin/approval')} className="tool-btn info">
-          ✅ Approval ({pendingApprovals} product{pendingApprovals !== 1 ? 's' : ''})
-        </button>
-        <button onClick={importHardcodedProducts} className="tool-btn success" style={{color: 'black'}}>
-          📥 Import JSON
-        </button>
-        <button onClick={syncAlgolia} className="tool-btn info" style={{background: '#003dff', color: 'white'}}>
-          🔍 Sync Algolia
-        </button>
-        <button onClick={() => navigate('/admin/sellers')} className="tool-btn">
-          👥 Sellers ({stats?.sellers.total || 0})
-        </button>
-        <button onClick={() => navigate('/admin/seller-products')} className="tool-btn warning">
-          📋 Seller Products
-        </button>
-        <button onClick={() => navigate('/admin/seller-verifications')} className="tool-btn info">
-          🆔 Seller Verifications ({stats?.verifications?.pending || 0} pending)
-        </button>
-        <button onClick={() => navigate('/admin/pending-payments')} className="tool-btn warning">
-          💳 Pending Payments ({stats?.pendingPayments || 0})
-        </button>
-        <button onClick={() => navigate('/admin/payment-verifications')} className="tool-btn info">
-          💰 Payment Verifications
-        </button>
-        <button onClick={() => navigate('/admin/quotations')} className="tool-btn warning">
-          📊 User Analytics
-        </button>
-        <button onClick={() => navigate('/admin/wishlist-queries')} className="tool-btn" style={{background: '#e74c3c', color: '#fff'}}>
-          ❤️ Buyer Wishlist Queries
-        </button>
-        <button onClick={() => navigate('/admin/category-manager')} className="tool-btn info" style={{background: '#ec4899', color: '#fff'}}>
-          🗂️ Category Manager
-        </button>
-        <button onClick={() => navigate('/admin/seller-catalog')} className="tool-btn success" style={{color: 'black'}}>
-          🗂️ Seller Catalog
-        </button>
-        <button onClick={bulkDeleteProducts} className="tool-btn danger">
-          🗑️ Delete All
-        </button>
+      {/* ── Block 3: Pending Actions ─────────────────────────────────────── */}
+      {(pendingApprovals > 0 || (stats?.verifications?.pending || 0) > 0) && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%)',
+          border: '1px solid #fde047', borderRadius: '12px',
+          padding: '14px 18px', marginBottom: '20px',
+          display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap'
+        }}>
+          <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.5px', flexShrink: 0 }}>
+            ⚡ Pending Actions
+          </span>
+          {pendingApprovals > 0 && (
+            <button onClick={() => navigate('/admin/approval')} style={{
+              background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px',
+              padding: '8px 16px', fontSize: '0.82rem', fontWeight: '700', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap'
+            }}>
+              ✅ Approval — {pendingApprovals} product{pendingApprovals !== 1 ? 's' : ''}
+            </button>
+          )}
+          {(stats?.verifications?.pending || 0) > 0 && (
+            <button onClick={() => navigate('/admin/seller-verifications')} style={{
+              background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px',
+              padding: '8px 16px', fontSize: '0.82rem', fontWeight: '700', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap'
+            }}>
+              🆔 Seller Verifications — {stats?.verifications?.pending || 0} pending
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Block 4: Core Workspace ──────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+
+        {/* Left — Catalog */}
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '16px' }}>
+          <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+            📦 Catalog
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {[
+              { label: `Manage All Products (${stats?.products.total || 0})`, path: '/admin/products', icon: '📦' },
+              { label: 'Category Manager', path: '/admin/category-manager', icon: '🗂️' },
+              { label: 'Seller Catalog', path: '/admin/seller-catalog', icon: '🗂️' },
+              { label: `Approval (${pendingApprovals} pending)`, path: '/admin/approval', icon: '✅' },
+            ].map(item => (
+              <button key={item.path} onClick={() => navigate(item.path)} style={{
+                background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px',
+                padding: '9px 12px', fontSize: '0.82rem', fontWeight: '600', color: '#374151',
+                cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px',
+                transition: 'background 0.15s', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+                onMouseLeave={e => e.currentTarget.style.background = '#f9fafb'}
+              >
+                {item.icon} {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Right — Users & Money */}
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '16px' }}>
+          <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+            👥 Users &amp; Payments
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {[
+              { label: `Sellers (${stats?.sellers.total || 0})`, path: '/admin/sellers', icon: '👥' },
+              { label: 'Seller Products', path: '/admin/seller-products', icon: '📋' },
+              { label: 'User Analytics', path: '/admin/quotations', icon: '📊' },
+              { label: `Pending Payments (${stats?.pendingPayments || 0})`, path: '/admin/pending-payments', icon: '💳' },
+              { label: 'Payment Verifications', path: '/admin/payment-verifications', icon: '💰' },
+              { label: 'Buyer Wishlist Queries', path: '/admin/wishlist-queries', icon: '❤️' },
+            ].map(item => (
+              <button key={item.path} onClick={() => navigate(item.path)} style={{
+                background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px',
+                padding: '9px 12px', fontSize: '0.82rem', fontWeight: '600', color: '#374151',
+                cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px',
+                transition: 'background 0.15s', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+                onMouseLeave={e => e.currentTarget.style.background = '#f9fafb'}
+              >
+                {item.icon} {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Block 5: System / Developer Tools ───────────────────────────── */}
+      <div style={{
+        background: '#f9fafb', border: '1px dashed #d1d5db', borderRadius: '12px',
+        padding: '14px 18px', marginBottom: '20px'
+      }}>
+        <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+          🔧 System &amp; Developer Tools
+        </div>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button onClick={syncAlgolia} style={{
+            background: '#fff', border: '1px solid #d1d5db', borderRadius: '8px',
+            padding: '7px 14px', fontSize: '0.8rem', fontWeight: '600', color: '#003dff', cursor: 'pointer'
+          }}>
+            🔍 Sync Algolia
+          </button>
+        </div>
       </div>
 
       {/* Full Product Edit Modal */}

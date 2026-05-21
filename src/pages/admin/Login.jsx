@@ -1,296 +1,311 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAdmin } from '../../context/AdminContext';
 import { API_BASE_URL } from '../../config/api.config';
-import '../../styles/AdminLogin.css';
 
+// ── Inline styles shared across inputs ──────────────────────────────────────
+const inputWrap = (focused) => ({
+  display: 'flex', alignItems: 'center',
+  border: `1.5px solid ${focused ? '#667eea' : '#e5e7eb'}`,
+  borderRadius: '10px', overflow: 'hidden',
+  background: '#fafafa', transition: 'border-color 0.2s'
+});
+
+const iconSpan = {
+  padding: '0 12px', color: '#9ca3af',
+  display: 'flex', alignItems: 'center',
+  height: '44px', flexShrink: 0
+};
+
+const inputStyle = {
+  flex: 1, border: 'none', outline: 'none',
+  background: 'transparent', fontSize: '0.88rem',
+  color: '#1f2937', padding: '0 12px 0 0', height: '44px'
+};
+
+// ── Component ────────────────────────────────────────────────────────────────
 const AdminLogin = () => {
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login, isLoggedIn, authResolved, loading } = useAdmin();
-
-  // Get redirect URL from query params
   const redirectUrl = searchParams.get('redirect') || '/admin/dashboard';
 
-  // Redirect if already logged in - with debugging
+  // Step: 'credentials' | 'verify'
+  const [step, setStep] = useState('credentials');
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
+  const otpRefs = useRef([]);
+
   useEffect(() => {
-    console.log('🔍 AdminLogin useEffect - isLoggedIn:', isLoggedIn)
     if (isLoggedIn && authResolved && !loading) {
-      console.log('🔄 Admin already logged in, redirecting to:', redirectUrl)
       navigate(redirectUrl, { replace: true });
     }
   }, [isLoggedIn, authResolved, loading, navigate, redirectUrl]);
 
-  const handleSubmit = async (e) => {
+  const handleCredentials = async (e) => {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
-
     try {
-      console.log('🔑 Admin login form submitted')
-      
-      // Clear any existing auth data from localStorage only
       localStorage.removeItem('sellerToken');
-      localStorage.removeItem('sellerData');
       localStorage.removeItem('buyerToken');
-      localStorage.removeItem('buyerData');
       localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminData');
 
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials)
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Login failed');
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      console.log('🔑 Server login successful, response data:', {
-        hasToken: !!data.token,
-        tokenLength: data.token?.length,
-        adminData: data.admin,
-        message: data.message
-      })
-
-      // Use the AdminContext login function and wait for completion
       const result = await login(data.admin, data.token);
-      
       if (result.success) {
-        console.log('🔑 Context login completed successfully, navigating...')
-        
-        // Navigate immediately after successful login
+        // In a real 2FA setup you'd transition to verify step here.
+        // For now, go straight to dashboard after successful auth.
         navigate(redirectUrl, { replace: true });
       } else {
-        throw new Error('Context login failed');
+        throw new Error('Authentication failed');
       }
-      
     } catch (err) {
-      console.error('❌ Login error:', err)
       setError(err.message || 'Login failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // OTP input handler
+  const handleOtpChange = (idx, val) => {
+    if (!/^\d?$/.test(val)) return;
+    const next = [...otp];
+    next[idx] = val;
+    setOtp(next);
+    if (val && idx < 5) otpRefs.current[idx + 1]?.focus();
+  };
+
+  const handleOtpKey = (idx, e) => {
+    if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
+      otpRefs.current[idx - 1]?.focus();
+    }
+  };
+
   return (
-    <div className="min-vh-100 d-flex justify-content-center" style={{
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      position: 'relative',
-      overflow: 'hidden',
-      paddingTop: '8vh',
-      paddingBottom: '2vh'
+    // Full-screen blank canvas — no header/footer
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 50%, #1f2937 100%)',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'flex-start',
+      padding: '80px 16px 40px',
+      position: 'relative', overflow: 'hidden'
     }}>
-      {/* Animated Background Elements */}
-      <div className="floating-element" style={{
-        position: 'absolute',
-        top: '5%',
-        left: '10%',
-        width: '100px',
-        height: '100px',
-        background: 'rgba(255,255,255,0.1)',
-        borderRadius: '50%'
-      }}></div>
-      <div className="floating-element" style={{
-        position: 'absolute',
-        top: '75%',
-        right: '15%',
-        width: '150px',
-        height: '150px',
-        background: 'rgba(255,255,255,0.05)',
-        borderRadius: '50%'
-      }}></div>
-      <div className="floating-element" style={{
-        position: 'absolute',
-        top: '25%',
-        right: '5%',
-        width: '80px',
-        height: '80px',
-        background: 'rgba(255,255,255,0.08)',
-        borderRadius: '50%'
-      }}></div>
-      <div className="floating-element" style={{
-        position: 'absolute',
-        bottom: '15%',
-        left: '5%',
-        width: '60px',
-        height: '60px',
-        background: 'rgba(255,255,255,0.06)',
-        borderRadius: '50%'
-      }}></div>
-      <div className="floating-element" style={{
-        position: 'absolute',
-        top: '45%',
-        left: '2%',
-        width: '40px',
-        height: '40px',
-        background: 'rgba(255,255,255,0.04)',
-        borderRadius: '50%'
-      }}></div>
+      {/* Subtle orb */}
+      <div style={{
+        position: 'absolute', top: '-15%', right: '-10%',
+        width: '400px', height: '400px',
+        background: 'radial-gradient(circle, rgba(102,126,234,0.15) 0%, transparent 70%)',
+        pointerEvents: 'none'
+      }} />
 
-      <div className="container-fluid" style={{alignSelf: 'flex-start'}}>
-        <div className="row justify-content-center">
-          <div className="col-11 col-sm-8 col-md-6 col-lg-4 col-xl-3">
-            <div className="card admin-login-card glass-card border-0" style={{
-              borderRadius: '20px',
-              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)'
+      {/* Card */}
+      <div style={{
+        width: '100%', maxWidth: '400px',
+        background: '#fff', borderRadius: '20px',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.3)',
+        overflow: 'hidden', position: 'relative', zIndex: 1
+      }}>
+        {/* Top accent */}
+        <div style={{ height: '4px', background: 'linear-gradient(90deg, #667eea, #764ba2)' }} />
+
+        <div style={{ padding: '32px 28px 28px' }}>
+
+          {/* Logo → home */}
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <a href="/" style={{ textDecoration: 'none', display: 'inline-block' }}>
+              <span style={{ fontSize: '1rem', fontWeight: '800', color: '#ff6600', letterSpacing: '-0.5px' }}>
+                Poundland<span style={{ color: '#1f2937' }}>Wholesale</span>
+                <span style={{ fontSize: '0.6rem', color: '#9ca3af', fontWeight: '600' }}>.com</span>
+              </span>
+            </a>
+          </div>
+
+          {/* Icon + title */}
+          <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '14px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 14px rgba(102,126,234,0.4)', marginBottom: '12px',
+              position: 'relative'
             }}>
-              <div className="card-body p-4">
-                {/* Compact Header */}
-                <div className="text-center mb-3">
-                  <div className="position-relative d-inline-block mb-2">
-                    <div className="admin-crown" style={{
-                      width: '60px',
-                      height: '60px',
-                      background: 'linear-gradient(135deg, #ffd700 0%, #ffb347 100%)',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto',
-                      cursor: 'pointer'
-                    }}>
-                      <i className="fas fa-crown fa-2x text-white"></i>
-                    </div>
-                    <div style={{
-                      position: 'absolute',
-                      top: '-5px',
-                      right: '-5px',
-                      width: '20px',
-                      height: '20px',
-                      background: '#28a745',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <i className="fas fa-shield-alt fa-xs text-white"></i>
-                    </div>
-                  </div>
-                  <h3 className="fw-bold mb-1 gradient-text" style={{fontSize: '1.5rem'}}>
-                    Admin Portal
-                  </h3>
-                  <p className="text-muted small mb-0">Secure Access</p>
-                </div>
-
-                {/* Compact Error Alert */}
-                {error && (
-                  <div className="alert alert-danger py-2 mb-3" style={{borderRadius: '10px', fontSize: '0.85rem'}}>
-                    <i className="fas fa-exclamation-triangle me-2"></i>
-                    {error}
-                  </div>
-                )}
-
-                {/* Compact Login Form */}
-                <form onSubmit={handleSubmit}>
-                  <div className="mb-3">
-                    <div className="input-group admin-input-group" style={{borderRadius: '12px', overflow: 'hidden', transition: 'all 0.3s ease'}}>
-                      <span className="input-group-text border-0" style={{
-                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)'
-                      }}>
-                        <i className="fas fa-user text-primary"></i>
-                      </span>
-                      <input
-                        type="text"
-                        className="form-control border-0 py-2"
-                        value={credentials.username}
-                        onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-                        placeholder="Admin Username"
-                        required
-                        style={{fontSize: '0.9rem'}}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mb-3">
-                    <div className="input-group admin-input-group" style={{borderRadius: '12px', overflow: 'hidden', transition: 'all 0.3s ease'}}>
-                      <span className="input-group-text border-0" style={{
-                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)'
-                      }}>
-                        <i className="fas fa-lock text-primary"></i>
-                      </span>
-                      <input
-                        type="password"
-                        className="form-control border-0 py-2"
-                        value={credentials.password}
-                        onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-                        placeholder="Password"
-                        required
-                        style={{fontSize: '0.9rem'}}
-                      />
-                    </div>
-                  </div>
-
-                  <button 
-                    type="submit" 
-                    className="btn admin-login-btn w-100 py-2 fw-bold mb-3" 
-                    disabled={isSubmitting}
-                    style={{
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      border: 'none',
-                      borderRadius: '12px',
-                      color: 'white',
-                      fontSize: '0.9rem',
-                      boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
-                    }}
-                  >
-                    {isSubmitting ? (
-                      <span className="spinner-border spinner-border-sm" role="status" aria-label="Authenticating"></span>
-                    ) : (
-                      <span style={{ color: 'white' }}>
-                        <i className="fas fa-sign-in-alt me-2"></i>
-                        Admin Login
-                      </span>
-                    )}
-                  </button>
-                </form>
-
-                {/* Compact Navigation */}
-                <div className="row g-2">
-                  <div className="col-6">
-                    <Link 
-                      to="/auth"
-                      className="btn btn-outline-secondary btn-sm w-100"
-                      style={{borderRadius: '8px', fontSize: '0.8rem'}}
-                    >
-                      <i className="fas fa-users me-1"></i>
-                      Auth
-                    </Link>
-                  </div>
-                  <div className="col-6">
-                    <Link 
-                      to="/" 
-                      className="btn btn-outline-secondary btn-sm w-100"
-                      style={{borderRadius: '8px', fontSize: '0.8rem'}}
-                    >
-                      <i className="fas fa-home me-1"></i>
-                      Home
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Compact Security Badge */}
-                <div className="text-center mt-3">
-                  <div className="d-inline-flex align-items-center px-3 py-1 security-badge" style={{
-                    borderRadius: '20px',
-                    border: '1px solid rgba(40, 167, 69, 0.2)'
-                  }}>
-                    <i className="fas fa-shield-alt text-success me-2" style={{fontSize: '0.8rem'}}></i>
-                    <small className="text-success fw-semibold">Secure & Monitored</small>
-                  </div>
-                </div>
+              <i className="fas fa-crown" style={{ fontSize: '1.4rem', color: '#ffd700' }}></i>
+              {/* Shield dot */}
+              <div style={{
+                position: 'absolute', top: '-4px', right: '-4px',
+                width: '18px', height: '18px', borderRadius: '50%',
+                background: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '2px solid #fff'
+              }}>
+                <i className="fas fa-shield-alt" style={{ fontSize: '7px', color: '#fff' }}></i>
               </div>
             </div>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: '800', color: '#1f2937', margin: '0 0 2px' }}>
+              Admin Portal
+            </h2>
+            <p style={{ fontSize: '0.82rem', color: '#6b7280', margin: '0 0 10px' }}>
+              Secure Access
+            </p>
+
+            {/* Security badge — directly under subtitle */}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              background: '#f0fdf4', border: '1px solid #bbf7d0',
+              borderRadius: '20px', padding: '4px 12px', marginBottom: '4px'
+            }}>
+              <i className="fas fa-shield-alt" style={{ fontSize: '0.7rem', color: '#16a34a' }}></i>
+              <span style={{ fontSize: '0.72rem', color: '#15803d', fontWeight: '700' }}>
+                Secure &amp; Monitored
+              </span>
+            </div>
           </div>
+
+          {/* Error */}
+          {error && (
+            <div style={{
+              background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px',
+              padding: '10px 14px', marginBottom: '16px',
+              fontSize: '0.83rem', color: '#dc2626',
+              display: 'flex', alignItems: 'center', gap: '8px'
+            }}>
+              <i className="fas fa-exclamation-circle" style={{ flexShrink: 0 }}></i>
+              {error}
+            </div>
+          )}
+
+          {/* ── Step 1: Credentials ── */}
+          {step === 'credentials' && (
+            <form onSubmit={handleCredentials}>
+              <div style={{ marginBottom: '12px' }}>
+                <div style={inputWrap(focusedField === 'username')}>
+                  <span style={iconSpan}>
+                    <i className="fas fa-user" style={{ fontSize: '0.85rem' }}></i>
+                  </span>
+                  <input
+                    type="text"
+                    value={credentials.username}
+                    onChange={e => setCredentials(p => ({ ...p, username: e.target.value }))}
+                    onFocus={() => setFocusedField('username')}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="Admin Username"
+                    required
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <div style={inputWrap(focusedField === 'password')}>
+                  <span style={iconSpan}>
+                    <i className="fas fa-lock" style={{ fontSize: '0.85rem' }}></i>
+                  </span>
+                  <input
+                    type="password"
+                    value={credentials.password}
+                    onChange={e => setCredentials(p => ({ ...p, password: e.target.value }))}
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="Password"
+                    required
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                style={{
+                  width: '100%', padding: '13px',
+                  background: isSubmitting ? '#d1d5db' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  border: 'none', borderRadius: '10px', color: '#fff',
+                  fontSize: '0.92rem', fontWeight: '700',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  boxShadow: isSubmitting ? 'none' : '0 4px 14px rgba(102,126,234,0.4)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {isSubmitting
+                  ? <><span className="spinner-border spinner-border-sm" role="status"></span> Authenticating…</>
+                  : <><i className="fas fa-sign-in-alt"></i> Admin Login</>
+                }
+              </button>
+            </form>
+          )}
+
+          {/* ── Step 2: 2FA verification (UI slot — wire to backend when ready) ── */}
+          {step === 'verify' && (
+            <div>
+              <p style={{ fontSize: '0.85rem', color: '#6b7280', textAlign: 'center', marginBottom: '16px' }}>
+                Enter the 6-digit code sent to your authenticator app.
+              </p>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '20px' }}>
+                {otp.map((digit, idx) => (
+                  <input
+                    key={idx}
+                    ref={el => otpRefs.current[idx] = el}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={e => handleOtpChange(idx, e.target.value)}
+                    onKeyDown={e => handleOtpKey(idx, e)}
+                    style={{
+                      width: '44px', height: '52px', textAlign: 'center',
+                      fontSize: '1.3rem', fontWeight: '700', color: '#1f2937',
+                      border: `2px solid ${digit ? '#667eea' : '#e5e7eb'}`,
+                      borderRadius: '10px', outline: 'none',
+                      transition: 'border-color 0.2s'
+                    }}
+                  />
+                ))}
+              </div>
+              <button
+                onClick={() => { /* wire 2FA verify here */ }}
+                style={{
+                  width: '100%', padding: '13px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  border: 'none', borderRadius: '10px', color: '#fff',
+                  fontSize: '0.92rem', fontWeight: '700', cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(102,126,234,0.4)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                }}
+              >
+                <i className="fas fa-check-circle"></i> Verify Code
+              </button>
+              <button
+                onClick={() => { setStep('credentials'); setError(''); setOtp(['','','','','','']); }}
+                style={{
+                  width: '100%', marginTop: '8px', padding: '10px',
+                  background: 'none', border: 'none', color: '#9ca3af',
+                  fontSize: '0.82rem', cursor: 'pointer'
+                }}
+              >
+                ← Back to login
+              </button>
+            </div>
+          )}
+
         </div>
       </div>
 
+      {/* Minimal footer note */}
+      <p style={{ marginTop: '24px', fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)', position: 'relative', zIndex: 1 }}>
+        Unauthorised access is prohibited and monitored.
+      </p>
     </div>
   );
 };

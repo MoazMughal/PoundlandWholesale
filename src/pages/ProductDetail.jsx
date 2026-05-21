@@ -3808,6 +3808,53 @@ _This quotation was generated from PoundlandWholesale.com_
                   </div>
                 )}
 
+                {/* Verify This Product — placed here so resellers can check market viability before profit analysis */}
+                <div style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  borderRadius: '8px', padding: '12px 14px', marginBottom: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <i className="fas fa-check-circle" style={{ color: '#fff', fontSize: '0.9rem' }}></i>
+                    <span style={{ color: '#fff', fontWeight: '700', fontSize: '0.85rem' }}>Verify This Product</span>
+                    <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.72rem' }}>— Check prices on major platforms</span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {/* Amazon */}
+                    <div className="dropdown">
+                      <button className="btn btn-warning btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" style={{ fontSize: '0.75rem', fontWeight: '600', padding: '5px 10px' }}>
+                        <i className="fab fa-amazon me-1"></i>Amazon
+                      </button>
+                      <ul className="dropdown-menu">
+                        <li><a className="dropdown-item" href={`https://www.amazon.co.uk/s?k=${encodeURIComponent(product.name)}`} target="_blank" rel="noopener noreferrer"><i className="fas fa-flag me-2" style={{color:'#012169'}}></i>Amazon UK</a></li>
+                        <li><a className="dropdown-item" href={`https://www.amazon.com/s?k=${encodeURIComponent(product.name)}`} target="_blank" rel="noopener noreferrer"><i className="fas fa-flag-usa me-2"></i>Amazon USA</a></li>
+                        <li><a className="dropdown-item" href={`https://www.amazon.ae/s?k=${encodeURIComponent(product.name)}`} target="_blank" rel="noopener noreferrer"><i className="fas fa-flag me-2" style={{color:'#ce1126'}}></i>Amazon UAE</a></li>
+                        <li><a className="dropdown-item" href={`https://www.amazon.de/s?k=${encodeURIComponent(product.name)}`} target="_blank" rel="noopener noreferrer"><i className="fas fa-flag me-2" style={{color:'#000'}}></i>Amazon DE</a></li>
+                      </ul>
+                    </div>
+                    {/* eBay */}
+                    <div className="dropdown">
+                      <button className="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" style={{ fontSize: '0.75rem', fontWeight: '600', padding: '5px 10px', color: '#0064d2' }}>
+                        <i className="fab fa-ebay me-1"></i>eBay
+                      </button>
+                      <ul className="dropdown-menu">
+                        <li><a className="dropdown-item" href={`https://www.ebay.co.uk/sch/i.html?_nkw=${encodeURIComponent(product.name)}`} target="_blank" rel="noopener noreferrer"><i className="fas fa-flag me-2" style={{color:'#012169'}}></i>eBay UK</a></li>
+                        <li><a className="dropdown-item" href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(product.name)}`} target="_blank" rel="noopener noreferrer"><i className="fas fa-flag-usa me-2"></i>eBay USA</a></li>
+                        <li><a className="dropdown-item" href={`https://www.ebay.ae/sch/i.html?_nkw=${encodeURIComponent(product.name)}`} target="_blank" rel="noopener noreferrer"><i className="fas fa-flag me-2" style={{color:'#ce1126'}}></i>eBay UAE</a></li>
+                      </ul>
+                    </div>
+                    {/* Daraz */}
+                    <a href={`https://www.daraz.pk/catalog/?q=${encodeURIComponent(product.name)}`} target="_blank" rel="noopener noreferrer"
+                      className="btn btn-light btn-sm" style={{ fontSize: '0.75rem', fontWeight: '600', padding: '5px 10px', color: '#f85606' }}>
+                      <i className="fas fa-shopping-cart me-1"></i>Daraz
+                    </a>
+                    {/* Google */}
+                    <a href={`https://www.google.com/search?q=${encodeURIComponent(product.name + ' price')}`} target="_blank" rel="noopener noreferrer"
+                      className="btn btn-light btn-sm" style={{ fontSize: '0.75rem', fontWeight: '600', padding: '5px 10px' }}>
+                      <i className="fab fa-google me-1"></i>Google
+                    </a>
+                  </div>
+                </div>
+
               </div>
             </div>
 
@@ -4154,17 +4201,6 @@ _This quotation was generated from PoundlandWholesale.com_
                         <i className="fas fa-chart-line me-2"></i>Platform Comparison
                       </div>
                       
-                      {/* Formula Explanation */}
-                      <div className="alert alert-info py-2 px-3 mb-3" style={{fontSize: '0.7rem', background: 'linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%)', border: '1px solid #90caf9', borderRadius: '6px'}}>
-                        <div className="d-flex align-items-center">
-                          <i className="fas fa-calculator me-2 text-primary"></i>
-                          <strong>Formula:</strong>
-                          <span className="ms-2" style={{fontFamily: 'monospace', background: '#fff', padding: '2px 6px', borderRadius: '3px', border: '1px solid #ddd'}}>
-                            (Platform Price - Product Cost) × Unit Sale/Year = Gross Profit
-                          </span>
-                        </div>
-                      </div>
-                      
                       <div className="table-responsive" style={{overflowX: 'auto', overflowY: 'hidden'}}>
                         <table className="table table-sm table-bordered shadow-sm mb-0" style={{fontSize: '0.75rem'}}>
                           <thead style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white'}}>
@@ -4173,7 +4209,19 @@ _This quotation was generated from PoundlandWholesale.com_
                               <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Platform Price</th>
                               <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Product Cost</th>
                               <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Unit Sale/Year</th>
-                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>Gross Profit</th>
+                              <th className="fw-bold py-2 px-2 text-center" style={{borderRight: '1px solid rgba(255,255,255,0.2)'}}>
+                                Gross Profit
+                                <span
+                                  title="Formula: (Platform Price − Product Cost) × Unit Sale/Year = Gross Profit"
+                                  style={{
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                    marginLeft: '5px', width: '14px', height: '14px',
+                                    background: 'rgba(255,255,255,0.3)', borderRadius: '50%',
+                                    fontSize: '9px', fontWeight: '700', cursor: 'help',
+                                    border: '1px solid rgba(255,255,255,0.6)', verticalAlign: 'middle'
+                                  }}
+                                >ⓘ</span>
+                              </th>
                               <th className="fw-bold py-2 px-2 text-center">Markup</th>
                             </tr>
                           </thead>
@@ -4483,157 +4531,7 @@ _This quotation was generated from PoundlandWholesale.com_
               </div>
               )}
 
-              {/* Platform Verify Buttons - Below Main Sections */}
-              <div className="card border-0 shadow-sm rounded-3 mb-3" style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}}>
-                <div className="card-body p-3">
-                  <div className="row align-items-center">
-                    <div className="col-md-4 text-center text-md-start mb-3 mb-md-0">
-                      <h4 className="text-white fw-bold mb-1" style={{fontSize: '1.1rem'}}>
-                        <i className="fas fa-check-circle me-2"></i>Verify This Product
-                      </h4>
-                      <p className="text-white mb-0" style={{fontSize: '0.8rem', opacity: 0.9}}>
-                        Check prices and availability on major platforms
-                      </p>
-                    </div>
-                    <div className="col-md-8">
-                      <div className="row g-2">
-                        <div className="col-md-3 col-6">
-                          <div className="dropdown w-100">
-                            <button 
-                              className="btn btn-warning w-100 dropdown-toggle"
-                              type="button" 
-                              data-bs-toggle="dropdown" 
-                              aria-expanded="false"
-                              style={{fontSize: '0.85rem', padding: '10px', fontWeight: '600'}}
-                            >
-                              <i className="fab fa-amazon me-2"></i>Amazon
-                            </button>
-                            <ul className="dropdown-menu w-100">
-                              <li>
-                                <a 
-                                  className="dropdown-item" 
-                                  href={`https://www.amazon.com/s?k=${encodeURIComponent(product.name)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <i className="fas fa-flag-usa me-2"></i>Amazon USA (.com)
-                                </a>
-                              </li>
-                              <li>
-                                <a 
-                                  className="dropdown-item" 
-                                  href={`https://www.amazon.co.uk/s?k=${encodeURIComponent(product.name)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <i className="fas fa-flag me-2" style={{color: '#012169'}}></i>Amazon UK (.co.uk)
-                                </a>
-                              </li>
-                              <li>
-                                <a 
-                                  className="dropdown-item" 
-                                  href={`https://www.amazon.de/s?k=${encodeURIComponent(product.name)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <i className="fas fa-flag me-2" style={{color: '#000'}}></i>Amazon Germany (.de)
-                                </a>
-                              </li>
-                              <li>
-                                <a 
-                                  className="dropdown-item" 
-                                  href={`https://www.amazon.ae/s?k=${encodeURIComponent(product.name)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <i className="fas fa-flag me-2" style={{color: '#ce1126'}}></i>Amazon UAE (.ae)
-                                </a>
-                              </li>
-                            </ul>
-                          </div>
-                        </div>
-                        <div className="col-md-3 col-6">
-                          <div className="dropdown w-100">
-                            <button 
-                              className="btn btn-light w-100 dropdown-toggle"
-                              type="button" 
-                              data-bs-toggle="dropdown" 
-                              aria-expanded="false"
-                              style={{fontSize: '0.85rem', padding: '10px', fontWeight: '600', color: '#0064d2'}}
-                            >
-                              <i className="fab fa-ebay me-2"></i>eBay
-                            </button>
-                            <ul className="dropdown-menu w-100">
-                              <li>
-                                <a 
-                                  className="dropdown-item" 
-                                  href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(product.name)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <i className="fas fa-flag-usa me-2"></i>eBay USA (.com)
-                                </a>
-                              </li>
-                              <li>
-                                <a 
-                                  className="dropdown-item" 
-                                  href={`https://www.ebay.co.uk/sch/i.html?_nkw=${encodeURIComponent(product.name)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <i className="fas fa-flag me-2" style={{color: '#012169'}}></i>eBay UK (.co.uk)
-                                </a>
-                              </li>
-                              <li>
-                                <a 
-                                  className="dropdown-item" 
-                                  href={`https://www.ebay.de/sch/i.html?_nkw=${encodeURIComponent(product.name)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <i className="fas fa-flag me-2" style={{color: '#000'}}></i>eBay Germany (.de)
-                                </a>
-                              </li>
-                              <li>
-                                <a 
-                                  className="dropdown-item" 
-                                  href={`https://www.ebay.ae/sch/i.html?_nkw=${encodeURIComponent(product.name)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <i className="fas fa-flag me-2" style={{color: '#ce1126'}}></i>eBay UAE (.ae)
-                                </a>
-                              </li>
-                            </ul>
-                          </div>
-                        </div>
-                        <div className="col-md-3 col-6">
-                          <a 
-                            href={`https://www.daraz.pk/catalog/?q=${encodeURIComponent(product.name)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-light w-100"
-                            style={{fontSize: '0.85rem', padding: '10px', fontWeight: '600', color: '#f85606'}}
-                          >
-                            <i className="fas fa-shopping-cart me-2"></i>Daraz
-                          </a>
-                        </div>
-                        <div className="col-md-3 col-6">
-                          <a 
-                            href={`https://www.google.com/search?q=${encodeURIComponent(product.name + ' price')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-light w-100"
-                            style={{fontSize: '0.85rem', padding: '10px', fontWeight: '600'}}
-                          >
-                            <i className="fab fa-google me-2"></i>Google
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Platform Verify Buttons — moved above to sit below "About this item" */}
             </div>
           </div>
 

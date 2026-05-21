@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useEffect, useState, lazy, Suspense } from 'react'
 import MobileHeader from './components/MobileHeader'
 import CompactFooter from './components/CompactFooter'
@@ -127,9 +127,7 @@ function App() {
             <Router>
         <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', margin: 0, padding: 0 }}>
           <ScrollToTopOnRouteChange />
-          <MobileHeader />
-          {/* Spacer to offset fixed header height */}
-          <div id="header-spacer" style={{ height: 'var(--header-height, 90px)', flexShrink: 0 }} />
+          <HeaderWrapper />
           <main style={{ flex: '1 0 auto', margin: 0, padding: 0 }}>
           <Suspense fallback={<PageLoader />}>
           <Routes>
@@ -174,7 +172,9 @@ function App() {
           <Route path="/seller/edit-product/:id" element={<SellerEditProduct />} />
           
           {/* Admin Routes */}
-          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/login" element={<Navigate to="/" replace />} />
+          <Route path="/backend-management-portal" element={<AdminLogin />} />
+          <Route path="/manage" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/products" element={<ProtectedRoute><AdminProducts /></ProtectedRoute>} />
           <Route path="/admin/products/add" element={<ProtectedRoute><AdminAddProduct /></ProtectedRoute>} />
@@ -229,7 +229,7 @@ function App() {
         </Routes>
         </Suspense>
         </main>
-        <CompactFooter />
+        <FooterWrapper />
         <ScrollToTop />
         <WhatsAppFloat />
         <BasketSidebarWrapper />
@@ -243,6 +243,35 @@ function App() {
   )
 }
 
+// Routes that hide the global header/footer (auth/recovery pages)
+const BARE_ROUTES = [
+  '/login/buyer', '/login/supplier', '/manage',
+  '/backend-management-portal', '/forgot-password-token',
+  '/auth', '/register/buyer', '/register/supplier', '/join-now',
+  '/reset-password', '/forgot-password'
+]
+
+// Conditionally renders header + spacer based on current route
+const HeaderWrapper = () => {
+  const { pathname } = useLocation()
+  const isBare = BARE_ROUTES.some(r => pathname.startsWith(r))
+  if (isBare) return null
+  return (
+    <>
+      <MobileHeader />
+      <div id="header-spacer" style={{ height: 'var(--header-height, 90px)', flexShrink: 0 }} />
+    </>
+  )
+}
+
+// Conditionally renders footer based on current route
+const FooterWrapper = () => {
+  const { pathname } = useLocation()
+  const isBare = BARE_ROUTES.some(r => pathname.startsWith(r))
+  if (isBare) return null
+  return <CompactFooter />
+}
+
 // Wrapper component to access basket context
 const BasketSidebarWrapper = () => {
   const { isSidebarOpen, closeSidebar } = useBasket()
@@ -254,11 +283,7 @@ const BasketSidebarWrapper = () => {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Only show basket sidebar on screens wider than 565px
-  if (windowWidth <= 565) {
-    return null
-  }
-
+  if (windowWidth <= 565) return null
   return <BasketSidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
 }
 
